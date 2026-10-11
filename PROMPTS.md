@@ -1,6 +1,6 @@
 # Prompts de desarrollo — VTuber Bot
 
-Repositorio: https://github.com/inaofumi753-eng/vtuber
+Repositorio: https://github.com/jonhararagi/vtuber
 
 Este archivo contiene los prompts oficiales de trabajo del proyecto. GPT y Gemini se utilizan como herramientas de desarrollo; el producto final no debe depender de APIs de IA.
 
