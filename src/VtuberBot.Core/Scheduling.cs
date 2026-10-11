@@ -136,12 +136,15 @@ public sealed class TaskScheduler : IDisposable
 
         lock (gate)
         {
-            if (stopping)
-                return;
+            if (!stopping)
+            {
+                stopping = true;
+                queue.Clear();
+                cancellation?.Cancel();
+            }
 
-            stopping = true;
-            queue.Clear();
-            cancellation?.Cancel();
+            // Every external caller must observe worker completion, including callers
+            // arriving after another thread has already initiated shutdown.
             workerToWait = worker;
         }
 
