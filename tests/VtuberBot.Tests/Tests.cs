@@ -1037,6 +1037,77 @@ public sealed class Tests
     }
 
     [Fact]
+    public async Task SchedulerConcurrentShutdownWaitsForRunningCallback()
+    {
+        using var scheduler = new CoreTaskScheduler(new TestLogger());
+
+        var callbackEntered = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCallback = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var callbackFinished = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var selfShutdownReturned = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        scheduler.ScheduleOnce(
+            TimeSpan.Zero,
+            () =>
+            {
+                callbackEntered.TrySetResult(true);
+                scheduler.Shutdown();
+                selfShutdownReturned.TrySetResult(true);
+                releaseCallback.Task.GetAwaiter().GetResult();
+                callbackFinished.TrySetResult(true);
+            });
+
+        await callbackEntered.Task.WaitAsync(
+            TimeSpan.FromSeconds(2),
+            TestContext.Current.CancellationToken);
+        await selfShutdownReturned.Task.WaitAsync(
+            TimeSpan.FromSeconds(2),
+            TestContext.Current.CancellationToken);
+
+        var secondCallerStarted = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondShutdown = System.Threading.Tasks.Task.Run(
+            () =>
+            {
+                secondCallerStarted.TrySetResult(true);
+                scheduler.Shutdown();
+            },
+            TestContext.Current.CancellationToken);
+
+        try
+        {
+            await secondCallerStarted.Task.WaitAsync(
+                TimeSpan.FromSeconds(2),
+                TestContext.Current.CancellationToken);
+
+            // The callback is held by an explicit gate. A concurrent external
+            // Shutdown must not return until that callback is released and exits.
+            var completedBeforeRelease = await System.Threading.Tasks.Task.WhenAny(
+                secondShutdown,
+                System.Threading.Tasks.Task.Delay(
+                    TimeSpan.FromMilliseconds(150),
+                    TestContext.Current.CancellationToken));
+
+            Assert.NotSame(secondShutdown, completedBeforeRelease);
+        }
+        finally
+        {
+            releaseCallback.TrySetResult(true);
+        }
+
+        await secondShutdown.WaitAsync(
+            TimeSpan.FromSeconds(2),
+            TestContext.Current.CancellationToken);
+        await callbackFinished.Task.WaitAsync(
+            TimeSpan.FromSeconds(2),
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public void ApplicationLifecycleAndDoubleShutdown()
     {
         using var directory = new TempDirectory();
