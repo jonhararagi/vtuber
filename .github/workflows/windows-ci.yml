@@ -68,6 +68,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: VTuberBot-V0.2.3-win-x64-${{ github.sha }}
-        path: ${{ env.PACKAGE_ZIP }}
+        path: ${{ runner.temp }}/VTuberBot-V0.2.3-win-x64.zip
         if-no-files-found: error
         retention-days: 14
