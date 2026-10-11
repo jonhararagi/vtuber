@@ -18,7 +18,7 @@ V0.1   = CLOSED / MERGED
 V0.2.0 = CLOSED / MERGED
 V0.2.1 = CLOSED / MERGED
 V0.2.2 = CLOSED / MERGED
-V0.2.3 = NOT STARTED
+V0.2.3 = IN REVIEW (PR #9; stabilization gate not yet accepted)
 
 ## Build
 
