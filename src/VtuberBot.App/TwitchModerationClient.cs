@@ -36,7 +36,7 @@ public sealed class TwitchModerationClient : IDisposable
         using var request = CreateRequest(HttpMethod.Post, "https://api.twitch.tv/helix/moderation/bans" + query, clientId, token);
         request.Content = new StringContent(JsonSerializer.Serialize(new { data }), Encoding.UTF8, "application/json");
         using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+        await EnsureSuccessAsync(response, cancellationToken, "moderator:manage:banned_users").ConfigureAwait(false);
         return durationSeconds.HasValue
             ? "Timeout aplicado a " + targetLogin + " por " + durationSeconds.Value + " segundos."
             : "Ban permanente aplicado a " + targetLogin + ".";
@@ -64,7 +64,7 @@ public sealed class TwitchModerationClient : IDisposable
                     "&message_id=" + Uri.EscapeDataString(messageId);
         using var request = CreateRequest(HttpMethod.Delete, "https://api.twitch.tv/helix/moderation/chat" + query, clientId, token);
         using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+        await EnsureSuccessAsync(response, cancellationToken, "moderator:manage:chat_messages").ConfigureAwait(false);
         return "Mensaje de chat eliminado (ID " + messageId + ").";
     }
 
@@ -82,7 +82,7 @@ public sealed class TwitchModerationClient : IDisposable
         var query = "?broadcaster_id=" + Uri.EscapeDataString(broadcasterId) + "&moderator_id=" + Uri.EscapeDataString(moderatorId) + "&user_id=" + Uri.EscapeDataString(targetId);
         using var request = CreateRequest(HttpMethod.Delete, "https://api.twitch.tv/helix/moderation/bans" + query, clientId, token);
         using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+        await EnsureSuccessAsync(response, cancellationToken, "moderator:manage:banned_users").ConfigureAwait(false);
         return "Ban/timeout retirado a " + targetLogin + ".";
     }
 
@@ -139,18 +139,26 @@ public sealed class TwitchModerationClient : IDisposable
         return value.StartsWith("oauth:", StringComparison.OrdinalIgnoreCase) ? value[6..] : value;
     }
 
-    private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static async Task EnsureSuccessAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken,
+        string requiredScope)
     {
         if (response.IsSuccessStatusCode) return;
         var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        throw ApiError(response.StatusCode, body);
+        throw ApiError(response.StatusCode, body, requiredScope);
     }
 
-    private static InvalidOperationException ApiError(System.Net.HttpStatusCode status, string body)
+    private static InvalidOperationException ApiError(
+        System.Net.HttpStatusCode status,
+        string body,
+        string? requiredScope = null)
     {
         var suffix = (int)status switch
         {
-            401 => " Revisá el token y el scope moderator:manage:banned_users; puede ser necesario volver a autorizar.",
+            401 => string.IsNullOrWhiteSpace(requiredScope)
+                ? " Revisá que el access token sea válido, pertenezca al Client ID configurado y no haya sido revocado."
+                : " Revisá el token y el scope " + requiredScope + "; puede ser necesario volver a autorizar.",
             403 => " La cuenta autorizada no tiene permisos de moderación en ese canal.",
             404 => " Twitch no encontró el canal o usuario indicado.",
             429 => " Twitch limitó temporalmente las solicitudes.",
