@@ -93,3 +93,10 @@ Se estudian las ideas de arquitectura y los flujos; no se copia código, diseño
 - Los mensajes automáticos no se emiten inmediatamente al primer encuentro con un timer nuevo: se respeta el intervalo configurado y se registran pruebas unitarias de la política de agenda.
 - La captura de micrófono limpia recursos y restablece el avatar si el inicio del dispositivo falla.
 - Este bloque queda sujeto a la ejecución de Windows CI del SHA que lo contiene. Los flujos que necesitan Twitch, OBS, micrófono y Telegram reales continúan pendientes de validación manual global.
+
+
+## Avance integrado de audio — 2026-10-12
+
+- Voz y audio ahora permiten enumerar y seleccionar una salida de Windows expuesta por SAPI; el dispositivo elegido se persiste y se adjunta a cada frase encolada. La salida predeterminada queda como fallback si no se elige una salida específica o el dispositivo ya no aparece.
+- La restauración de la base también limpia las referencias temporales de timers en memoria.
+- Pendiente de verificar mediante Windows CI del nuevo SHA y de probar reproducción real con dispositivos disponibles en el entorno final.

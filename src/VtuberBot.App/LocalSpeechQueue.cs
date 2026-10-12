@@ -11,11 +11,12 @@ public enum SpeechPriority
 }
 
 public sealed record LocalSpeechVoice(string Id, string Name);
+public sealed record LocalSpeechOutput(string Id, string Name);
 
 /// <summary>A bounded, priority-ordered SAPI queue that keeps speech off the WPF dispatcher.</summary>
 public sealed class LocalSpeechQueue : IDisposable
 {
-    private sealed record SpeechItem(string Text, SpeechPriority Priority, long Sequence, string VoiceId, int Rate, int Volume);
+    private sealed record SpeechItem(string Text, SpeechPriority Priority, long Sequence, string VoiceId, string OutputId, int Rate, int Volume);
 
     private sealed class SapiSession : IDisposable
     {
@@ -23,6 +24,8 @@ public sealed class LocalSpeechQueue : IDisposable
         private readonly Type voiceType;
         private object? defaultVoiceToken;
         private string? defaultVoiceId;
+        private object? defaultOutputToken;
+        private readonly Dictionary<string, object> outputTokens = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, object> tokens = new(StringComparer.OrdinalIgnoreCase);
 
         private SapiSession(object voice, Type voiceType)
@@ -42,6 +45,30 @@ public sealed class LocalSpeechQueue : IDisposable
             {
                 session.defaultVoiceToken = type.InvokeMember("Voice", BindingFlags.GetProperty, null, voice, null);
                 session.defaultVoiceId = ReadTokenId(session.defaultVoiceToken);
+                session.defaultOutputToken = type.InvokeMember("AudioOutput", BindingFlags.GetProperty, null, voice, null);
+                var outputCollection = type.InvokeMember(
+                    "GetAudioOutputs",
+                    BindingFlags.InvokeMethod | BindingFlags.OptionalParamBinding,
+                    null, voice, new object[] { Type.Missing, Type.Missing })
+                    ?? throw new InvalidOperationException("SAPI no devolvió la lista de salidas de audio.");
+                try
+                {
+                    var outputCollectionType = outputCollection.GetType();
+                    var outputCount = Convert.ToInt32(outputCollectionType.InvokeMember("Count", BindingFlags.GetProperty, null, outputCollection, null), System.Globalization.CultureInfo.InvariantCulture);
+                    for (var index = 0; index < outputCount; index++)
+                    {
+                        object? token = null;
+                        try
+                        {
+                            token = outputCollectionType.InvokeMember("Item", BindingFlags.InvokeMethod, null, outputCollection, new object[] { index });
+                            var id = ReadTokenId(token);
+                            if (!string.IsNullOrWhiteSpace(id) && token is not null) session.outputTokens[id] = token;
+                            else ReleaseVoice(token);
+                        }
+                        catch { ReleaseVoice(token); throw; }
+                    }
+                }
+                finally { ReleaseVoice(outputCollection); }
                 var collection = type.InvokeMember(
                     "GetVoices",
                     BindingFlags.InvokeMethod | BindingFlags.OptionalParamBinding,
@@ -84,7 +111,7 @@ public sealed class LocalSpeechQueue : IDisposable
             }
         }
 
-        public bool Speak(string text, string requestedVoiceId, int rate, int volume)
+        public bool Speak(string text, string requestedVoiceId, string requestedOutputId, int rate, int volume)
         {
             object? token = defaultVoiceToken;
             var useFallback = false;
@@ -102,10 +129,50 @@ public sealed class LocalSpeechQueue : IDisposable
 
             if (token is not null)
                 voiceType.InvokeMember("Voice", BindingFlags.SetProperty, null, voice, new[] { token });
+            object? outputToken = defaultOutputToken;
+            if (!string.IsNullOrWhiteSpace(requestedOutputId))
+            {
+                if (outputTokens.TryGetValue(requestedOutputId, out var selectedOutput)) outputToken = selectedOutput;
+                else useFallback = true;
+            }
+            if (outputToken is not null)
+                voiceType.InvokeMember("AudioOutput", BindingFlags.SetProperty, null, voice, new[] { outputToken });
             voiceType.InvokeMember("Rate", BindingFlags.SetProperty, null, voice, new object[] { Math.Clamp(rate, -10, 10) });
             voiceType.InvokeMember("Volume", BindingFlags.SetProperty, null, voice, new object[] { Math.Clamp(volume, 0, 100) });
             voiceType.InvokeMember("Speak", BindingFlags.InvokeMethod, null, voice, new object[] { text, 0 });
             return useFallback;
+        }
+
+        public static IReadOnlyList<LocalSpeechOutput> EnumerateOutputs()
+        {
+            object? voice = null;
+            object? collection = null;
+            try
+            {
+                var type = Type.GetTypeFromProgID("SAPI.SpVoice") ?? throw new InvalidOperationException("Windows SAPI no está disponible en este equipo.");
+                voice = Activator.CreateInstance(type) ?? throw new InvalidOperationException("No se pudo crear el motor SAPI.");
+                collection = type.InvokeMember("GetAudioOutputs", BindingFlags.InvokeMethod | BindingFlags.OptionalParamBinding, null, voice, new object[] { Type.Missing, Type.Missing })
+                    ?? throw new InvalidOperationException("SAPI no devolvió la lista de salidas de audio.");
+                var collectionType = collection.GetType();
+                var count = Convert.ToInt32(collectionType.InvokeMember("Count", BindingFlags.GetProperty, null, collection, null), System.Globalization.CultureInfo.InvariantCulture);
+                var outputs = new List<LocalSpeechOutput>();
+                for (var index = 0; index < count; index++)
+                {
+                    object? token = null;
+                    try
+                    {
+                        token = collectionType.InvokeMember("Item", BindingFlags.InvokeMethod, null, collection, new object[] { index });
+                        if (token is null) continue;
+                        var tokenType = token.GetType();
+                        var id = tokenType.InvokeMember("Id", BindingFlags.GetProperty, null, token, null) as string ?? string.Empty;
+                        var name = tokenType.InvokeMember("GetDescription", BindingFlags.InvokeMethod, null, token, new object[] { 0 }) as string ?? "Salida de Windows";
+                        if (!string.IsNullOrWhiteSpace(id)) outputs.Add(new LocalSpeechOutput(id, name));
+                    }
+                    finally { ReleaseVoice(token); }
+                }
+                return outputs.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
+            }
+            finally { ReleaseVoice(collection); ReleaseVoice(voice); }
         }
 
         public static IReadOnlyList<LocalSpeechVoice> EnumerateVoices()
@@ -159,6 +226,11 @@ public sealed class LocalSpeechQueue : IDisposable
             foreach (var token in tokens.Values)
                 if (!ReferenceEquals(token, defaultVoiceToken)) ReleaseVoice(token);
             tokens.Clear();
+            foreach (var token in outputTokens.Values)
+                if (!ReferenceEquals(token, defaultOutputToken)) ReleaseVoice(token);
+            outputTokens.Clear();
+            ReleaseVoice(defaultOutputToken);
+            defaultOutputToken = null;
             ReleaseVoice(defaultVoiceToken);
             defaultVoiceToken = null;
             ReleaseVoice(voice);
@@ -212,7 +284,21 @@ public sealed class LocalSpeechQueue : IDisposable
         }
     }
 
-    public bool Enqueue(string text, SpeechPriority priority = SpeechPriority.Normal, string? voiceId = null, int rate = 0, int volume = 100)
+    public static IReadOnlyList<LocalSpeechOutput> GetInstalledOutputs()
+    {
+        var completion = new TaskCompletionSource<IReadOnlyList<LocalSpeechOutput>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try { completion.TrySetResult(SapiSession.EnumerateOutputs()); }
+            catch (Exception exception) { completion.TrySetException(new InvalidOperationException("No se pudieron enumerar las salidas SAPI instaladas.", exception)); }
+        }) { IsBackground = true, Name = "VTuberBot SAPI output enumeration" };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        try { return completion.Task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult(); }
+        catch (TimeoutException) { throw new TimeoutException("La enumeración de salidas de Windows superó los 5 segundos."); }
+    }
+
+    public bool Enqueue(string text, SpeechPriority priority = SpeechPriority.Normal, string? voiceId = null, int rate = 0, int volume = 100, string? outputId = null)
     {
         try
         {
@@ -242,7 +328,7 @@ public sealed class LocalSpeechQueue : IDisposable
             }
             else
             {
-                var item = new SpeechItem(text.Trim(), priority, ++sequence, voiceId?.Trim() ?? string.Empty, rate, volume);
+                var item = new SpeechItem(text.Trim(), priority, ++sequence, voiceId?.Trim() ?? string.Empty, outputId?.Trim() ?? string.Empty, rate, volume);
                 queue.Enqueue(item, ((int)priority, item.Sequence));
                 pending = queue.Count;
             }
@@ -291,8 +377,8 @@ public sealed class LocalSpeechQueue : IDisposable
                 try
                 {
                     session ??= SapiSession.Create();
-                    if (session.Speak(next.Text, next.VoiceId, next.Rate, next.Volume))
-                        Notify("La voz elegida ya no está instalada; se usó la voz predeterminada de Windows.", PendingCount);
+                    if (session.Speak(next.Text, next.VoiceId, next.OutputId, next.Rate, next.Volume))
+                        Notify("La voz o salida elegida ya no está disponible; se usó la configuración predeterminada de Windows.", PendingCount);
                     Notify("Reproducción finalizada.", PendingCount);
                 }
                 catch (Exception exception)

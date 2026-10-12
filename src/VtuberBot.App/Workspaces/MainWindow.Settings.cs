@@ -102,6 +102,7 @@ public partial class MainWindow
                 var emergency=store.RestoreFromBackup(dialog.FileName);
                 automationLastRun.Clear();
                 automationOfflineLog.Clear();
+                automationFirstObserved.Clear();
                 automaticModerationCooldown.Clear();
                 lastPointAward.Clear();
                 store.Log("Backup","Base SQLite restaurada desde copia verificada; pre-restauración en "+emergency);

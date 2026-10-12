@@ -833,6 +833,15 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Pruebas añadidas:** AutomationSchedulePolicyTests valida los límites temporales sin requerir Twitch ni micrófono real.
 - **Estado de verificación:** los cambios se agrupan en el commit candidato de esta rama; Windows CI del nuevo HEAD debe completar restore, build, tests y paquete antes de considerar verificado este bloque.
 
+
+### Bloque integrado de audio — selección de salida SAPI (2026-10-12)
+
+- **Salida de voz:** el adaptador SAPI enumera los dispositivos de salida que Windows expone; la selección se aplica al sintetizar cada frase y se persiste como preferencia local. La salida predeterminada sigue disponible como fallback.
+- **Cola:** la selección de salida viaja junto a la frase en la cola limitada, así que cambiar la preferencia no altera frases que ya estaban encoladas.
+- **UI:** Voz y audio permite actualizar la lista de salidas y guardar el dispositivo junto a la voz, velocidad y volumen. La enumeración es opcional; si falla, se mantiene la salida predeterminada y se informa el motivo.
+- **Recuperación:** la restauración de SQLite también limpia las referencias de planificación en memoria de los timers.
+- **Estado:** requiere Windows CI del nuevo SHA; la enumeración y reproducción reales dependen de los dispositivos SAPI disponibles en Windows.
+
 ---
 
 # Corte consolidado de continuidad — 2026-10-12

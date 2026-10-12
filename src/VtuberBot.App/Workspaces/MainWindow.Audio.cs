@@ -227,6 +227,7 @@ public partial class MainWindow
             Width = 180
         };
         var savedVoiceId = store.GetSetting("audio.tts.voiceId");
+        var savedOutputId = store.GetSetting("audio.tts.outputId");
         var voicePicker = new ComboBox
         {
             ItemsSource = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") },
@@ -247,6 +248,33 @@ public partial class MainWindow
         panel.Children.Add(Label("Síntesis de voz de Windows (SAPI)", 14, "#F8FAFC", true));
         panel.Children.Add(Label("Voces que ya están instaladas en Windows", 12, "#98A4BE"));
         panel.Children.Add(voicePicker);
+        var outputPicker = new ComboBox
+        {
+            ItemsSource = new List<LocalSpeechOutput> { new(string.Empty, "Salida predeterminada de Windows") },
+            SelectedIndex = 0,
+            DisplayMemberPath = nameof(LocalSpeechOutput.Name),
+            MinWidth = 280,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        panel.Children.Add(Label("Dispositivo de salida para la voz local", 12, "#98A4BE"));
+        panel.Children.Add(outputPicker);
+        panel.Children.Add(ActionButton("Actualizar dispositivos de salida", async (_, _) =>
+        {
+            try
+            {
+                var installed = await Task.Run(LocalSpeechQueue.GetInstalledOutputs);
+                var outputs = new List<LocalSpeechOutput> { new(string.Empty, "Salida predeterminada de Windows") };
+                outputs.AddRange(installed);
+                outputPicker.ItemsSource = outputs;
+                outputPicker.SelectedItem = outputs.FirstOrDefault(output => string.Equals(output.Id, savedOutputId, StringComparison.OrdinalIgnoreCase)) ?? outputs[0];
+                FooterStatus.Text = "Salidas SAPI encontradas: " + installed.Count + ".";
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudieron enumerar las salidas de audio: " + exception.Message;
+                MessageBox.Show(this, "Se mantiene la salida predeterminada de Windows.\\n\\n" + exception.Message, "Salidas de audio", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }));
         panel.Children.Add(ActionButton("Actualizar lista de voces", async (_, _) =>
         {
             try
@@ -272,7 +300,9 @@ public partial class MainWindow
         panel.Children.Add(ActionButton("Guardar voz y ajustes", (_, _) =>
         {
             savedVoiceId = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? string.Empty;
+            savedOutputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty;
             store.SetSetting("audio.tts.voiceId", savedVoiceId);
+            store.SetSetting("audio.tts.outputId", savedOutputId);
             store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
             store.SetSetting("audio.tts.volume", ((int)volumeSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
             FooterStatus.Text = "Voz, velocidad y volumen guardados en SQLite.";
@@ -285,7 +315,8 @@ public partial class MainWindow
         {
             var selectedPriority = priority.SelectedItem is SpeechPriority selected ? selected : SpeechPriority.Normal;
             var voiceId = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? savedVoiceId;
-            if (speechQueue.Enqueue(speech.Text, selectedPriority, voiceId, (int)rateSlider.Value, (int)volumeSlider.Value))
+            var outputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? savedOutputId;
+            if (speechQueue.Enqueue(speech.Text, selectedPriority, voiceId, (int)rateSlider.Value, (int)volumeSlider.Value, outputId))
                 store.Log("Audio", "Frase agregada a la cola TTS local con prioridad " + selectedPriority + ".");
             else
                 FooterStatus.Text = "No se pudo encolar: revisá el texto, velocidad, volumen o el límite de la cola.";
@@ -295,7 +326,7 @@ public partial class MainWindow
             speechQueue.ClearPending();
             store.Log("Audio", "Cola de voz pendiente vaciada.");
         }));
-        root.Children.Add(Label("El dispositivo de micrófono, el umbral acústico y la retención se guardan automáticamente y se recuperan al reiniciar. La cola procesa una frase por vez en un hilo STA separado. Podés elegir una voz SAPI instalada, ajustar velocidad (-10 a 10) y volumen (0 a 100). Las alertas usan las preferencias guardadas. No se descarga ni se promete una voz anime: el resultado depende de las voces que tenga Windows. La detección de micrófono usa amplitud suavizada/retención, no reconocimiento semántico ni lip-sync por fonemas.", 12, "#98A4BE"));
+        root.Children.Add(Label("El dispositivo de micrófono, el umbral acústico y la retención se guardan automáticamente y se recuperan al reiniciar. La cola procesa una frase por vez en un hilo STA separado. Podés elegir una voz SAPI instalada, ajustar velocidad (-10 a 10) y volumen (0 a 100). Las alertas usan las preferencias guardadas. No se descarga ni se promete una voz anime: el resultado depende de las voces que tenga Windows. La salida SAPI se puede seleccionar entre los dispositivos que Windows exponga; si no está disponible, se usa la salida predeterminada. La detección de micrófono usa amplitud suavizada/retención, no reconocimiento semántico ni lip-sync por fonemas.", 12, "#98A4BE"));
         return root;
     }
 
@@ -304,7 +335,8 @@ public partial class MainWindow
         var voiceId = store.GetSetting("audio.tts.voiceId");
         var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var savedRate) ? Math.Clamp(savedRate, -10, 10) : 0;
         var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var savedVolume) ? Math.Clamp(savedVolume, 0, 100) : 100;
-        return speechQueue.Enqueue(text, priority, voiceId, rate, volume);
+        var outputId = store.GetSetting("audio.tts.outputId");
+        return speechQueue.Enqueue(text, priority, voiceId, rate, volume, outputId);
     }
 
     private void StopMicrophone()
