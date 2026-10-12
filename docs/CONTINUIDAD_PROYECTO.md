@@ -9,10 +9,11 @@
 - **Repositorio:** https://github.com/jonhararagi/vtuber
 - **Rama principal:** `main`
 - **HEAD de `main` comprobado en el PR #9:** `bbcd06c0e0706000cd95d85771b33452d11e7663`. No se modificó `main`.
-- **Rama de trabajo:** `v0.2.3/stabilization-gate`
+- **Rama histórica de estabilización:** `v0.2.3/stabilization-gate`.
+- **Rama de producto activa:** `product/complete-vtuber-experience` (rama nueva para la entrega integrada; creada desde el HEAD de PR #9 `4ba87d8f94d65a84dba475c8b0f9103380892777`).
 - **PR activo:** [#9 — feat: add v0.2.3 stabilization gate](https://github.com/jonhararagi/vtuber/pull/9). Base `main`; permanece abierto y sin fusionar.
 - **Versión en desarrollo:** V0.2.3. No implica que el hito esté aprobado ni que se haya publicado una versión final.
-- **Arquitectura aprobada para este hito:** aplicación Windows con C#/.NET 10 y WPF; Core independiente de WPF; persistencia SQLite con `Microsoft.Data.Sqlite` (sin EF Core); pruebas automatizadas y CI en `windows-latest`. Mantener la arquitectura existente y el alcance de estabilización. No iniciar V0.3 ni implementar avatar, integraciones reales u otras funciones fuera del alcance aprobado.
+- **Arquitectura vigente para el producto completo:** C#/.NET 10/WPF/SQLite; Core independiente de WPF; sin EF Core; módulos de avatar, audio, Twitch, comunidad/engagement, OBS y Telegram desacoplados por contratos/eventos. La especificación activa es `docs/PRODUCT_BLUEPRINT.md`. El usuario autorizó el 2026-10-12 a completar el diseño y el alcance global del producto antes de solicitar una validación manual integrada.
 - **Flujo de trabajo:** GPT Cerebro decide y audita; GPT Obrero implementa cambios aprobados en GitHub; Gemini Inspector revisa. GitHub es la fuente de verdad.
 
 ## 2. Historial de trabajo
@@ -65,13 +66,27 @@ El fallo de `status` motivó la corrección de la constante y las aserciones. La
 
 ## 4. Pendientes y próximo paso
 
-1. **COMPLETADO:** documento central guardado y verificado en la rama `v0.2.3/stabilization-gate` y en el PR #9.
-2. **COMPLETADO para HEAD `bc1ee445e21334d6f6aa67670c7eb10939f3158a`:** Windows CI #90 pasó; el run y el SHA coinciden exactamente con el HEAD de la rama.
-3. **COMPLETADO:** artefacto de Windows de ese run identificado, con nombre, ID, tamaño, digest SHA-256 y expiración registrados arriba.
-4. **PENDIENTE:** descargar/extraer el paquete del run #90 y repetir la lista de `docs/V0.2.3-MANUAL-VALIDATION.md`; registrar resultados reales y el `Source SHA` del paquete.
-4. **Bloqueos reales conocidos:** no hay un bloqueo de compilación/pruebas automatizadas reportado para el merge commit de validación `7b145cca39d9037bf7081ee3f43aae404550dbaf` (CI #90 verde). La validación manual del nuevo paquete sigue pendiente. La ejecución local de pruebas no estuvo disponible por ausencia de `dotnet` en el entorno de trabajo.
-5. **Próxima acción exacta:** descargar el artefacto del run #90, extraerlo en una carpeta nueva y realizar la validación manual documentada; registrar el resultado y el `Source SHA` leído de `BUILD-INFO.txt`. El run #90 validó el HEAD de rama `bc1ee445e21334d6f6aa67670c7eb10939f3158a`; cualquier commit documental posterior necesitará su propio CI. No reutilizar resultados del paquete histórico.
-6. **Condiciones para cerrar V0.2.3:** CI verde para el HEAD candidato exacto; paquete identificado por su Source SHA; validación manual repetida con la ventana y `status` mostrando `0.2.3` y todos los pasos requeridos aprobados; revisión final de GPT Cerebro/Gemini Inspector según el flujo acordado. El PR #9 no se fusiona sin autorización explícita.
+### Cambio de prioridad — 2026-10-12
+
+El usuario indicó que la prioridad es completar el diseño y el producto VTuber de forma integrada antes de volver a invertir tiempo en revisar una aplicación incompleta. No solicitar otra validación manual de la ventana técnica actual como siguiente tarea. La validación manual de V0.2.3 queda registrada como evidencia pendiente histórica, pero se difiere hasta contar con un candidato global de producto.
+
+- **Rama activa:** `product/complete-vtuber-experience`, creada desde `4ba87d8f94d65a84dba475c8b0f9103380892777`. No modifica `main`.
+- **Especificación de producto y arquitectura:** `docs/PRODUCT_BLUEPRINT.md` (commit `8bcb2faf3a9a7b2bd57fe7548c0935e58bec8522`). Incluye diseño UX, páginas, funciones finales, estructura de carpetas, límites de dependencia, flujo de eventos, integraciones y referencias investigadas.
+- **PROJECT_SPEC actualizado:** commit `67f9950123c7f68706e10db96fb524bba08811dd`.
+- **ROADMAP actualizado:** commit `9b7ce831c81f31ce2e9345c64c54501d0eb34397`.
+- **PROMPTS actualizado con una instrucción de implementación integral para Obrero:** commit `a541207688321bd7be14e3463a7faec1257f68f4`.
+- **README actualizado como punto de entrada al producto completo:** commit `3ced45bba6217cf2686b1e68793a7fe1d781e5d6`.
+- **Estado de código:** el código base sigue siendo la aplicación WPF técnica que existía en el candidato de estabilización; la interfaz nueva y los módulos completos todavía no están implementados. No afirmar que el producto ya cambió visual o funcionalmente.
+- **CI:** PR #9 Run #91 pasó para el HEAD de estabilización `4ba87d8f94d65a84dba475c8b0f9103380892777`. Ese resultado no valida los commits añadidos a la nueva rama ni una futura implementación del producto.
+- **PR #9:** continúa abierto y sin fusionar. No fusionar ni alterar `main`.
+
+### Próxima acción concreta
+
+El implementador debe seguir el prompt **“GPT OBRERO — IMPLEMENTACIÓN INTEGRAL DEL PRODUCTO VTUBER”** añadido al final de `PROMPTS.md`, trabajando en `product/complete-vtuber-experience`. Debe implementar por bloques grandes hasta integrar el candidato global: UI y navegación; Avatar Studio/overlay; audio y voz local; Twitch/chat/comandos; comunidad, puntos, sorteos, minijuegos, moderación y automatización; OBS/Telegram; ajustes, persistencia, diagnóstico y empaquetado. No pedir al usuario una prueba por cada build incompleta. Ejecutar CI/tests internamente, corregir los fallos y solicitar una validación global de Windows cuando el producto integrado esté listo. Cualquier limitación por credenciales, assets o permisos externos debe quedar claramente identificada.
+
+### Criterio de finalización
+
+No equivale a terminar: compilar, abrir una ventana, tener botones, mostrar estado RUNNING o pasar pruebas de núcleo. El candidato global debe incluir las funciones y criterios de `docs/PRODUCT_BLUEPRINT.md`, sin botones muertos ni conexiones simuladas, y con evidencia de compilación/tests sobre el HEAD exacto.
 
 ## 5. Reglas permanentes de mantenimiento
 
@@ -80,4 +95,4 @@ El fallo de `status` motivó la corrección de la constante y las aserciones. La
 - No reemplazar resultados históricos correctos ni atribuir pruebas a otro SHA.
 - Usar los estados **IMPLEMENTADO**, **PROBADO AUTOMÁTICAMENTE**, **COMPROBADO MANUALMENTE** y **PENDIENTE** de forma explícita.
 - Mantener un único registro central: `docs/CONTINUIDAD_PROYECTO.md`.
-- No modificar `main`, no fusionar el PR #9 y no ampliar el alcance sin aprobación.
+- No modificar `main` ni fusionar el PR #9 sin autorización explícita. El alcance ampliado de producto completo fue autorizado el 2026-10-12 y debe seguir la especificación `docs/PRODUCT_BLUEPRINT.md`.
