@@ -1092,3 +1092,14 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Windows CI del SHA `ecb400d5012ee9792a19c501097ba97aa352082f`:** [run #253](https://github.com/jonhararagi/vtuber/actions/runs/38299149799) — **SUCCESS**, incluido un segundo intento del mismo job. En el segundo intento: restore y build Release correctos; **359/359 pruebas pasaron**; publicación autocontenida win-x64 y subida del artefacto correctas. El fallo de #252 no se reprodujo, así que no se afirma una corrección de código de producto que no se ha demostrado necesaria.
 - **Artefacto del segundo intento:** [VTuberBot-Product-Candidate-win-x64-`ecb400d`](https://github.com/jonhararagi/vtuber/actions/runs/38299149799/artifacts/11769687971); ID `11769687971`, tamaño del artefacto `77,909,711` bytes, digest reportado `sha256:937d9f9cdc5df9bdf03b9e78538cf95b77cf8953146de9bf39e36b72d3975119`, expira el 2026-10-26. Corresponde al SHA indicado, pero **no** constituye validación manual de Windows/servicios externos.
 - **Estado:** el fallo original no se reprodujo en dos ejecuciones correctas del SHA instrumentado. Mantener la evidencia y volver a investigar si reaparece; no dar por hecho que la línea SQLite fue su causa.
+
+## Integración de estado de OBS en el workspace — 2026-10-12
+
+- **Objetivo:** mantener los indicadores de transmisión y grabación sincronizados con la sesión WebSocket v5 cuando OBS se desconecta, reconecta o se vuelve a abrir la página OBS.
+- **Cambio final de código:** [`25f134b58ca6be45a53ce23e4f1c5ebc3a96f8a6`](https://github.com/jonhararagi/vtuber/commit/25f134b58ca6be45a53ce23e4f1c5ebc3a96f8a6), en `src/VtuberBot.App/Workspaces/MainWindow.Integrations.cs`.
+  - Los indicadores consultan el estado real al entrar al workspace y ante eventos de conexión/reconexión de OBS.
+  - Los manejadores de estado y eventos se desconectan al descargar la página; cada cierre captura sus propios delegates para no retirar accidentalmente los del workspace nuevo durante la navegación.
+  - No se altera la autenticación ni se muestran estados de transmisión/grabación activos sin una respuesta de OBS.
+- **Windows CI exacto:** [run #258](https://github.com/jonhararagi/vtuber/actions/runs/38300103344) — **SUCCESS** para el SHA anterior. Restore y build Release pasaron sin warnings/errores; **359/359 pruebas pasaron**; publicación autocontenida win-x64 y subida del artefacto terminaron correctamente.
+- **Artefacto de ese SHA:** [descarga del artefacto](https://github.com/jonhararagi/vtuber/actions/runs/38300103344/artifacts/11770103744), ID `11770103744`, tamaño `77,910,077` bytes, digest `sha256:43298d09fc598bd81aab89db2af72a65006dbbaf0960438f90a3cfab45058051`, expira el 2026-10-26.
+- **Validación externa pendiente:** la reconexión y los cambios de estado deben probarse con OBS Studio real configurado; CI valida compilación, pruebas automáticas y empaquetado, no una sesión OBS real.
