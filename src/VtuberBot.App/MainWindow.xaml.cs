@@ -41,6 +41,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer automationTimer = new() { Interval = TimeSpan.FromMinutes(1) };
     private readonly DispatcherTimer twitchCredentialTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly Dictionary<long, DateTimeOffset> automationLastRun = [];
+    private readonly Dictionary<long, DateTimeOffset> automationOfflineLog = [];
+    private int automationProcessing;
     private readonly Dictionary<string, DateTimeOffset> lastPointAward = new(StringComparer.OrdinalIgnoreCase);
     private string currentPage = "Inicio";
     private PasswordBox? twitchTokenBox;
@@ -768,14 +770,60 @@ public partial class MainWindow : Window
 
     private async Task ProcessAutomationsAsync()
     {
-        foreach(var rule in store.GetAutomationRules().Where(r=>r.Enabled))
+        if (Interlocked.Exchange(ref automationProcessing, 1) != 0)
+            return;
+
+        try
         {
-            var now=DateTimeOffset.UtcNow;
-            if(automationLastRun.TryGetValue(rule.Id,out var last)&&now-last<TimeSpan.FromMinutes(rule.IntervalMinutes))continue;
-            automationLastRun[rule.Id]=now;
-            if(!twitch.IsConnected){store.Log("Automatización",$"'{rule.Name}' omitido: Twitch desconectado.");continue;}
-            try{await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),rule.Message);store.Log("Automatización",$"Mensaje '{rule.Name}' enviado.");}
-            catch(Exception ex){store.Log("Automatización",$"'{rule.Name}' falló: {ex.GetType().Name}.");}
+            var now = DateTimeOffset.UtcNow;
+            foreach (var rule in store.GetAutomationRules().Where(rule => rule.Enabled))
+            {
+                var lastRun = rule.LastRunUtc;
+                if (!lastRun.HasValue && automationLastRun.TryGetValue(rule.Id, out var inMemoryLastRun))
+                    lastRun = inMemoryLastRun;
+                if (lastRun.HasValue && now - lastRun.Value < TimeSpan.FromMinutes(rule.IntervalMinutes))
+                    continue;
+
+                if (!twitch.IsConnected)
+                {
+                    if (!automationOfflineLog.TryGetValue(rule.Id, out var lastOfflineLog) ||
+                        now - lastOfflineLog >= TimeSpan.FromMinutes(10))
+                    {
+                        automationOfflineLog[rule.Id] = now;
+                        store.Log("Automatización", $"'{rule.Name}' espera: Twitch está desconectado; no se consumió su intervalo.");
+                    }
+                    continue;
+                }
+
+                var safeMessage = rule.Message.Replace("\\r", " ", StringComparison.Ordinal)
+                    .Replace("\\n", " ", StringComparison.Ordinal).Trim();
+                if (safeMessage.Length is 0 or > 500)
+                {
+                    store.Log("Automatización", $"'{rule.Name}' no se envió: el mensaje está vacío o supera 500 caracteres.");
+                    break;
+                }
+
+                try
+                {
+                    await twitch.SendMessageAsync(store.GetSetting("twitch.channel"), safeMessage);
+                    var sentAt = DateTimeOffset.UtcNow;
+                    store.MarkAutomationRun(rule.Id, sentAt);
+                    automationLastRun[rule.Id] = sentAt;
+                    automationOfflineLog.Remove(rule.Id);
+                    store.Log("Automatización", $"Mensaje '{rule.Name}' enviado.");
+                    // At most one scheduled message per minute, even if several rules are overdue.
+                    break;
+                }
+                catch (Exception exception)
+                {
+                    store.Log("Automatización", $"'{rule.Name}' falló ({exception.GetType().Name}); se reintentará más tarde.");
+                    break;
+                }
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref automationProcessing, 0);
         }
     }
 

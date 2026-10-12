@@ -6,7 +6,7 @@ public sealed record ProductCommand(long Id, string Name, string Response, int C
 public sealed record CommunityUser(string Username, long Points, DateTimeOffset LastSeen);
 public sealed record GiveawayRecord(long Id, string Name, string Status, string? Winner, int Entries);
 public sealed record ProductActivity(DateTimeOffset At, string Module, string Message);
-public sealed record AutomationRule(long Id, string Name, string Message, int IntervalMinutes, bool Enabled);
+public sealed record AutomationRule(long Id, string Name, string Message, int IntervalMinutes, bool Enabled, DateTimeOffset? LastRunUtc = null);
 public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrder, bool Visible, double OffsetX = 0, double OffsetY = 0, double Scale = 1, double RotationDegrees = 0);
 
 /// <summary>Persistence for product-level features. Uses the same local SQLite file as the core.</summary>
@@ -49,7 +49,8 @@ public sealed class ProductStore
               pattern TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, action TEXT NOT NULL DEFAULT 'flag');
             CREATE TABLE IF NOT EXISTS automation_rules(
               id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE,
-              message TEXT NOT NULL, interval_minutes INTEGER NOT NULL, enabled INTEGER NOT NULL DEFAULT 0);
+              message TEXT NOT NULL, interval_minutes INTEGER NOT NULL, enabled INTEGER NOT NULL DEFAULT 0,
+              last_run_utc TEXT NULL);
             CREATE TABLE IF NOT EXISTS product_activity(
               id INTEGER PRIMARY KEY AUTOINCREMENT, at_utc TEXT NOT NULL, module TEXT NOT NULL, message TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS avatar_layers(
@@ -63,6 +64,7 @@ public sealed class ProductStore
             """;
         command.ExecuteNonQuery();
         EnsureColumn(connection, "product_commands", "last_used_utc", "TEXT NULL");
+        EnsureColumn(connection, "automation_rules", "last_run_utc", "TEXT NULL");
         EnsureColumn(connection, "avatar_layers", "offset_x", "REAL NOT NULL DEFAULT 0");
         EnsureColumn(connection, "avatar_layers", "offset_y", "REAL NOT NULL DEFAULT 0");
         EnsureColumn(connection, "avatar_layers", "scale", "REAL NOT NULL DEFAULT 1");
@@ -419,7 +421,34 @@ public sealed class ProductStore
 
     public IReadOnlyList<AutomationRule> GetAutomationRules()
     {
-        lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="SELECT id,name,message,interval_minutes,enabled FROM automation_rules ORDER BY name"; using var r=cmd.ExecuteReader(); var list=new List<AutomationRule>(); while(r.Read()) list.Add(new(r.GetInt64(0),r.GetString(1),r.GetString(2),r.GetInt32(3),r.GetInt32(4)!=0)); return list; }
+        lock (gate)
+        {
+            using var c = Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "SELECT id,name,message,interval_minutes,enabled,last_run_utc FROM automation_rules ORDER BY name";
+            using var r = cmd.ExecuteReader();
+            var list = new List<AutomationRule>();
+            while (r.Read())
+            {
+                DateTimeOffset? lastRun = r.IsDBNull(5) ? null : DateTimeOffset.Parse(r.GetString(5));
+                list.Add(new AutomationRule(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetInt32(4) != 0, lastRun));
+            }
+            return list;
+        }
+    }
+
+    public void MarkAutomationRun(long id, DateTimeOffset atUtc)
+    {
+        lock (gate)
+        {
+            using var c = Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "UPDATE automation_rules SET last_run_utc=$at WHERE id=$id";
+            cmd.Parameters.AddWithValue("$at", atUtc.ToUniversalTime().ToString("O"));
+            cmd.Parameters.AddWithValue("$id", id);
+            if (cmd.ExecuteNonQuery() == 0)
+                throw new KeyNotFoundException($"No existe la automatización {id}.");
+        }
     }
 
     public void SaveAutomationRule(long? id, string name, string message, int intervalMinutes, bool enabled)

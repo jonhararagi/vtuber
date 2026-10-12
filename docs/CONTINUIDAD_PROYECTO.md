@@ -233,3 +233,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La clase de excepción privada de OAuth usa un cuerpo de clase explícito compatible con C# y MainWindow importa `System.Text.Json` para serializar el registro de credenciales.
 - El monitor de credenciales no desconecta el chat por fallos transitorios de red; solo desactiva conexiones cuando hay evidencia de token expirado/revocado sin renovación posible.
 - Estado: pendiente del resultado del CI de este nuevo HEAD.
+
+
+### Trabajo adicional — timers persistentes y anti-spam
+
+- La tabla de mensajes automáticos ahora conserva `last_run_utc` con migración compatible para bases existentes.
+- Al cambiar un timer se mantiene su última ejecución; reiniciar VTuberBot ya no reinicia todos los cooldowns.
+- El scheduler evita ejecuciones solapadas y limita el envío a un mensaje automático por tick; si Twitch está desconectado no consume el intervalo y el diagnóstico de desconexión se limita a una entrada cada 10 minutos por regla.
+- Se rechazan mensajes automáticos vacíos o de más de 500 caracteres, y la marca de última ejecución se escribe después del envío confirmado.
+- Añadida prueba de SQLite para round-trip de fecha, edición y conservación del intervalo de la última ejecución.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
