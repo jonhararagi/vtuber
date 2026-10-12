@@ -34,6 +34,18 @@ public partial class MainWindow
         panel.Children.Add(Label("Client ID de tu aplicación Twitch",12,"#98A4BE"));panel.Children.Add(clientId);
         panel.Children.Add(Label("Token OAuth de chat (no se registra en logs)",12,"#98A4BE"));panel.Children.Add(token);
         panel.Children.Add(Label("Usá OAuth de Twitch con permisos chat:read, chat:edit, moderator:read:followers, moderator:manage:banned_users, moderator:manage:chat_messages, channel:read:subscriptions y channel:read:redemptions. Registrá la URL de redirección local indicada abajo en la consola de desarrolladores. El token se cifra con DPAPI para el usuario actual y nunca se escribe en GitHub ni en el registro de actividad. Redirección: http://localhost:17563/callback/",12,"#98A4BE"));
+        var avatarReactions = new CheckBox
+        {
+            Content = "Reaccionar a follows, suscripciones, redenciones y raids",
+            IsChecked = store.GetSetting("twitch.avatar_reactions.enabled", "true") == "true",
+            Foreground = Brush("#F8FAFC"),
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        avatarReactions.Checked += (_, _) => store.SetSetting("twitch.avatar_reactions.enabled", "true");
+        avatarReactions.Unchecked += (_, _) => store.SetSetting("twitch.avatar_reactions.enabled", "false");
+        panel.Children.Add(avatarReactions);
+        panel.Children.Add(Label("Las reacciones temporales usan tus sprites Happy y Surprised importados en Avatar Studio. Si el sprite del evento no está configurado, se muestra la alerta sin inventar una expresión.", 12, "#98A4BE"));
+
         var speakAlerts = new CheckBox
         {
             Content = "Leer alertas de Twitch con la voz local",

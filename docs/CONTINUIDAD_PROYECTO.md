@@ -693,3 +693,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Corrección:** el callback ahora verifica que corresponde a la sesión de captura actual, libera el dispositivo detenido, restablece detector/medidor y devuelve el estado del avatar a `Idle`. Los callbacks tardíos de sesiones anteriores se ignoran para no reiniciar una captura nueva.
 - **Pruebas:** `VoiceActivityDetector.Reset` vuelve a nivel cero y estado inactivo; la ruta de regresión de reloj también queda cubierta.
 - **Estado:** implementación en el nuevo HEAD; Windows CI pendiente. La desconexión física real de un micrófono aún requiere validación manual en Windows.
+
+
+### 2026-10-12 — Reacciones temporales de avatar para eventos Twitch
+
+- **Implementación:** follows, suscripciones, regalos de suscripción y redenciones activan la expresión `Happy`; raids activan `Surprised`. Las reacciones duran tres segundos y después devuelven la imagen al estado previo (por ejemplo, `Talking` si el micrófono sigue activo).
+- **Assets propios:** solo se anima una reacción si el sprite correspondiente está importado y existe; sin el arte, se muestra la tarjeta de alerta habitual sin fingir una expresión.
+- **Control:** nuevo ajuste persistente «Reaccionar a follows, suscripciones, redenciones y raids» en la página Twitch, habilitado por defecto.
+- **Pruebas:** mapeo de eventos de espectadores y exclusión de tipos internos/desconocidos.
+- **Estado:** implementado en el nuevo HEAD; Windows CI pendiente. La recepción de eventos reales aún necesita validación con cuenta Twitch.

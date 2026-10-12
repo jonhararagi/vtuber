@@ -128,6 +128,13 @@ public partial class MainWindow : Window
                 {
                     if (overlay is null || !overlay.IsVisible) ShowOverlay();
                     overlay?.ShowAlert(type + ": " + summary);
+
+                    if (store.GetSetting("twitch.avatar_reactions.enabled", "true") == "true")
+                    {
+                        var reactionState = AvatarReactionPolicy.GetTransientState(type);
+                        if (reactionState is not null && overlay?.ShowReaction(reactionState) == true)
+                            store.Log("Avatar", "Reacción temporal " + reactionState + " activada por el evento " + type + ".");
+                    }
                 }
             }
         }));

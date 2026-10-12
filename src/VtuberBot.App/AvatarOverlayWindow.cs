@@ -21,7 +21,7 @@ public sealed class AvatarOverlayWindow : Window
     private string? baseImagePath;
     private IReadOnlyList<AvatarLayer> avatarLayers = Array.Empty<AvatarLayer>();
     private IReadOnlyDictionary<string, string> expressionImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    private DateTimeOffset blinkUntil;
+    private DateTimeOffset transientUntil;
     private DateTimeOffset nextAutomaticBlinkAt = DateTimeOffset.UtcNow.AddSeconds(Random.Shared.NextDouble() * 3 + 3);
     private DateTimeOffset alertUntil;
     public bool ReduceMotion { get; set; }
@@ -41,7 +41,7 @@ public sealed class AvatarOverlayWindow : Window
         timer.Tick += (_, _) =>
         {
             var now = DateTimeOffset.UtcNow;
-            if (transientState == "Blink" && now >= blinkUntil)
+            if (transientState is not null && now >= transientUntil)
             {
                 transientState = null;
                 RenderAvatar();
@@ -53,7 +53,7 @@ public sealed class AvatarOverlayWindow : Window
                 if (expressionImages.TryGetValue("Blink", out var blinkPath) && File.Exists(blinkPath))
                 {
                     transientState = "Blink";
-                    blinkUntil = now.AddMilliseconds(150);
+                    transientUntil = now.AddMilliseconds(150);
                     nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
                     RenderAvatar();
                 }
@@ -90,7 +90,7 @@ public sealed class AvatarOverlayWindow : Window
 
             var now = DateTimeOffset.UtcNow;
             transientState = "Blink";
-            blinkUntil = now.AddMilliseconds(160);
+            transientUntil = now.AddMilliseconds(160);
             nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
             RenderAvatar();
             return;
@@ -98,8 +98,30 @@ public sealed class AvatarOverlayWindow : Window
 
         state = nextState is "Talking" or "Happy" or "Surprised" ? nextState : "Idle";
         transientState = null;
-        blinkUntil = DateTimeOffset.MinValue;
+        transientUntil = DateTimeOffset.MinValue;
         RenderAvatar();
+    }
+
+    public bool ShowReaction(string reactionState, TimeSpan? duration = null)
+    {
+        if (reactionState is not ("Happy" or "Surprised"))
+            return false;
+
+        var reactionDuration = duration ?? TimeSpan.FromSeconds(3);
+        if (reactionDuration <= TimeSpan.Zero || reactionDuration > TimeSpan.FromSeconds(15))
+            return false;
+
+        // Reactions use the viewer's own configured expression art. Without that sprite,
+        // keep the alert card but do not pretend that a meaningful expression was shown.
+        if (!expressionImages.TryGetValue(reactionState, out var expressionPath) || !File.Exists(expressionPath))
+            return false;
+
+        var now = DateTimeOffset.UtcNow;
+        transientState = reactionState;
+        transientUntil = now.Add(reactionDuration);
+        nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
+        RenderAvatar();
+        return true;
     }
 
     public void SetLayers(IEnumerable<string> paths)
