@@ -11,7 +11,7 @@ public sealed record AvatarProfile(long Id, string Name, string? BasePath, DateT
 public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrder, bool Visible, double OffsetX = 0, double OffsetY = 0, double Scale = 1, double RotationDegrees = 0);
 
 /// <summary>Persistence for product-level features. Uses the same local SQLite file as the core.</summary>
-public sealed class ProductStore
+public sealed class ProductStore : IProductSettingsStore
 {
     public const int CurrentProductSchemaVersion = 1;
     public const int DefaultActivityRetention = 100_000;
