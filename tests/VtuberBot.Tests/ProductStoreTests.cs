@@ -41,7 +41,7 @@ public sealed class ProductStoreTests
         Assert.Equal("subscriber", command.PermissionScope);
         Assert.False(store.RunLocalCommand("!bienvenida", "viewer").Success);
         Assert.True(store.RunLocalCommand("!bienvenida", "alice", userRoles: new[] { "subscriber" }).Success);
-        Assert.True(store.RunLocalCommand("saludo", "bob").Success);
+        Assert.True(store.RunLocalCommand("saludo", "bob", userRoles: new[] { "subscriber" }).Success);
 
         var reopened = new ProductStore(temp.DatabasePath);
         Assert.True(reopened.RunLocalCommand("!bienvenida", "carol", userRoles: new[] { "moderator" }).Success);
