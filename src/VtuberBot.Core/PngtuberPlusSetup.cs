@@ -86,6 +86,23 @@ public sealed class PngtuberSetupService
     }
 }
 
+
+public static class PngtuberSetupStepCompletion
+{
+    public static bool IsComplete(int step, PngtuberSetupProgress progress, ExternalApplicationStatus status) =>
+        step == 0
+            ? status.State is ExternalApplicationState.Configured or ExternalApplicationState.Running
+            : step switch
+            {
+                1 => progress.AppOpenedConfirmed,
+                2 => progress.AvatarPreparedConfirmed,
+                3 => progress.MicrophoneReactionConfirmed,
+                4 => progress.ExpressionsPreparedConfirmed,
+                5 => progress.ObsCaptureConfirmed,
+                _ => false
+            };
+}
+
 public sealed record PngtuberHotkey(
     Guid Id,
     string Name,
