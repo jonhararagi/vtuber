@@ -240,6 +240,8 @@ public partial class MainWindow : Window
             FooterStatus.Text = $"Voz local: {status} · pendientes: {pending}"));
         eventSub.EventReceived += HandleEventSubEvent;
         obs.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
+        streamerBot.StateChanged += HandleStreamerBotStateChanged;
+        streamerBot.EventReceived += HandleStreamerBotEventReceived;
         // WPF may shut down its dispatcher as soon as the last window closes.
         // Defer the close until every async network client has completed disposal.
 
