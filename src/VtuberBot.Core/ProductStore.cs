@@ -370,6 +370,8 @@ public sealed class ProductStore
     public void SaveModerationRule(string name, string pattern, bool enabled, string action)
     {
         if(string.IsNullOrWhiteSpace(name)||string.IsNullOrWhiteSpace(pattern)) throw new ArgumentException("Nombre y patrón obligatorios.");
+        if (action is not ("flag" or "warn" or "delete" or "timeout" or "ban"))
+            throw new ArgumentOutOfRangeException(nameof(action), "Acción no reconocida. Opciones: flag, warn, delete, timeout, ban.");
         _=new System.Text.RegularExpressions.Regex(pattern,System.Text.RegularExpressions.RegexOptions.IgnoreCase,TimeSpan.FromMilliseconds(100));
         lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="INSERT INTO moderation_rules(name,pattern,enabled,action) VALUES($n,$p,$e,$a) ON CONFLICT(name) DO UPDATE SET pattern=excluded.pattern,enabled=excluded.enabled,action=excluded.action"; cmd.Parameters.AddWithValue("$n",name.Trim()); cmd.Parameters.AddWithValue("$p",pattern); cmd.Parameters.AddWithValue("$e",enabled?1:0); cmd.Parameters.AddWithValue("$a",action); cmd.ExecuteNonQuery(); }
         Log("Moderación",$"Regla '{name}' guardada ({(enabled?"activa":"pausada")}).");

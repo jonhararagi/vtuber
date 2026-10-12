@@ -104,7 +104,10 @@ public sealed class ProductStoreTests
         Assert.Throws<KeyNotFoundException>(() => store.DeleteAutomationRule(automation.Id));
 
         store.SaveModerationRule("URLs", "https?://", true, "flag");
-        Assert.Contains(store.GetModerationRules(), r => r.Name == "URLs" && r.Enabled);
+        store.SaveModerationRule("Spam", "(?i)free\\s+money", true, "timeout");
+        Assert.Contains(store.GetModerationRules(), r => r.Name == "URLs" && r.Enabled && r.Action == "flag");
+        Assert.Contains(store.GetModerationRules(), r => r.Name == "Spam" && r.Enabled && r.Action == "timeout");
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.SaveModerationRule("Invalid", ".*", true, "format-disk"));
     }
     [Fact]
     public void DeletingBuiltInAutomationIsPersistentAcrossRestart()

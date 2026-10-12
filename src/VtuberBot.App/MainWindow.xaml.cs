@@ -44,6 +44,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<long, DateTimeOffset> automationOfflineLog = [];
     private int automationProcessing;
     private readonly Dictionary<string, DateTimeOffset> lastPointAward = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DateTimeOffset> automaticModerationCooldown = new(StringComparer.OrdinalIgnoreCase);
     private string currentPage = "Inicio";
     private PasswordBox? twitchTokenBox;
     private bool twitchChatDesired;
@@ -556,12 +557,40 @@ public partial class MainWindow : Window
             while (chatLines.Count > 200) chatLines.RemoveAt(chatLines.Count - 1);
             store.Log("Twitch", "Mensaje recibido de " + username + ".");
 
+            var autoModerationEnabled = store.GetSetting("twitch.auto_moderation.enabled", "false") == "true";
+            var messageId = parsed.Tags.TryGetValue("id", out var taggedMessageId) ? taggedMessageId : string.Empty;
             foreach (var rule in store.GetModerationRules().Where(rule => rule.Enabled))
             {
                 try
                 {
-                    if (Regex.IsMatch(text, rule.Pattern, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(100)))
-                        store.Log("Moderación", "Coincidencia de regla " + rule.Name + " en mensaje de " + username + " (modo observación).");
+                    if (!Regex.IsMatch(text, rule.Pattern, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(100)))
+                        continue;
+
+                    store.Log("Moderación", "Coincidencia de regla " + rule.Name + " en mensaje de " + username +
+                        " (acción " + rule.Action + "; global " + (autoModerationEnabled ? "activa" : "inactiva") + ").");
+
+                    if (rule.Action == "flag" || !autoModerationEnabled)
+                        continue;
+
+                    var cooldownKey = rule.Name + ":" + username;
+                    var moderationNow = DateTimeOffset.UtcNow;
+                    if (automaticModerationCooldown.TryGetValue(cooldownKey, out var previous) &&
+                        moderationNow - previous < TimeSpan.FromMinutes(5))
+                    {
+                        store.Log("Moderación", "Acción automática omitida por límite de 5 minutos para " + username + " / " + rule.Name + ".");
+                        break;
+                    }
+
+                    if (rule.Action == "delete" && string.IsNullOrWhiteSpace(messageId))
+                    {
+                        store.Log("Moderación", "No se borró el mensaje porque Twitch no proporcionó el ID IRC necesario.");
+                        break;
+                    }
+
+                    automaticModerationCooldown[cooldownKey] = moderationNow;
+                    await ApplyAutomaticModerationAsync(rule.Name, rule.Action, username, messageId);
+                    // Apply at most one non-flag action per incoming message.
+                    break;
                 }
                 catch (RegexMatchTimeoutException)
                 {
@@ -608,6 +637,60 @@ public partial class MainWindow : Window
                 catch (Exception exception) { FooterStatus.Text = "Comando ejecutado localmente, respuesta no enviada: " + exception.Message; }
             }
         }));
+    }
+
+    private async Task ApplyAutomaticModerationAsync(string ruleName, string action, string username, string messageId)
+    {
+        var clientId = store.GetSetting("twitch.client_id").Trim();
+        var accessToken = LoadTwitchToken();
+        var channel = store.GetSetting("twitch.channel").Trim();
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(accessToken) ||
+            string.IsNullOrWhiteSpace(channel))
+        {
+            store.Log("Moderación", "No se ejecutó '" + action + "' para " + username + ": Twitch no está autenticado/configurado.");
+            return;
+        }
+
+        try
+        {
+            string result;
+            using var moderator = new TwitchModerationClient();
+            switch (action)
+            {
+                case "warn":
+                    if (!twitch.IsConnected)
+                        throw new InvalidOperationException("El chat IRC no está conectado para enviar el aviso.");
+                    await twitch.SendMessageAsync(channel,
+                        username + ", tu mensaje coincidió con la regla de moderación '" + ruleName + "'. Revisá las normas del canal.");
+                    result = "Aviso enviado a " + username + ".";
+                    break;
+                case "delete":
+                    result = await moderator.DeleteChatMessageAsync(clientId, accessToken, channel, messageId);
+                    break;
+                case "timeout":
+                    result = await moderator.BanOrTimeoutAsync(
+                        clientId, accessToken, channel, username, 600,
+                        "Regla automática: " + ruleName);
+                    break;
+                case "ban":
+                    result = await moderator.BanOrTimeoutAsync(
+                        clientId, accessToken, channel, username, null,
+                        "Regla automática: " + ruleName);
+                    break;
+                default:
+                    store.Log("Moderación", "Acción no ejecutada: '" + action + "' no está soportada.");
+                    return;
+            }
+
+            store.Log("Moderación", "Acción automática confirmada por Twitch/local chat: " +
+                action + " · regla " + ruleName + " · usuario " + username + " · " + result);
+        }
+        catch (Exception exception)
+        {
+            store.Log("Moderación", "Falló la acción automática '" + action + "' de la regla " +
+                ruleName + " para " + username + " (" + exception.GetType().Name + "): " + exception.Message);
+            FooterStatus.Text = "Moderación automática falló: " + action + " / " + ruleName;
+        }
     }
 
     private UIElement BuildCommandsPage()
@@ -674,11 +757,39 @@ public partial class MainWindow : Window
     {
         var root=new StackPanel();var panel=Panel("Reglas de moderación");root.Children.Add(panel);
         var list=new ListBox{Height=180};void Reload(){list.ItemsSource=store.GetModerationRules().Select(r=>$"{r.Name} | /{r.Pattern}/ | {(r.Enabled?"activa":"pausada")} | {r.Action}").ToList();}Reload();panel.Children.Add(list);
-        var name=TextField("Nombre de la regla");var pattern=TextField("Patrón regex (ej. https?://)");var action=new ComboBox{ItemsSource=new[]{"flag","warn","delete"},SelectedIndex=0};var enabled=new CheckBox{Content="Habilitada",IsChecked=true,Foreground=Brush("#F8FAFC")};panel.Children.Add(name);panel.Children.Add(pattern);panel.Children.Add(action);panel.Children.Add(enabled);
+        var autoModeration = new CheckBox
+        {
+            Content = "Activar acciones automáticas en Twitch",
+            IsChecked = store.GetSetting("twitch.auto_moderation.enabled", "false") == "true",
+            Foreground = Brush("#F8FAFC"),
+            Margin = new Thickness(0, 6, 0, 6)
+        };
+        autoModeration.Checked += (_, _) =>
+        {
+            var choice = MessageBox.Show(this,
+                "Las reglas configuradas como warn/delete/timeout/ban podrán actuar en el chat real. Regex mal diseñada puede afectar mensajes legítimos. ¿Querés activar la moderación automática?",
+                "Activar moderación automática", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (choice != MessageBoxResult.Yes)
+            {
+                autoModeration.IsChecked = false;
+                return;
+            }
+            store.SetSetting("twitch.auto_moderation.enabled", "true");
+            store.Log("Moderación", "Moderación automática activada explícitamente por el usuario.");
+        };
+        autoModeration.Unchecked += (_, _) =>
+        {
+            store.SetSetting("twitch.auto_moderation.enabled", "false");
+            store.Log("Moderación", "Moderación automática desactivada.");
+        };
+        panel.Children.Add(autoModeration);
+        var name=TextField("Nombre de la regla");var pattern=TextField("Patrón regex (ej. https?://)");
+        var action=new ComboBox{ItemsSource=new[]{"flag","warn","delete","timeout","ban"},SelectedIndex=0};
+        var enabled=new CheckBox{Content="Habilitada",IsChecked=true,Foreground=Brush("#F8FAFC")};panel.Children.Add(name);panel.Children.Add(pattern);panel.Children.Add(action);panel.Children.Add(enabled);
         panel.Children.Add(ActionButton("Guardar regla",(_,_)=>{try{store.SaveModerationRule(name.Text,pattern.Text,enabled.IsChecked==true,action.SelectedItem?.ToString()??"flag");Reload();}catch(Exception ex){MessageBox.Show(this,$"Regla inválida: {ex.Message}");}},true));
         var test=TextField("Texto para analizar");panel.Children.Add(Label("Probar un mensaje (solo observación, no borra ni sanciona)",13,"#F8FAFC",true));panel.Children.Add(test);
         panel.Children.Add(ActionButton("Analizar mensaje",(_,_)=>{var matches=new List<string>();foreach(var r in store.GetModerationRules().Where(x=>x.Enabled)){try{if(Regex.IsMatch(test.Text,r.Pattern,RegexOptions.IgnoreCase,TimeSpan.FromMilliseconds(100)))matches.Add($"{r.Name} ({r.Action})");}catch(RegexMatchTimeoutException){matches.Add($"{r.Name} — tiempo agotado");}}var message=matches.Count==0?"No se detectaron coincidencias.": "Coincidencias: "+string.Join(", ",matches);store.Log("Moderación",message);MessageBox.Show(this,message,"Diagnóstico de moderación");}));
-        root.Children.Add(Label("Las reglas se evalúan en modo observación. No se ejecutan acciones punitivas remotas automáticamente.",12,"#98A4BE"));
+        root.Children.Add(Label("Por defecto, las reglas solo registran coincidencias. La activación global exige confirmación: flag solo registra, warn publica un aviso, delete borra el mensaje coincidente, timeout aplica 10 minutos y ban es permanente. El límite es una acción por usuario/regla cada 5 minutos; si una acción falla, queda registrada como fallida, nunca como exitosa.",12,"#98A4BE"));
         var remotePanel = Panel("Acciones de Twitch — manuales y con confirmación");
         remotePanel.Margin = new Thickness(0, 12, 0, 0);
         remotePanel.Children.Add(Label("Estas acciones solo se ejecutan al pulsar un botón y confirmar. Las reglas automáticas siguen en modo observación.", 12, "#98A4BE"));

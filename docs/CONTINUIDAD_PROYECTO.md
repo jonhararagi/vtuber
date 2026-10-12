@@ -282,3 +282,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Build Release pasó; una prueba falló porque tras la primera ejecución real se esperaba que otro usuario pudiera ejecutar inmediatamente el mismo comando, aunque el cooldown es global por comando.
 - Se ajustó la prueba a la semántica correcta: la previsualización no consume el cooldown; la primera ejecución real sí lo inicia y la segunda ejecución durante el intervalo queda bloqueada.
 - No fue un fallo del código de preview; el test anterior tenía una expectativa contradictoria con el diseño actual del cooldown. El nuevo HEAD debe validarlo.
+
+
+### Trabajo adicional — acciones automáticas de moderación con interruptor global
+
+- Las reglas solo siguen en observación si `twitch.auto_moderation.enabled=false` (valor predeterminado). La UI pide confirmación antes de habilitar la ejecución en el chat real.
+- Acciones por regla: `flag` registra únicamente; `warn` publica un aviso; `delete` elimina el mensaje individual usando su tag IRCv3 `id`; `timeout` impone 600 segundos; `ban` es permanente.
+- Se aplica máximo una acción no informativa por mensaje y una ventana de 5 minutos por usuario/regla. Si falta el mensaje ID para `delete`, no se intenta la API.
+- OAuth ahora solicita `moderator:manage:chat_messages` además de `moderator:manage:banned_users`; los usuarios que ya habían autorizado deben repetir OAuth para obtener el nuevo scope.
+- Las reglas validan la acción permitida y se añaden pruebas de persistencia de acciones y rechazo de acciones desconocidas.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el nuevo HEAD. No se ha afirmado que una cuenta Twitch real acepte estas acciones sin probar credenciales/permisos del usuario.

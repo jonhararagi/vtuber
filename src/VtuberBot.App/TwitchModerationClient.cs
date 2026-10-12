@@ -42,6 +42,32 @@ public sealed class TwitchModerationClient : IDisposable
             : "Ban permanente aplicado a " + targetLogin + ".";
     }
 
+    /// <summary>Removes the single message whose IRCv3 id tag was received from Twitch.</summary>
+    public async Task<string> DeleteChatMessageAsync(
+        string clientId, string accessToken, string channelLogin, string messageId,
+        CancellationToken cancellationToken = default)
+    {
+        channelLogin = NormalizeLogin(channelLogin, '#');
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(accessToken))
+            throw new ArgumentException("Configurá Client ID y autorizá la cuenta Twitch.");
+        if (!LoginPattern.IsMatch(channelLogin))
+            throw new ArgumentException("El canal debe ser un login de Twitch válido.");
+        if (string.IsNullOrWhiteSpace(messageId) || messageId.Length > 128 ||
+            messageId.Any(char.IsWhiteSpace))
+            throw new ArgumentException("El mensaje no contiene un ID válido para borrar.");
+
+        var token = NormalizeToken(accessToken);
+        var broadcasterId = await ResolveUserIdAsync(clientId, token, channelLogin, cancellationToken).ConfigureAwait(false);
+        var moderatorId = await GetAuthenticatedUserIdAsync(clientId, token, cancellationToken).ConfigureAwait(false);
+        var query = "?broadcaster_id=" + Uri.EscapeDataString(broadcasterId) +
+                    "&moderator_id=" + Uri.EscapeDataString(moderatorId) +
+                    "&message_id=" + Uri.EscapeDataString(messageId);
+        using var request = CreateRequest(HttpMethod.Delete, "https://api.twitch.tv/helix/moderation/chat" + query, clientId, token);
+        using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+        return "Mensaje de chat eliminado (ID " + messageId + ").";
+    }
+
     public async Task<string> UnbanAsync(
         string clientId, string accessToken, string channelLogin, string targetLogin,
         CancellationToken cancellationToken = default)
