@@ -24,7 +24,7 @@ public sealed record StreamerBotEndpoint(string Host = "127.0.0.1", int Port = 8
         if (Port is < 1 or > 65535)
             throw new ArgumentOutOfRangeException(nameof(Port), "El puerto debe estar entre 1 y 65535.");
         var path = string.IsNullOrWhiteSpace(Endpoint) ? "/" : Endpoint.Trim();
-        if (!path.StartsWith("/", StringComparison.Ordinal) || path.Contains('#'))
+        if (!path.StartsWith("/", StringComparison.Ordinal) || path.Contains('#') || path.Contains('?'))
             throw new ArgumentException("El endpoint debe ser una ruta absoluta que comience con /.");
         if (path.Contains("..", StringComparison.Ordinal))
             throw new ArgumentException("El endpoint no puede contener segmentos '..'.");
@@ -356,10 +356,14 @@ public sealed class StreamerBotWebSocketClient : IStreamerBotClient
         catch (StreamerBotProtocolException exception)
         {
             SetState(StreamerBotConnectionState.ProtocolError, exception.Message);
+            helloReceived?.TrySetException(exception);
             FailPending(exception);
+            try { ws.Abort(); } catch (ObjectDisposedException) { }
+            try { lifetime?.Cancel(); } catch (ObjectDisposedException) { }
         }
         catch (Exception exception) when (exception is WebSocketException or IOException or ObjectDisposedException)
         {
+            helloReceived?.TrySetException(exception);
             if (!cancellationToken.IsCancellationRequested)
                 SetState(StreamerBotConnectionState.UnexpectedDisconnect, "La conexión se interrumpió (" + exception.GetType().Name + ").");
             FailPending(new IOException("La conexión con Streamer.bot se interrumpió."));
