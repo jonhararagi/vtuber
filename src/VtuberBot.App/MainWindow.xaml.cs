@@ -172,39 +172,177 @@ public partial class MainWindow : Window
 
     private UIElement BuildAvatarStudio()
     {
-        var root=new StackPanel(); var columns=new Grid(); columns.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1.1,GridUnitType.Star)}); columns.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});
-        var left=Panel("Previsualización"); left.MinHeight=420;
-        var preview = new Border { Background=Brush("#101525"), CornerRadius=new CornerRadius(14), Padding=new Thickness(14), MinHeight=350 };
-        if(!string.IsNullOrWhiteSpace(avatarPath)&&File.Exists(avatarPath))
+        var root = new StackPanel();
+        var columns = new Grid();
+        columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.1, GridUnitType.Star) });
+        columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var layerImages = new Dictionary<long, Image>();
+        var left = Panel("Previsualización del avatar");
+        left.MinHeight = 420;
+        var preview = new Border { Background = Brush("#101525"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14), MinHeight = 350 };
+        if (!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath))
         {
-            var previewLayers=new Grid();
-            previewLayers.Children.Add(new Image{Source=LoadImage(avatarPath),Stretch=Stretch.Uniform,MaxHeight=360});
-            foreach(var layer in store.GetAvatarLayers().Where(l=>l.Visible&&File.Exists(l.Path))) previewLayers.Children.Add(new Image{Source=LoadImage(layer.Path),Stretch=Stretch.Uniform,MaxHeight=360});
-            preview.Child=previewLayers;
+            var previewCanvas = new Grid();
+            previewCanvas.Children.Add(new Image { Source = LoadImage(avatarPath), Stretch = Stretch.Uniform, MaxHeight = 360 });
+            foreach (var layer in store.GetAvatarLayers().Where(l => l.Visible && File.Exists(l.Path)).OrderBy(l => l.SortOrder))
+            {
+                var image = new Image { Source = LoadImage(layer.Path), Stretch = Stretch.Uniform, MaxHeight = 360 };
+                image.RenderTransformOrigin = new Point(.5, .5);
+                image.RenderTransform = BuildLayerTransform(layer);
+                previewCanvas.Children.Add(image);
+                layerImages[layer.Id] = image;
+            }
+            preview.Child = previewCanvas;
         }
-        else preview.Child=Label("Todavía no hay arte importado.\nUsá un PNG propio para comenzar.",16,"#98A4BE");
+        else preview.Child = Label("Todavía no hay arte importado.\nUsá un PNG propio para comenzar.", 16, "#98A4BE");
         left.Children.Add(preview);
-        var right=Panel("Avatar y salida"); right.Margin=new Thickness(18,0,0,0);
-        right.Children.Add(Label("Avatar activo",14,"#F8FAFC",true));
-        right.Children.Add(Label(string.IsNullOrWhiteSpace(avatarPath)? "Ningún archivo seleccionado":Path.GetFileName(avatarPath),12,"#98A4BE"));
-        right.Children.Add(ActionButton("＋  Importar PNG / imagen base",(_,_)=>ImportAvatar(),true));
-        right.Children.Add(Label("Capas adicionales (orden de abajo hacia arriba)",13,"#F8FAFC",true));
-        var layerList=new ListBox{Height=150};
-        void ReloadLayers(){layerList.ItemsSource=store.GetAvatarLayers().Select(l=>string.Format("{0} | {1} | {2}",l.Id,l.Visible?"●":"○",l.Name)).ToList();}
-        ReloadLayers();right.Children.Add(layerList);
-        var layerActions=new WrapPanel();
-        layerActions.Children.Add(ActionButton("＋ Importar capa",(_,_)=>{ImportAvatarLayer();ReloadLayers();}));
-        layerActions.Children.Add(ActionButton("Mostrar / ocultar",(_,_)=>{if(layerList.SelectedItem is null)return;var id=long.Parse(layerList.SelectedItem.ToString()!.Split('|')[0].Trim());var layer=store.GetAvatarLayers().FirstOrDefault(l=>l.Id==id);if(layer is not null)store.SetAvatarLayerVisibility(id,!layer.Visible);ReloadLayers();}));
-        layerActions.Children.Add(ActionButton("Eliminar capa",(_,_)=>{if(layerList.SelectedItem is null)return;var id=long.Parse(layerList.SelectedItem.ToString()!.Split('|')[0].Trim());if(MessageBox.Show(this,"¿Eliminar esta capa del perfil? El archivo local no se borra.","Confirmar",MessageBoxButton.YesNo)==MessageBoxResult.Yes){store.DeleteAvatarLayer(id);ReloadLayers();}}));
+
+        var right = Panel("Avatar y salida");
+        right.Margin = new Thickness(18, 0, 0, 0);
+        right.Children.Add(Label("Avatar activo", 14, "#F8FAFC", true));
+        right.Children.Add(Label(string.IsNullOrWhiteSpace(avatarPath) ? "Ningún archivo seleccionado" : Path.GetFileName(avatarPath), 12, "#98A4BE"));
+        right.Children.Add(ActionButton("＋  Importar PNG / imagen base", (_, _) => ImportAvatar(), true));
+        right.Children.Add(Label("Capas adicionales — orden de abajo hacia arriba", 13, "#F8FAFC", true));
+
+        var layerList = new ListBox { Height = 142 };
+        long? SelectedLayerId()
+        {
+            if (layerList.SelectedItem is not string item) return null;
+            return long.TryParse(item.Split('|')[0].Trim(), out var id) ? id : null;
+        }
+        void ReloadLayers(long? selectId = null)
+        {
+            var entries = store.GetAvatarLayers().Select(l => $"{l.Id} | {(l.Visible ? "●" : "○")} | {l.Name}").ToList();
+            layerList.ItemsSource = entries;
+            if (selectId.HasValue)
+                layerList.SelectedItem = entries.FirstOrDefault(s => long.TryParse(s.Split('|')[0].Trim(), out var id) && id == selectId.Value);
+        }
+        ReloadLayers();
+        right.Children.Add(layerList);
+
+        var layerActions = new WrapPanel();
+        layerActions.Children.Add(ActionButton("＋ Importar capa", (_, _) => ImportAvatarLayer()));
+        layerActions.Children.Add(ActionButton("Mostrar / ocultar", (_, _) =>
+        {
+            var id = SelectedLayerId();
+            if (id is null) return;
+            var layer = store.GetAvatarLayers().FirstOrDefault(l => l.Id == id.Value);
+            if (layer is null) return;
+            store.SetAvatarLayerVisibility(id.Value, !layer.Visible);
+            RefreshAvatarPresentation();
+        }));
+        layerActions.Children.Add(ActionButton("↑ Subir", (_, _) => MoveSelectedLayer(1)));
+        layerActions.Children.Add(ActionButton("↓ Bajar", (_, _) => MoveSelectedLayer(-1)));
+        layerActions.Children.Add(ActionButton("Eliminar capa", (_, _) =>
+        {
+            var id = SelectedLayerId();
+            if (id is null) return;
+            if (MessageBox.Show(this, "¿Eliminar esta capa del perfil? El archivo local no se borra.", "Confirmar", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+            store.DeleteAvatarLayer(id.Value);
+            RefreshAvatarPresentation();
+        }));
         right.Children.Add(layerActions);
-        right.Children.Add(ActionButton("Mostrar overlay transparente",(_,_)=>ShowOverlay()));
-        right.Children.Add(ActionButton("Ocultar overlay",(_,_)=>{overlay?.Hide();store.Log("Avatar","Overlay ocultado.");}));
-        right.Children.Add(Label("Estados disponibles para el runtime",14,"#F8FAFC",true));
-        var states=new WrapPanel();
-        foreach(var s in new[]{"Idle","Talking","Blink","Happy","Surprised"}) states.Children.Add(ActionButton(s,(_,_)=>{store.SetSetting("avatar.state",s);if(overlay is not null)overlay.SetState(s);store.Log("Avatar",$"Estado seleccionado: {s}.");FooterStatus.Text=$"Cue visual del avatar: {s}. Los cues modifican movimiento/opacidad del overlay, no sustituyen un rig facial."; }));
+
+        var transforms = Panel("Transformar capa seleccionada");
+        transforms.Margin = new Thickness(0, 10, 0, 0);
+        var xSlider = new Slider { Minimum = -500, Maximum = 500, TickFrequency = 10 };
+        var ySlider = new Slider { Minimum = -500, Maximum = 500, TickFrequency = 10 };
+        var scaleSlider = new Slider { Minimum = .1, Maximum = 4, Value = 1, TickFrequency = .1 };
+        var rotationSlider = new Slider { Minimum = -180, Maximum = 180, TickFrequency = 5 };
+        var xValue = Label("X: 0 px", 11, "#98A4BE");
+        var yValue = Label("Y: 0 px", 11, "#98A4BE");
+        var scaleValue = Label("Escala: 100%", 11, "#98A4BE");
+        var rotationValue = Label("Rotación: 0°", 11, "#98A4BE");
+        transforms.Children.Add(xValue); transforms.Children.Add(xSlider);
+        transforms.Children.Add(yValue); transforms.Children.Add(ySlider);
+        transforms.Children.Add(scaleValue); transforms.Children.Add(scaleSlider);
+        transforms.Children.Add(rotationValue); transforms.Children.Add(rotationSlider);
+        var loadingTransform = false;
+
+        void PreviewSelectedTransform()
+        {
+            xValue.Text = $"X: {xSlider.Value:0} px";
+            yValue.Text = $"Y: {ySlider.Value:0} px";
+            scaleValue.Text = $"Escala: {scaleSlider.Value:P0}";
+            rotationValue.Text = $"Rotación: {rotationSlider.Value:0}°";
+            if (loadingTransform) return;
+            var id = SelectedLayerId();
+            if (id is null || !layerImages.TryGetValue(id.Value, out var image)) return;
+            var layer = store.GetAvatarLayers().FirstOrDefault(l => l.Id == id.Value);
+            if (layer is not null)
+                image.RenderTransform = BuildLayerTransform(layer with { OffsetX = xSlider.Value, OffsetY = ySlider.Value, Scale = scaleSlider.Value, RotationDegrees = rotationSlider.Value });
+        }
+
+        void LoadSelectedTransform()
+        {
+            var id = SelectedLayerId();
+            var layer = id is null ? null : store.GetAvatarLayers().FirstOrDefault(l => l.Id == id.Value);
+            loadingTransform = true;
+            xSlider.Value = layer?.OffsetX ?? 0;
+            ySlider.Value = layer?.OffsetY ?? 0;
+            scaleSlider.Value = layer?.Scale ?? 1;
+            rotationSlider.Value = layer?.RotationDegrees ?? 0;
+            loadingTransform = false;
+            PreviewSelectedTransform();
+        }
+        layerList.SelectionChanged += (_, _) => LoadSelectedTransform();
+        xSlider.ValueChanged += (_, _) => PreviewSelectedTransform();
+        ySlider.ValueChanged += (_, _) => PreviewSelectedTransform();
+        scaleSlider.ValueChanged += (_, _) => PreviewSelectedTransform();
+        rotationSlider.ValueChanged += (_, _) => PreviewSelectedTransform();
+
+        transforms.Children.Add(ActionButton("Aplicar y guardar transformación", (_, _) =>
+        {
+            var id = SelectedLayerId();
+            if (id is null) { MessageBox.Show(this, "Seleccioná una capa primero."); return; }
+            try
+            {
+                store.UpdateAvatarLayerTransform(id.Value, xSlider.Value, ySlider.Value, scaleSlider.Value, rotationSlider.Value);
+                if (overlay is { IsVisible: true } && !string.IsNullOrWhiteSpace(avatarPath))
+                    overlay.SetAvatar(avatarPath, store.GetAvatarLayers());
+                FooterStatus.Text = "Transformación de capa guardada en SQLite.";
+            }
+            catch (Exception ex) { MessageBox.Show(this, "No se pudo guardar la transformación: " + ex.Message); }
+        }, true));
+        right.Children.Add(transforms);
+
+        right.Children.Add(ActionButton("Mostrar overlay transparente", (_, _) => ShowOverlay()));
+        right.Children.Add(ActionButton("Ocultar overlay", (_, _) => { overlay?.Hide(); store.Log("Avatar", "Overlay ocultado."); }));
+        right.Children.Add(Label("Estados disponibles", 14, "#F8FAFC", true));
+        var states = new WrapPanel();
+        foreach (var state in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" })
+            states.Children.Add(ActionButton(state, (_, _) =>
+            {
+                store.SetSetting("avatar.state", state);
+                overlay?.SetState(state);
+                store.Log("Avatar", $"Estado seleccionado: {state}.");
+                FooterStatus.Text = $"Cue visual del avatar: {state}. Las expresiones basadas en assets requieren un rig ampliado.";
+            }));
         right.Children.Add(states);
-        right.Children.Add(Label("La animación actual del overlay aplica movimiento respiratorio leve. El lip-sync requiere señal real de voz; no se finge tracking facial.",12,"#98A4BE"));
-        Grid.SetColumn(left,0);Grid.SetColumn(right,1);columns.Children.Add(left);columns.Children.Add(right);root.Children.Add(columns);return root;
+        right.Children.Add(Label("X/Y, escala, rotación y orden se guardan localmente. La animación de respiración es sutil; todavía faltan pivotes/huesos, física articulada y lip-sync real.", 12, "#98A4BE"));
+
+        Grid.SetColumn(left, 0);
+        Grid.SetColumn(right, 1);
+        columns.Children.Add(left);
+        columns.Children.Add(right);
+        root.Children.Add(columns);
+        return root;
+
+        void MoveSelectedLayer(int direction)
+        {
+            var id = SelectedLayerId();
+            if (id is null) return;
+            try { store.MoveAvatarLayer(id.Value, direction); RefreshAvatarPresentation(); }
+            catch (Exception ex) { MessageBox.Show(this, "No se pudo cambiar el orden: " + ex.Message); }
+        }
+
+        void RefreshAvatarPresentation()
+        {
+            if (overlay is { IsVisible: true } && !string.IsNullOrWhiteSpace(avatarPath))
+                overlay.SetAvatar(avatarPath, store.GetAvatarLayers());
+            Navigate("Avatar Studio");
+        }
     }
 
     private void ImportAvatar()
@@ -243,7 +381,7 @@ public partial class MainWindow : Window
     private void ShowOverlay()
     {
         if(string.IsNullOrWhiteSpace(avatarPath)||!File.Exists(avatarPath)){MessageBox.Show(this,"Primero importá una imagen en Avatar Studio.");return;}
-        try { overlay??=new AvatarOverlayWindow(); overlay.SetLayers(new[]{avatarPath}.Concat(store.GetAvatarLayers().Where(l=>l.Visible).Select(l=>l.Path))); overlay.ReduceMotion=store.GetSetting("ui.reduceMotion","false")=="true"; overlay.SetState(store.GetSetting("avatar.state","Idle")); if(!overlay.IsVisible)overlay.Show();overlay.Activate();store.Log("Avatar","Overlay mostrado."); }
+        try { overlay??=new AvatarOverlayWindow(); overlay.SetAvatar(avatarPath, store.GetAvatarLayers()); overlay.ReduceMotion=store.GetSetting("ui.reduceMotion","false")=="true"; overlay.SetState(store.GetSetting("avatar.state","Idle")); if(!overlay.IsVisible)overlay.Show();overlay.Activate();store.Log("Avatar","Overlay mostrado."); }
         catch(Exception ex){MessageBox.Show(this,$"No se pudo abrir el overlay: {ex.Message}");}
     }
 
@@ -515,6 +653,15 @@ public partial class MainWindow : Window
         if(string.IsNullOrWhiteSpace(token)){if(File.Exists(path))File.Delete(path);return;}
         var bytes=ProtectedData.Protect(Encoding.UTF8.GetBytes(token.Trim()),null,DataProtectionScope.CurrentUser);
         File.WriteAllBytes(path,bytes);
+    }
+
+    private static Transform BuildLayerTransform(AvatarLayer layer)
+    {
+        var transform = new TransformGroup();
+        transform.Children.Add(new ScaleTransform(layer.Scale, layer.Scale));
+        transform.Children.Add(new RotateTransform(layer.RotationDegrees));
+        transform.Children.Add(new TranslateTransform(layer.OffsetX, layer.OffsetY));
+        return transform;
     }
 
     private static BitmapImage LoadImage(string path)

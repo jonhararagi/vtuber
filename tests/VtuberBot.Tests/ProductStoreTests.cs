@@ -63,6 +63,30 @@ public sealed class ProductStoreTests
         Assert.Contains(store.GetModerationRules(), r => r.Name == "URLs" && r.Enabled);
     }
     [Fact]
+    public void AvatarLayerTransformsAndStackingOrderPersist()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var firstAsset = Path.Combine(temp.DirectoryPath, "first.png");
+        var secondAsset = Path.Combine(temp.DirectoryPath, "second.png");
+        File.WriteAllBytes(firstAsset, [1, 2, 3]);
+        File.WriteAllBytes(secondAsset, [4, 5, 6]);
+        var first = store.AddAvatarLayer("Body", firstAsset);
+        var second = store.AddAvatarLayer("Hair", secondAsset);
+        store.UpdateAvatarLayerTransform(first, 18.5, -12, 1.25, 16);
+        store.MoveAvatarLayer(first, 1);
+        var layers = store.GetAvatarLayers();
+        Assert.Equal(new[] { second, first }, layers.Select(layer => layer.Id));
+        var transformed = layers.First(layer => layer.Id == first);
+        Assert.Equal(18.5, transformed.OffsetX);
+        Assert.Equal(-12, transformed.OffsetY);
+        Assert.Equal(1.25, transformed.Scale);
+        Assert.Equal(16, transformed.RotationDegrees);
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.UpdateAvatarLayerTransform(first, double.NaN, 0, 1, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.UpdateAvatarLayerTransform(first, 0, 0, 10, 0));
+    }
+
+    [Fact]
     public void AvatarLayersPersistVisibilityAndRemoval()
     {
         using var temp = new TempDb();

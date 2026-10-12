@@ -7,7 +7,7 @@ public sealed record CommunityUser(string Username, long Points, DateTimeOffset 
 public sealed record GiveawayRecord(long Id, string Name, string Status, string? Winner, int Entries);
 public sealed record ProductActivity(DateTimeOffset At, string Module, string Message);
 public sealed record AutomationRule(long Id, string Name, string Message, int IntervalMinutes, bool Enabled);
-public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrder, bool Visible);
+public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrder, bool Visible, double OffsetX = 0, double OffsetY = 0, double Scale = 1, double RotationDegrees = 0);
 
 /// <summary>Persistence for product-level features. Uses the same local SQLite file as the core.</summary>
 public sealed class ProductStore
@@ -54,13 +54,19 @@ public sealed class ProductStore
               id INTEGER PRIMARY KEY AUTOINCREMENT, at_utc TEXT NOT NULL, module TEXT NOT NULL, message TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS avatar_layers(
               id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, path TEXT NOT NULL,
-              sort_order INTEGER NOT NULL, visible INTEGER NOT NULL DEFAULT 1);
+              sort_order INTEGER NOT NULL, visible INTEGER NOT NULL DEFAULT 1,
+              offset_x REAL NOT NULL DEFAULT 0, offset_y REAL NOT NULL DEFAULT 0,
+              scale REAL NOT NULL DEFAULT 1, rotation_degrees REAL NOT NULL DEFAULT 0);
             CREATE TABLE IF NOT EXISTS product_settings(
               key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS idx_activity_time ON product_activity(id DESC);
             """;
         command.ExecuteNonQuery();
         EnsureColumn(connection, "product_commands", "last_used_utc", "TEXT NULL");
+        EnsureColumn(connection, "avatar_layers", "offset_x", "REAL NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "avatar_layers", "offset_y", "REAL NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "avatar_layers", "scale", "REAL NOT NULL DEFAULT 1");
+        EnsureColumn(connection, "avatar_layers", "rotation_degrees", "REAL NOT NULL DEFAULT 0");
         SeedDefaults(connection);
     }
 
@@ -272,24 +278,124 @@ public sealed class ProductStore
 
     public IReadOnlyList<AvatarLayer> GetAvatarLayers()
     {
-        lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="SELECT id,name,path,sort_order,visible FROM avatar_layers ORDER BY sort_order,id"; using var r=cmd.ExecuteReader(); var list=new List<AvatarLayer>(); while(r.Read()) list.Add(new(r.GetInt64(0),r.GetString(1),r.GetString(2),r.GetInt32(3),r.GetInt32(4)!=0)); return list; }
+        lock (gate)
+        {
+            using var c = Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "SELECT id,name,path,sort_order,visible,offset_x,offset_y,scale,rotation_degrees FROM avatar_layers ORDER BY sort_order,id";
+            using var r = cmd.ExecuteReader();
+            var list = new List<AvatarLayer>();
+            while (r.Read())
+                list.Add(new AvatarLayer(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetInt32(4) != 0,
+                    r.GetDouble(5), r.GetDouble(6), r.GetDouble(7), r.GetDouble(8)));
+            return list;
+        }
     }
 
     public long AddAvatarLayer(string name, string path)
     {
-        if(string.IsNullOrWhiteSpace(name)||!File.Exists(path)) throw new ArgumentException("La capa necesita un nombre y un archivo existente.");
-        lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="INSERT INTO avatar_layers(name,path,sort_order,visible) VALUES($n,$p,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM avatar_layers),1); SELECT last_insert_rowid();"; cmd.Parameters.AddWithValue("$n",name.Trim()); cmd.Parameters.AddWithValue("$p",Path.GetFullPath(path)); return (long)cmd.ExecuteScalar()!; }
+        if (string.IsNullOrWhiteSpace(name) || !File.Exists(path))
+            throw new ArgumentException("La capa necesita un nombre y un archivo existente.");
+        lock (gate)
+        {
+            using var c = Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "INSERT INTO avatar_layers(name,path,sort_order,visible) VALUES($n,$p,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM avatar_layers),1); SELECT last_insert_rowid();";
+            cmd.Parameters.AddWithValue("$n", name.Trim());
+            cmd.Parameters.AddWithValue("$p", Path.GetFullPath(path));
+            return (long)cmd.ExecuteScalar()!;
+        }
     }
 
     public void SetAvatarLayerVisibility(long id, bool visible)
     {
-        lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="UPDATE avatar_layers SET visible=$v WHERE id=$id"; cmd.Parameters.AddWithValue("$v",visible?1:0); cmd.Parameters.AddWithValue("$id",id); cmd.ExecuteNonQuery(); }
+        lock (gate)
+        {
+            using var c = Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "UPDATE avatar_layers SET visible=$v WHERE id=$id";
+            cmd.Parameters.AddWithValue("$v", visible ? 1 : 0);
+            cmd.Parameters.AddWithValue("$id", id);
+            if (cmd.ExecuteNonQuery() == 0) throw new KeyNotFoundException($"No existe la capa {id}.");
+        }
+    }
+
+    public void UpdateAvatarLayerTransform(long id, double offsetX, double offsetY, double scale, double rotationDegrees)
+    {
+        if (!double.IsFinite(offsetX) || offsetX is < -500 or > 500) throw new ArgumentOutOfRangeException(nameof(offsetX), "X debe estar entre -500 y 500 píxeles.");
+        if (!double.IsFinite(offsetY) || offsetY is < -500 or > 500) throw new ArgumentOutOfRangeException(nameof(offsetY), "Y debe estar entre -500 y 500 píxeles.");
+        if (!double.IsFinite(scale) || scale is < 0.1 or > 4) throw new ArgumentOutOfRangeException(nameof(scale), "La escala debe estar entre 0,1 y 4.");
+        if (!double.IsFinite(rotationDegrees) || rotationDegrees is < -180 or > 180) throw new ArgumentOutOfRangeException(nameof(rotationDegrees), "La rotación debe estar entre -180 y 180 grados.");
+
+        lock (gate)
+        {
+            using var c = Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "UPDATE avatar_layers SET offset_x=$x,offset_y=$y,scale=$s,rotation_degrees=$r WHERE id=$id";
+            cmd.Parameters.AddWithValue("$x", offsetX);
+            cmd.Parameters.AddWithValue("$y", offsetY);
+            cmd.Parameters.AddWithValue("$s", scale);
+            cmd.Parameters.AddWithValue("$r", rotationDegrees);
+            cmd.Parameters.AddWithValue("$id", id);
+            if (cmd.ExecuteNonQuery() == 0) throw new KeyNotFoundException($"No existe la capa {id}.");
+        }
+        Log("Avatar", $"Transformación guardada para la capa {id}.");
+    }
+
+    /// <summary>Moves a layer one step in its visual stacking order. Direction -1 moves down; +1 moves up.</summary>
+    public void MoveAvatarLayer(long id, int direction)
+    {
+        if (direction is not (-1 or 1)) throw new ArgumentOutOfRangeException(nameof(direction));
+        lock (gate)
+        {
+            using var c = Open();
+            var ordered = new List<(long Id, int SortOrder)>();
+            using (var query = c.CreateCommand())
+            {
+                query.CommandText = "SELECT id,sort_order FROM avatar_layers ORDER BY sort_order,id";
+                using var reader = query.ExecuteReader();
+                while (reader.Read()) ordered.Add((reader.GetInt64(0), reader.GetInt32(1)));
+            }
+
+            var index = ordered.FindIndex(layer => layer.Id == id);
+            if (index < 0) throw new KeyNotFoundException($"No existe la capa {id}.");
+            var neighbourIndex = index + direction;
+            if (neighbourIndex < 0 || neighbourIndex >= ordered.Count) return;
+
+            var current = ordered[index];
+            var neighbour = ordered[neighbourIndex];
+            using var transaction = c.BeginTransaction();
+            using var update = c.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = """
+                UPDATE avatar_layers
+                SET sort_order = CASE id
+                    WHEN $current_id THEN $neighbour_order
+                    WHEN $neighbour_id THEN $current_order
+                END
+                WHERE id IN ($current_id, $neighbour_id);
+                """;
+            update.Parameters.AddWithValue("$current_id", current.Id);
+            update.Parameters.AddWithValue("$neighbour_id", neighbour.Id);
+            update.Parameters.AddWithValue("$current_order", current.SortOrder);
+            update.Parameters.AddWithValue("$neighbour_order", neighbour.SortOrder);
+            update.ExecuteNonQuery();
+            transaction.Commit();
+        }
+        Log("Avatar", $"Orden de la capa {id} actualizado.");
     }
 
     public void DeleteAvatarLayer(long id)
     {
-        lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="DELETE FROM avatar_layers WHERE id=$id"; cmd.Parameters.AddWithValue("$id",id); cmd.ExecuteNonQuery(); }
-        Log("Avatar",$"Capa ID {id} eliminada del perfil.");
+        lock (gate)
+        {
+            using var c = Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "DELETE FROM avatar_layers WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.ExecuteNonQuery();
+        }
+        Log("Avatar", $"Capa ID {id} eliminada del perfil.");
     }
 
     public IReadOnlyList<AutomationRule> GetAutomationRules()

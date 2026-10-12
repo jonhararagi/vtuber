@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using VtuberBot.Core;
 
 namespace VtuberBot.App;
 
@@ -57,13 +58,42 @@ public sealed class AvatarOverlayWindow : Window
     public void SetLayers(IEnumerable<string> paths)
     {
         layerCanvas.Children.Clear();
-        foreach (var path in paths.Where(File.Exists))
-        {
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.UriSource = new Uri(Path.GetFullPath(path)); bitmap.DecodePixelWidth = 1000; bitmap.EndInit(); bitmap.Freeze();
-            layerCanvas.Children.Add(new Image { Source = bitmap, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch, IsHitTestVisible = false });
-        }
+        foreach (var path in paths.Where(File.Exists)) AddLayerImage(path, null);
         layerCanvas.Children.Add(alertCard);
+    }
+
+    public void SetAvatar(string basePath, IEnumerable<AvatarLayer> layers)
+    {
+        layerCanvas.Children.Clear();
+        if (File.Exists(basePath)) AddLayerImage(basePath, null);
+        foreach (var layer in layers.Where(layer => layer.Visible && File.Exists(layer.Path)).OrderBy(layer => layer.SortOrder))
+            AddLayerImage(layer.Path, layer);
+        layerCanvas.Children.Add(alertCard);
+    }
+
+    private void AddLayerImage(string path, AvatarLayer? layer)
+    {
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.UriSource = new Uri(Path.GetFullPath(path)); bitmap.DecodePixelWidth = 1000;
+        bitmap.EndInit(); bitmap.Freeze();
+        var image = new Image
+        {
+            Source = bitmap, Stretch = Stretch.Uniform,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            IsHitTestVisible = false
+        };
+        if (layer is not null)
+        {
+            image.RenderTransformOrigin = new Point(.5, .5);
+            var transform = new TransformGroup();
+            transform.Children.Add(new ScaleTransform(layer.Scale, layer.Scale));
+            transform.Children.Add(new RotateTransform(layer.RotationDegrees));
+            transform.Children.Add(new TranslateTransform(layer.OffsetX, layer.OffsetY));
+            image.RenderTransform = transform;
+        }
+        layerCanvas.Children.Add(image);
     }
 
     public void ShowAlert(string text)
