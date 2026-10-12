@@ -21,6 +21,16 @@ public static class TwitchIrcValidation
         return normalized;
     }
 
+    public static string NormalizeTargetChannel(string connectedChannel, string requestedChannel)
+    {
+        var connected = NormalizeChannelLogin(connectedChannel);
+        var requested = NormalizeChannelLogin(requestedChannel);
+        if (!string.Equals(connected, requested, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"La sesión IRC está conectada a #{connected}; desconectá y reconectá antes de enviar a #{requested}.");
+        return requested;
+    }
+
     public static string NormalizeOAuthToken(string token)
     {
         if (string.IsNullOrWhiteSpace(token))

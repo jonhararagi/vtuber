@@ -30,6 +30,16 @@ public sealed class TwitchIrcValidationTests
     public void OAuthPrefixIsRemovedWithoutChangingTokenContent(string input, string expected) =>
         Assert.Equal(expected, TwitchIrcValidation.NormalizeOAuthToken(input));
 
+    [Fact]
+    public void SendTargetMustMatchTheConnectedChannel()
+    {
+        Assert.Equal("channel_1", TwitchIrcValidation.NormalizeTargetChannel("#Channel_1", "channel_1"));
+        Assert.Throws<InvalidOperationException>(() =>
+            TwitchIrcValidation.NormalizeTargetChannel("streamer", "different_channel"));
+        Assert.Throws<ArgumentException>(() =>
+            TwitchIrcValidation.NormalizeTargetChannel("streamer", "target\r\nPRIVMSG #other :bad"));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("  ")]

@@ -617,3 +617,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Corrección:** se añadió `TwitchIrcValidation` en Core. El canal se normaliza a un login Twitch de 1–25 caracteres ASCII (letras, dígitos y guion bajo); el token retira el prefijo opcional `oauth:` y rechaza espacios/caracteres de control internos. El cliente valida antes de iniciar la sesión y antes de enviar mensajes.
 - **Pruebas:** canales válidos normalizados; espacios, caracteres no permitidos, longitud excesiva y saltos de línea rechazados; tokens válidos y payloads con espacios/controles cubiertos.
 - **Estado:** implementado en el siguiente HEAD; Windows CI pendiente. Las comprobaciones automáticas no sustituyen la validación global posterior con una cuenta real de Twitch.
+
+
+### 2026-10-12 — Envíos IRC ligados al canal conectado
+
+- **Hallazgo:** la UI pasa el destino desde un campo editable al enviar mensajes. Si ese campo cambiaba mientras la sesión seguía unida al canal anterior, el cliente podía publicar en un destino diferente al de la sesión que el usuario veía conectada.
+- **Corrección:** `TwitchChatClient` conserva el login asociado a la sesión y `TwitchIrcValidation.NormalizeTargetChannel` exige que el destino validado coincida con ese canal. Para cambiar de canal se debe desconectar y volver a conectar; los valores inválidos siguen siendo rechazados antes de escribir al socket.
+- **Pruebas:** destino normalizado equivalente aceptado; destino de otro canal y destino con salto de línea rechazados.
+- **Estado:** implementado en el HEAD posterior al cambio de validación IRC; Windows CI pendiente.

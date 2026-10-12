@@ -17,6 +17,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
     private StreamWriter? writer;
     private CancellationTokenSource? cancellation;
     private Task? supervisorTask;
+    private string? sessionChannel;
     private readonly SemaphoreSlim sendGate = new(1, 1);
 
     public event Action<string>? MessageReceived;
@@ -39,6 +40,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
         channel = TwitchIrcValidation.NormalizeChannelLogin(channel);
         var token = TwitchIrcValidation.NormalizeOAuthToken(oauthToken);
 
+        sessionChannel = channel;
         cancellation = CancellationTokenSource.CreateLinkedTokenSource(external);
         var firstConnection = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var tokenSource = cancellation;
@@ -66,7 +68,9 @@ public sealed class TwitchChatClient : IAsyncDisposable
         {
             if (!IsConnected || writer is null)
                 throw new InvalidOperationException("Twitch no está conectado; se reintentará automáticamente.");
-            var targetChannel = TwitchIrcValidation.NormalizeChannelLogin(channel);
+            var expectedChannel = sessionChannel
+                ?? throw new InvalidOperationException("No hay un canal vinculado a la sesión IRC actual.");
+            var targetChannel = TwitchIrcValidation.NormalizeTargetChannel(expectedChannel, channel);
             await writer.WriteLineAsync($"PRIVMSG #{targetChannel} :{safe}".AsMemory(), cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -282,6 +286,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
         tokenSource.Dispose();
         cancellation = null;
         supervisorTask = null;
+        sessionChannel = null;
         reader = null;
         writer = null;
         client = null;
