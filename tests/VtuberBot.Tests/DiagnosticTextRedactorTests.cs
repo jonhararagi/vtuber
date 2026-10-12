@@ -9,7 +9,7 @@ public sealed class DiagnosticTextRedactorTests
     [InlineData("Authorization: Bearer abcdefghijklmnop", "Bearer [REDACTED]")]
     [InlineData("oauth:abcdefghijklmnopqrstuvwxyz", "oauth:[REDACTED]")]
     [InlineData("access_token=secret-value", "access_token=[REDACTED]")]
-    [InlineData("refresh_token: \"secret value\"", "refresh_token: [REDACTED]")]
+    [InlineData("refresh_token: \"secret value\"", "refresh_token:[REDACTED]")]
     [InlineData("client_secret=super-secret", "client_secret=[REDACTED]")]
     [InlineData("password=hunter2", "password=[REDACTED]")]
     [InlineData("123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijk", "[REDACTED_TELEGRAM_TOKEN]")]

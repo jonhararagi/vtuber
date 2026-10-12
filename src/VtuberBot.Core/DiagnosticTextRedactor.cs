@@ -16,7 +16,7 @@ public static class DiagnosticTextRedactor
         TimeSpan.FromMilliseconds(100));
 
     private static readonly Regex SecretAssignment = new(
-        @"\b(access_token|refresh_token|client_secret|password|passwd|token|api[_-]?key)\s*([=:])\s*(\"[^\"]*\"|'[^']*'|[^\s&,;]+)",
+        @"\b(access_token|refresh_token|client_secret|password|passwd|token|api[_-]?key)\s*([=:])\s*(""[^""]*""|'[^']*'|[^\s&,;]+)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled,
         TimeSpan.FromMilliseconds(100));
 
