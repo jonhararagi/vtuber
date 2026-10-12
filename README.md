@@ -23,7 +23,7 @@ VTuberBot está pensado para ser un programa de escritorio completo para gestion
 
 ## Estructura actual
 
-La rama `product/complete-vtuber-experience` es el candidato de integración del producto. Incluye dashboard y navegación, capas de avatar/overlay, OAuth PKCE + chat IRC de Twitch, comandos con cooldown, puntos y ranking, sorteos, minijuegos locales, reglas de moderación en observación, mensajes programados, TTS/micrófono local, OBS WebSocket v5 para escenas, Telegram Web, SQLite y diagnóstico. Consultá la guía y la continuidad para las limitaciones pendientes. El PR #9 se conserva abierto y `main` no se modifica.
+La rama `product/complete-vtuber-experience` es el candidato de integración del producto. Incluye dashboard y navegación, editor de capas y sprites por expresión, overlay transparente, OAuth PKCE con validación/renovación, chat IRC/EventSub con reconexión, comandos con cooldown global o por usuario y previsualización segura, puntos y ranking, sorteos con selección criptográfica, minijuegos, moderación manual y reglas automáticas opcionales (desactivadas por defecto), timers persistentes, micrófono/VAD y TTS SAPI con selección de voz/velocidad/volumen, OBS WebSocket v5, Telegram Web, SQLite y diagnóstico. Las funciones dependientes de cuentas/credenciales requieren configuración real; el CI no equivale a validación con tu cuenta. Consultá la guía y la continuidad para las limitaciones pendientes. El PR #9 se conserva abierto y `main` no se modifica.
 
 ## Compilar y ejecutar en Windows
 

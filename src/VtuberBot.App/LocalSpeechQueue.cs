@@ -179,14 +179,19 @@ public sealed class LocalSpeechQueue : IDisposable
 
     public static IReadOnlyList<LocalSpeechVoice> GetInstalledVoices()
     {
-        Exception? failure = null;
-        IReadOnlyList<LocalSpeechVoice>? result = null;
-        using var finished = new ManualResetEventSlim(false);
+        var completion = new TaskCompletionSource<IReadOnlyList<LocalSpeechVoice>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
         {
-            try { result = SapiSession.EnumerateVoices(); }
-            catch (Exception exception) { failure = exception; }
-            finally { finished.Set(); }
+            try
+            {
+                completion.TrySetResult(SapiSession.EnumerateVoices());
+            }
+            catch (Exception exception)
+            {
+                completion.TrySetException(new InvalidOperationException(
+                    "No se pudieron enumerar las voces SAPI instaladas.", exception));
+            }
         })
         {
             IsBackground = true,
@@ -194,11 +199,17 @@ public sealed class LocalSpeechQueue : IDisposable
         };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        if (!finished.Wait(TimeSpan.FromSeconds(5)))
+
+        try
+        {
+            return completion.Task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+        }
+        catch (TimeoutException)
+        {
+            // The STA worker may still be cleaning up COM after a timeout; a TCS avoids
+            // disposing a wait handle that the worker could subsequently signal.
             throw new TimeoutException("La enumeración de voces de Windows superó los 5 segundos.");
-        if (failure is not null)
-            throw new InvalidOperationException("No se pudieron enumerar las voces SAPI instaladas.", failure);
-        return result ?? Array.Empty<LocalSpeechVoice>();
+        }
     }
 
     public bool Enqueue(string text, SpeechPriority priority = SpeechPriority.Normal, string? voiceId = null, int rate = 0, int volume = 100)

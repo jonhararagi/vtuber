@@ -322,3 +322,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - El editor ofrece Global o Por usuario y muestra el modo en la lista. El router bloquea las ejecuciones según el alcance configurado.
 - Prueba: mismo espectador bloqueado por su propio cooldown, otro espectador puede usar el comando y la marca sigue bloqueando al primero después de abrir otro ProductStore.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Revisión de calidad — timeout al enumerar voces SAPI
+- La enumeración de voces ahora completa un `TaskCompletionSource` desde su hilo STA y espera con un límite de cinco segundos. Si se vence, la UI recibe un timeout sin cerrar un wait handle que el hilo COM pudiera intentar señalar después.
+- La guía de comandos ahora diferencia cooldown global y por usuario, variables `{args}`/`{message}` y previsualización sin efectos laterales. README enumera con más precisión las funciones de la rama y aclara que el CI no valida una cuenta Twitch real.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este nuevo HEAD.
