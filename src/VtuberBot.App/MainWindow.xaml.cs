@@ -160,7 +160,7 @@ public partial class MainWindow : Window
         health.Children.Add(StatusRow("Avatar","",!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath)));
         health.Children.Add(StatusRow("Twitch",twitch.IsConnected?"Autenticado":"Requiere configuración",twitch.IsConnected));
         health.Children.Add(StatusRow("Micrófono",microphone is null?"No iniciado":"Capturando",microphone is not null));
-        health.Children.Add(StatusRow("OBS","Pendiente de comprobación",false));
+        health.Children.Add(StatusRow("OBS",obs.IsConnected?"Autenticado":"Requiere configuración",obs.IsConnected));
         Grid.SetColumn(health,1); lower.Children.Add(health); root.Children.Add(lower);
         root.Children.Add(Label("Los módulos locales funcionan sin cuentas externas. Una conexión externa nunca se marca como activa solo por guardar sus datos.",12,"#7F8AA5"));
         return root;

@@ -36,7 +36,7 @@
           <TextBlock Text="CREATOR STUDIO  •  LOCAL FIRST" FontSize="9" Foreground="#98A4BE" Margin="0,4,0,0"/>
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="8,12,8,8">
-          <TextBlock Text="{Binding ConnectionSummary}" Foreground="#98A4BE" TextWrapping="Wrap" Margin="0,0,0,10"/>
+          <TextBlock Text="Módulos locales · servicios externos opcionales" Foreground="#98A4BE" TextWrapping="Wrap" Margin="0,0,0,10"/>
           <Button Content="⚙  Ajustes" Tag="Ajustes" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
           <TextBlock Text="Producto integral · candidato de trabajo" FontSize="10" Foreground="#697692" TextWrapping="Wrap" Margin="0,8,0,0"/>
         </StackPanel>
