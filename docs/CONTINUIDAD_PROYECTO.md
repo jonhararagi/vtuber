@@ -996,3 +996,33 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Se agregó DiagnosticTextRedactor en Core y pruebas para credenciales Bearer/OAuth, access/refresh tokens, client secrets, contraseñas y token de bot de Telegram. El exportador redacta módulo y mensaje, evita revelar el path de perfil Windows y maneja errores de escritura.
 - El redactor falla de forma cerrada ante timeout de regex y no requiere red ni APIs pagas.
 - Estado: pendiente Windows CI del SHA exacto; la política está automatizada, pero no se afirma que se haya inspeccionado un paquete compartido por un usuario.
+
+
+## Corte verificado de cierre — 2026-10-12
+
+### Código y Windows CI
+
+- Rama: product/complete-vtuber-experience.
+- HEAD de código verificado: 86f93ceba9f74ecd9536921edd6001a32abae8df.
+- Windows CI #245: SUCCESS para el SHA exacto 86f93ceba9f74ecd9536921edd6001a32abae8df. Restore, Build Release, suite automatizada, publicación self-contained Windows x64 y carga del artefacto finalizaron correctamente.
+- Ejecución: https://github.com/jonhararagi/vtuber/actions/runs/38291215599
+- Artefacto de ese SHA: https://github.com/jonhararagi/vtuber/actions/runs/38291215599/artifacts/11767420010
+- Nombre: VTuberBot-Product-Candidate-win-x64-86f93ceba9f74ecd9536921edd6001a32abae8df.
+- Tamaño: 77,909,128 bytes. SHA-256 reportado por GitHub: d6422d4ccef798759bbb08755e0fc0197a151b340fb313dd5865404f8a97b3a1. Expira el 2026-10-26T18:31:20Z.
+- El commit de redacción de diagnósticos tuvo un CI intermedio fallido (#244) por sintaxis de cadena regular C#; la línea fue corregida y el SHA #245 compila y pasa la suite. No ocultar el fallo histórico, pero el candidato vigente es el SHA verde.
+
+### Cambios funcionales añadidos después de CI #241
+
+- AddPoints: el ledger guarda el cambio de saldo realmente aplicado, no el débito solicitado si el balance se limita a cero.
+- AddPoints: se rechazan créditos que superarían Int64.MaxValue y se valida el delta sin Math.Abs para evitar el caso especial de long.MinValue.
+- Diagnósticos: se añadió redacción en Core de Bearer/OAuth, access/refresh token, client secret, password, API key y token de bot de Telegram; la exportación evita mostrar el path completo de SQLite y maneja errores de escritura.
+- Tests SQLite y redactor agregados para los casos anteriores; CI #245 confirma restore/build/tests/publicación en Windows runner.
+- Artefacto generado por CI no ha sido ejecutado manualmente por el usuario en el PC objetivo. El digest es metadata del artefacto reportada por GitHub, no resultado de una descarga y verificación local independiente.
+
+### Estado de cierre honesto
+
+- Automáticamente probado en Windows CI: build Release, tests y publish/upload win-x64 del SHA #245.
+- Implementado sin validación externa: servicios Twitch/IRC/EventSub, OAuth con cuenta real, OBS WebSocket, micrófono y salida SAPI, WebView2/Telegram y overlay capturado por OBS.
+- Pendiente de una validación manual global: arranque/cierre en Windows, importación y overlay del avatar, captura de micrófono y voz local, configuración/autenticación de Twitch, comando/puntos/sorteo/minijuego, OBS, fallback Telegram y restauración de backup con datos de prueba.
+- No se modifica main ni se fusiona/cierra PR #9. La rama de producto permanece independiente.
+- Este documento es el corte verificado del SHA #245. El siguiente commit documental debe pasar su propio Windows CI antes de considerarse candidato de entrega.

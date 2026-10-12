@@ -177,3 +177,12 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - El exportador ya no incluye la ruta completa de SQLite (que puede revelar el nombre de usuario de Windows) y filtra el texto de actividad antes de escribirlo.
 - Se añadió una política Core sin dependencias WPF que redacta formatos comunes de Bearer/OAuth, assignments de tokens/secretos/password/API keys y tokens de bot de Telegram. Si el filtrado agota su límite de tiempo, omite el texto en vez de exportarlo sin filtrar.
 - La escritura del informe ahora presenta un error comprensible en lugar de dejar escapar una excepción de I/O desde el evento UI. Pendiente Windows CI.
+
+
+## Corte de cierre de producto — 2026-10-12 (CI #245)
+
+- Corregida la contabilidad del ledger cuando un débito de puntos excede el saldo: el ledger registra el importe realmente aplicado y no crea movimientos ficticios en saldo cero.
+- Añadida protección de overflow al acreditar puntos, con prueba de no-mutación del balance en el límite de Int64.
+- El diagnóstico exportado ahora redacta formatos comunes de credenciales, no exporta la ruta completa de SQLite y maneja fallos de escritura.
+- Evidencia del código: SHA `86f93ceba9f74ecd9536921edd6001a32abae8df`; Windows CI #245 SUCCESS (restore, build Release, tests, publicación self-contained win-x64 y upload de artefacto).
+- El producto está listo para la siguiente auditoría global integrada, no declarado terminado: faltan las pruebas manuales de una sola pasada en Windows y las validaciones con las cuentas/dispositivos reales.
