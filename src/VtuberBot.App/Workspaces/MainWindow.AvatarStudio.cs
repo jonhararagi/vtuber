@@ -389,6 +389,7 @@ public partial class MainWindow
             row.Children.Add(ActionButton("Quitar", (_, _) =>
             {
                 store.SetAvatarExpression(expressionName, null);
+                RefreshActiveAvatarOverlay();
                 store.Log("Avatar", "Sprite de expresión quitado: " + expressionName);
                 Navigate("Avatar Studio");
             }));
@@ -432,7 +433,7 @@ public partial class MainWindow
         try
         {
             _=LoadImage(dialog.FileName);
-            var destination=Path.Combine(avatarDirectory,$"avatar-{DateTime.UtcNow:yyyyMMdd-HHmmss}{extension}");
+            var destination=Path.Combine(avatarDirectory,$"avatar-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}{extension}");
             File.Copy(dialog.FileName,destination,false);avatarPath=destination;store.SetActiveAvatarProfileBasePath(destination);RefreshActiveAvatarOverlay();store.Log("Avatar",$"Asset importado: {Path.GetFileName(destination)}");
             Navigate("Avatar Studio");
         }
@@ -474,6 +475,7 @@ public partial class MainWindow
                 "expression-" + expressionName.ToLowerInvariant() + "-" + Guid.NewGuid().ToString("N") + extension);
             File.Copy(dialog.FileName, destination, false);
             store.SetAvatarExpression(expressionName, destination);
+            RefreshActiveAvatarOverlay();
             store.Log("Avatar", "Sprite de expresión importado: " + expressionName);
             Navigate("Avatar Studio");
         }

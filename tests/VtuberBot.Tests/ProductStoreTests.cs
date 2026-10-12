@@ -266,6 +266,56 @@ public sealed class ProductStoreTests
     }
 
     [Fact]
+    public void LegacyAvatarAssetLayersAndExpressionsMigrateIntoDefaultProfile()
+    {
+        using var temp = new TempDb();
+        Directory.CreateDirectory(Path.GetDirectoryName(temp.DatabasePath)!);
+        var legacyBase = Path.Combine(temp.DirectoryPath, "legacy-base.png");
+        var legacyLayer = Path.Combine(temp.DirectoryPath, "legacy-layer.png");
+        var legacyTalking = Path.Combine(temp.DirectoryPath, "legacy-talking.png");
+        foreach (var path in new[] { legacyBase, legacyLayer, legacyTalking })
+            File.WriteAllBytes(path, [1, 2, 3]);
+
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = temp.DatabasePath,
+            Pooling = false
+        }.ConnectionString))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE product_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                INSERT INTO product_settings(key,value) VALUES('avatar.path',$base);
+                INSERT INTO product_settings(key,value) VALUES('avatar.expression.Talking',$talking);
+                CREATE TABLE avatar_layers(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL,
+                    visible INTEGER NOT NULL DEFAULT 1);
+                INSERT INTO avatar_layers(name,path,sort_order,visible)
+                VALUES('Pelo heredado',$layer,0,1);
+                """;
+            command.Parameters.AddWithValue("$base", legacyBase);
+            command.Parameters.AddWithValue("$talking", legacyTalking);
+            command.Parameters.AddWithValue("$layer", legacyLayer);
+            command.ExecuteNonQuery();
+        }
+
+        var store = new ProductStore(temp.DatabasePath);
+        var active = store.GetActiveAvatarProfile();
+        Assert.Equal("Avatar principal", active.Name);
+        Assert.Equal(Path.GetFullPath(legacyBase), active.BasePath);
+        Assert.Collection(store.GetAvatarLayers(), layer =>
+        {
+            Assert.Equal("Pelo heredado", layer.Name);
+            Assert.Equal(Path.GetFullPath(legacyLayer), layer.Path);
+        });
+        Assert.Equal(Path.GetFullPath(legacyTalking), store.GetAvatarExpression("Talking"));
+    }
+
+    [Fact]
     public void AvatarProfilesIsolateBaseLayersAndExpressionsAcrossSwitches()
     {
         using var temp = new TempDb();

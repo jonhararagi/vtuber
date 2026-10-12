@@ -469,3 +469,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 ### Revisión estática de la implementación de perfiles
 - Se movió la lectura del ID de perfil activo antes de abrir la transacción de creación/eliminación para no ejecutar consultas auxiliares sin asociarlas a una transacción SQLite ya activa en Windows.
 - El CI del commit con la función completa sigue siendo la fuente de validación; esta corrección queda pendiente de su nueva ejecución.
+
+
+### Pruebas extra de perfiles y assets
+
+- Se añadió una prueba de migración desde el esquema antiguo de SQLite que solo tenía `avatar.path`, `avatar.expression.Talking` y `avatar_layers`. Verifica que la imagen base, las capas y el sprite se conserven en el perfil principal al abrir la base con la versión nueva.
+- Importar/cambiar/quitar un sprite de expresión ahora refresca también el overlay ya abierto, evitando que la previsualización y la salida de OBS diverjan hasta la próxima apertura.
+- La importación de la imagen base agrega un sufijo GUID para no fallar si se importan dos archivos durante el mismo segundo.
+- Estado: código actualizado; pendiente CI en el HEAD nuevo.
