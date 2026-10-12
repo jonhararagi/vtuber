@@ -96,9 +96,9 @@ public partial class MainWindow
         appPanel.Children.Add(appActions);
 
         var links = new WrapPanel();
-        links.Children.Add(ActionButton("Sitio oficial", (_, _) => OpenExternalUrl("https://pngtuber.cc/es/")));
-        links.Children.Add(ActionButton("Tutorial oficial / descarga", (_, _) => OpenExternalUrl("https://pngtuber.cc/es/")));
-        links.Children.Add(ActionButton("Código fuente público", (_, _) => OpenExternalUrl("https://github.com/kaiakairos/PNGTuber-Plus")));
+        links.Children.Add(ActionButton("Portal de descarga y guía (independiente)", (_, _) => OpenExternalUrl("https://pngtuber.cc/es/")));
+        links.Children.Add(ActionButton("Página del proyecto en GitHub", (_, _) => OpenExternalUrl("https://github.com/kaiakairos/PNGTuber-Plus")));
+        
         appPanel.Children.Add(links);
         appPanel.Children.Add(Label(
             "Elegí la carpeta de la versión que instalaste y seleccioná su ejecutable real. Si el paquete oficial incluye un archivo .pck o bibliotecas junto al .exe, mantenelos juntos: no muevas solo el ejecutable. El nombre y la estructura pueden variar según el paquete.",
@@ -173,7 +173,15 @@ No se importa ni se convierte automáticamente un archivo .vtuberavatar. Los dos
                 return;
             }
             var step = (PngtuberSetupStep)stepList.SelectedIndex;
-            var progress = setup.Confirm(step, confirmation.IsChecked == true);
+            var status = externalApplicationManager.GetStatus(pathField.Text);
+            if (step is PngtuberSetupStep.OpenApplication or PngtuberSetupStep.PrepareAvatar or
+                PngtuberSetupStep.TestMicrophone or PngtuberSetupStep.PrepareExpressions or PngtuberSetupStep.VerifyObs &&
+                status.State != ExternalApplicationState.Running)
+            {
+                FooterStatus.Text = "Antes de confirmar, abre PNGTuber Plus y comprueba que su proceso esté en ejecución. El proceso por sí solo no confirma este paso.";
+                return;
+            }
+            setup.Confirm(step, confirmation.IsChecked == true);
             FooterStatus.Text = "Confirmación manual guardada en SQLite.";
             RefreshWizard();
         }, true);
