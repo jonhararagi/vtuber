@@ -248,3 +248,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 ### Corrección de prueba — timers con datos semilla
 - La base de pruebas incluye el timer semilla `Bienvenida`; la prueba de persistencia identifica ahora el timer `Timer` por nombre en lugar de asumir que la tabla contiene solo una fila.
 - Estado: ajuste de test implementado; validar en Windows CI.
+
+
+## Estado de continuidad — ejecución retomada (12 de octubre de 2026)
+
+- **Rama de producto:** `product/complete-vtuber-experience`.
+- **Último commit de referencia confirmado con CI verde antes de esta mejora de UI:** `45f03622e71491882e5ae8bbc2c7c279cff73a6e`.
+- **Windows CI #140 / [run 38218540737](https://github.com/jonhararagi/vtuber/actions/runs/38218540737): SUCCESS** en ese SHA exacto: restore, build Release, tests, publish self-contained win-x64 y upload artifact.
+- Artefacto asociado a esa referencia: `VTuberBot-Product-Candidate-win-x64-45f03622e71491882e5ae8bbc2c7c279cff73a6e`; digest `sha256:884c0d6bce125af440870097b58e7c9627a4bf4b87efc1f7d4c33aded18007ad`; artifact ID `11733571463`; caduca `2026-10-26T07:36:14Z`.
+- Esta revisión añade eliminación persistida de mensajes programados, botón de limpieza del formulario y una prueba automatizada para borrar el timer y rechazar la repetición de una eliminación. **Pendiente validar CI en el nuevo HEAD.**
+- Mantener el PR de estabilización separado: no fusionarlo, no marcar V0.2.3 final y no iniciar V0.3 en esta tarea sin autorización explícita.

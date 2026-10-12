@@ -459,6 +459,20 @@ public sealed class ProductStore
         Log("Automatización",$"Mensaje programado '{name}' guardado.");
     }
 
+    public void DeleteAutomationRule(long id)
+    {
+        lock (gate)
+        {
+            using var c = Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "DELETE FROM automation_rules WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", id);
+            if (cmd.ExecuteNonQuery() == 0)
+                throw new KeyNotFoundException($"No existe la automatización {id}.");
+        }
+        Log("Automatización", $"Mensaje programado ID {id} eliminado.");
+    }
+
     public IReadOnlyList<ProductActivity> GetActivity(int limit=100)
     {
         lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="SELECT at_utc,module,message FROM product_activity ORDER BY id DESC LIMIT $limit"; cmd.Parameters.AddWithValue("$limit",Math.Clamp(limit,1,500)); using var r=cmd.ExecuteReader(); var list=new List<ProductActivity>(); while(r.Read()) list.Add(new(DateTimeOffset.Parse(r.GetString(0)),r.GetString(1),r.GetString(2))); return list; }

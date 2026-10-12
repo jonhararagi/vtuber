@@ -74,6 +74,11 @@ public sealed class ProductStoreTests
         Assert.Equal("Mensaje editado", edited.Message);
         Assert.Equal(15, edited.IntervalMinutes);
         Assert.Equal(sentAt, edited.LastRunUtc);
+
+        store.DeleteAutomationRule(automation.Id);
+        Assert.DoesNotContain(store.GetAutomationRules(), rule => rule.Id == automation.Id);
+        Assert.Throws<KeyNotFoundException>(() => store.DeleteAutomationRule(automation.Id));
+
         store.SaveModerationRule("URLs", "https?://", true, "flag");
         Assert.Contains(store.GetModerationRules(), r => r.Name == "URLs" && r.Enabled);
     }

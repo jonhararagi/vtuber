@@ -763,8 +763,30 @@ public partial class MainWindow : Window
         autoList.SelectionChanged+=(_,_)=>{if(autoList.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split('·')[0].Trim());var selected=store.GetAutomationRules().FirstOrDefault(a=>a.Id==selectedId);if(selected is null)return;editingAutomationId=selected.Id;autoName.Text=selected.Name;autoMessage.Text=selected.Message;autoInterval.Text=selected.IntervalMinutes.ToString();autoEnabled.IsChecked=selected.Enabled;}catch{}};
         auto.Children.Add(autoName);auto.Children.Add(autoMessage);auto.Children.Add(autoInterval);auto.Children.Add(autoEnabled);
         auto.Children.Add(ActionButton("Guardar mensaje automático",(_,_)=>{try{store.SaveAutomationRule(editingAutomationId,autoName.Text,autoMessage.Text,int.Parse(autoInterval.Text),autoEnabled.IsChecked==true);ReloadAuto();autoList.SelectedItem=null;editingAutomationId=null;autoName.Clear();autoMessage.Clear();autoInterval.Text="30";autoEnabled.IsChecked=false;}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
-        auto.Children.Add(ActionButton("Pausar / reactivar seleccionado",(_,_)=>{if(autoList.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split('·')[0].Trim());var selected=store.GetAutomationRules().FirstOrDefault(a=>a.Id==selectedId);if(selected is null)return;store.SaveAutomationRule(selected.Id,selected.Name,selected.Message,selected.IntervalMinutes,!selected.Enabled);ReloadAuto();}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));
-        auto.Children.Add(Label("Los mensajes programados solo se envían cuando Twitch está conectado; sin conexión, el intento se registra como omitido.",11,"#98A4BE"));
+        auto.Children.Add(ActionButton("Pausar / reactivar seleccionado",(_,_)=>{if(autoList.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split('·')[0].Trim());var selected=store.GetAutomationRules().FirstOrDefault(a=>a.Id==selectedId);if(selected is null)return;store.SaveAutomationRule(selected.Id,selected.Name,selected.Message,selected.IntervalMinutes,!selected.Enabled);ReloadAuto();autoList.SelectedItem=null;}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));
+        auto.Children.Add(ActionButton("Eliminar seleccionado",(_,_)=>
+        {
+            if(autoList.SelectedItem is not string selectedText)return;
+            if(MessageBox.Show(this,"¿Eliminar definitivamente este mensaje programado?","Confirmar eliminación",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
+            try
+            {
+                var selectedId=long.Parse(selectedText.Split('·')[0].Trim());
+                store.DeleteAutomationRule(selectedId);
+                automationLastRun.Remove(selectedId);
+                automationOfflineLog.Remove(selectedId);
+                ReloadAuto();
+                autoList.SelectedItem=null;
+                editingAutomationId=null;
+                autoName.Clear();
+                autoMessage.Clear();
+                autoInterval.Text="30";
+                autoEnabled.IsChecked=false;
+                FooterStatus.Text="Mensaje automático eliminado.";
+            }
+            catch(Exception ex){MessageBox.Show(this,ex.Message);}
+        }));
+        auto.Children.Add(ActionButton("Nuevo / limpiar formulario",(_,_)=>{autoList.SelectedItem=null;editingAutomationId=null;autoName.Clear();autoMessage.Clear();autoInterval.Text="30";autoEnabled.IsChecked=false;}));
+        auto.Children.Add(Label("Los mensajes programados solo se envían cuando Twitch está conectado; sin conexión, el intervalo no se consume. Podés seleccionar para editar, pausar/reactivar o eliminar. Solo se envía como máximo un mensaje automático por minuto.",11,"#98A4BE"));
         root.Children.Add(auto);return root;
     }
 
