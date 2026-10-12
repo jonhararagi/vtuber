@@ -43,6 +43,11 @@ public partial class MainWindow : Window
     private readonly Dictionary<long, DateTimeOffset> automationLastRun = [];
     private readonly Dictionary<long, DateTimeOffset> automationOfflineLog = [];
     private int automationProcessing;
+    private const int MaxPendingEventSubEvents = 200;
+    private const int MaxEventSubEventsPerUiBatch = 50;
+    private readonly BoundedQueue<(string Type, string Summary)> pendingEventSubEvents = new(MaxPendingEventSubEvents);
+    private int eventSubProcessorScheduled;
+    private int eventSubOverflowNotificationPending;
     private readonly Dictionary<string, DateTimeOffset> lastPointAward = new(StringComparer.OrdinalIgnoreCase);
     private DateTimeOffset lastPointAwardStorageWarning = DateTimeOffset.MinValue;
     private readonly Dictionary<string, DateTimeOffset> automaticModerationCooldown = new(StringComparer.OrdinalIgnoreCase);
@@ -73,6 +78,107 @@ public partial class MainWindow : Window
         "Inicio","Avatar Studio","Twitch y chat","Comandos","Comunidad y puntos","Sorteos",
         "Minijuegos","Moderación","Voz y audio","OBS","Telegram Web","Actividad y diagnóstico","Ajustes"
     ];
+
+    private void HandleEventSubEvent(string type, string summary)
+    {
+        if (!pendingEventSubEvents.TryEnqueue((type, summary)))
+        {
+            if (Interlocked.Exchange(ref eventSubOverflowNotificationPending, 1) == 0)
+            {
+                try
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                        store.Log("Twitch EventSub",
+                            "La cola alcanzó 200 eventos pendientes; se descartan nuevos eventos hasta que baje la carga.")));
+                }
+                catch (InvalidOperationException)
+                {
+                    Interlocked.Exchange(ref eventSubOverflowNotificationPending, 0);
+                }
+            }
+            return;
+        }
+
+        ScheduleEventSubEventProcessing();
+    }
+
+    private void ScheduleEventSubEventProcessing()
+    {
+        if (Interlocked.Exchange(ref eventSubProcessorScheduled, 1) != 0)
+            return;
+
+        try
+        {
+            Dispatcher.BeginInvoke(new Action(ProcessPendingEventSubEvents));
+        }
+        catch (InvalidOperationException)
+        {
+            Interlocked.Exchange(ref eventSubProcessorScheduled, 0);
+        }
+    }
+
+    private void ProcessPendingEventSubEvents()
+    {
+        try
+        {
+            var processed = 0;
+            while (processed < MaxEventSubEventsPerUiBatch &&
+                   pendingEventSubEvents.TryDequeue(out var pending))
+            {
+                try
+                {
+                    ProcessEventSubEvent(pending.Type, pending.Summary);
+                }
+                catch (Exception exception)
+                {
+                    store.Log("Twitch EventSub",
+                        "Falló el procesamiento de una notificación (" + exception.GetType().Name + ").");
+                    FooterStatus.Text = "No se pudo procesar una alerta de Twitch; revisá Actividad y diagnóstico.";
+                }
+
+                processed++;
+            }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref eventSubProcessorScheduled, 0);
+            if (pendingEventSubEvents.Count > 0)
+                ScheduleEventSubEventProcessing();
+            else
+                Interlocked.Exchange(ref eventSubOverflowNotificationPending, 0);
+        }
+    }
+
+    private void ProcessEventSubEvent(string type, string summary)
+    {
+        chatLines.Insert(0, "[EventSub] " + type + ": " + summary);
+        while (chatLines.Count > 200)
+            chatLines.RemoveAt(chatLines.Count - 1);
+        store.Log("Twitch EventSub", type + ": " + summary);
+
+        if (type is "subscription_error" or "revocation")
+            return;
+
+        if (store.GetSetting("twitch.speak_alerts", "false") == "true" &&
+            !EnqueueLocalSpeech("Alerta de Twitch. " + summary, SpeechPriority.High))
+        {
+            store.Log("Audio", "Alerta EventSub no encolada: la cola de voz está llena o cerrada.");
+        }
+
+        if (string.IsNullOrWhiteSpace(avatarPath) || !File.Exists(avatarPath))
+            return;
+
+        if (overlay is null || !overlay.IsVisible)
+            ShowOverlay();
+        overlay?.ShowAlert(type + ": " + summary);
+
+        if (store.GetSetting("twitch.avatar_reactions.enabled", "true") == "true")
+        {
+            var reactionState = AvatarReactionPolicy.GetTransientState(type);
+            if (reactionState is not null && overlay?.ShowReaction(reactionState) == true)
+                store.Log("Avatar", "Reacción temporal " + reactionState + " activada por el evento " + type + ".");
+        }
+    }
 
     public MainWindow(VtuberApplication application)
     {
@@ -112,32 +218,7 @@ public partial class MainWindow : Window
         eventSub.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         speechQueue.StatusChanged += (status, pending) => Dispatcher.BeginInvoke(new Action(() =>
             FooterStatus.Text = $"Voz local: {status} · pendientes: {pending}"));
-        eventSub.EventReceived += (type,summary) => Dispatcher.BeginInvoke(new Action(() =>
-        {
-            chatLines.Insert(0, "[EventSub] " + type + ": " + summary);
-            while (chatLines.Count > 200) chatLines.RemoveAt(chatLines.Count - 1);
-            store.Log("Twitch EventSub", type + ": " + summary);
-            if (type != "subscription_error" && type != "revocation")
-            {
-                if (store.GetSetting("twitch.speak_alerts", "false") == "true")
-                {
-                    if (!EnqueueLocalSpeech("Alerta de Twitch. " + summary, SpeechPriority.High))
-                        store.Log("Audio", "Alerta EventSub no encolada: la cola de voz está llena o cerrada.");
-                }
-                if (!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath))
-                {
-                    if (overlay is null || !overlay.IsVisible) ShowOverlay();
-                    overlay?.ShowAlert(type + ": " + summary);
-
-                    if (store.GetSetting("twitch.avatar_reactions.enabled", "true") == "true")
-                    {
-                        var reactionState = AvatarReactionPolicy.GetTransientState(type);
-                        if (reactionState is not null && overlay?.ShowReaction(reactionState) == true)
-                            store.Log("Avatar", "Reacción temporal " + reactionState + " activada por el evento " + type + ".");
-                    }
-                }
-            }
-        }));
+        eventSub.EventReceived += HandleEventSubEvent;
         obs.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         Closed += async (_, _) =>
         {

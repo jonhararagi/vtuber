@@ -719,3 +719,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Corrección:** se añadió `SafeEventDispatch` al Core para ejecutar cada suscriptor de un evento por separado. Las excepciones se registran en `Trace` por tipo, sin incluir contenido/token del evento; no se propagan al supervisor de transporte y no bloquean el resto de los suscriptores.
 - **Cobertura:** pruebas para eventos con uno y dos argumentos, fallo del primer suscriptor y eventos sin listeners.
 - **CI #206:** la prueba del simulador de permisos de comandos estaba pendiente de compilación/ejecución al registrar este trabajo. El cambio dispara una ejecución nueva; no declarar CI verde hasta que finalice.
+
+
+### 2026-10-12 — Cola EventSub acotada y despacho por lotes
+
+- **Hallazgo:** las notificaciones EventSub publicaban un callback Dispatcher por evento. Si el hilo UI quedaba ocupado o se producía una ráfaga de redenciones, las acciones pendientes podían acumularse sin límite antes de que el panel tuviera oportunidad de procesarlas.
+- **Corrección:** se añadió `BoundedQueue<T>`, FIFO thread-safe de capacidad fija, y el manejador EventSub ahora rechaza eventos nuevos cuando la cola alcanza 200 elementos. Un único callback programado procesa lotes de hasta 50 y vuelve a ceder el control al Dispatcher, preservando el orden y manteniendo responsiva la UI. La saturación se registra una vez hasta vaciar la cola.
+- **Pruebas:** orden FIFO, rechazo por capacidad, liberación tras limpiar, capacidad exacta con productores concurrentes y validación del constructor.
+- **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.
