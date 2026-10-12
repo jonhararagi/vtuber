@@ -422,3 +422,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - El desplazamiento solo se persiste al pulsar «Aplicar y guardar transformación». Se añadió «Restablecer posición y giro» para volver a X=0, Y=0, escala=1 y rotación=0 sin borrar la capa.
 - La salida overlay ya no reduce la opacidad del personaje entero para fingir un parpadeo. El parpadeo visual requiere un sprite Blink de ojos cerrados; se documentó ese requisito en la guía y README.
 - Estado de código: **IMPLEMENTADO; PENDIENTE DE CI** en el commit siguiente.
+
+
+### Organización de la interfaz y salud en vivo
+
+- Las áreas de trabajo están separadas en clases parciales bajo `src/VtuberBot.App/Workspaces/`: Dashboard, Avatar Studio, Twitch, Comunidad, Moderación, Audio, Integraciones, Diagnóstico y Ajustes. Conservan el mismo shell WPF y los servicios actuales; esto mejora la estructura sin introducir una migración MVVM en bloque.
+- El Dashboard lee el `HealthSnapshot` real del monitor Core y actualiza CPU del proceso y RAM residente cada dos segundos mientras esa página está visible. No se muestran valores GPU/FPS inventados; esas fuentes siguen declaradas no disponibles.
+- Los mensajes IRC recibidos se procesan secuencialmente por el dispatcher y con una cola acotada de 1000 elementos para evitar que varias ejecuciones de comandos/moderación se solapen mientras esperan llamadas de red. Si la carga excede el límite, se registra el descarte y no se permite crecimiento ilimitado.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el nuevo HEAD.
