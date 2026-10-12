@@ -108,3 +108,8 @@ La comprobación del ZIP de validación se amplió para fallar si aparecen nombr
 
 
 Corrección del 2026-10-12: la primera versión del filtro de archivos sensibles provocó un fallo de parseo del workflow antes de que comenzara un job. La expresión y el `if` de validación se restauraron; el nuevo SHA necesita Windows CI completo.
+
+
+## Persistencia versionada — 2026-10-12
+
+Se añadió `product_schema_meta` para registrar la versión del esquema de funciones del producto y rechazar bases marcadas por una versión futura. El marcador se escribe después de aplicar las migraciones idempotentes y compatibilidad legacy existentes. La prueba automatizada valida tanto el registro como el rechazo de un marcador futuro; requiere Windows CI del nuevo SHA.

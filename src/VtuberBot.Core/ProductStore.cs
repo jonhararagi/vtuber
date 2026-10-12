@@ -13,6 +13,7 @@ public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrde
 /// <summary>Persistence for product-level features. Uses the same local SQLite file as the core.</summary>
 public sealed class ProductStore
 {
+    public const int CurrentProductSchemaVersion = 1;
     public const int DefaultActivityRetention = 100_000;
     private const int ActivityPruneInterval = 5_000;
     private readonly string connectionString;
@@ -141,6 +142,56 @@ public sealed class ProductStore
         EnsureDefaultAvatarProfile(connection);
         SeedDefaults(connection);
         PruneActivityLog(connection, DefaultActivityRetention);
+        EnsureProductSchemaVersion(connection);
+    }
+
+    private static void EnsureProductSchemaVersion(SqliteConnection connection)
+    {
+        using (var create = connection.CreateCommand())
+        {
+            create.CommandText = """
+                CREATE TABLE IF NOT EXISTS product_schema_meta(
+                    id INTEGER PRIMARY KEY CHECK(id=1),
+                    version INTEGER NOT NULL,
+                    applied_utc TEXT NOT NULL);
+                """;
+            create.ExecuteNonQuery();
+        }
+
+        using var transaction = connection.BeginTransaction();
+        int? storedVersion;
+        using (var query = connection.CreateCommand())
+        {
+            query.Transaction = transaction;
+            query.CommandText = "SELECT version FROM product_schema_meta WHERE id=1";
+            var value = query.ExecuteScalar();
+            storedVersion = value is null or DBNull ? null : Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        if (storedVersion.HasValue && storedVersion.Value > CurrentProductSchemaVersion)
+            throw new InvalidDataException("La base de datos fue creada por una versión más nueva de VTuberBot y no se puede abrir con esta versión.");
+
+        if (!storedVersion.HasValue)
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO product_schema_meta(id,version,applied_utc) VALUES(1,$version,$now)";
+            insert.Parameters.AddWithValue("$version", CurrentProductSchemaVersion);
+            insert.Parameters.AddWithValue("$now", Now());
+            insert.ExecuteNonQuery();
+        }
+        else if (storedVersion.Value < CurrentProductSchemaVersion)
+        {
+            // Idempotent CREATE/EnsureColumn/legacy compatibility migrations run above this marker.
+            using var update = connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = "UPDATE product_schema_meta SET version=$version,applied_utc=$now WHERE id=1";
+            update.Parameters.AddWithValue("$version", CurrentProductSchemaVersion);
+            update.Parameters.AddWithValue("$now", Now());
+            update.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
     }
 
     private static void EnsureDefaultAvatarProfile(SqliteConnection connection)

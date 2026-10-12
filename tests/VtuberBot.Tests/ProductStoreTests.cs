@@ -576,4 +576,29 @@ public sealed class ProductStoreTests
         Assert.Contains("Saldo insuficiente", exception.Message);
         Assert.Equal(5, store.TouchUser("alice").Points);
     }
+
+    [Fact]
+    public void ProductSchemaVersionIsRecordedAndFutureVersionsAreRejected()
+    {
+        using var temp = new TempDb();
+        _ = new ProductStore(temp.DatabasePath);
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temp.DatabasePath }.ConnectionString))
+        {
+            connection.Open();
+            using var query = connection.CreateCommand();
+            query.CommandText = "SELECT version FROM product_schema_meta WHERE id=1";
+            Assert.Equal(ProductStore.CurrentProductSchemaVersion, Convert.ToInt32(query.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temp.DatabasePath }.ConnectionString))
+        {
+            connection.Open();
+            using var update = connection.CreateCommand();
+            update.CommandText = "UPDATE product_schema_meta SET version=$version WHERE id=1";
+            update.Parameters.AddWithValue("$version", ProductStore.CurrentProductSchemaVersion + 1);
+            update.ExecuteNonQuery();
+        }
+
+        Assert.Throws<InvalidDataException>(() => new ProductStore(temp.DatabasePath));
+    }
 }

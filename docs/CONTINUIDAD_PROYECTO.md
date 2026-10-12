@@ -855,6 +855,14 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La primera edición del filtro de archivos sensibles dejó una expresión PowerShell incompleta; el run #226 falló antes de crear un job, por lo que no llegó a compilar ni empaquetar.
 - El segundo y tercer intentos (runs #227 y #228) también terminaron antes de crear un job: la edición incremental dejó líneas sobrantes en el workflow. Se reconstruyó la sección desde el último archivo conocido bueno y se reemplazaron solo las dos líneas de validación. El nuevo SHA debe confirmar un job real y un SUCCESS completo.
 
+
+### Persistencia — marcador de versión del esquema de producto (2026-10-12)
+
+- `ProductStore` ahora registra la versión efectiva de su esquema en `product_schema_meta` después de las creaciones, `EnsureColumn`, normalizaciones legacy y semillas idempotentes.
+- La apertura rechaza explícitamente una base cuyo marcador indique una versión posterior a la aplicación, en lugar de intentar modificar silenciosamente datos creados por un build más nuevo.
+- Prueba añadida para verificar el marcador de versión y el rechazo de versiones futuras. Los respaldos anteriores siguen siendo compatibles: la tabla de metadatos se crea al abrir una base restaurada/antigua.
+- **Estado:** pendiente del Windows CI del SHA que contiene este cambio.
+
 ---
 
 # Corte consolidado de continuidad — 2026-10-12
