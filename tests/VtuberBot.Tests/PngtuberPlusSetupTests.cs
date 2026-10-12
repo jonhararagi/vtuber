@@ -62,7 +62,7 @@ public sealed class PngtuberPlusSetupTests
             "Proceso presente; conexión no verificada.", true);
 
         Assert.False(progress.AppOpenedConfirmed);
-        Assert.False(PngtuberPlusStepCompletion.IsComplete(1, progress, running));
+        Assert.False(PngtuberSetupStepCompletion.IsComplete(1, progress, running));
     }
 
     [Fact]
