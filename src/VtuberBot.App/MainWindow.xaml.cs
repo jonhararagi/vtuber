@@ -524,41 +524,77 @@ public partial class MainWindow : Window
     {
         Dispatcher.BeginInvoke(new Action(async () =>
         {
-            var sep=raw.IndexOf(" :",StringComparison.Ordinal);
-            var text=sep>=0?raw[(sep+2)..]:raw;
-            var prefixEnd=raw.IndexOf('!');
-            var username=raw.StartsWith(':')&&prefixEnd>1?raw[1..prefixEnd]:"viewer";
-            chatLines.Insert(0,username+": "+text);while(chatLines.Count>200)chatLines.RemoveAt(chatLines.Count-1);
-            store.Log("Twitch","Mensaje recibido de "+username+".");
-            foreach(var rule in store.GetModerationRules().Where(r=>r.Enabled))
+            if (!TwitchIrcMessage.TryParse(raw, out var parsed) || parsed is null ||
+                !string.Equals(parsed.Command, "PRIVMSG", StringComparison.OrdinalIgnoreCase) ||
+                parsed.Trailing is null)
             {
-                try{if(Regex.IsMatch(text,rule.Pattern,RegexOptions.IgnoreCase,TimeSpan.FromMilliseconds(100)))store.Log("Moderación","Coincidencia de regla "+rule.Name+" en mensaje de "+username+" (modo observación).");}
-                catch(RegexMatchTimeoutException){store.Log("Moderación","La regla "+rule.Name+" agotó el tiempo de análisis.");}
+                store.Log("Twitch", "Se ignoró una línea IRC que no era un PRIVMSG válido.");
+                return;
             }
-            if(Regex.IsMatch(username,"^[a-zA-Z0-9_]{1,25}$"))
+
+            var prefix = parsed.Prefix ?? string.Empty;
+            var bang = prefix.IndexOf('!');
+            var username = (bang > 0 ? prefix[..bang] : prefix).ToLowerInvariant();
+            if (!Regex.IsMatch(username, "^[a-zA-Z0-9_]{1,25}$"))
+                username = "viewer";
+            var text = parsed.Trailing;
+
+            chatLines.Insert(0, username + ": " + text);
+            while (chatLines.Count > 200) chatLines.RemoveAt(chatLines.Count - 1);
+            store.Log("Twitch", "Mensaje recibido de " + username + ".");
+
+            foreach (var rule in store.GetModerationRules().Where(rule => rule.Enabled))
             {
-                var now=DateTimeOffset.UtcNow;
-                if(!lastPointAward.TryGetValue(username,out var last)||now-last>=TimeSpan.FromMinutes(5))
+                try
                 {
-                    lastPointAward[username]=now;
-                    try{store.AddPoints(username,1,"Actividad de chat");}catch(Exception ex){store.Log("Comunidad","No se pudieron asignar puntos de actividad: "+ex.GetType().Name);}
+                    if (Regex.IsMatch(text, rule.Pattern, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(100)))
+                        store.Log("Moderación", "Coincidencia de regla " + rule.Name + " en mensaje de " + username + " (modo observación).");
+                }
+                catch (RegexMatchTimeoutException)
+                {
+                    store.Log("Moderación", "La regla " + rule.Name + " agotó el tiempo de análisis.");
                 }
             }
-            if(text.StartsWith('!'))
+
+            var now = DateTimeOffset.UtcNow;
+            if (!lastPointAward.TryGetValue(username, out var last) || now - last >= TimeSpan.FromMinutes(5))
             {
-                var command=text.Split(' ',StringSplitOptions.RemoveEmptyEntries)[0];
-                if(string.Equals(command,"!entrar",StringComparison.OrdinalIgnoreCase))
+                lastPointAward[username] = now;
+                try { store.AddPoints(username, 1, "Actividad de chat"); }
+                catch (Exception exception) { store.Log("Comunidad", "No se pudieron asignar puntos de actividad: " + exception.GetType().Name); }
+            }
+
+            if (!text.StartsWith('!'))
+                return;
+
+            var command = text.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+            if (string.Equals(command, "!entrar", StringComparison.OrdinalIgnoreCase))
+            {
+                var active = store.GetGiveaways().FirstOrDefault(giveaway => giveaway.Status == "OPEN");
+                var reply = active is not null && store.EnterGiveaway(active.Id, username)
+                    ? username + " ya estás anotado en el sorteo."
+                    : "No hay sorteo abierto o ya estabas anotado.";
+                try
                 {
-                    var active=store.GetGiveaways().FirstOrDefault(g=>g.Status=="OPEN");
-                    var reply=active is not null&&store.EnterGiveaway(active.Id,username)?username+" ya estás anotado en el sorteo.":"No hay sorteo abierto o ya estabas anotado.";
-                    try{if(twitch.IsConnected)await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),reply);}catch(Exception ex){FooterStatus.Text="No se pudo responder al chat: "+ex.Message;}
-                    return;
+                    if (twitch.IsConnected)
+                        await twitch.SendMessageAsync(store.GetSetting("twitch.channel"), reply);
                 }
-                var result=store.RunLocalCommand(command,username);
-                if(result.Success){try{await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),result.Message);}catch(Exception ex){FooterStatus.Text="Comando ejecutado localmente, respuesta no enviada: "+ex.Message;}}
+                catch (Exception exception)
+                {
+                    FooterStatus.Text = "No se pudo responder al chat: " + exception.Message;
+                }
+                return;
+            }
+
+            var result = store.RunLocalCommand(command, username);
+            if (result.Success)
+            {
+                try { await twitch.SendMessageAsync(store.GetSetting("twitch.channel"), result.Message); }
+                catch (Exception exception) { FooterStatus.Text = "Comando ejecutado localmente, respuesta no enviada: " + exception.Message; }
             }
         }));
     }
+
     private UIElement BuildCommandsPage()
     {
         var root=new StackPanel();var panel=Panel("Registro de comandos");root.Children.Add(panel);

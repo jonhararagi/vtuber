@@ -190,3 +190,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Se informa conectado solo después de la confirmación de registro/unión de Twitch. Un rechazo explícito de autenticación no queda en un bucle de reintentos: requiere volver a autorizar.
 - Los mensajes salientes comparten un semáforo con PONG y el cambio de sesión para evitar escrituras concurrentes al StreamWriter.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Trabajo adicional — parser correcto de mensajes IRC etiquetados
+
+- Se añadió `TwitchIrcMessage` en Core para separar tags IRCv3, prefix, comando, parámetros y mensaje final, incluida la decodificación de escapes de tags.
+- `HandleTwitchMessage` ahora obtiene el usuario desde el prefix y el texto desde el campo trailing de `PRIVMSG`, en lugar de interpretar mal el primer ` :` de un mensaje etiquetado.
+- Añadidas pruebas de mensajes `PRIVMSG` con badges/display-name/message ID, escapes IRCv3 y entradas malformadas.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
