@@ -486,7 +486,7 @@ public partial class MainWindow : Window
     private static TextBox TextField(string placeholder,string initial="")=>new(){Text=initial,ToolTip=placeholder,MinWidth=220};
     private static Button ActionButton(string text,RoutedEventHandler click,bool primary=false)
     {
-        var b=new Button{Content=text,Padding=new Thickness(14,9),Margin=new Thickness(0,0,8,8),Background=Brush(primary?"#176B85":"#252E46"),BorderBrush=Brush(primary?"#2886A3":"#34415E"),Foreground=Brush("#F8FAFC"),Cursor=System.Windows.Input.Cursors.Hand};b.Click+=click;return b;
+        var b=new Button{Content=text,Padding=new Thickness(14,9,14,9),Margin=new Thickness(0,0,8,8),Background=Brush(primary?"#176B85":"#252E46"),BorderBrush=Brush(primary?"#2886A3":"#34415E"),Foreground=Brush("#F8FAFC"),Cursor=System.Windows.Input.Cursors.Hand};b.Click+=click;return b;
     }
     private static StackPanel Panel(string title)
     {
