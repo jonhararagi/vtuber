@@ -400,3 +400,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - El cooldown por usuario/regla ahora se registra solo cuando la acción fue ejecutada correctamente; un fallo de API no bloquea el siguiente intento durante cinco minutos.
 - Se añadieron pruebas automáticas para opt-in global, usuarios protegidos, ID requerido para delete, cooldown, acciones soportadas y acción desconocida.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Diagnóstico de permisos de moderación
+
+- Los fallos HTTP al eliminar un mensaje ahora señalan el scope requerido `moderator:manage:chat_messages`; timeout/ban/desbanear señalan `moderator:manage:banned_users`.
+- Los errores al resolver la identidad ya no atribuyen automáticamente el fallo al scope de sanciones: informan validez del token, Client ID y posible revocación.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD de este cambio.
