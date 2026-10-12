@@ -86,7 +86,7 @@ public partial class MainWindow : Window
 
     private static readonly string[] Pages =
     [
-        "Inicio","Avatar Studio","Twitch y chat","Comandos","Comunidad y puntos","Sorteos",
+        "Inicio","Avatar Studio","Avatar externo","Twitch y chat","Comandos","Comunidad y puntos","Sorteos",
         "Minijuegos","Moderación","Voz y audio","OBS","Integraciones","Telegram Web","Actividad y diagnóstico","Ajustes"
     ];
 
@@ -330,6 +330,7 @@ public partial class MainWindow : Window
         {
             "Inicio" => "Todo lo importante del stream, en un solo lugar.",
             "Avatar Studio" => "Importá tu arte, prepará estados y controlá la salida transparente.",
+            "Avatar externo" => "Configura PNGTuber Plus, verifica los pasos de avatar y administra atajos locales.",
             "Twitch y chat" => "Conexión oficial por IRC/TLS; la cuenta solo aparece conectada tras autenticación real.",
             "Comandos" => "Un registro de comandos compartido entre pruebas locales y chat.",
             "Comunidad y puntos" => "Perfiles, puntos e historial persistidos en SQLite local.",
@@ -348,6 +349,7 @@ public partial class MainWindow : Window
         {
             "Inicio" => BuildDashboard(),
             "Avatar Studio" => BuildAvatarStudio(),
+            "Avatar externo" => BuildPngtuberWorkspace(),
             "Twitch y chat" => BuildTwitchPage(),
             "Comandos" => BuildCommandsPage(),
             "Comunidad y puntos" => BuildCommunityPage(),
