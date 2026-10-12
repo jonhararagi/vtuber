@@ -34,7 +34,8 @@ public partial class MainWindow
         config.Children.Add(password);
         var remoteWarning = Label(IsLoopbackHost(host.Text) ? "Host local. No se abrirán puertos ni se modificará el firewall." : "ADVERTENCIA: host remoto. WebSocket sin TLS no cifra el tráfico; usalo solo en una red confiable.", 12, "#E7B56A");
         config.Children.Add(remoteWarning);
-        var stateLabel = Label("Estado: " + streamerBot.Snapshot.State + " — " + streamerBot.Snapshot.Message, 12, "#E7B56A", true);
+        var configured = store.GetSetting("integrations.streamerBot.ws.configured", "false") == "true";
+        var stateLabel = Label(configured ? "Estado: Configurado, desconectado — conectá para comprobar el servidor." : "Estado: Sin configurar — guardá los ajustes y conectá para comprobar el servidor.", 12, "#E7B56A", true);
         var infoLabel = Label("Instancia: aún no identificada", 12, "#98A4BE");
         var errorLabel = Label("", 12, "#F2A6A6");
         config.Children.Add(stateLabel); config.Children.Add(infoLabel); config.Children.Add(errorLabel);
@@ -45,6 +46,7 @@ public partial class MainWindow
             store.SetSetting("integrations.streamerBot.ws.port", port.Text.Trim());
             store.SetSetting("integrations.streamerBot.ws.endpoint", endpoint.Text.Trim());
             store.SetSetting("integrations.streamerBot.ws.auth", auth.IsChecked == true ? "true" : "false");
+            store.SetSetting("integrations.streamerBot.ws.configured", "true");
             SaveStreamerBotPassword(password.Password);
             remoteWarning.Text = IsLoopbackHost(host.Text) ? "Host local. No se abren puertos ni se modifica el firewall." : "ADVERTENCIA: host remoto. ws:// no cifra el tráfico; verificá la red. No se abre ningún puerto.";
         }
