@@ -73,7 +73,7 @@ La página **Actividad y diagnóstico** muestra el registro local y permite expo
 
 ## Limitaciones pendientes conocidas
 
-- **Twitch/EventSub:** el cliente reconecta ante pérdidas y usa alertas visuales/TTS; sigue pendiente recuperar automáticamente suscripciones individuales revocadas, diseñar triggers avanzados y probar el ciclo completo con una cuenta real del broadcaster/moderador.
+- **Twitch/EventSub:** el cliente reconecta ante pérdidas y usa alertas visuales/TTS. Ante causas transitorias conocidas de red/servidor intenta recuperar una suscripción individual, con límite de un intento por tipo cada diez minutos; revocaciones por autorización, rol de moderador, usuario inexistente o versión retirada requieren la acción indicada en el diagnóstico. Siguen pendientes triggers avanzados y probar el ciclo completo con una cuenta real del broadcaster/moderador.
 - **Avatar:** la composición de sprites, las capas transformables, los sprites por estado y el parpadeo ligero ya existen. Sigue pendiente el rig 2.5D con pivotes/parentado, física por huesos, deformación, seguimiento facial y lip-sync por fonemas/visemas.
 - **Audio/voz:** el medidor de señal y detector acústico con umbral/retención, la cola TTS con prioridad y la cancelación de la frase activa están implementados. Sigue pendiente reconocimiento de habla (STT), enrutamiento avanzado y lip-sync real; la voz disponible depende de los motores SAPI instalados en Windows.
 - **Moderación:** timeout/ban/borrado manual con confirmación y acciones automáticas opt-in por regla existen. Sigue pendiente un simulador/prueba segura de reglas con vista previa sobre mensajes de ejemplo, auditoría más detallada y validación end-to-end de scopes/permisos en un canal real.
