@@ -287,9 +287,11 @@ public partial class MainWindow : Window
     {
         var dialog=new SaveFileDialog{Filter="CSV|*.csv",FileName="vtuberbot-ranking.csv"};if(dialog.ShowDialog(this)!=true)return;
         var lines=new List<string>{"usuario,puntos,ultima_actividad"};
-        lines.AddRange(store.GetLeaderboard(200).Select(u=>$"\"{u.Username.Replace("\"",""\"\"")}\",{u.Points},\"{u.LastSeen:O}\""));
+        lines.AddRange(store.GetLeaderboard(200).Select(u => Csv(u.Username) + "," + u.Points + "," + Csv(u.LastSeen.ToString("O"))));
         File.WriteAllLines(dialog.FileName,lines,new UTF8Encoding(true));store.Log("Comunidad","Ranking exportado a CSV.");
     }
+
+    private static string Csv(string value) => "\"" + value.Replace("\"", "\"\"") + "\"";
 
     private UIElement BuildGiveawaysPage()
     {
