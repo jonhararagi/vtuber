@@ -127,7 +127,8 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 
 - **PENDIENTE:** reconexión automática de EventSub, recuperación de suscripciones revocadas, estilos/plantillas configurables de alertas y más tipos de eventos.
 - **PENDIENTE:** rig 2.5D avanzado con pivotes/huesos/física, expresiones faciales basadas en assets y lip-sync real por fonemas/visemas.
-- **PENDIENTE:** VAD de habla distinto del medidor de amplitud, cola de voz priorizada y enrutamiento avanzado de audio.
+- **IMPLEMENTADO EN CÓDIGO:** detector local de actividad acústica con suavizado, umbral y retención configurable; alimenta el estado Talking/Idle del overlay. No es reconocimiento de habla.
+- **PENDIENTE:** cola de voz priorizada, enrutamiento avanzado de audio y lip-sync por fonemas/visemas.
 - **PENDIENTE:** acciones remotas de moderación (borrado/sanción) con permisos y confirmaciones; hoy solo se registran coincidencias en modo observación.
 - **PENDIENTE:** editor de transformaciones por capa (posición/escala/rotación), orden manual de capas y presets por expresión; los timers ya permiten crear, editar y pausar/reactivar mensajes.
 - **PENDIENTE:** validación manual global en el Windows del usuario. El CI no valida dispositivos de audio, OAuth real con su cuenta, runtime de WebView2 ni su instalación local de OBS/Twitch.
@@ -137,3 +138,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 1. Repetir CI y generar el artefacto después de las correcciones de guía/metadata para que el paquete coincida con el HEAD final.
 2. Crear un único PR de producto contra `v0.2.3/stabilization-gate`, dejando PR #9 abierto y sin modificar ni fusionar `main`.
 3. Entregar un único candidato para validación global; pedir una sola prueba integral al usuario, no pruebas por cada corrección.
+
+
+### Trabajo adicional — actividad acústica del micrófono
+
+- Se añadió `VoiceActivityDetector` en Core, sin dependencias externas, con suavizado, umbral configurable y retención para evitar parpadeo.
+- La página Voz y audio aplica el detector a muestras reales del micrófono y actualiza el cue Talking/Idle del overlay. Se distingue explícitamente de reconocimiento de voz y del lip-sync por fonemas.
+- Se añadieron pruebas automáticas de activación, retención, liberación, suavizado y validación de parámetros.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD de esta actualización.

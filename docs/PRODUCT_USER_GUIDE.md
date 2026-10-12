@@ -41,10 +41,11 @@ Los mensajes del chat comparten el registro local de comandos; la actividad otor
 
 ## Voz y audio
 
-- Seleccioná un dispositivo de entrada e iniciá la medición para ver la amplitud de audio real.
-- La medición es un indicador de nivel/actividad acústica, no reconocimiento semántico de voz.
+- Seleccioná el micrófono disponible e iniciá la captura real.
+- Ajustá el umbral acústico y el tiempo de retención para que el estado Talking no parpadee por pequeñas pausas.
+- El detector local suaviza el nivel de señal y activa el cue Talking del overlay; no reconoce palabras ni equivale a lip-sync por fonemas.
 - **Hablar** usa las voces locales instaladas mediante Windows SAPI. No necesita una API de IA remota.
-- La cola avanzada de voz y el lip-sync facial por fonemas no forman parte de esta primera integración.
+- La cola avanzada de voz, prioridades de reproducción y lip-sync facial por fonemas todavía no forman parte de esta integración.
 
 ## OBS WebSocket
 

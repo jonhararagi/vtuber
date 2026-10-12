@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private AvatarOverlayWindow? overlay;
     private string? avatarPath;
     private WaveInEvent? microphone;
+    private readonly VoiceActivityDetector voiceActivity = new(thresholdPercent: 8, releaseHold: TimeSpan.FromMilliseconds(350), smoothingFactor: 0.35);
     private WebView2? telegramView;
     private readonly ObservableCollection<string> chatLines = [];
     private readonly DispatcherTimer automationTimer = new() { Interval = TimeSpan.FromMinutes(1) };
@@ -65,7 +66,7 @@ public partial class MainWindow : Window
         Closed += async (_, _) =>
         {
             automationTimer.Stop();
-            microphone?.StopRecording(); microphone?.Dispose();
+            StopMicrophone();
             if (overlay is not null) overlay.Close();
             await twitch.DisposeAsync();
             await obs.DisposeAsync();
@@ -545,16 +546,143 @@ public partial class MainWindow : Window
 
     private UIElement BuildAudioPage()
     {
-        var root=new StackPanel();var panel=Panel("Micrófono y voz local");root.Children.Add(panel);
-        var devices=new ComboBox{ItemsSource=Enumerable.Range(0,WaveIn.DeviceCount).Select(i=>{var caps=WaveIn.GetCapabilities(i);return $"{i}: {caps.ProductName}";}).ToList(),SelectedIndex=WaveIn.DeviceCount>0?0:-1};
-        panel.Children.Add(Label("Dispositivo de entrada",12,"#98A4BE"));panel.Children.Add(devices);
-        var meter=new ProgressBar{Minimum=0,Maximum=100,Height=16,Margin=new Thickness(0,8,0,12)};var meterLabel=Label("Nivel de entrada: N/D",12,"#98A4BE");panel.Children.Add(meter);panel.Children.Add(meterLabel);
-        panel.Children.Add(ActionButton("Iniciar medición real",(_,_)=>{try{microphone?.StopRecording();microphone?.Dispose();if(WaveIn.DeviceCount==0){FooterStatus.Text="No hay micrófonos disponibles.";return;}microphone=new WaveInEvent{DeviceNumber=Math.Max(0,devices.SelectedIndex),WaveFormat=new WaveFormat(16000,16,1),BufferMilliseconds=50};microphone.DataAvailable+=(_,e)=>{double sum=0;for(int i=0;i<e.BytesRecorded-1;i+=2){short sample=BitConverter.ToInt16(e.Buffer,i);sum+=(double)sample*sample;}var rms=e.BytesRecorded>0?Math.Sqrt(sum/(e.BytesRecorded/2))/32768:0;var value=Math.Clamp(rms*450,0,100);Dispatcher.BeginInvoke(()=>{meter.Value=value;meterLabel.Text=$"Nivel de entrada: {value:0}% {(value>8?"· voz/sonido detectado":"· silencio/ambiente")}";});};microphone.RecordingStopped+=(_,_)=>Dispatcher.BeginInvoke(()=>{meterLabel.Text="Captura detenida.";});microphone.StartRecording();store.Log("Audio","Medición de micrófono iniciada.");}catch(Exception ex){FooterStatus.Text=$"Micrófono: {ex.Message}";MessageBox.Show(this,ex.Message);}},true));
-        panel.Children.Add(ActionButton("Detener medición",(_,_)=>{microphone?.StopRecording();microphone?.Dispose();microphone=null;}));
-        var speech=TextField("Texto para sintetizar en voz local");speech.Text="Hola, chat. ¡Gracias por acompañarme!";
-        panel.Children.Add(Label("Síntesis de voz Windows (SAPI)",14,"#F8FAFC",true));panel.Children.Add(speech);
-        panel.Children.Add(ActionButton("Hablar",(_,_)=>{try{SpeakLocal(speech.Text);store.Log("Audio","Prueba TTS local solicitada.");}catch(Exception ex){MessageBox.Show(this,$"El motor de voz local no está disponible: {ex.Message}");}},true));
-        root.Children.Add(Label("El medidor lee muestras del dispositivo seleccionado. El indicador es nivel de señal, no reconocimiento semántico de voz. TTS usa las voces instaladas en Windows.",12,"#98A4BE"));return root;
+        var root = new StackPanel();
+        var panel = Panel("Micrófono, detección de voz y TTS local");
+        root.Children.Add(panel);
+
+        var devices = new ComboBox
+        {
+            ItemsSource = Enumerable.Range(0, WaveIn.DeviceCount).Select(i => $"{i}: {WaveIn.GetCapabilities(i).ProductName}").ToList(),
+            SelectedIndex = WaveIn.DeviceCount > 0 ? 0 : -1
+        };
+        panel.Children.Add(Label("Dispositivo de entrada", 12, "#98A4BE"));
+        panel.Children.Add(devices);
+        var meter = new ProgressBar { Minimum = 0, Maximum = 100, Height = 16, Margin = new Thickness(0, 8, 0, 12) };
+        var meterLabel = Label("Nivel de entrada: N/D", 12, "#98A4BE");
+        panel.Children.Add(meter);
+        panel.Children.Add(meterLabel);
+
+        var thresholdSlider = new Slider { Minimum = 2, Maximum = 30, Value = voiceActivity.ThresholdPercent, TickFrequency = 1 };
+        var thresholdLabel = Label($"Umbral de actividad: {voiceActivity.ThresholdPercent:0}%", 12, "#98A4BE");
+        thresholdSlider.ValueChanged += (_, _) =>
+        {
+            voiceActivity.SetThreshold(thresholdSlider.Value);
+            thresholdLabel.Text = $"Umbral de actividad: {voiceActivity.ThresholdPercent:0}%";
+        };
+        panel.Children.Add(thresholdLabel);
+        panel.Children.Add(thresholdSlider);
+
+        var holdSlider = new Slider { Minimum = 100, Maximum = 1200, Value = voiceActivity.ReleaseHold.TotalMilliseconds, TickFrequency = 50 };
+        var holdLabel = Label($"Retención para evitar parpadeo: {voiceActivity.ReleaseHold.TotalMilliseconds:0} ms", 12, "#98A4BE");
+        holdSlider.ValueChanged += (_, _) =>
+        {
+            voiceActivity.SetReleaseHold(TimeSpan.FromMilliseconds(holdSlider.Value));
+            holdLabel.Text = $"Retención para evitar parpadeo: {voiceActivity.ReleaseHold.TotalMilliseconds:0} ms";
+        };
+        panel.Children.Add(holdLabel);
+        panel.Children.Add(holdSlider);
+
+        panel.Children.Add(ActionButton("Iniciar micrófono y detección", (_, _) =>
+        {
+            try
+            {
+                StopMicrophone();
+                if (WaveIn.DeviceCount == 0)
+                {
+                    FooterStatus.Text = "No hay micrófonos disponibles.";
+                    return;
+                }
+
+                voiceActivity.Reset();
+                microphone = new WaveInEvent
+                {
+                    DeviceNumber = Math.Max(0, devices.SelectedIndex),
+                    WaveFormat = new WaveFormat(16000, 16, 1),
+                    BufferMilliseconds = 50
+                };
+                microphone.DataAvailable += (_, e) =>
+                {
+                    double sum = 0;
+                    for (var i = 0; i < e.BytesRecorded - 1; i += 2)
+                    {
+                        short sample = BitConverter.ToInt16(e.Buffer, i);
+                        sum += (double)sample * sample;
+                    }
+                    var rms = e.BytesRecorded > 0 ? Math.Sqrt(sum / (e.BytesRecorded / 2)) / 32768 : 0;
+                    var rawLevel = Math.Clamp(rms * 450, 0, 100);
+                    VoiceActivitySnapshot snapshot;
+                    try { snapshot = voiceActivity.Process(rawLevel, DateTimeOffset.UtcNow); }
+                    catch (ArgumentOutOfRangeException) { return; }
+
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        meter.Value = snapshot.SmoothedLevelPercent;
+                        meterLabel.Text = $"Nivel de entrada: {snapshot.SmoothedLevelPercent:0}% · " +
+                            (snapshot.IsActive ? "actividad acústica detectada" : "silencio / debajo del umbral");
+                        if (!snapshot.StateChanged) return;
+
+                        var state = snapshot.IsActive ? "Talking" : "Idle";
+                        store.SetSetting("avatar.state", state);
+                        overlay?.SetState(state);
+                        FooterStatus.Text = snapshot.IsActive
+                            ? "Actividad acústica detectada; el overlay activa su estado Talking."
+                            : "Actividad acústica finalizada; el overlay vuelve a Idle.";
+                        store.Log("Audio", snapshot.IsActive
+                            ? "Señal de entrada por encima del umbral; cue Talking activado."
+                            : "Señal de entrada por debajo del umbral durante el tiempo de retención; cue Idle activado.");
+                    }));
+                };
+                microphone.RecordingStopped += (_, _) => Dispatcher.BeginInvoke(new Action(() =>
+                    meterLabel.Text = "Captura detenida."));
+                microphone.StartRecording();
+                store.Log("Audio", "Micrófono real y detección acústica iniciados.");
+                FooterStatus.Text = "Micrófono activo. Ajustá umbral y retención para tu ambiente.";
+            }
+            catch (Exception ex)
+            {
+                FooterStatus.Text = $"Micrófono: {ex.Message}";
+                MessageBox.Show(this, ex.Message);
+            }
+        }, true));
+
+        panel.Children.Add(ActionButton("Detener micrófono", (_, _) =>
+        {
+            StopMicrophone();
+            voiceActivity.Reset();
+            meter.Value = 0;
+            meterLabel.Text = "Captura detenida.";
+            FooterStatus.Text = "Micrófono detenido; cue de avatar restablecido.";
+        }));
+
+        var speech = TextField("Texto para sintetizar en voz local");
+        speech.Text = "Hola, chat. ¡Gracias por acompañarme!";
+        panel.Children.Add(Label("Síntesis de voz de Windows (SAPI)", 14, "#F8FAFC", true));
+        panel.Children.Add(speech);
+        panel.Children.Add(ActionButton("Hablar", (_, _) =>
+        {
+            try
+            {
+                SpeakLocal(speech.Text);
+                store.Log("Audio", "Prueba de TTS local solicitada.");
+            }
+            catch (Exception ex) { MessageBox.Show(this, $"El motor de voz local no está disponible: {ex.Message}"); }
+        }, true));
+        root.Children.Add(Label("La detección usa nivel acústico, suavizado y un tiempo de retención configurable; no es reconocimiento semántico ni lip-sync por fonemas. Al superar el umbral, el overlay cambia a Talking; al bajar sostenidamente, vuelve a Idle. TTS utiliza las voces instaladas en Windows.", 12, "#98A4BE"));
+        return root;
+    }
+
+    private void StopMicrophone()
+    {
+        var capture = microphone;
+        microphone = null;
+        try { capture?.StopRecording(); } catch (InvalidOperationException) { }
+        try { capture?.Dispose(); } catch (InvalidOperationException) { }
+        if (voiceActivity.IsActive)
+        {
+            voiceActivity.Reset();
+            store.SetSetting("avatar.state", "Idle");
+            overlay?.SetState("Idle");
+        }
     }
 
     private static void SpeakLocal(string text)
