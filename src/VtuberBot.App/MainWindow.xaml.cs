@@ -349,7 +349,17 @@ public partial class MainWindow : Window
         panel.Children.Add(ActionButton("Guardar regla",(_,_)=>{try{store.SaveModerationRule(name.Text,pattern.Text,enabled.IsChecked==true,action.SelectedItem?.ToString()??"flag");Reload();}catch(Exception ex){MessageBox.Show(this,$"Regla inválida: {ex.Message}");}},true));
         var test=TextField("Texto para analizar");panel.Children.Add(Label("Probar un mensaje (solo observación, no borra ni sanciona)",13,"#F8FAFC",true));panel.Children.Add(test);
         panel.Children.Add(ActionButton("Analizar mensaje",(_,_)=>{var matches=new List<string>();foreach(var r in store.GetModerationRules().Where(x=>x.Enabled)){try{if(Regex.IsMatch(test.Text,r.Pattern,RegexOptions.IgnoreCase,TimeSpan.FromMilliseconds(100)))matches.Add($"{r.Name} ({r.Action})");}catch(RegexMatchTimeoutException){matches.Add($"{r.Name} — tiempo agotado");}}var message=matches.Count==0?"No se detectaron coincidencias.": "Coincidencias: "+string.Join(", ",matches);store.Log("Moderación",message);MessageBox.Show(this,message,"Diagnóstico de moderación");}));
-        root.Children.Add(Label("Las reglas se evalúan en modo observación. No se ejecutan acciones punitivas remotas automáticamente.",12,"#98A4BE"));return root;
+        root.Children.Add(Label("Las reglas se evalúan en modo observación. No se ejecutan acciones punitivas remotas automáticamente.",12,"#98A4BE"));
+        var auto=Panel("Mensajes automáticos programados");auto.Margin=new Thickness(0,12,0,0);
+        var autoList=new ListBox{Height=130};
+        void ReloadAuto(){autoList.ItemsSource=store.GetAutomationRules().Select(a=>string.Format("{0} · {1} · cada {2} min · {3}",a.Id,a.Name,a.IntervalMinutes,a.Enabled?"activo":"pausado")).ToList();}
+        ReloadAuto();auto.Children.Add(autoList);
+        var autoName=TextField("Nombre del timer");var autoMessage=TextField("Mensaje programado");var autoInterval=TextField("Intervalo en minutos (mín. 5)");autoInterval.Text="30";
+        var autoEnabled=new CheckBox{Content="Activar al guardar",IsChecked=false,Foreground=Brush("#F8FAFC"),Margin=new Thickness(0,0,0,8)};
+        auto.Children.Add(autoName);auto.Children.Add(autoMessage);auto.Children.Add(autoInterval);auto.Children.Add(autoEnabled);
+        auto.Children.Add(ActionButton("Guardar mensaje automático",(_,_)=>{try{store.SaveAutomationRule(null,autoName.Text,autoMessage.Text,int.Parse(autoInterval.Text),autoEnabled.IsChecked==true);ReloadAuto();}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
+        auto.Children.Add(Label("Los mensajes programados solo se envían cuando Twitch está conectado; sin conexión, el intento se registra como omitido.",11,"#98A4BE"));
+        root.Children.Add(auto);return root;
     }
 
     private async Task ProcessAutomationsAsync()

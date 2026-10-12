@@ -23,6 +23,7 @@ public sealed class ProductStoreTests
         Assert.Contains("Hola PruebaUser", result.Message);
         Assert.Contains("0 puntos", result.Message);
         Assert.Contains(store.GetCommands(), c => c.Name == "saludo" && c.CooldownSeconds == 2);
+        Assert.False(store.RunLocalCommand("!saludo", "PruebaUser").Success);
     }
 
     [Fact]

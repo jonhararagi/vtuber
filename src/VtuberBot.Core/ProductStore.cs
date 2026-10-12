@@ -25,7 +25,7 @@ public sealed class ProductStore
             CREATE TABLE IF NOT EXISTS product_commands(
               id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL COLLATE NOCASE UNIQUE,
               response TEXT NOT NULL, cooldown_seconds INTEGER NOT NULL DEFAULT 0,
-              enabled INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL);
+              enabled INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, last_used_utc TEXT NULL);
             CREATE TABLE IF NOT EXISTS community_users(
               username TEXT PRIMARY KEY COLLATE NOCASE, points INTEGER NOT NULL DEFAULT 0,
               first_seen_utc TEXT NOT NULL, last_seen_utc TEXT NOT NULL);
@@ -55,9 +55,18 @@ public sealed class ProductStore
             CREATE INDEX IF NOT EXISTS idx_activity_time ON product_activity(id DESC);
             """;
         command.ExecuteNonQuery();
+        EnsureColumn(connection, "product_commands", "last_used_utc", "TEXT NULL");
         SeedDefaults(connection);
     }
 
+    private static void EnsureColumn(SqliteConnection connection, string table, string column, string definition)
+    {
+        using var check = connection.CreateCommand(); check.CommandText = "PRAGMA table_info(" + table + ")";
+        using var reader = check.ExecuteReader();
+        while (reader.Read()) if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase)) return;
+        reader.Close(); using var alter = connection.CreateCommand();
+        alter.CommandText = "ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition; alter.ExecuteNonQuery();
+    }
     private SqliteConnection Open()
     {
         var connection = new SqliteConnection(connectionString);
@@ -131,19 +140,25 @@ public sealed class ProductStore
         lock (gate)
         {
             using var c = Open(); using var cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT response FROM product_commands WHERE name=$name COLLATE NOCASE AND enabled=1";
+            cmd.CommandText = "SELECT id,response,cooldown_seconds,last_used_utc FROM product_commands WHERE name=$name COLLATE NOCASE AND enabled=1";
             cmd.Parameters.AddWithValue("$name", name.Trim().TrimStart('!'));
-            var response = cmd.ExecuteScalar() as string;
-            if (response is null) return CommandResult.Failed("Comando no encontrado o desactivado.");
+            using var reader = cmd.ExecuteReader();
+            if (!reader.Read()) return CommandResult.Failed("Comando no encontrado o desactivado.");
+            var id = reader.GetInt64(0); var response = reader.GetString(1); var cooldown = reader.GetInt32(2);
+            DateTimeOffset? lastUsed = reader.IsDBNull(3) ? null : DateTimeOffset.Parse(reader.GetString(3));
+            reader.Close();
+            var now = DateTimeOffset.UtcNow;
+            if (lastUsed is not null && now - lastUsed.Value < TimeSpan.FromSeconds(cooldown))
+                return CommandResult.Failed("Comando en cooldown; esperá " + Math.Ceiling((TimeSpan.FromSeconds(cooldown) - (now - lastUsed.Value)).TotalSeconds).ToString("0") + " s.");
+            using (var update = c.CreateCommand()) { update.CommandText = "UPDATE product_commands SET last_used_utc=$now WHERE id=$id"; update.Parameters.AddWithValue("$now", now.ToString("O")); update.Parameters.AddWithValue("$id", id); update.ExecuteNonQuery(); }
             var user = GetOrCreateUser(c, username);
-            var text = response.Replace("{user}", username, StringComparison.OrdinalIgnoreCase)
+            var output = response.Replace("{user}", username, StringComparison.OrdinalIgnoreCase)
                 .Replace("{points}", user.Points.ToString(), StringComparison.OrdinalIgnoreCase)
                 .Replace("{roll}", Random.Shared.Next(1, 7).ToString(), StringComparison.OrdinalIgnoreCase);
-            Log("Comandos", $"Prueba local !{name.TrimStart('!')} ejecutada por {username}.");
-            return CommandResult.Succeeded(text);
+            Log("Comandos", "Comando !" + name.TrimStart('!') + " ejecutado por " + username + ".");
+            return CommandResult.Succeeded(output);
         }
     }
-
     public CommunityUser TouchUser(string username)
     {
         ValidateUsername(username);
