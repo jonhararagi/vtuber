@@ -53,7 +53,9 @@ public sealed class ProductStore
             CREATE TABLE IF NOT EXISTS product_activity(
               id INTEGER PRIMARY KEY AUTOINCREMENT, at_utc TEXT NOT NULL, module TEXT NOT NULL, message TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS avatar_layers(
-              id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, path TEXT NOT NULL,\n              sort_order INTEGER NOT NULL, visible INTEGER NOT NULL DEFAULT 1);\n            CREATE TABLE IF NOT EXISTS product_settings(
+              id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, path TEXT NOT NULL,
+              sort_order INTEGER NOT NULL, visible INTEGER NOT NULL DEFAULT 1);
+            CREATE TABLE IF NOT EXISTS product_settings(
               key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS idx_activity_time ON product_activity(id DESC);
             """;
