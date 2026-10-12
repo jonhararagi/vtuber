@@ -138,6 +138,13 @@ public partial class MainWindow : Window
     {
         dashboardMetricsTimer?.Stop();
         currentPage = Pages.Contains(page, StringComparer.Ordinal) ? page : "Inicio";
+        foreach (var navigationButton in NavigationPanel.Children.OfType<Button>())
+        {
+            var selected = string.Equals(navigationButton.Tag as string, currentPage, StringComparison.Ordinal);
+            navigationButton.Background = Brush(selected ? "#173A4A" : "#161D2E");
+            navigationButton.BorderBrush = Brush(selected ? "#2B879E" : "#29334D");
+            navigationButton.Foreground = Brush(selected ? "#8DE6F8" : "#D8DEEE");
+        }
         PageTitle.Text = currentPage;
         PageSubtitle.Text = currentPage switch
         {

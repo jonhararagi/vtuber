@@ -2,7 +2,7 @@
 
 VTuberBot está pensado para ser un programa de escritorio completo para gestionar avatar, audio, Twitch, comandos, comunidad, sorteos, minijuegos, moderación, automatizaciones, OBS, Telegram Web y diagnóstico desde una experiencia visual coherente.
 
-**Objetivo de diseño:** una aplicación moderna con Dashboard y espacios de trabajo reales. No se considera terminado por mostrar estado RUNNING o por compilar.
+**Objetivo de diseño:** una aplicación moderna con Dashboard y espacios de trabajo reales, controles con estados visuales consistentes y una navegación que marca la sección activa. No se considera terminado por mostrar estado RUNNING o por compilar.
 
 ## Especificación del producto
 

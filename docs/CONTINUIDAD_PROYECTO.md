@@ -439,4 +439,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La apuesta válida es 0–10.000 puntos. Cero activa práctica gratuita. Una ronda con apuesta real primero comprueba saldo suficiente y después ejecuta débito, premio, ledger e historial dentro de una misma transacción SQLite. No puede dejar puntos negativos ni cobrar una apuesta sin registrar resultado.
 - Pagos: moneda/dado y rojo/negro pagan 2× apuesta total; verde (0) en ruleta paga 36×; perder paga cero. El histórico registra elección, salida, apuesta, pago, neto y saldo.
 - Añadidas pruebas de reglas de cada juego, elecciones inválidas, rangos, práctica gratuita, liquidación del saldo y saldo insuficiente.
-- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el commit siguiente.
+- **CI Windows #166 SUCCESS**: 173/173 pruebas aprobadas, Build Release y publicación self-contained Windows x64 correctos. Artefacto ID `11749431177`, digest `sha256:d8b33fda5ece6335ab7a1671ff097f08bbd590484c2715d245217d5a397b7070`; run [38252396469](https://github.com/jonhararagi/vtuber/actions/runs/38252396469).
+
+
+### Pulido visual del shell WPF
+
+- Botones con esquinas redondeadas, hover/pressed/focus/disabled visibles; campos de texto con borde redondeado y foco cian; selección de elementos de lista con contraste consistente.
+- La navegación lateral resalta la página actual en cian/azul y conserva el resto en superficies oscuras, ayudando a distinguir la sección activa.
+- Estado de código: **IMPLEMENTADO; PENDIENTE DE CI** en el commit siguiente.
