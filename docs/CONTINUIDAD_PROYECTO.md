@@ -492,3 +492,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 
 - La exportación ahora rechaza perfiles cuyos assets sumados superan 250 MB, antes de copiar el asset que excedería el límite; mantiene un máximo de 25 MB por imagen.
 - Esta limitación evita que un perfil con muchas copias/repeticiones llene el disco durante la compresión. Pendiente de CI en este HEAD.
+
+
+### Trabajo adicional — deduplicación de eventos EventSub
+
+- Se añadió `EventNotificationDeduplicator` en Core con una ventana acotada de 10.000 IDs, thread-safe y compartida por la instancia EventSub incluso cuando cambia de WebSocket.
+- Las notificaciones duplicadas con el mismo `metadata.message_id` se descartan antes de invocar alertas/voz/log de evento; un mensaje sin ID se procesa porque no hay una clave estable para deduplicar.
+- Añadidas pruebas de duplicados, IDs distintos, capacidad acotada, IDs evictados y concurrencia.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.

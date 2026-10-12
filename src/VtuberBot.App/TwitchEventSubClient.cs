@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using VtuberBot.Core;
 
 namespace VtuberBot.App;
 
@@ -14,6 +15,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
     private CancellationTokenSource? cancellation;
     private Task? receiveTask;
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private readonly EventNotificationDeduplicator notificationDeduplicator = new(capacity: 10_000);
     public bool IsConnected { get; private set; }
     public event Action<string>? StatusChanged;
     public event Action<string, string>? EventReceived;
@@ -188,6 +190,15 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                     {
                         var subscriptionType = metadata.TryGetProperty("subscription_type", out var typeElement)
                             ? typeElement.GetString() ?? "event" : "event";
+                        var messageId = metadata.TryGetProperty("message_id", out var messageIdElement)
+                            ? messageIdElement.GetString()
+                            : null;
+                        if (!notificationDeduplicator.TryAccept(messageId))
+                        {
+                            StatusChanged?.Invoke("Notificación EventSub duplicada ignorada: " + subscriptionType + ".");
+                            continue;
+                        }
+
                         var eventPayload = root.GetProperty("payload").GetProperty("event");
                         EventReceived?.Invoke(subscriptionType, SummarizeEvent(subscriptionType, eventPayload));
                         StatusChanged?.Invoke("Evento Twitch recibido: " + subscriptionType);
