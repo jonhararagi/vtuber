@@ -727,3 +727,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Corrección:** se añadió `BoundedQueue<T>`, FIFO thread-safe de capacidad fija, y el manejador EventSub ahora rechaza eventos nuevos cuando la cola alcanza 200 elementos. Un único callback programado procesa lotes de hasta 50 y vuelve a ceder el control al Dispatcher, preservando el orden y manteniendo responsiva la UI. La saturación se registra una vez hasta vaciar la cola.
 - **Pruebas:** orden FIFO, rechazo por capacidad, liberación tras limpiar, capacidad exacta con productores concurrentes y validación del constructor.
 - **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.
+
+
+### 2026-10-12 — Retención del registro de actividad SQLite
+
+- **Hallazgo:** `product_activity` recibía una fila por cada mensaje de chat y por otros eventos, pero nunca eliminaba entradas antiguas. Un bot de larga duración podía hacer crecer el archivo SQLite sin límite.
+- **Corrección:** se conservan los 100.000 eventos más recientes; se hace una poda al iniciar `ProductStore` y después cada 5.000 escrituras. La API permite una poda explícita acotada para mantenimiento.
+- **Integridad:** solo se podan filas de `product_activity`. Saldos/ledger, participantes e historial de sorteos, sesiones de minijuegos, comandos y reglas permanecen en sus tablas y no se ven afectados.
+- **Pruebas:** conserva los tres eventos más recientes en una poda pequeña, verifica que los puntos y un sorteo sigan intactos, y rechaza límites inválidos.
+- **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.

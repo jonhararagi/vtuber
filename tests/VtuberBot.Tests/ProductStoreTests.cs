@@ -14,6 +14,29 @@ public sealed class ProductStoreTests
     }
 
     [Fact]
+    public void ActivityLogCanBePrunedWithoutDeletingTransactionalHistory()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        for (var index = 0; index < 8; index++)
+            store.Log("test", "activity-" + index);
+
+        store.AddPoints("alice", 42, "initial balance");
+        var raffle = store.CreateGiveaway("keep raffle history");
+        Assert.True(store.EnterGiveaway(raffle, "alice"));
+
+        var deleted = store.PruneActivityLog(3);
+
+        Assert.Equal(8, deleted);
+        var remaining = store.GetActivity(20).Select(item => item.Message).ToArray();
+        Assert.Equal(new[] { "activity-7", "activity-6", "activity-5" }, remaining);
+        Assert.Equal(42, Assert.Single(store.GetLeaderboard(), user => user.Username == "alice").Points);
+        Assert.Equal("OPEN", Assert.Single(store.GetGiveaways(), item => item.Id == raffle).Status);
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.PruneActivityLog(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.PruneActivityLog(ProductStore.DefaultActivityRetention + 1));
+    }
+
+    [Fact]
     public void CommandsPersistAndRunLocally()
     {
         using var temp = new TempDb();

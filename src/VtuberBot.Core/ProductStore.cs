@@ -13,8 +13,11 @@ public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrde
 /// <summary>Persistence for product-level features. Uses the same local SQLite file as the core.</summary>
 public sealed class ProductStore
 {
+    public const int DefaultActivityRetention = 100_000;
+    private const int ActivityPruneInterval = 5_000;
     private readonly string connectionString;
     private readonly object gate = new();
+    private int activityWritesSincePrune;
 
     private static readonly IReadOnlyDictionary<string, string[]> RequiredBackupColumns =
         new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
@@ -137,6 +140,7 @@ public sealed class ProductStore
         EnsureColumn(connection, "avatar_layers", "profile_id", "INTEGER NOT NULL DEFAULT 1");
         EnsureDefaultAvatarProfile(connection);
         SeedDefaults(connection);
+        PruneActivityLog(connection, DefaultActivityRetention);
     }
 
     private static void EnsureDefaultAvatarProfile(SqliteConnection connection)
@@ -1687,9 +1691,57 @@ public sealed class ProductStore
         lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="SELECT at_utc,module,message FROM product_activity ORDER BY id DESC LIMIT $limit"; cmd.Parameters.AddWithValue("$limit",Math.Clamp(limit,1,500)); using var r=cmd.ExecuteReader(); var list=new List<ProductActivity>(); while(r.Read()) list.Add(new(DateTimeOffset.Parse(r.GetString(0)),r.GetString(1),r.GetString(2))); return list; }
     }
 
-    public void Log(string module,string message)
+    public void Log(string module, string message)
     {
-        lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="INSERT INTO product_activity(at_utc,module,message) VALUES($at,$module,$message)"; cmd.Parameters.AddWithValue("$at",Now()); cmd.Parameters.AddWithValue("$module",module); cmd.Parameters.AddWithValue("$message",message); cmd.ExecuteNonQuery(); }
+        lock (gate)
+        {
+            using var connection = Open();
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "INSERT INTO product_activity(at_utc,module,message) VALUES($at,$module,$message)";
+                command.Parameters.AddWithValue("$at", Now());
+                command.Parameters.AddWithValue("$module", module ?? string.Empty);
+                command.Parameters.AddWithValue("$message", message ?? string.Empty);
+                command.ExecuteNonQuery();
+            }
+
+            activityWritesSincePrune++;
+            if (activityWritesSincePrune >= ActivityPruneInterval)
+            {
+                activityWritesSincePrune = 0;
+                PruneActivityLog(connection, DefaultActivityRetention);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Retains the newest activity records used by the UI diagnostics. Transactional ledgers,
+    /// user balances, giveaway history, and game sessions are stored in separate tables.
+    /// </summary>
+    public int PruneActivityLog(int keepEntries = DefaultActivityRetention)
+    {
+        if (keepEntries is < 1 or > DefaultActivityRetention)
+            throw new ArgumentOutOfRangeException(nameof(keepEntries),
+                $"La retención debe estar entre 1 y {DefaultActivityRetention} eventos.");
+
+        lock (gate)
+        {
+            using var connection = Open();
+            return PruneActivityLog(connection, keepEntries);
+        }
+    }
+
+    private static int PruneActivityLog(SqliteConnection connection, int keepEntries)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            DELETE FROM product_activity
+            WHERE id NOT IN (
+                SELECT id FROM product_activity ORDER BY id DESC LIMIT $keep
+            )
+            """;
+        command.Parameters.AddWithValue("$keep", keepEntries);
+        return command.ExecuteNonQuery();
     }
 
     public string GetSetting(string key,string fallback="")
