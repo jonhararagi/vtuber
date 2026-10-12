@@ -174,8 +174,8 @@ No se importa ni se convierte automáticamente un archivo .vtuberavatar. Los dos
             }
             var step = (PngtuberSetupStep)stepList.SelectedIndex;
             var status = externalApplicationManager.GetStatus(pathField.Text);
-            if (step is PngtuberSetupStep.OpenApplication or PngtuberSetupStep.PrepareAvatar or
-                PngtuberSetupStep.TestMicrophone or PngtuberSetupStep.PrepareExpressions or PngtuberSetupStep.VerifyObs &&
+            if ((step is PngtuberSetupStep.OpenApplication or PngtuberSetupStep.PrepareAvatar or
+                PngtuberSetupStep.TestMicrophone or PngtuberSetupStep.PrepareExpressions or PngtuberSetupStep.VerifyObs) &&
                 status.State != ExternalApplicationState.Running)
             {
                 FooterStatus.Text = "Antes de confirmar, abre PNGTuber Plus y comprueba que su proceso esté en ejecución. El proceso por sí solo no confirma este paso.";
