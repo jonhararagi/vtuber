@@ -551,3 +551,15 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Los estados de fallo del lado cliente (`websocket_disconnected`, `websocket_failed_ping_pong`, `websocket_received_inbound_traffic`, `websocket_connection_unused`) no se reintentan de manera aislada para no ocultar un problema de sesión/código.
 - Añadidas pruebas de la decisión de recuperación permitida/no permitida por estado.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el nuevo HEAD.
+
+
+### 2026-10-12 — Reintento de Twitch IRC tras fallo terminal
+
+- **HEAD previo comprobado:** `bf9e3d6a83b917adc98ef19345fe7bb704c1e1ba` (`feat: recover transiently revoked EventSub subscriptions`).
+- **Windows CI #183:** SUCCESS en el SHA anterior; [ejecución 38259057769](https://github.com/jonhararagi/vtuber/actions/runs/38259057769). Restauración, Build Release, pruebas automatizadas y paquete self-contained Windows x64 terminaron correctamente.
+- **Hallazgo:** Twitch IRC ya disponía de supervisor y backoff para cortes transitorios, pero un fallo terminal posterior a la conexión (por ejemplo, rechazo definitivo de autenticación) dejaba la tarea supervisora completada mientras la referencia de sesión seguía ocupada. Un nuevo intento desde la UI podía ser rechazado como si la conexión aún estuviera activa.
+- **Cambio implementado:** `src/VtuberBot.App/TwitchChatClient.cs` ahora limpia esa sesión ya terminada antes de iniciar una nueva conexión. Si el supervisor sigue activo, se mantiene el bloqueo contra sesiones duplicadas.
+- **UI corregida:** `src/VtuberBot.App/Workspaces/MainWindow.Twitch.cs` ya no afirma que IRC requiere reconexión manual tras un corte; explica los reintentos automáticos y distingue un token rechazado que necesita reautorización.
+- **Commits de código/UI:** [975458f](https://github.com/jonhararagi/vtuber/commit/975458f5945d776b05f18716e55ec5c4e319f563), [4430cff](https://github.com/jonhararagi/vtuber/commit/4430cff77e3a6dc103197279dbbadaf50b3d27f0).
+- **Estado:** IMPLEMENTADO EN CÓDIGO; CI del HEAD posterior pendiente. No se afirma reconexión validada contra una cuenta real de Twitch.
+- **Siguiente paso:** comprobar el CI del HEAD actual, corregir cualquier regresión y seguir con el próximo hueco funcional del producto sin solicitar validación manual intermedia.
