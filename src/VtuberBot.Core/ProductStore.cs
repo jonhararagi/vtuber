@@ -746,13 +746,136 @@ public sealed class ProductStore
         lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="SELECT g.id,g.name,g.status,g.winner,COUNT(e.username) FROM giveaways g LEFT JOIN giveaway_entries e ON e.giveaway_id=g.id GROUP BY g.id ORDER BY g.id DESC"; using var r=cmd.ExecuteReader(); var list=new List<GiveawayRecord>(); while(r.Read()) list.Add(new(r.GetInt64(0),r.GetString(1),r.GetString(2),r.IsDBNull(3)?null:r.GetString(3),r.GetInt32(4))); return list; }
     }
 
-    public string PlayGame(string game, string username, int stake)
+    public string PlayGame(string game, string username, int stake) =>
+        PlayGame(game, username, stake, MiniGameEngine.GetChoices(game)[0]);
+
+    /// <summary>
+    /// Plays a selected game and settles the stake/payout in one SQLite transaction.
+    /// A zero stake is a free practice round.
+    /// </summary>
+    public string PlayGame(string game, string username, int stake, string choice)
     {
-        ValidateUsername(username); if(stake<0||stake>10000) throw new ArgumentOutOfRangeException(nameof(stake));
-        var won=Random.Shared.Next(0,2)==1; var reward=won?Math.Max(1,stake):0; var result=won?"Victoria":"Derrota";
-        lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="INSERT INTO game_sessions(game,username,result,reward,created_utc) VALUES($g,$u,$r,$p,$n)"; cmd.Parameters.AddWithValue("$g",game); cmd.Parameters.AddWithValue("$u",username); cmd.Parameters.AddWithValue("$r",result); cmd.Parameters.AddWithValue("$p",reward); cmd.Parameters.AddWithValue("$n",Now()); cmd.ExecuteNonQuery(); }
-        if(reward>0) AddPoints(username,reward,$"Recompensa minijuego {game}");
-        Log("Minijuegos",$"{username}: {game} — {result}; recompensa {reward}."); return $"{result}. Recompensa: {reward} puntos.";
+        ValidateUsername(username);
+        if (stake is < 0 or > 10000)
+            throw new ArgumentOutOfRangeException(nameof(stake), "La apuesta debe estar entre 0 y 10.000 puntos; 0 es práctica gratuita.");
+
+        var round = MiniGameEngine.Roll(game, choice);
+        var payout = checked(stake * round.PayoutMultiplier);
+        var now = Now();
+        long finalBalance;
+
+        lock (gate)
+        {
+            using var c = Open();
+            using var tx = c.BeginTransaction();
+
+            using (var ensureUser = c.CreateCommand())
+            {
+                ensureUser.Transaction = tx;
+                ensureUser.CommandText = """
+                    INSERT INTO community_users(username,points,first_seen_utc,last_seen_utc)
+                    VALUES($u,0,$now,$now)
+                    ON CONFLICT(username) DO UPDATE SET last_seen_utc=excluded.last_seen_utc
+                    """;
+                ensureUser.Parameters.AddWithValue("$u", username.Trim());
+                ensureUser.Parameters.AddWithValue("$now", now);
+                ensureUser.ExecuteNonQuery();
+            }
+
+            long currentBalance;
+            using (var queryBalance = c.CreateCommand())
+            {
+                queryBalance.Transaction = tx;
+                queryBalance.CommandText = "SELECT points FROM community_users WHERE username=$u";
+                queryBalance.Parameters.AddWithValue("$u", username.Trim());
+                currentBalance = Convert.ToInt64(queryBalance.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            if (currentBalance < stake)
+                throw new InvalidOperationException($"Saldo insuficiente: {currentBalance} puntos disponibles, pero la apuesta es de {stake}. No se modificó el saldo.");
+
+            if (stake > 0)
+            {
+                using (var debit = c.CreateCommand())
+                {
+                    debit.Transaction = tx;
+                    debit.CommandText = """
+                        UPDATE community_users
+                        SET points=points-$stake,last_seen_utc=$now
+                        WHERE username=$u AND points >= $stake
+                        """;
+                    debit.Parameters.AddWithValue("$stake", stake);
+                    debit.Parameters.AddWithValue("$now", now);
+                    debit.Parameters.AddWithValue("$u", username.Trim());
+                    if (debit.ExecuteNonQuery() != 1)
+                        throw new InvalidOperationException("El saldo cambió durante la apuesta; no se completó la ronda.");
+                }
+
+                using var debitLedger = c.CreateCommand();
+                debitLedger.Transaction = tx;
+                debitLedger.CommandText = "INSERT INTO point_ledger(username,delta,reason,created_utc) VALUES($u,$delta,$reason,$now)";
+                debitLedger.Parameters.AddWithValue("$u", username.Trim());
+                debitLedger.Parameters.AddWithValue("$delta", -stake);
+                debitLedger.Parameters.AddWithValue("$reason", "Apuesta minijuego: " + round.Game);
+                debitLedger.Parameters.AddWithValue("$now", now);
+                debitLedger.ExecuteNonQuery();
+            }
+
+            if (payout > 0)
+            {
+                using (var credit = c.CreateCommand())
+                {
+                    credit.Transaction = tx;
+                    credit.CommandText = "UPDATE community_users SET points=points+$payout,last_seen_utc=$now WHERE username=$u";
+                    credit.Parameters.AddWithValue("$payout", payout);
+                    credit.Parameters.AddWithValue("$now", now);
+                    credit.Parameters.AddWithValue("$u", username.Trim());
+                    if (credit.ExecuteNonQuery() != 1)
+                        throw new InvalidOperationException("No se pudo acreditar el premio; la transacción se canceló.");
+                }
+
+                using var payoutLedger = c.CreateCommand();
+                payoutLedger.Transaction = tx;
+                payoutLedger.CommandText = "INSERT INTO point_ledger(username,delta,reason,created_utc) VALUES($u,$delta,$reason,$now)";
+                payoutLedger.Parameters.AddWithValue("$u", username.Trim());
+                payoutLedger.Parameters.AddWithValue("$delta", payout);
+                payoutLedger.Parameters.AddWithValue("$reason", "Premio minijuego: " + round.Game);
+                payoutLedger.Parameters.AddWithValue("$now", now);
+                payoutLedger.ExecuteNonQuery();
+            }
+
+            var resultName = round.Won ? "Victoria" : "Derrota";
+            using (var session = c.CreateCommand())
+            {
+                session.Transaction = tx;
+                session.CommandText = "INSERT INTO game_sessions(game,username,result,reward,created_utc) VALUES($g,$u,$r,$p,$n)";
+                session.Parameters.AddWithValue("$g", round.Game);
+                session.Parameters.AddWithValue("$u", username.Trim());
+                session.Parameters.AddWithValue("$r", $"{resultName} · elección: {round.Choice} · resultado: {round.Outcome}");
+                session.Parameters.AddWithValue("$p", payout);
+                session.Parameters.AddWithValue("$n", now);
+                session.ExecuteNonQuery();
+            }
+
+            using (var queryFinal = c.CreateCommand())
+            {
+                queryFinal.Transaction = tx;
+                queryFinal.CommandText = "SELECT points FROM community_users WHERE username=$u";
+                queryFinal.Parameters.AddWithValue("$u", username.Trim());
+                finalBalance = Convert.ToInt64(queryFinal.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            tx.Commit();
+        }
+
+        var netChange = payout - stake;
+        var settlement = stake == 0
+            ? "Práctica gratuita: no cambian los puntos."
+            : $"Apuesta: {stake}; premio total: {payout}; cambio neto: {netChange:+#;-#;0}.";
+        var outcomeSummary = $"{(round.Won ? "Victoria" : "Derrota")}. Resultado: {round.Outcome}; elección: {round.Choice}.";
+        Log("Minijuegos",
+            $"{username.Trim()}: {round.Game} — {(round.Won ? "Victoria" : "Derrota")}; elección {round.Choice}; resultado {round.Outcome}; apuesta {stake}; pago {payout}; cambio neto {netChange:+#;-#;0}; saldo {finalBalance}.");
+        return $"{outcomeSummary} {settlement} Saldo final: {finalBalance} puntos.";
     }
 
     public void SaveModerationRule(string name, string pattern, bool enabled, string action)

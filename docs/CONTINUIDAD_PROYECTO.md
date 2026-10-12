@@ -430,3 +430,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - El Dashboard lee el `HealthSnapshot` real del monitor Core y actualiza CPU del proceso y RAM residente cada dos segundos mientras esa página está visible. No se muestran valores GPU/FPS inventados; esas fuentes siguen declaradas no disponibles.
 - Los mensajes IRC recibidos se procesan secuencialmente por el dispatcher y con una cola acotada de 1000 elementos para evitar que varias ejecuciones de comandos/moderación se solapen mientras esperan llamadas de red. Si la carga excede el límite, se registra el descarte y no se permite crecimiento ilimitado.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el nuevo HEAD.
+
+
+### Minijuegos con reglas diferenciadas y saldo transaccional
+
+- Se reemplazó el resultado genérico de ganar/perder por `MiniGameEngine`: moneda Cara/Cruz, ruleta europea (0–36 con 0 verde y colores correctos), dado Bajo/Alto. Los resultados aleatorios usan `RandomNumberGenerator`; las reglas se pueden resolver determinísticamente en pruebas.
+- Las elecciones disponibles cambian al cambiar de juego. La vista muestra las reglas, el saldo, el resultado y el historial reciente en la propia página; no depende de un popup para cada victoria/derrota.
+- La apuesta válida es 0–10.000 puntos. Cero activa práctica gratuita. Una ronda con apuesta real primero comprueba saldo suficiente y después ejecuta débito, premio, ledger e historial dentro de una misma transacción SQLite. No puede dejar puntos negativos ni cobrar una apuesta sin registrar resultado.
+- Pagos: moneda/dado y rojo/negro pagan 2× apuesta total; verde (0) en ruleta paga 36×; perder paga cero. El histórico registra elección, salida, apuesta, pago, neto y saldo.
+- Añadidas pruebas de reglas de cada juego, elecciones inválidas, rangos, práctica gratuita, liquidación del saldo y saldo insuficiente.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el commit siguiente.

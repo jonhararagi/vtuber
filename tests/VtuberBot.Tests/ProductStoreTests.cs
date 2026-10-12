@@ -304,4 +304,42 @@ public sealed class ProductStoreTests
         Assert.DoesNotContain(store.GetAvatarLayers(), layer => layer.Id == id);
     }
 
+    [Fact]
+    public void FreeMinigamePracticeDoesNotCreateOrAwardPoints()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var result = store.PlayGame("Duelo de moneda", "practice_user", 0, "Cara");
+
+        Assert.Contains("Práctica gratuita", result);
+        Assert.Equal(0, store.TouchUser("practice_user").Points);
+        Assert.Contains(store.GetActivity(20), activity => activity.Module == "Minijuegos");
+    }
+
+    [Fact]
+    public void MinigameStakeAndPayoutAreSettledWithoutAllowingNegativeBalance()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.AddPoints("alice", 100, "Saldo de prueba");
+
+        var result = store.PlayGame("Duelo de moneda", "alice", 10, "Cara");
+
+        Assert.Contains("Saldo final:", result);
+        Assert.Contains(store.TouchUser("alice").Points, new long[] { 90, 110 });
+    }
+
+    [Fact]
+    public void InsufficientMinigameBalanceLeavesPointsUnchanged()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.AddPoints("alice", 5, "Saldo de prueba");
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => store.PlayGame("Dado", "alice", 10, "Bajo (1-3)"));
+
+        Assert.Contains("Saldo insuficiente", exception.Message);
+        Assert.Equal(5, store.TouchUser("alice").Points);
+    }
 }

@@ -92,10 +92,171 @@ public partial class MainWindow
 
     private UIElement BuildMinigamesPage()
     {
-        var root=new StackPanel();var panel=Panel("Minijuegos locales");root.Children.Add(panel);
-        panel.Children.Add(Label("Duelo de moneda",22,"#F8FAFC",true));panel.Children.Add(Label("Elegí un nombre de usuario y jugá una ronda. Las victorias otorgan 10 puntos; cada sesión queda registrada.",13,"#98A4BE"));
-        var user=TextField("Usuario");user.Text="Streamer";var game=new ComboBox{ItemsSource=new[]{"Duelo de moneda","Ruleta de suerte","Dado"},SelectedIndex=0};panel.Children.Add(user);panel.Children.Add(game);
-        panel.Children.Add(ActionButton("Jugar ronda",async (_,_)=>{try{var gameName=game.SelectedItem?.ToString()??"Duelo de moneda";var result=store.PlayGame(gameName,user.Text,10);MessageBox.Show(this,result,"Resultado del minijuego");if(twitch.IsConnected){try{await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),user.Text.Trim()+": "+gameName+" — "+result);}catch(Exception sendError){FooterStatus.Text="Ronda guardada; no se publicó en Twitch: "+sendError.Message;}}}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
-        var history=Panel("Historial reciente");history.Margin=new Thickness(0,16,0,0);history.Children.Add(new ListBox{ItemsSource=store.GetActivity(40).Where(a=>a.Module=="Minijuegos").Select(a=>$"{a.At.ToLocalTime():HH:mm:ss} · {a.Message}").ToList(),Height=220});root.Children.Add(history);return root;
+        var root = new StackPanel();
+        var intro = Panel("Minijuegos locales");
+        intro.Children.Add(Label("Tres juegos reales, elecciones claras y saldo persistido en SQLite. Practicá sin arriesgar puntos o apostá desde tu saldo.", 13, "#98A4BE"));
+        root.Children.Add(intro);
+
+        var gamePanel = Panel("Preparar una ronda");
+        gamePanel.Margin = new Thickness(0, 0, 0, 14);
+        var user = TextField("Usuario (letras, números, guion bajo)");
+        user.Text = "Streamer";
+        var game = new ComboBox
+        {
+            ItemsSource = new[] { "Duelo de moneda", "Ruleta de suerte", "Dado" },
+            SelectedIndex = 0,
+            MinWidth = 260
+        };
+        var choice = new ComboBox { MinWidth = 260 };
+        var stake = TextField("Apuesta en puntos (0 para práctica)");
+        stake.Text = "0";
+        var balance = Label("Saldo actual: 0 puntos", 15, "#69D8F2", true);
+        var ruleText = Label("", 12, "#98A4BE");
+        var resultCard = new Border
+        {
+            Background = Brush("#101525"),
+            BorderBrush = Brush("#34415E"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(16),
+            Margin = new Thickness(0, 10, 0, 10)
+        };
+        var resultTitle = Label("Elegí una opción y jugá cuando estés listo.", 19, "#F8FAFC", true);
+        var resultDetail = Label("La ronda y el saldo se guardan de forma atómica.", 12, "#98A4BE");
+        var resultContent = new StackPanel();
+        resultContent.Children.Add(resultTitle);
+        resultContent.Children.Add(resultDetail);
+        resultCard.Child = resultContent;
+
+        var history = new ListBox
+        {
+            ItemsSource = store.GetActivity(100)
+                .Where(activity => activity.Module == "Minijuegos")
+                .Select(activity => $"{activity.At.ToLocalTime():HH:mm:ss} · {activity.Message}")
+                .ToList(),
+            Height = 230
+        };
+
+        void RefreshBalance()
+        {
+            if (string.IsNullOrWhiteSpace(user.Text) ||
+                !System.Text.RegularExpressions.Regex.IsMatch(user.Text.Trim(), "^[a-zA-Z0-9_-]{1,25}$"))
+            {
+                balance.Text = "Ingresá un usuario válido para consultar su saldo.";
+                return;
+            }
+
+            var current = store.TouchUser(user.Text.Trim());
+            balance.Text = $"Saldo actual de {current.Username}: {current.Points:N0} puntos";
+        }
+
+        void RefreshChoices()
+        {
+            if (game.SelectedItem is not string selectedGame)
+                return;
+
+            try
+            {
+                choice.ItemsSource = MiniGameEngine.GetChoices(selectedGame);
+                choice.SelectedIndex = 0;
+                ruleText.Text = selectedGame switch
+                {
+                    "Duelo de moneda" => "Elegí Cara o Cruz. Acierto: recibís 2× la apuesta total; fallo: perdés la apuesta.",
+                    "Ruleta de suerte" => "Ruleta europea 0–36. Rojo/negro paga 2×; verde (0) paga 36× la apuesta total. Si falla, perdés la apuesta.",
+                    "Dado" => "Elegí Bajo (1–3) o Alto (4–6). Acierto: 2× la apuesta total; fallo: perdés la apuesta.",
+                    _ => ""
+                };
+                resultTitle.Text = selectedGame;
+                resultTitle.Foreground = Brush("#F8FAFC");
+                resultDetail.Text = "La ronda siguiente aparecerá aquí.";
+            }
+            catch (Exception exception)
+            {
+                ruleText.Text = exception.Message;
+            }
+        }
+
+        gamePanel.Children.Add(Label("Usuario", 12, "#98A4BE"));
+        gamePanel.Children.Add(user);
+        gamePanel.Children.Add(Label("Minijuego", 12, "#98A4BE"));
+        gamePanel.Children.Add(game);
+        gamePanel.Children.Add(Label("Tu elección", 12, "#98A4BE"));
+        gamePanel.Children.Add(choice);
+        gamePanel.Children.Add(Label("Apuesta en puntos · 0 = modo práctica", 12, "#98A4BE"));
+        gamePanel.Children.Add(stake);
+        gamePanel.Children.Add(balance);
+        gamePanel.Children.Add(ruleText);
+
+        var actions = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+        actions.Children.Add(ActionButton("Actualizar saldo", (_, _) =>
+        {
+            try { RefreshBalance(); }
+            catch (Exception exception) { resultTitle.Text = "No se pudo consultar el saldo"; resultDetail.Text = exception.Message; }
+        }));
+        actions.Children.Add(ActionButton("Jugar ronda", async (_, _) =>
+        {
+            if (game.SelectedItem is not string gameName || choice.SelectedItem is not string selectedChoice)
+            {
+                resultTitle.Text = "Elegí un juego y una opción";
+                resultDetail.Text = "No se descontaron puntos.";
+                return;
+            }
+
+            if (!int.TryParse(stake.Text.Trim(), out var wager) || wager is < 0 or > 10000)
+            {
+                resultTitle.Text = "Apuesta inválida";
+                resultDetail.Text = "Ingresá un entero entre 0 y 10.000. Usá 0 para practicar gratis.";
+                return;
+            }
+
+            try
+            {
+                var roundResult = store.PlayGame(gameName, user.Text, wager, selectedChoice);
+                var isWin = roundResult.StartsWith("Victoria.", StringComparison.Ordinal);
+                resultTitle.Text = isWin ? "✦  ¡Victoria!" : "Ronda terminada";
+                resultTitle.Foreground = Brush(isWin ? "#75E0BF" : "#F8FAFC");
+                resultDetail.Text = roundResult;
+                RefreshBalance();
+                history.ItemsSource = store.GetActivity(100)
+                    .Where(activity => activity.Module == "Minijuegos")
+                    .Select(activity => $"{activity.At.ToLocalTime():HH:mm:ss} · {activity.Message}")
+                    .ToList();
+
+                if (twitch.IsConnected)
+                {
+                    try
+                    {
+                        await twitch.SendMessageAsync(
+                            store.GetSetting("twitch.channel"),
+                            user.Text.Trim() + ": " + gameName + " — " + roundResult);
+                        FooterStatus.Text = "Resultado del minijuego publicado en Twitch.";
+                    }
+                    catch (Exception sendError)
+                    {
+                        FooterStatus.Text = "Ronda guardada; no se publicó en Twitch: " + sendError.Message;
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                resultTitle.Text = "Ronda no ejecutada";
+                resultTitle.Foreground = Brush("#FCA5A5");
+                resultDetail.Text = exception.Message + " No se descontaron puntos.";
+            }
+        }, true));
+        gamePanel.Children.Add(actions);
+        gamePanel.Children.Add(resultCard);
+        root.Children.Add(gamePanel);
+
+        var historyPanel = Panel("Historial reciente");
+        historyPanel.Margin = new Thickness(0, 0, 0, 12);
+        historyPanel.Children.Add(history);
+        root.Children.Add(historyPanel);
+
+        game.SelectionChanged += (_, _) => RefreshChoices();
+        user.LostFocus += (_, _) => { try { RefreshBalance(); } catch { } };
+        RefreshChoices();
+        RefreshBalance();
+        return root;
     }
 }
