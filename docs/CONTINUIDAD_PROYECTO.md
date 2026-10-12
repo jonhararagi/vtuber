@@ -777,3 +777,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - El Core limita el valor efectivo al rango válido y devuelve cero ante valores no finitos. «Reducir movimiento» sigue teniendo prioridad y deja el desplazamiento centrado.
 - Se ampliaron las pruebas del cálculo para intensidad cero, intermedia, máxima y valores fuera del rango.
 - Estado: implementación añadida; Windows CI pendiente.
+
+
+### 2026-10-12 — Supresión coherente de efectos secundarios en moderación
+
+- **Hallazgo:** cuando una regla punitiva coincidía pero la acción no podía ejecutarse por falta de ID de mensaje o por cooldown, el flujo continuaba a recompensa de puntos y ejecución de comandos.
+- **Corrección:** `AutomaticModerationPolicy.ShouldSuppressMessageSideEffects` centraliza la decisión. `Execute`, `Cooldown` y `MissingMessageId` ya no permiten puntos ni comandos para ese mismo mensaje, aunque la acción remota falle; reglas de observación, deshabilitadas, acciones desconocidas y usuarios protegidos no activan esa supresión automática.
+- **Pruebas:** cobertura por tabla de todas las decisiones de la política.
+- **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.

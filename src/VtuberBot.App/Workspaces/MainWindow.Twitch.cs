@@ -221,6 +221,7 @@ public partial class MainWindow
                     moderationNow,
                     TimeSpan.FromMinutes(5));
 
+                skipMessageSideEffects |= AutomaticModerationPolicy.ShouldSuppressMessageSideEffects(decision);
                 switch (decision)
                 {
                     case AutomaticModerationDecision.LogOnly:
@@ -239,9 +240,8 @@ public partial class MainWindow
                         store.Log("Moderación", "Acción automática omitida por límite de 5 minutos para " + username + " / " + rule.Name + ".");
                         break;
                     case AutomaticModerationDecision.Execute:
-                        // A rule-violating message must not also earn points or execute a custom command,
-                        // even if Twitch rejects the remote moderation request.
-                        skipMessageSideEffects = true;
+                        // Side effects were suppressed before attempting the remote action;
+                        // Twitch rejection must never turn the same message into a command/points event.
                         var succeeded = await ApplyAutomaticModerationAsync(rule.Name, rule.Action, username, messageId);
                         if (succeeded)
                             automaticModerationCooldown[cooldownKey] = DateTimeOffset.UtcNow;

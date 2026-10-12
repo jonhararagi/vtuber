@@ -32,6 +32,11 @@ public static class AutomaticModerationPolicy
             string.Equals(role.Trim(), "moderator", StringComparison.OrdinalIgnoreCase));
     }
 
+    public static bool ShouldSuppressMessageSideEffects(AutomaticModerationDecision decision) =>
+        decision is AutomaticModerationDecision.Execute
+            or AutomaticModerationDecision.MissingMessageId
+            or AutomaticModerationDecision.Cooldown;
+
     public static AutomaticModerationDecision Evaluate(
         string? action,
         bool globallyEnabled,

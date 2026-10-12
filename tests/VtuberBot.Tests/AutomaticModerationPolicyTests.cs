@@ -60,6 +60,19 @@ public sealed class AutomaticModerationPolicyTests
             AutomaticModerationPolicy.Evaluate(action, true, Array.Empty<string>(), "message-id", null, Now, Cooldown));
     }
 
+    [Theory]
+    [InlineData(AutomaticModerationDecision.Execute, true)]
+    [InlineData(AutomaticModerationDecision.Cooldown, true)]
+    [InlineData(AutomaticModerationDecision.MissingMessageId, true)]
+    [InlineData(AutomaticModerationDecision.LogOnly, false)]
+    [InlineData(AutomaticModerationDecision.Disabled, false)]
+    [InlineData(AutomaticModerationDecision.ProtectedUser, false)]
+    [InlineData(AutomaticModerationDecision.UnsupportedAction, false)]
+    public void OnlyMatchedSanctionDecisionsSuppressCommandAndPointSideEffects(
+        AutomaticModerationDecision decision,
+        bool expected) =>
+        Assert.Equal(expected, AutomaticModerationPolicy.ShouldSuppressMessageSideEffects(decision));
+
     [Fact]
     public void UnknownActionIsRejectedRatherThanExecuted()
     {
