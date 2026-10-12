@@ -276,6 +276,30 @@ public sealed class ProductStoreTests
     }
 
     [Fact]
+    public void AddPointsRejectsOverflowAndPreservesTheExistingBalance()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.AddPoints("viewer_1", 1, "create user");
+
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = temp.DatabasePath
+        }.ConnectionString))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE community_users SET points=$points WHERE username='viewer_1'";
+            command.Parameters.AddWithValue("$points", long.MaxValue - 1);
+            command.ExecuteNonQuery();
+        }
+
+        Assert.Throws<InvalidOperationException>(() => store.AddPoints("viewer_1", 10, "overflow attempt"));
+        Assert.Equal(long.MaxValue - 1, store.TouchUser("viewer_1").Points);
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.AddPoints("viewer_1", long.MinValue, "invalid delta"));
+    }
+
+    [Fact]
     public void DebitAtZeroDoesNotCreateAFictitiousLedgerEntry()
     {
         using var temp = new TempDb();

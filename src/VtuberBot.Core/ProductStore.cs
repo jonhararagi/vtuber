@@ -936,7 +936,7 @@ public sealed class ProductStore
     public CommunityUser AddPoints(string username, long delta, string reason)
     {
         ValidateUsername(username);
-        if (delta == 0 || Math.Abs(delta) > 1_000_000) throw new ArgumentOutOfRangeException(nameof(delta));
+        if (delta is < -1_000_000 or > 1_000_000 || delta == 0) throw new ArgumentOutOfRangeException(nameof(delta));
         lock (gate)
         {
             using var c = Open(); using var tx = c.BeginTransaction();
@@ -953,6 +953,9 @@ public sealed class ProductStore
                 readBalance.Parameters.AddWithValue("$u", username.Trim());
                 previousBalance = Convert.ToInt64(readBalance.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
             }
+
+            if (delta > 0 && previousBalance > long.MaxValue - delta)
+                throw new InvalidOperationException("El saldo superaría el límite de puntos admitido; no se modificó.");
 
             using (var cmd = c.CreateCommand())
             {

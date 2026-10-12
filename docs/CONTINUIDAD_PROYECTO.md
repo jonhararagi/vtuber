@@ -980,3 +980,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La transacción ahora lee el balance previo y posterior, calcula el delta aplicado real y registra solo ese importe; si el saldo ya es cero, no añade una entrada contable ficticia. El registro de actividad distingue el importe aplicado del solicitado.
 - Se sustituyó la prueba previa por una que verifica los deltas reales directamente en SQLite y se añadió una prueba de débito sin saldo.
 - Estado: cambio preparado en ProductStore y pruebas; pendiente Windows CI del SHA exacto. No se ha marcado el bloque como validado antes del CI.
+
+
+## Endurecimiento del saldo — overflow de puntos
+
+- AddPoints ahora rechaza créditos que superarían Int64.MaxValue antes de ejecutar la actualización SQLite, evitando que una suma INTEGER desborde a REAL y corrompa la lectura del balance.
+- La validación del delta ya no usa Math.Abs, que lanza OverflowException para long.MinValue; el rango permitido se comprueba directamente y produce ArgumentOutOfRangeException.
+- Se agregó prueba de no-mutación tras overflow con un balance SQLite próximo al máximo y de rechazo de long.MinValue.
+- Estado: pendiente de Windows CI del SHA que contiene este endurecimiento.

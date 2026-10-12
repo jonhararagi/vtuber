@@ -163,3 +163,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - La deducción manual que excedía el saldo se limitaba a cero en el balance, pero el ledger registraba el débito solicitado completo; eso hacía que el historial contable no reconciliara con el saldo.
 - AddPoints ahora registra la diferencia realmente aplicada dentro de la misma transacción y no crea un movimiento ficticio cuando el saldo ya es cero.
 - Se añadieron pruebas SQLite para débito parcial y débito sin saldo. Pendiente Windows CI del SHA resultante.
+
+
+## Comunidad — límites de saldo de puntos
+
+- Se añadió protección contra overflow al acreditar puntos y se sustituyó Math.Abs(delta) por límites directos para que long.MinValue también produzca una validación de rango controlada.
+- Prueba SQLite: un crédito que excede Int64.MaxValue se rechaza sin mutar el saldo; un delta fuera del contrato se rechaza antes de abrir la transacción.
+- Pendiente Windows CI del nuevo SHA.
