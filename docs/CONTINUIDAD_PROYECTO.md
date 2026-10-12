@@ -414,3 +414,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Si una regla pasa la política de opt-in y límites para ejecutar una acción automática, el mensaje se excluye de puntos de actividad y del router de comandos personalizado.
 - Este bloqueo también aplica si la llamada remota falla: un error de permisos/red no convierte el mismo mensaje en una ejecución de comando o recompensa normal. Acciones bloqueadas por usuario protegido, falta de ID o cooldown no aplican la sanción y quedan registradas.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Mejora de usabilidad del Avatar Studio — edición directa con ratón
+
+- La previsualización permite arrastrar la capa visible seleccionada para ajustar X/Y; los sliders y el arrastre comparten la misma vista previa.
+- El desplazamiento solo se persiste al pulsar «Aplicar y guardar transformación». Se añadió «Restablecer posición y giro» para volver a X=0, Y=0, escala=1 y rotación=0 sin borrar la capa.
+- La salida overlay ya no reduce la opacidad del personaje entero para fingir un parpadeo. El parpadeo visual requiere un sprite Blink de ojos cerrados; se documentó ese requisito en la guía y README.
+- Estado de código: **IMPLEMENTADO; PENDIENTE DE CI** en el commit siguiente.

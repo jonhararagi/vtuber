@@ -49,14 +49,22 @@ public sealed class AvatarOverlayWindow : Window
 
             if (!ReduceMotion && IsVisible && transientState is null && now >= nextAutomaticBlinkAt)
             {
-                transientState = "Blink";
-                blinkUntil = now.AddMilliseconds(150);
-                nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
-                RenderAvatar();
+                // Blink is a facial sprite transition, not an opacity pulse over the entire avatar.
+                if (expressionImages.TryGetValue("Blink", out var blinkPath) && File.Exists(blinkPath))
+                {
+                    transientState = "Blink";
+                    blinkUntil = now.AddMilliseconds(150);
+                    nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
+                    RenderAvatar();
+                }
+                else
+                {
+                    // Without a configured eyelid/closed-eye sprite, don't fake a blink by fading the whole character.
+                    nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
+                }
             }
 
-            if (now < blinkUntil) layerCanvas.Opacity = .25;
-            else layerCanvas.Opacity = 1;
+            layerCanvas.Opacity = 1;
             alertCard.Visibility = now < alertUntil ? Visibility.Visible : Visibility.Collapsed;
             if (ReduceMotion) { breathing.ScaleX = 1; breathing.ScaleY = 1; return; }
             phase += state == "Talking" ? .12 : .035;
@@ -73,6 +81,13 @@ public sealed class AvatarOverlayWindow : Window
     {
         if (string.Equals(nextState, "Blink", StringComparison.OrdinalIgnoreCase))
         {
+            // A visible blink needs a closed-eye sprite assigned in Avatar Studio.
+            if (!expressionImages.TryGetValue("Blink", out var blinkPath) || !File.Exists(blinkPath))
+            {
+                nextAutomaticBlinkAt = DateTimeOffset.UtcNow.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
+                return;
+            }
+
             var now = DateTimeOffset.UtcNow;
             transientState = "Blink";
             blinkUntil = now.AddMilliseconds(160);

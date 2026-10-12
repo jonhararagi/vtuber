@@ -214,6 +214,7 @@ public partial class MainWindow : Window
         columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         var layerImages = new Dictionary<long, Image>();
+        Grid? previewCanvas = null;
         Image? basePreviewImage = null;
         var previewState = store.GetSetting("avatar.state", "Idle");
         if (previewState == "Blink") previewState = "Idle";
@@ -222,7 +223,7 @@ public partial class MainWindow : Window
         var preview = new Border { Background = Brush("#101525"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14), MinHeight = 350 };
         if (!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath))
         {
-            var previewCanvas = new Grid();
+            previewCanvas = new Grid { Background = Brush("#101525"), Focusable = true };
             var savedExpression = store.GetSetting("avatar.expression." + previewState);
             var initialImagePath = !string.IsNullOrWhiteSpace(savedExpression) && File.Exists(savedExpression) ? savedExpression : avatarPath;
             basePreviewImage = new Image { Source = LoadImage(initialImagePath), Stretch = Stretch.Uniform, MaxHeight = 360 };
@@ -239,6 +240,7 @@ public partial class MainWindow : Window
         }
         else preview.Child = Label("Todavía no hay arte importado.\nUsá un PNG propio para comenzar.", 16, "#98A4BE");
         left.Children.Add(preview);
+        left.Children.Add(Label("Seleccioná una capa visible a la derecha, arrastrala en esta vista y guardá la transformación cuando te guste el resultado.", 12, "#98A4BE"));
 
         var right = Panel("Avatar y salida");
         right.Margin = new Thickness(18, 0, 0, 0);
@@ -333,6 +335,63 @@ public partial class MainWindow : Window
         ySlider.ValueChanged += (_, _) => PreviewSelectedTransform();
         scaleSlider.ValueChanged += (_, _) => PreviewSelectedTransform();
         rotationSlider.ValueChanged += (_, _) => PreviewSelectedTransform();
+
+        // Dragging moves only the selected visible layer. The edit is preview-only until Save is pressed.
+        var dragCanvas = previewCanvas;
+        if (dragCanvas is not null)
+        {
+            System.Windows.Point dragOrigin = default;
+            var dragStartX = 0d;
+            var dragStartY = 0d;
+            var isDraggingLayer = false;
+
+            dragCanvas.MouseLeftButtonDown += (_, e) =>
+            {
+                var id = SelectedLayerId();
+                if (id is null || !layerImages.ContainsKey(id.Value))
+                    return;
+
+                dragOrigin = e.GetPosition(dragCanvas);
+                dragStartX = xSlider.Value;
+                dragStartY = ySlider.Value;
+                isDraggingLayer = dragCanvas.CaptureMouse();
+                if (isDraggingLayer)
+                    e.Handled = true;
+            };
+            dragCanvas.MouseMove += (_, e) =>
+            {
+                if (!isDraggingLayer || !dragCanvas.IsMouseCaptured)
+                    return;
+
+                var current = e.GetPosition(dragCanvas);
+                xSlider.Value = Math.Clamp(dragStartX + current.X - dragOrigin.X, xSlider.Minimum, xSlider.Maximum);
+                ySlider.Value = Math.Clamp(dragStartY + current.Y - dragOrigin.Y, ySlider.Minimum, ySlider.Maximum);
+            };
+            dragCanvas.MouseLeftButtonUp += (_, e) =>
+            {
+                if (!isDraggingLayer)
+                    return;
+
+                isDraggingLayer = false;
+                dragCanvas.ReleaseMouseCapture();
+                FooterStatus.Text = "Vista previa ajustada. Pulsá «Aplicar y guardar transformación» para conservar la posición.";
+                e.Handled = true;
+            };
+        }
+
+        transforms.Children.Add(ActionButton("Restablecer posición y giro", (_, _) =>
+        {
+            if (SelectedLayerId() is null)
+            {
+                MessageBox.Show(this, "Seleccioná una capa primero.");
+                return;
+            }
+            xSlider.Value = 0;
+            ySlider.Value = 0;
+            scaleSlider.Value = 1;
+            rotationSlider.Value = 0;
+            PreviewSelectedTransform();
+        }));
 
         transforms.Children.Add(ActionButton("Aplicar y guardar transformación", (_, _) =>
         {
