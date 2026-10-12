@@ -70,10 +70,11 @@ La página **Actividad y diagnóstico** muestra el registro local y permite expo
 
 ## Limitaciones pendientes conocidas
 
-- Reconexión automática de EventSub, recuperación de suscripciones revocadas, overlay visual personalizado para alertas y triggers avanzados.
-- Rig 2.5D avanzado (pivotes, parentado, física), estados faciales con assets por expresión y lip-sync real.
-- Enrutamiento avanzado de audio/cola priorizada y VAD de habla separado del medidor de amplitud.
-- Acciones remotas de moderación con permisos explícitos, panel de triggers más avanzado y configuración de timers con edición/pausa individual.
-- Copias de seguridad/restauración guiadas de SQLite y pruebas manuales end-to-end en el Windows del usuario.
+- **Twitch/EventSub:** el cliente reconecta ante pérdidas y usa alertas visuales/TTS; sigue pendiente recuperar automáticamente suscripciones individuales revocadas, diseñar triggers avanzados y probar el ciclo completo con una cuenta real del broadcaster/moderador.
+- **Avatar:** la composición de sprites, las capas transformables, los sprites por estado y el parpadeo ligero ya existen. Sigue pendiente el rig 2.5D con pivotes/parentado, física por huesos, deformación, seguimiento facial y lip-sync por fonemas/visemas.
+- **Audio/voz:** el medidor de señal y detector acústico con umbral/retención y la cola TTS con prioridad están implementados. Sigue pendiente reconocimiento de habla (STT), cancelación/enrutamiento avanzado y lip-sync real; la voz disponible depende de los motores SAPI instalados en Windows.
+- **Moderación:** timeout/ban/borrado manual con confirmación y acciones automáticas opt-in por regla existen. Sigue pendiente un simulador/prueba segura de reglas con vista previa sobre mensajes de ejemplo, auditoría más detallada y validación end-to-end de scopes/permisos en un canal real.
+- **Persistencia/entrega:** falta una experiencia guiada de backup/restauración y recuperación de la base SQLite; también queda la validación manual global de una build actual en el Windows del usuario y su cuenta Twitch/OBS/Telegram.
+- **Integraciones externas:** CI prueba compilación, pruebas y publicación del paquete Windows x64, pero no autentica Twitch, OBS ni Telegram del usuario ni demuestra el comportamiento de una sesión de streaming real.
 
-Estas limitaciones se registran deliberadamente; no se consideran funciones terminadas solo por tener una página de interfaz.
+Estas limitaciones se mantienen explícitas: no se marca el producto como definitivo solo por compilar o por tener una página de interfaz.

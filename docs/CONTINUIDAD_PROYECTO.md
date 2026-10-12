@@ -364,3 +364,14 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Los comandos restringidos se bloquean antes del cooldown y de la creación/actualización de puntos; el rechazo se registra. Moderadores heredan permiso para comandos de suscriptor/VIP; Broadcaster tiene acceso a todos, pero Moderador no puede usar el nivel exclusivo Broadcaster.
 - Se añadieron pruebas para la matriz de permisos y el análisis de roles IRC.
 - **CI #154** [run 38246959459](https://github.com/jonhararagi/vtuber/actions/runs/38246959459) validó el HEAD anterior con restore/build/tests/publish/upload SUCCESS. Esta integración de permisos está **IMPLEMENTADA EN CÓDIGO; PENDIENTE DE CI**.
+
+
+## Estado de entrega verificado — 12 de octubre de 2026
+
+- **Commit de producto validado:** `025977f098e601566293fca53d35bbc02a29fa85` (`test: pass subscriber role when testing protected alias`).
+- **Windows CI #156:** [run 38247486943](https://github.com/jonhararagi/vtuber/actions/runs/38247486943) — **SUCCESS**. Restore, Build Release, tests (**141/141 passed**), publish self-contained Windows x64 package y upload artifact, todos correctos.
+- **Artefacto reproducible:** `VTuberBot-Product-Candidate-win-x64-025977f098e601566293fca53d35bbc02a29fa85`; artifact ID `11745659138`; tamaño `77,836,065` bytes; digest `sha256:cf85192aa35986681a76e62a8e06d102f5cc86836d31c63ca5914bfd34f67ce5`; expiración `2026-10-26T12:13:08Z`.
+- **Cambios cubiertos en este candidato:** alias persistentes; nombres canónicos de comandos preinstalados y migración que preserva comandos de usuario; cooldown global/por usuario; preview de comando sin efectos laterales; permisos por rol derivados de tags IRC; selector SAPI/velocidad/volumen; parpadeo automático del overlay; sorteo con aleatoriedad criptográfica.
+- **Límite de aceptación:** estos 141 tests y la publicación certifican el build, no un end-to-end con credenciales reales del usuario. No se declara el producto finalizado todavía; las limitaciones corregidas arriba describen los siguientes huecos reales.
+- **Estado del control de versiones:** la rama `product/complete-vtuber-experience` es la vía de integración. El PR #9 de estabilización permanece separado y abierto; `main` no se fusionó ni modificó en esta entrega.
+- **Siguiente trabajo recomendado dentro de la misma rama:** backup/restauración guiados de SQLite y un modo de prueba/preview de reglas de moderación; después, una única validación end-to-end de la build actual con Twitch/OBS reales.
