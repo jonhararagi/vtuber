@@ -121,8 +121,8 @@ public sealed class LocalSpeechQueue : IDisposable
                     ReleaseVoice(voice);
                     voice = null;
                     voiceType = null;
-                    var actual = exception is TargetInvocationException { InnerException: not null } invocation
-                        ? invocation.InnerException
+                    var actual = exception is TargetInvocationException invocation
+                        ? invocation.InnerException ?? exception
                         : exception;
                     Notify("Error TTS local: " + actual.Message, PendingCount);
                 }
