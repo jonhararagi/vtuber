@@ -753,3 +753,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **CI #209:** falló la prueba inicial de retención de actividad porque la expectativa ignoraba los registros generados por operaciones de puntos/sorteos. La prueba se corrigió para medir la cantidad real previa a la poda; **Windows CI #210 terminó SUCCESS** con la expectativa corregida.
 - **CI #211:** incluye la política de formatos de imagen portables y estaba ejecutándose al registrar este trabajo. El presente commit lanza un nuevo CI; todavía debe verificarse.
 - **Estado:** código y pruebas de retención de cooldown añadidos; CI pendiente.
+
+
+### 2026-10-12 — Prioridad para revocaciones y errores de suscripción EventSub
+
+- Se reservó una cola independiente (20 elementos) para `subscription_error` y `revocation`, separada de la cola acotada de alertas ordinarias (200). Se procesan antes que follows, redenciones, suscripciones y raids para que una ráfaga de alertas no oculte un error de autorización/revocación.
+- Ambas colas conservan FIFO internamente y comparten el procesamiento de lotes de hasta 50 eventos por turno del Dispatcher. La saturación de una cola no consume la capacidad de la otra.
+- Pruebas de clasificación de eventos críticos/no críticos, incluyendo valores desconocidos y comparación sin distinguir mayúsculas.
+- Estado: implementado en el nuevo HEAD; Windows CI pendiente.

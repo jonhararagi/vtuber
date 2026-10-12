@@ -44,8 +44,10 @@ public partial class MainWindow : Window
     private readonly Dictionary<long, DateTimeOffset> automationOfflineLog = [];
     private int automationProcessing;
     private const int MaxPendingEventSubEvents = 200;
+    private const int MaxPendingCriticalEventSubEvents = 20;
     private const int MaxEventSubEventsPerUiBatch = 50;
     private readonly BoundedQueue<(string Type, string Summary)> pendingEventSubEvents = new(MaxPendingEventSubEvents);
+    private readonly BoundedQueue<(string Type, string Summary)> pendingCriticalEventSubEvents = new(MaxPendingCriticalEventSubEvents);
     private int eventSubProcessorScheduled;
     private int eventSubOverflowNotificationPending;
     private readonly Dictionary<string, DateTimeOffset> lastPointAward = new(StringComparer.OrdinalIgnoreCase);
@@ -83,7 +85,11 @@ public partial class MainWindow : Window
 
     private void HandleEventSubEvent(string type, string summary)
     {
-        if (!pendingEventSubEvents.TryEnqueue((type, summary)))
+        var targetQueue = EventSubQueuePolicy.IsCritical(type)
+            ? pendingCriticalEventSubEvents
+            : pendingEventSubEvents;
+
+        if (!targetQueue.TryEnqueue((type, summary)))
         {
             if (Interlocked.Exchange(ref eventSubOverflowNotificationPending, 1) == 0)
             {
@@ -91,7 +97,7 @@ public partial class MainWindow : Window
                 {
                     Dispatcher.BeginInvoke(new Action(() =>
                         store.Log("Twitch EventSub",
-                            "La cola alcanzó 200 eventos pendientes; se descartan nuevos eventos hasta que baje la carga.")));
+                            "La cola de alertas alcanzó su capacidad; se descartan eventos de la categoría saturada hasta que baje la carga.")));
                 }
                 catch (InvalidOperationException)
                 {
@@ -124,9 +130,13 @@ public partial class MainWindow : Window
         try
         {
             var processed = 0;
-            while (processed < MaxEventSubEventsPerUiBatch &&
-                   pendingEventSubEvents.TryDequeue(out var pending))
+            while (processed < MaxEventSubEventsPerUiBatch)
             {
+                // Revocations and subscription errors must not sit behind a burst of viewer alerts.
+                if (!pendingCriticalEventSubEvents.TryDequeue(out var pending) &&
+                    !pendingEventSubEvents.TryDequeue(out pending))
+                    break;
+
                 try
                 {
                     ProcessEventSubEvent(pending.Type, pending.Summary);
@@ -144,7 +154,7 @@ public partial class MainWindow : Window
         finally
         {
             Interlocked.Exchange(ref eventSubProcessorScheduled, 0);
-            if (pendingEventSubEvents.Count > 0)
+            if (pendingCriticalEventSubEvents.Count + pendingEventSubEvents.Count > 0)
                 ScheduleEventSubEventProcessing();
             else
                 Interlocked.Exchange(ref eventSubOverflowNotificationPending, 0);
