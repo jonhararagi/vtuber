@@ -25,6 +25,47 @@ public sealed class PngtuberPlusSetupTests
     }
 
     [Fact]
+    public void SqlitePersistsExecutableAndWizardProgressAcrossStoreRecreation()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "vtuberbot-pngtuber-persistence-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var database = Path.Combine(root, "settings.sqlite3");
+        var executable = Path.Combine(root, "PNGTuberPlus.exe");
+        try
+        {
+            File.WriteAllText(executable, "test placeholder");
+            var firstStore = new ProductStore(database);
+            firstStore.SetSetting("integrations.pngTuberPlus.path", executable);
+            var firstSetup = new PngtuberSetupService(firstStore);
+            firstSetup.SetCurrentStep(3);
+            firstSetup.Confirm(PngtuberSetupStep.TestMicrophone, true);
+
+            var reopenedStore = new ProductStore(database);
+            Assert.Equal(executable, reopenedStore.GetSetting("integrations.pngTuberPlus.path"));
+            var recovered = new PngtuberSetupService(reopenedStore).Load();
+            Assert.Equal(3, recovered.CurrentStep);
+            Assert.True(recovered.MicrophoneReactionConfirmed);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
+    public void ProcessPresenceDoesNotAutomaticallyConfirmWizardSteps()
+    {
+        var service = new PngtuberSetupService(new FakeSettings());
+        var progress = service.Load();
+        var running = new ExternalApplicationStatus(
+            ExternalApplicationState.Running, @"C:\\Apps\\PNGTuberPlus.exe",
+            "Proceso presente; conexión no verificada.", true);
+
+        Assert.False(progress.AppOpenedConfirmed);
+        Assert.False(PngtuberPlusStepCompletion.IsComplete(1, progress, running));
+    }
+
+    [Fact]
     public void WizardRejectsAutomaticLocationAsManualConfirmation()
     {
         var service = new PngtuberSetupService(new FakeSettings());
