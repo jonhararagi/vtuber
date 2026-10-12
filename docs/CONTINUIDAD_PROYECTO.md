@@ -514,3 +514,8 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 ### Ajuste preventivo de nulabilidad en OBS reconectable
 - Se usan variables locales no nulas para host, contraseña en memoria y socket autenticado antes de arrancar el supervisor. Esto evita depender del análisis de nulabilidad de campos mutables bajo `TreatWarningsAsErrors`.
 - La política de reconexión no cambia; pendiente CI en el HEAD nuevo.
+
+
+### Corrección CI — semáforo de envío de OBS
+- CI #176 falló al compilar la clase nueva de OBS porque `SemaphoreSlim` se inicializó sin los parámetros requeridos. Se corrigió a `new(1, 1)`, manteniendo un único escritor concurrente.
+- Estado: pendiente del CI completo en el siguiente HEAD.

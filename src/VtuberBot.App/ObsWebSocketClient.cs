@@ -14,7 +14,7 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
     private ClientWebSocket? socket;
     private CancellationTokenSource? cancellation;
     private Task? receiveTask;
-    private readonly SemaphoreSlim sendGate = new();
+    private readonly SemaphoreSlim sendGate = new(1, 1);
     private readonly Dictionary<string, TaskCompletionSource<JsonElement>> pending = new(StringComparer.Ordinal);
     private readonly object gate = new();
     private string? configuredHost;
