@@ -47,6 +47,24 @@ public sealed class VoiceActivityDetectorTests
     }
 
     [Fact]
+    public void BackwardsClockDoesNotKeepTalkingStateActive()
+    {
+        var detector = new VoiceActivityDetector(
+            thresholdPercent: 20,
+            releaseHold: TimeSpan.FromSeconds(1),
+            smoothingFactor: 1);
+        var start = DateTimeOffset.Parse("2026-01-01T00:00:01Z");
+
+        var loud = detector.Process(80, start);
+        Assert.True(loud.IsActive);
+
+        var clockMovedBack = detector.Process(0, start.AddSeconds(-2));
+
+        Assert.False(clockMovedBack.IsActive);
+        Assert.True(clockMovedBack.StateChanged);
+    }
+
+    [Fact]
     public void RejectsInvalidSettingsAndSignalLevels()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new VoiceActivityDetector(thresholdPercent: double.NaN));

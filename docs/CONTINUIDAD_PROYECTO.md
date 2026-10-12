@@ -677,3 +677,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Hallazgo:** el timestamp de cooldown para puntos de actividad se actualizaba antes de llamar a SQLite. Si la persistencia fallaba, el usuario quedaba sin puntos durante cinco minutos aunque no se registró ninguna recompensa.
 - **Corrección:** el timestamp se actualiza solo después de que `AddPoints` termina correctamente. Los errores de almacenamiento no consumen el cooldown y el aviso de fallo se limita a uno por minuto para evitar inundar el log durante una interrupción prolongada.
 - **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.
+
+
+### 2026-10-12 — Resiliencia de VAD y límites de texto TTS
+
+- **VAD:** si el reloj de sistema retrocede y el nivel ya cayó por debajo del umbral, el detector limpia el último instante de voz. Una duración negativa no puede mantener el avatar en estado `Talking` más allá de la retención configurada.
+- **TTS:** se añadió `SpeechRequestPolicy`, que normaliza espacios/saltos de línea y limita cada frase encolada a 2.000 caracteres. La cola rechaza la frase fuera de esos límites con un mensaje visible, sin entregarla a SAPI.
+- **Pruebas:** retroceso del reloj, normalización de espacios y saltos de línea, longitud exacta admitida, texto vacío y exceso de longitud.
+- **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.

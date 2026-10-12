@@ -214,9 +214,13 @@ public sealed class LocalSpeechQueue : IDisposable
 
     public bool Enqueue(string text, SpeechPriority priority = SpeechPriority.Normal, string? voiceId = null, int rate = 0, int volume = 100)
     {
-        if (string.IsNullOrWhiteSpace(text))
+        try
         {
-            Notify("Escribí un texto antes de encolarlo.", PendingCount);
+            text = VtuberBot.Core.SpeechRequestPolicy.NormalizeText(text);
+        }
+        catch (ArgumentException exception)
+        {
+            Notify(exception.Message, PendingCount);
             return false;
         }
         if (rate is < -10 or > 10 || volume is < 0 or > 100)

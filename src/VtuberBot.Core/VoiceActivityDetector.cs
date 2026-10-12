@@ -65,9 +65,19 @@ public sealed class VoiceActivityDetector
             var previousActive = isActive;
             smoothedLevelPercent += smoothingFactor * (rawLevelPercent - smoothedLevelPercent);
             if (smoothedLevelPercent >= thresholdPercent)
+            {
                 lastAboveThreshold = timestamp;
+            }
+            else if (lastAboveThreshold.HasValue && timestamp < lastAboveThreshold.Value)
+            {
+                // UTC can move backwards after a system-time correction. Never let a
+                // negative elapsed duration keep the avatar in Talking indefinitely.
+                lastAboveThreshold = null;
+            }
 
-            isActive = lastAboveThreshold.HasValue && timestamp - lastAboveThreshold.Value <= releaseHold;
+            isActive = lastAboveThreshold.HasValue &&
+                timestamp >= lastAboveThreshold.Value &&
+                timestamp - lastAboveThreshold.Value <= releaseHold;
             return new VoiceActivitySnapshot(smoothedLevelPercent, isActive, isActive != previousActive);
         }
     }
