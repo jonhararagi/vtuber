@@ -12,13 +12,26 @@ public enum SpeechPriority
 
 public sealed record LocalSpeechVoice(string Id, string Name);
 public sealed record LocalSpeechOutput(string Id, string Name);
+public sealed record SpeechPlaybackResult(bool UsedFallback, bool Cancelled);
+
+/// <summary>Abstraction for local speech playback; injectable so queue cancellation is testable without SAPI.</summary>
+public interface ILocalSpeechSession : IDisposable
+{
+    SpeechPlaybackResult Speak(
+        string text,
+        string requestedVoiceId,
+        string requestedOutputId,
+        int rate,
+        int volume,
+        Func<bool> cancellationRequested);
+}
 
 /// <summary>A bounded, priority-ordered SAPI queue that keeps speech off the WPF dispatcher.</summary>
 public sealed class LocalSpeechQueue : IDisposable
 {
     private sealed record SpeechItem(string Text, SpeechPriority Priority, long Sequence, string VoiceId, string OutputId, int Rate, int Volume);
 
-    private sealed class SapiSession : IDisposable
+    private sealed class SapiSession : ILocalSpeechSession
     {
         private readonly object voice;
         private readonly Type voiceType;
@@ -34,7 +47,7 @@ public sealed class LocalSpeechQueue : IDisposable
             this.voiceType = voiceType;
         }
 
-        public static SapiSession Create()
+        public static ILocalSpeechSession Create()
         {
             var type = Type.GetTypeFromProgID("SAPI.SpVoice")
                 ?? throw new InvalidOperationException("Windows SAPI no está disponible en este equipo.");
@@ -122,7 +135,13 @@ public sealed class LocalSpeechQueue : IDisposable
             }
         }
 
-        public bool Speak(string text, string requestedVoiceId, string requestedOutputId, int rate, int volume)
+        public SpeechPlaybackResult Speak(
+            string text,
+            string requestedVoiceId,
+            string requestedOutputId,
+            int rate,
+            int volume,
+            Func<bool> cancellationRequested)
         {
             object? token = defaultVoiceToken;
             var useFallback = false;
@@ -150,8 +169,25 @@ public sealed class LocalSpeechQueue : IDisposable
                 voiceType.InvokeMember("AudioOutput", BindingFlags.SetProperty, null, voice, new[] { outputToken });
             voiceType.InvokeMember("Rate", BindingFlags.SetProperty, null, voice, new object[] { Math.Clamp(rate, -10, 10) });
             voiceType.InvokeMember("Volume", BindingFlags.SetProperty, null, voice, new object[] { Math.Clamp(volume, 0, 100) });
-            voiceType.InvokeMember("Speak", BindingFlags.InvokeMethod, null, voice, new object[] { text, 0 });
-            return useFallback;
+            if (cancellationRequested())
+                return new SpeechPlaybackResult(useFallback, Cancelled: true);
+
+            // Asynchronous SAPI playback lets the STA worker observe cancellation instead of
+            // blocking inside Speak until the whole phrase has finished.
+            voiceType.InvokeMember("Speak", BindingFlags.InvokeMethod, null, voice, new object[] { text, 1 });
+            while (true)
+            {
+                if (cancellationRequested())
+                {
+                    voiceType.InvokeMember("Speak", BindingFlags.InvokeMethod, null, voice, new object[] { string.Empty, 2 });
+                    _ = voiceType.InvokeMember("WaitUntilDone", BindingFlags.InvokeMethod, null, voice, new object[] { 1000 });
+                    return new SpeechPlaybackResult(useFallback, Cancelled: true);
+                }
+
+                var completed = voiceType.InvokeMember("WaitUntilDone", BindingFlags.InvokeMethod, null, voice, new object[] { 100 });
+                if (completed is bool done && done)
+                    return new SpeechPlaybackResult(useFallback, Cancelled: false);
+            }
         }
 
         public static IReadOnlyList<LocalSpeechOutput> EnumerateOutputs()
@@ -234,6 +270,17 @@ public sealed class LocalSpeechQueue : IDisposable
 
         public void Dispose()
         {
+            try
+            {
+                // Purge any asynchronous phrase before releasing COM references.
+                voiceType.InvokeMember("Speak", BindingFlags.InvokeMethod, null, voice, new object[] { string.Empty, 2 });
+                _ = voiceType.InvokeMember("WaitUntilDone", BindingFlags.InvokeMethod, null, voice, new object[] { 1000 });
+            }
+            catch
+            {
+                // Best-effort cancellation during shutdown or after a SAPI device failure.
+            }
+
             foreach (var token in tokens.Values)
                 if (!ReferenceEquals(token, defaultVoiceToken)) ReleaseVoice(token);
             tokens.Clear();
@@ -250,12 +297,14 @@ public sealed class LocalSpeechQueue : IDisposable
 
     private const int MaximumPending = 32;
     private readonly object gate = new();
+    private readonly Func<ILocalSpeechSession> sessionFactory;
     private readonly PriorityQueue<SpeechItem, (int Priority, long Sequence)> queue = new();
     private readonly AutoResetEvent signal = new(false);
     private readonly Thread worker;
     private long sequence;
     private bool stopping;
     private bool speaking;
+    private bool cancelCurrentSpeech;
 
     public event Action<string, int>? StatusChanged;
     public int PendingCount { get { lock (gate) return queue.Count; } }
@@ -366,7 +415,7 @@ public sealed class LocalSpeechQueue : IDisposable
 
     private void WorkerLoop()
     {
-        SapiSession? session = null;
+        ILocalSpeechSession? session = null;
         try
         {
             while (true)
@@ -387,10 +436,24 @@ public sealed class LocalSpeechQueue : IDisposable
                 Notify("Reproduciendo frase encolada.", pending);
                 try
                 {
-                    session ??= SapiSession.Create();
-                    if (session.Speak(next.Text, next.VoiceId, next.OutputId, next.Rate, next.Volume))
-                        Notify("La voz o salida elegida ya no está disponible; se usó la configuración predeterminada de Windows.", PendingCount);
-                    Notify("Reproducción finalizada.", PendingCount);
+                    session ??= sessionFactory();
+                    var result = session.Speak(
+                        next.Text,
+                        next.VoiceId,
+                        next.OutputId,
+                        next.Rate,
+                        next.Volume,
+                        IsSpeechCancellationRequested);
+                    if (result.Cancelled)
+                    {
+                        Notify("Reproducción cancelada.", PendingCount);
+                    }
+                    else
+                    {
+                        if (result.UsedFallback)
+                            Notify("La voz o salida elegida ya no está disponible; se usó la configuración predeterminada de Windows.", PendingCount);
+                        Notify("Reproducción finalizada.", PendingCount);
+                    }
                 }
                 catch (Exception exception)
                 {
@@ -403,7 +466,11 @@ public sealed class LocalSpeechQueue : IDisposable
                 }
                 finally
                 {
-                    lock (gate) speaking = false;
+                    lock (gate)
+                    {
+                        speaking = false;
+                        cancelCurrentSpeech = false;
+                    }
                 }
             }
         }
@@ -423,20 +490,48 @@ public sealed class LocalSpeechQueue : IDisposable
     private void Notify(string status, int pending) =>
         VtuberBot.Core.SafeEventDispatch.Invoke(StatusChanged, status, pending);
 
+    public bool StopCurrentSpeech()
+    {
+        int pending;
+        lock (gate)
+        {
+            if (!speaking || stopping)
+                return false;
+            cancelCurrentSpeech = true;
+            pending = queue.Count;
+        }
+
+        signal.Set();
+        Notify("Se solicitó detener la frase actual.", pending);
+        return true;
+    }
+
+    private bool IsSpeechCancellationRequested()
+    {
+        lock (gate)
+            return stopping || cancelCurrentSpeech;
+    }
+
     public void Dispose()
     {
         lock (gate)
         {
             if (stopping) return;
             stopping = true;
+            cancelCurrentSpeech = true;
             queue.Clear();
         }
         signal.Set();
         if (worker.Join(TimeSpan.FromSeconds(2))) signal.Dispose();
     }
 
-    public LocalSpeechQueue()
+    public LocalSpeechQueue() : this(SapiSession.Create)
     {
+    }
+
+    public LocalSpeechQueue(Func<ILocalSpeechSession> sessionFactory)
+    {
+        this.sessionFactory = sessionFactory ?? throw new ArgumentNullException(nameof(sessionFactory));
         worker = new Thread(WorkerLoop) { IsBackground = true, Name = "VTuberBot local speech queue" };
         worker.SetApartmentState(ApartmentState.STA);
         worker.Start();
