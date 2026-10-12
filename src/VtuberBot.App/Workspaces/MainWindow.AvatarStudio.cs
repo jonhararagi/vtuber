@@ -631,30 +631,28 @@ public partial class MainWindow
 
             AvatarProfilePackageManifest manifest;
             Dictionary<string, ZipArchiveEntry> archiveEntries;
-            using (var archive = ZipFile.OpenRead(dialog.FileName))
-            {
-                if (archive.Entries.Count is < 1 or > 120)
+            using var archive = ZipFile.OpenRead(dialog.FileName);
+            if (archive.Entries.Count is < 1 or > 120)
                     throw new InvalidDataException("El paquete debe contener como máximo 120 archivos.");
 
-                long uncompressedTotal = 0;
-                archiveEntries = new Dictionary<string, ZipArchiveEntry>(StringComparer.Ordinal);
-                foreach (var entry in archive.Entries)
-                {
-                    uncompressedTotal = checked(uncompressedTotal + entry.Length);
-                    if (uncompressedTotal > 300 * 1024 * 1024)
-                        throw new InvalidDataException("El contenido descomprimido supera el límite de 300 MB.");
-                    if (!archiveEntries.TryAdd(entry.FullName, entry))
-                        throw new InvalidDataException("El paquete contiene nombres de archivo duplicados.");
-                }
-
-                if (!archiveEntries.TryGetValue("manifest.json", out var manifestEntry) ||
-                    manifestEntry.Length is <= 0 or > 1024 * 1024)
-                    throw new InvalidDataException("No se encontró un manifest.json válido en el paquete.");
-
-                using var manifestStream = manifestEntry.Open();
-                manifest = JsonSerializer.Deserialize<AvatarProfilePackageManifest>(manifestStream)
-                    ?? throw new InvalidDataException("No se pudo leer el manifiesto del perfil.");
+            long uncompressedTotal = 0;
+            archiveEntries = new Dictionary<string, ZipArchiveEntry>(StringComparer.Ordinal);
+            foreach (var entry in archive.Entries)
+            {
+                uncompressedTotal = checked(uncompressedTotal + entry.Length);
+                if (uncompressedTotal > 300 * 1024 * 1024)
+                    throw new InvalidDataException("El contenido descomprimido supera el límite de 300 MB.");
+                if (!archiveEntries.TryAdd(entry.FullName, entry))
+                    throw new InvalidDataException("El paquete contiene nombres de archivo duplicados.");
             }
+
+            if (!archiveEntries.TryGetValue("manifest.json", out var manifestEntry) ||
+                manifestEntry.Length is <= 0 or > 1024 * 1024)
+                throw new InvalidDataException("No se encontró un manifest.json válido en el paquete.");
+
+            using var manifestStream = manifestEntry.Open();
+            manifest = JsonSerializer.Deserialize<AvatarProfilePackageManifest>(manifestStream)
+                ?? throw new InvalidDataException("No se pudo leer el manifiesto del perfil.");
 
             if (manifest.FormatVersion != 1)
                 throw new InvalidDataException("Versión de paquete no admitida: " + manifest.FormatVersion + ".");
@@ -666,8 +664,6 @@ public partial class MainWindow
                 throw new InvalidDataException("El paquete puede incluir hasta cinco expresiones.");
 
             Directory.CreateDirectory(packageDirectory);
-            var extracted = new Dictionary<string, string>(StringComparer.Ordinal);
-
             string ExtractAsset(string entryName, string requiredPrefix, string destinationFolder, string destinationStem)
             {
                 if (!IsSafeAvatarPackageEntry(entryName) ||
@@ -702,7 +698,6 @@ public partial class MainWindow
                 }
 
                 _ = LoadImage(destinationPath);
-                extracted[entryName] = destinationPath;
                 return destinationPath;
             }
 
@@ -799,11 +794,11 @@ public partial class MainWindow
     private static bool IsSafeAvatarPackageEntry(string entryName)
     {
         if (string.IsNullOrWhiteSpace(entryName) || Path.IsPathRooted(entryName) ||
-            entryName.Contains('\\') || entryName.StartsWith('/', StringComparison.Ordinal))
+            entryName.Contains('\\') || entryName.StartsWith("/", StringComparison.Ordinal))
             return false;
         return entryName.Split('/').All(segment =>
             segment.Length > 0 && segment is not "." and not ".." &&
-            !segment.Contains(':', StringComparison.Ordinal));
+            !segment.Contains(':'));
     }
 
     private static void ValidatePackageExpressionState(string state)
