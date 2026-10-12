@@ -120,3 +120,11 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - Voz y audio permite importar, listar, reproducir y detener efectos WAV/MP3 propios; el catálogo persiste en SQLite y los archivos quedan en la carpeta local de datos, fuera de los backups de base.
 - Las rutas cargadas se restringen a la carpeta local de sonidos y los formatos se validan mediante política testeada. La reproducción usa NAudio ya disponible, sin servicios remotos.
 - Pendiente de Windows CI del nuevo SHA y de una comprobación de salida real en la validación global.
+
+
+## Integración de comunidad en comandos — 2026-10-12
+
+- Se incorporó un router común de comandos de comunidad para la UI local y el chat Twitch: `!puntos`, `!top` y `!jugar`.
+- Los minijuegos del chat reutilizan las reglas y la liquidación transaccional de SQLite ya existentes. Las apuestas validan el saldo, conservan el ledger/historial y aceptan `0` como práctica gratuita; no se requiere Twitch para probarlos desde la UI.
+- Duplicar un perfil de avatar también copia los ocho prompts de arte por rol, con claves independientes para que editar la copia no altere el original.
+- Evidencia del código: commit `601ec7afa520681c5ed2075b3a94a1bf1a2360fd`; Windows CI #234 SUCCESS (restore, build Release, tests, publish win-x64 y upload). Los flujos con Twitch real siguen sujetos a validación externa.

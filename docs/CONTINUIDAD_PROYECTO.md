@@ -882,9 +882,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Repositorio:** https://github.com/jonhararagi/vtuber
 - **Rama de trabajo exclusiva:** `product/complete-vtuber-experience`
 - **HEAD verificado:** `e6909d3018fa6bdc660444b5f77b168795194918`
-- **CI #221:** SUCCESS sobre ese SHA exacto: https://github.com/jonhararagi/vtuber/actions/runs/38270053366
-- Pasos de #221: Restore solution ✅; Build Release ✅; Run automated tests ✅; Publish self-contained Windows x64 validation package ✅; Upload temporary validation artifact ✅.
-- **Artefacto temporal de CI:** `VTuberBot-Product-Candidate-win-x64-e6909d3018fa6bdc660444b5f77b168795194918`, 77.897.319 bytes, SHA-256 `00bb91c53d582fad2f34c690c753523e5785feff1250706ddadd2b56bf5d0822`. Vence el 2026-10-26. Descarga del artefacto: https://api.github.com/repos/jonhararagi/vtuber/actions/artifacts/11756377553/zip
+- **Windows CI #234:** SUCCESS sobre el SHA de código `601ec7afa520681c5ed2075b3a94a1bf1a2360fd`: https://github.com/jonhararagi/vtuber/actions/runs/38287435169
+- Pasos de #234: Restore solution ✅; Build Release ✅; Run automated tests ✅; Publish self-contained Windows x64 validation package ✅; Upload temporary validation artifact ✅.
+- **Artefacto temporal de CI:** `VTuberBot-Product-Candidate-win-x64-601ec7afa520681c5ed2075b3a94a1bf1a2360fd`, 77.907.027 bytes, SHA-256 `71e792f4ac0134320148478cd5d36e44b6ba573828ba5a17446e7339fa84d167`. Vence el 2026-10-26 17:56:46 UTC. [Descargar artefacto de CI #234](https://github.com/jonhararagi/vtuber/actions/runs/38287435169/artifacts/11763902305).
 - **No es una release final** y el verde de CI no demuestra validación manual con cuentas, hardware o servicios locales. `main` sigue intacta y el PR #9 sigue sin fusionar.
 
 ## Cambios funcionales y de fiabilidad ya registrados en la rama
@@ -898,6 +898,7 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Avatar Studio: capas llamadas `Fondo` por detrás de la imagen base; prompts por perfil y rol con migración desde claves antiguas, duplicación e importación/exportación; validación de resolución y lista portable de formatos; parallax 2.5D configurable; reacciones a eventos Twitch únicamente si existen los sprites configurados.
 - Audio: texto de TTS saneado y acotado; manejo del retroceso del reloj del VAD; si la captura del micrófono se detiene inesperadamente, se libera el dispositivo y se devuelve el avatar a Idle.
 - Sorteos: solo un sorteo abierto a la vez; nombre limitado; selección explícita, cierre/cancelación con historial retenido.
+- Comandos integrados de comunidad: `!puntos`, `!top` y `!jugar moneda|ruleta|dado`; la UI permite ejecutarlos localmente y Twitch usa el mismo router de negocio.
 - OBS: autenticación WebSocket v5, consulta de estado, controles de iniciar/detener transmisión/grabación con confirmación al detener; eventos de estado en tiempo real. La operación real aún depende de OBS local y debe comprobarse con él.
 
 ## Parámetros actuales relevantes
@@ -917,6 +918,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 | Reacciones del avatar | Activadas por defecto; follow/suscripción/regalo/redención → Happy; raid → Surprised; 3 segundos y solo con sprite existente |
 | Mensajes TTS de audio local | Se compactan espacios/saltos de línea antes de encolarse |
 | OBS WebSocket | Timeout de conexión de 15 s; límite de mensaje entrante 1 MiB; conexión opcional y autenticada |
+
+## Bloque integrado más reciente — CI #234
+
+- `CommunityCommandRouter` expone `!puntos`, `!top` y `!jugar` a la UI local y a Twitch. Las rondas usan `ProductStore.PlayGame`, la misma liquidación transaccional y el mismo ledger/historial; se rechazan apuestas inválidas o saldo insuficiente.
+- Duplicar un perfil copia sus prompts de arte por rol con claves aisladas por perfil, además de base/capas/expresiones.
+- Pruebas nuevas cubren saldo/ranking, práctica gratuita, saldo insuficiente y desconocimiento de comandos integrados. Windows CI #234 aprobó restore, build, tests, publish win-x64 y upload para el SHA de código indicado arriba.
+- La documentación se está sincronizando en un commit separado; su propio CI debe comprobarse antes de entregar el HEAD documental como candidato.
 
 ## Validaciones que todavía no se han realizado manualmente
 
