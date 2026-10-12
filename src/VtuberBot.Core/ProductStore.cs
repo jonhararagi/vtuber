@@ -1090,8 +1090,8 @@ public sealed class ProductStore
         lock (gate)
         {
             using var connection = Open();
-            using var transaction = connection.BeginTransaction();
             var activeId = GetActiveAvatarProfileId(connection);
+            using var transaction = connection.BeginTransaction();
             using (var duplicateCheck = connection.CreateCommand())
             {
                 duplicateCheck.Transaction = transaction;
@@ -1204,6 +1204,7 @@ public sealed class ProductStore
         lock (gate)
         {
             using var connection = Open();
+            var activeId = GetActiveAvatarProfileId(connection);
             using var transaction = connection.BeginTransaction();
             long count;
             using (var total = connection.CreateCommand())
@@ -1214,7 +1215,6 @@ public sealed class ProductStore
             }
             if (count <= 1) throw new InvalidOperationException("No podés eliminar el último perfil de avatar.");
 
-            var activeId = GetActiveAvatarProfileId(connection);
             if (!AvatarProfileExists(connection, profileId, transaction))
                 throw new KeyNotFoundException($"No existe el perfil de avatar {profileId}.");
 

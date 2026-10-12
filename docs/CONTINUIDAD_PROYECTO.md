@@ -464,3 +464,8 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La migración conserva el `avatar.path`, capas y expresiones globales de instalaciones anteriores como perfil predeterminado. Las operaciones de capas se filtran por perfil para impedir que una selección antigua modifique otro avatar.
 - Se añadieron pruebas de aislamiento entre perfiles, duplicación con transformaciones/expresiones y protección al eliminar el último perfil.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** para el commit de esta actualización. La validación manual global continúa pendiente; este commit no se declara candidato definitivo.
+
+
+### Revisión estática de la implementación de perfiles
+- Se movió la lectura del ID de perfil activo antes de abrir la transacción de creación/eliminación para no ejecutar consultas auxiliares sin asociarlas a una transacción SQLite ya activa en Windows.
+- El CI del commit con la función completa sigue siendo la fuente de validación; esta corrección queda pendiente de su nueva ejecución.
