@@ -1154,8 +1154,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 
 - **Hallazgo al revisar el código vigente:** `VtuberApplication.Initialize()` envuelve errores internos en `ApplicationException("Application initialization failed.", exception)`. El manejador WPF anterior imprimía solo `x.Message`, por lo que el stderr podía ocultar precisamente la excepción SQLite/configuración interna que necesitamos identificar.
 - **Corrección en SHA `93e962e019f98f95aa3b699b933f4ffbb29bbd0f`:** `src/VtuberBot.App/App.xaml.cs` ahora vuelca `Exception.ToString()` a stderr, conservando tipo, mensaje, excepción interna y stack trace; el diálogo de error muestra el mensaje de la excepción raíz para orientar al usuario. El mensaje técnico completo no se guarda en el repositorio ni se empaqueta como log.
-- **Validación pendiente de esta corrección:** ejecutar y revisar Windows CI para el SHA que la contiene. No se atribuye aún una causa raíz al Error 14 original ni se marca el smoke test como corregido por este cambio de diagnóstico.
-- **Estado de la ventana WPF previo al cambio:** [Windows CI #280](https://github.com/jonhararagi/vtuber/actions/runs/38305211986), SHA `bff06a453890a8b42bb6203ad0a45a4deb9a9861`, pasó 371/371 pruebas y publicó un artefacto win-x64. Ese artefacto no contiene la mejora de diagnóstico de este apartado.
+- **Windows CI exacto:** [run #282](https://github.com/jonhararagi/vtuber/actions/runs/38305999759), SHA `93e962e019f98f95aa3b699b933f4ffbb29bbd0f` — **SUCCESS**. Restore/Build Release y pruebas completadas; 371/371 pruebas pasaron, 0 warnings/0 errors, publicación autocontenida win-x64 y subida del artefacto correctas.
+- **Artefacto de diagnóstico:** [descarga del paquete](https://github.com/jonhararagi/vtuber/actions/runs/38305999759/artifacts/11772228201), ID `11772228201`, 77,912,169 bytes, digest `sha256:c01df391ba7747ff0fb58ebe555281caa6a2977b997224aae743b93c56a0c53b`, expira el 2026-10-26. El artefacto confirma el build del cambio de diagnóstico, no resuelve por sí solo la causa raíz del Error 14.
+- **Estado de la ventana WPF:** [Windows CI #280](https://github.com/jonhararagi/vtuber/actions/runs/38305211986) pasó 371/371 pruebas con la enumeración Win32. La causa comprobada del fallo #252 fue la detección por `MainWindowHandle` que devolvía cero; la línea SQLite pertenece a un test negativo distinto.
 
 ## Persistencia de selección de voz y salida local — 2026-10-12
 
@@ -1164,3 +1165,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Windows CI exacto:** [run #284](https://github.com/jonhararagi/vtuber/actions/runs/38306118981), SHA `99c98dec9d8967f78f72b1f7fa9ae51dff8069bc` — **SUCCESS**. Restore y Build Release correctos, 0 warnings/0 errors; **371/371 pruebas aprobadas**; publicación autocontenida win-x64 y validación del ZIP completadas.
 - **Artefacto:** [descarga del paquete win-x64](https://github.com/jonhararagi/vtuber/actions/runs/38306118981/artifacts/11772138328), ID `11772138328`, 77,912,162 bytes, digest `sha256:fc74e00ee1f3b0d1609f8ca168c4e119736ee05b2c25dd9588831b85246061b2`, expira el 2026-10-26.
 - **Límite de validación:** el flujo de persistencia y el resto de la suite pasaron CI; la selección física de una voz/dispositivo y la reproducción audible requieren la validación manual global en Windows.
+
+
+## Selección de voz/dispositivo de audio con prueba de regresión — 2026-10-12
+
+- **Política extraída:** `src/VtuberBot.App/AudioPreferenceSelectionPolicy.cs` conserva el ID guardado mientras el catálogo de opciones no se haya cargado correctamente; cuando el catálogo está disponible, la selección explícita (incluido elegir la salida predeterminada) puede reemplazarlo.
+- **Integración:** `src/VtuberBot.App/Workspaces/MainWindow.Audio.cs` utiliza la política al encolar TTS y al guardar preferencias para voz SAPI y salida. Una enumeración aún no ejecutada o fallida no borra preferencias previas.
+- **Cobertura:** `tests/VtuberBot.Tests/AudioPreferenceSelectionPolicyTests.cs` verifica catálogo no cargado, selección guardada, selección nueva y elección explícita de la opción predeterminada.
+- **Windows CI exacto:** [run #286](https://github.com/jonhararagi/vtuber/actions/runs/38306524189), SHA `5a359eb953a7fb26caa97cb2db0113584f4f1443` — **SUCCESS**, **376/376 pruebas**, 0 warnings/0 errors; publicación autocontenida win-x64 y validación del ZIP completadas.
+- **Artefacto:** [descarga win-x64](https://github.com/jonhararagi/vtuber/actions/runs/38306524189/artifacts/11772857508), ID `11772857508`, 77,912,303 bytes, digest `sha256:6f94c95d283cc818e50696bfe38e27dd6f66e2753fc4716a3a0545c2a026cb0f`, expira el 2026-10-26.
+- **Pendiente externo:** probar la voz elegida y la salida física de audio en Windows; CI valida la política y la integración de código, no el dispositivo acústico real.

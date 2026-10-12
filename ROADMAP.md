@@ -221,3 +221,11 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - **Twitch:** un PRIVMSG con login inválido se descarta antes de otorgar puntos, consumir cooldowns o ejecutar comandos; ya no se asigna una identidad artificial. Windows CI #269: 371/371 casos.
 - **Sorteos:** cuando el chat está desconectado, crear/cerrar/cancelar informa que el resultado queda local y que no hubo anuncio remoto. Windows CI #271: 371/371 casos.
 - **No cierra la aceptación global:** los commits indicados validan sus respectivos SHA, pero sigue pendiente una única validación manual en Windows con OBS, Twitch, micrófono/SAPI, WebView2/Telegram y overlay reales. No marcar el Bloque G como terminado hasta completar la auditoría del blueprint y esa validación externa.
+
+
+## Audio — conservar preferencias de voz/dispositivo antes de enumerar (2026-10-12)
+
+- Corregido un caso en el que guardar la página Audio antes de actualizar los catálogos podía reemplazar una voz SAPI/salida guardada por la opción predeterminada.
+- La política `AudioPreferenceSelectionPolicy` conserva la preferencia hasta que el catálogo se cargue; se añadieron cinco casos automatizados y se integró en guardado y encolado TTS.
+- Windows CI #286 pasó 376/376 pruebas, 0 warnings/0 errors, y publicó el paquete autocontenido win-x64 para SHA `5a359eb953a7fb26caa97cb2db0113584f4f1443`.
+- El flujo de selección real de voz/dispositivo todavía requiere validación manual en Windows; no se afirma validación acústica en CI.
