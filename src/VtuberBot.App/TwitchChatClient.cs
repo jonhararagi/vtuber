@@ -158,15 +158,19 @@ public sealed class TwitchChatClient : IAsyncDisposable
                                 "Twitch rechazó la autenticación IRC. Volvé a autorizar la cuenta y comprobá los permisos chat:read/chat:edit.");
                         }
 
-                        if (line.Contains(" 001 ", StringComparison.Ordinal) || line.Contains(" 366 ", StringComparison.Ordinal))
+                        if (line.Contains(" 001 ", StringComparison.Ordinal))
+                        {
+                            // RPL_WELCOME means IRC registration succeeded, not that JOIN did.
+                            // Keep the connection unavailable until Twitch confirms channel entry.
+                            StatusChanged?.Invoke($"Twitch IRC registrado; esperando confirmación de ingreso a #{channel}.");
+                        }
+                        else if (line.Contains(" 366 ", StringComparison.Ordinal))
                         {
                             IsConnected = true;
                             sessionConnectedAt ??= DateTimeOffset.UtcNow;
                             firstConnection.TrySetResult(true);
                             initialSignalled = true;
-                            StatusChanged?.Invoke(line.Contains(" 366 ", StringComparison.Ordinal)
-                                ? $"Chat unido: #{channel}."
-                                : $"Conectado a Twitch IRC; completando el ingreso a #{channel}.");
+                            StatusChanged?.Invoke($"Chat unido: #{channel}.");
                         }
 
                         if (line.Contains(" PRIVMSG ", StringComparison.Ordinal))
