@@ -229,3 +229,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - La política `AudioPreferenceSelectionPolicy` conserva la preferencia hasta que el catálogo se cargue; se añadieron cinco casos automatizados y se integró en guardado y encolado TTS.
 - Windows CI #286 pasó 376/376 pruebas, 0 warnings/0 errors, y publicó el paquete autocontenido win-x64 para SHA `5a359eb953a7fb26caa97cb2db0113584f4f1443`.
 - El flujo de selección real de voz/dispositivo todavía requiere validación manual en Windows; no se afirma validación acústica en CI.
+
+
+## Puerta única de validación manual global — 2026-10-12
+
+- Preparada `docs/PRODUCT-CANDIDATE-MANUAL-VALIDATION.md` para reemplazar la lista antigua centrada solo en el smoke básico por una pasada integrada: inicio/estados desconectados, Avatar Studio/overlay, audio/SAPI, Twitch/EventSub, comunidad/juegos/sorteos, moderación/automatizaciones, OBS, Telegram, backup/restauración y cierre.
+- La lista exige verificar la procedencia del artefacto contra el HEAD exacto y distingue **APROBADO / FALLIDO / BLOQUEADO** cuando una cuenta o dispositivo externo no está disponible.
+- Estado: la preparación documental no equivale a validación manual. El candidato sigue pendiente de una pasada real en Windows y de los servicios que requieran cuentas/dispositivos.

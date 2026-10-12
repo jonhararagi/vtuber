@@ -86,3 +86,8 @@ Estas limitaciones se mantienen explícitas: no se marca el producto como defini
 ### Biblioteca de sonidos
 
 En **Voz y audio**, importá archivos WAV o MP3 propios. VTuberBot los copia a la carpeta local `sounds`, guarda la biblioteca en SQLite y permite reproducir/detener un efecto o quitarlo de la lista sin borrar el archivo. Los sonidos usan la salida de audio predeterminada de Windows; la selección de salida SAPI es independiente y se aplica a la voz sintetizada. Las copias de seguridad SQLite no incluyen los archivos de audio.
+
+
+## Validación global de un candidato
+
+Cuando se solicite la validación integrada, seguí una sola vez la lista [Validación global del candidato de producto](PRODUCT-CANDIDATE-MANUAL-VALIDATION.md). Descargá únicamente el artefacto de la ejecución Windows CI cuyo **Head SHA coincida exactamente** con el HEAD de la rama; no uses una descarga histórica como sustituto. Marcá los servicios que no puedas probar por falta de cuenta o dispositivo como **BLOQUEADOS**, no como aprobados. No hace falta ejecutar comandos Git ni compilar localmente.
