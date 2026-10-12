@@ -143,6 +143,7 @@
             <Button Content="◈  Inicio" Tag="Inicio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="✧  Avatar Studio" Tag="Avatar Studio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="◈  Avatar externo" Tag="Avatar externo" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+            <Button Content="⇄  Streamer.bot" Tag="Streamer.bot" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="◉  Twitch y chat" Tag="Twitch y chat" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="⌘  Comandos" Tag="Comandos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="♧  Comunidad y puntos" Tag="Comunidad y puntos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
