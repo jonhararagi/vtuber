@@ -1,3 +1,4 @@
+using System.IO;
 namespace VtuberBot.Core;
 
 public sealed class VtuberApplication
@@ -55,6 +56,10 @@ public sealed class VtuberApplication
             logger = new(config.LogDirectory, config.LogLevel);
             resources = new(logger);
             resources.Register("logging", logger.Dispose);
+
+            var databaseDirectory = Path.GetDirectoryName(config.DatabasePath);
+            if (!string.IsNullOrWhiteSpace(databaseDirectory))
+                Directory.CreateDirectory(databaseDirectory);
 
             database = new(config.DatabasePath);
             database.Open();

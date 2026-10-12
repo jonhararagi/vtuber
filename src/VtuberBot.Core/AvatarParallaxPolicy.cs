@@ -34,8 +34,9 @@ public static class AvatarParallaxPolicy
             return 0;
 
         var strength = Math.Clamp(maximumOffsetPixels, 0, MaximumOffsetPixels);
-        return Math.Clamp(normalizedPosition, -1, 1) *
+        var offset = Math.Clamp(normalizedPosition, -1, 1) *
             Math.Clamp(layerFactor, -1, 1.25) *
             strength;
+        return Math.Clamp(offset, -strength, strength);
     }
 }

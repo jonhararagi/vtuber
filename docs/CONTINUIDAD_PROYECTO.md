@@ -785,3 +785,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Corrección:** `AutomaticModerationPolicy.ShouldSuppressMessageSideEffects` centraliza la decisión. `Execute`, `Cooldown` y `MissingMessageId` ya no permiten puntos ni comandos para ese mismo mensaje, aunque la acción remota falle; reglas de observación, deshabilitadas, acciones desconocidas y usuarios protegidos no activan esa supresión automática.
 - **Pruebas:** cobertura por tabla de todas las decisiones de la política.
 - **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.
+
+
+### 2026-10-12 — Correcciones del CI de parallax y arranque SQLite
+
+- **Parallax:** CI #214 detectó que una prueba clasificaba el borde izquierdo del viewport como inválido, cuando solo son inválidas las dimensiones no positivas/no finitas. Se corrigieron los casos de prueba. También se limitó el resultado final del offset a la intensidad seleccionada; el factor de capa ya no puede superar el máximo global de cinco píxeles.
+- **Arranque WPF/SQLite:** el mismo CI falló de forma reproducible en el smoke test al usar una raíz de datos nueva: la base por defecto está en `data/vtuber.sqlite3`, pero solo se creaba la carpeta raíz, no el subdirectorio de la base. `VtuberApplication.Initialize` crea el directorio padre de la ruta de SQLite antes de abrir la conexión.
+- **Regresión añadida:** prueba de integración Core con un directorio de base inexistente que verifica creación del directorio y del archivo de base.
+- **Estado:** correcciones en el nuevo HEAD; Windows CI pendiente.

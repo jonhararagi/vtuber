@@ -1367,6 +1367,28 @@ public sealed class Tests
     }
 
     [Fact]
+    public void ApplicationCreatesMissingParentDirectoryForConfiguredDatabase()
+    {
+        using var directory = new TempDirectory();
+        var configPath = directory.File("config.toml");
+        var databasePath = Path.Combine(directory.Path, "nested", "state.sqlite3");
+        File.WriteAllText(configPath, "[database]\npath = \"nested/state.sqlite3\"");
+
+        var application = new VtuberApplication(configPath);
+        application.Initialize();
+
+        try
+        {
+            Assert.True(Directory.Exists(Path.GetDirectoryName(databasePath)));
+            Assert.True(File.Exists(databasePath));
+        }
+        finally
+        {
+            application.Shutdown();
+        }
+    }
+
+    [Fact]
     public void CommandPingWorks()
     {
         using var directory = new TempDirectory();

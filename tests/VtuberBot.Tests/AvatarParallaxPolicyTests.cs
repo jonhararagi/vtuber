@@ -16,10 +16,12 @@ public sealed class AvatarParallaxPolicyTests
     }
 
     [Theory]
-    [InlineData(0, 100)]
+    [InlineData(0, 0)]
     [InlineData(100, 0)]
     [InlineData(double.NaN, 100)]
     [InlineData(double.PositiveInfinity, 100)]
+    [InlineData(100, double.NaN)]
+    [InlineData(100, double.PositiveInfinity)]
     public void InvalidViewportProducesNoParallax(double coordinate, double extent) =>
         Assert.Equal(0, AvatarParallaxPolicy.NormalizePointer(coordinate, extent));
 
