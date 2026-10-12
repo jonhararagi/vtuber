@@ -2,7 +2,7 @@ using Microsoft.Data.Sqlite;
 
 namespace VtuberBot.Core;
 
-public sealed record ProductCommand(long Id, string Name, string Response, int CooldownSeconds, bool Enabled, string CooldownScope = "global");
+public sealed record ProductCommand(long Id, string Name, string Response, int CooldownSeconds, bool Enabled, string CooldownScope = "global", string Aliases = "");
 public sealed record CommunityUser(string Username, long Points, DateTimeOffset LastSeen);
 public sealed record GiveawayRecord(long Id, string Name, string Status, string? Winner, int Entries);
 public sealed record ProductActivity(DateTimeOffset At, string Module, string Message);
@@ -28,7 +28,7 @@ public sealed class ProductStore
               id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL COLLATE NOCASE UNIQUE,
               response TEXT NOT NULL, cooldown_seconds INTEGER NOT NULL DEFAULT 0,
               enabled INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, last_used_utc TEXT NULL,
-              cooldown_scope TEXT NOT NULL DEFAULT 'global');
+              cooldown_scope TEXT NOT NULL DEFAULT 'global', aliases TEXT NOT NULL DEFAULT '');
             CREATE TABLE IF NOT EXISTS product_command_user_cooldowns(
               command_id INTEGER NOT NULL, username TEXT NOT NULL COLLATE NOCASE,
               last_used_utc TEXT NOT NULL, PRIMARY KEY(command_id,username));
@@ -69,6 +69,17 @@ public sealed class ProductStore
         command.ExecuteNonQuery();
         EnsureColumn(connection, "product_commands", "last_used_utc", "TEXT NULL");
         EnsureColumn(connection, "product_commands", "cooldown_scope", "TEXT NOT NULL DEFAULT 'global'");
+        EnsureColumn(connection, "product_commands", "aliases", "TEXT NOT NULL DEFAULT ''");
+        // Repair names from early builds whose built-in commands incorrectly included the display prefix.
+        using (var normalizeCommands = connection.CreateCommand())
+        {
+            normalizeCommands.CommandText = """
+                UPDATE product_commands SET name='hola' WHERE name COLLATE NOCASE='!hola';
+                UPDATE product_commands SET name='puntos' WHERE name COLLATE NOCASE='!puntos';
+                UPDATE product_commands SET name='dado' WHERE name COLLATE NOCASE='!dado';
+                """;
+            normalizeCommands.ExecuteNonQuery();
+        }
         EnsureColumn(connection, "automation_rules", "last_run_utc", "TEXT NULL");
         EnsureColumn(connection, "avatar_layers", "offset_x", "REAL NOT NULL DEFAULT 0");
         EnsureColumn(connection, "avatar_layers", "offset_y", "REAL NOT NULL DEFAULT 0");
@@ -142,9 +153,9 @@ public sealed class ProductStore
             command.Transaction = transaction;
             command.CommandText = """
                 INSERT OR IGNORE INTO product_commands(name,response,cooldown_seconds,enabled,created_utc)
-                VALUES('!hola','¡Hola, {user}! Bienvenido al stream.',5,1,$now),
-                      ('!puntos','{user}, tenés {points} puntos.',3,1,$now),
-                      ('!dado','{user} sacó {roll} en el dado.',5,1,$now);
+                VALUES('hola','¡Hola, {user}! Bienvenido al stream.',5,1,$now),
+                      ('puntos','{user}, tenés {points} puntos.',3,1,$now),
+                      ('dado','{user} sacó {roll} en el dado.',5,1,$now);
                 INSERT OR IGNORE INTO moderation_rules(name,pattern,enabled,action)
                 VALUES('Enlaces','https?://',1,'flag');
                 INSERT OR IGNORE INTO automation_rules(name,message,interval_minutes,enabled)
@@ -163,14 +174,16 @@ public sealed class ProductStore
         lock (gate)
         {
             using var c = Open(); using var cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT id,name,response,cooldown_seconds,enabled,cooldown_scope FROM product_commands ORDER BY name";
+            cmd.CommandText = "SELECT id,name,response,cooldown_seconds,enabled,cooldown_scope,aliases FROM product_commands ORDER BY name";
             using var r = cmd.ExecuteReader(); var list = new List<ProductCommand>();
-            while (r.Read()) list.Add(new(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetInt32(4) != 0, r.GetString(5)));
+            while (r.Read()) list.Add(new(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetInt32(4) != 0, r.GetString(5), r.GetString(6).Replace(",", ", ")));
             return list;
         }
     }
 
-    public void SaveCommand(long? id, string name, string response, int cooldown, bool enabled, string cooldownScope = "global")
+    public void SaveCommand(
+        long? id, string name, string response, int cooldown, bool enabled,
+        string cooldownScope = "global", string aliases = "")
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(response))
             throw new ArgumentException("El nombre y la respuesta son obligatorios.");
@@ -179,37 +192,93 @@ public sealed class ProductStore
         if (cooldownScope is not ("global" or "user"))
             throw new ArgumentOutOfRangeException(nameof(cooldownScope), "Usá 'global' o 'user'.");
 
+        var normalizedName = NormalizeCommandToken(name, "nombre del comando");
+        var normalizedAliases = NormalizeCommandAliases(aliases, normalizedName);
+        var aliasesText = string.Join(",", normalizedAliases);
+
         lock (gate)
         {
+            var currentCommands = GetCommands();
+            if (id.HasValue && currentCommands.All(command => command.Id != id.Value))
+                throw new KeyNotFoundException($"No existe el comando {id.Value}.");
+            var otherCommands = currentCommands.Where(command => !id.HasValue || command.Id != id.Value).ToList();
+            foreach (var other in otherCommands)
+            {
+                var otherAliases = ParseCommandAliases(other.Aliases);
+                if (string.Equals(other.Name, normalizedName, StringComparison.OrdinalIgnoreCase) ||
+                    otherAliases.Contains(normalizedName, StringComparer.OrdinalIgnoreCase))
+                    throw new ArgumentException($"El nombre !{normalizedName} ya está usado por otro comando o como alias.");
+
+                foreach (var alias in normalizedAliases)
+                {
+                    if (string.Equals(other.Name, alias, StringComparison.OrdinalIgnoreCase) ||
+                        otherAliases.Contains(alias, StringComparer.OrdinalIgnoreCase))
+                        throw new ArgumentException($"El alias !{alias} ya está usado por otro comando.");
+                }
+            }
+
             using var c = Open();
             using var cmd = c.CreateCommand();
             if (id is null)
             {
                 cmd.CommandText = """
-                    INSERT INTO product_commands(name,response,cooldown_seconds,enabled,created_utc,cooldown_scope)
-                    VALUES($name,$response,$cooldown,$enabled,$now,$scope)
+                    INSERT INTO product_commands(name,response,cooldown_seconds,enabled,created_utc,cooldown_scope,aliases)
+                    VALUES($name,$response,$cooldown,$enabled,$now,$scope,$aliases)
                     """;
             }
             else
             {
                 cmd.CommandText = """
                     UPDATE product_commands
-                    SET name=$name,response=$response,cooldown_seconds=$cooldown,enabled=$enabled,cooldown_scope=$scope
+                    SET name=$name,response=$response,cooldown_seconds=$cooldown,enabled=$enabled,
+                        cooldown_scope=$scope,aliases=$aliases
                     WHERE id=$id
                     """;
                 cmd.Parameters.AddWithValue("$id", id.Value);
             }
-            cmd.Parameters.AddWithValue("$name", name.Trim().TrimStart('!'));
+            cmd.Parameters.AddWithValue("$name", normalizedName);
             cmd.Parameters.AddWithValue("$response", response.Trim());
             cmd.Parameters.AddWithValue("$cooldown", cooldown);
             cmd.Parameters.AddWithValue("$enabled", enabled ? 1 : 0);
             cmd.Parameters.AddWithValue("$scope", cooldownScope);
+            cmd.Parameters.AddWithValue("$aliases", aliasesText);
             cmd.Parameters.AddWithValue("$now", Now());
-            if (cmd.ExecuteNonQuery() == 0 && id.HasValue)
-                throw new KeyNotFoundException($"No existe el comando {id.Value}.");
-            Log("Comandos", $"Comando !{name.Trim().TrimStart('!')} guardado (cooldown {cooldownScope}).");
+            cmd.ExecuteNonQuery();
+            Log("Comandos", $"Comando !{normalizedName} guardado (cooldown {cooldownScope}; alias {normalizedAliases.Count}).");
         }
     }
+
+    private static string NormalizeCommandToken(string token, string description)
+    {
+        var normalized = token.Trim().TrimStart('!').ToLowerInvariant();
+        if (normalized.Length is < 1 or > 30 ||
+            normalized.Any(character => !(char.IsLetterOrDigit(character) || character is '_' or '-')))
+            throw new ArgumentException($"El {description} debe usar de 1 a 30 letras, números, guiones o guiones bajos.");
+        return normalized;
+    }
+
+    private static List<string> NormalizeCommandAliases(string aliases, string primaryName)
+    {
+        var normalized = new List<string>();
+        foreach (var aliasPart in (aliases ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var alias = NormalizeCommandToken(aliasPart, "alias");
+            if (string.Equals(alias, primaryName, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!normalized.Contains(alias, StringComparer.OrdinalIgnoreCase))
+                normalized.Add(alias);
+        }
+        if (normalized.Count > 20)
+            throw new ArgumentOutOfRangeException(nameof(aliases), "Cada comando puede tener como máximo 20 alias.");
+        return normalized;
+    }
+
+    private static List<string> ParseCommandAliases(string aliases) =>
+        (aliases ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(alias => alias.Trim())
+            .Where(alias => alias.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     public void DeleteCommand(long id)
     {
@@ -275,7 +344,14 @@ public sealed class ProductStore
         {
             using var c = Open();
             using var cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT id,response,cooldown_seconds,last_used_utc,cooldown_scope FROM product_commands WHERE name=$name COLLATE NOCASE AND enabled=1";
+            cmd.CommandText = """
+                SELECT id,response,cooldown_seconds,last_used_utc,cooldown_scope,name
+                FROM product_commands
+                WHERE enabled=1 AND (
+                    name=$name COLLATE NOCASE OR
+                    instr(',' || lower(aliases) || ',', ',' || lower($name) || ',') > 0)
+                LIMIT 1
+                """;
             cmd.Parameters.AddWithValue("$name", name.Trim().TrimStart('!'));
             using var reader = cmd.ExecuteReader();
             if (!reader.Read()) return CommandResult.Failed("Comando no encontrado o desactivado.");
@@ -284,6 +360,7 @@ public sealed class ProductStore
             var cooldown = reader.GetInt32(2);
             DateTimeOffset? globalLastUsed = reader.IsDBNull(3) ? null : DateTimeOffset.Parse(reader.GetString(3));
             var cooldownScope = reader.GetString(4);
+            var canonicalName = reader.GetString(5);
             reader.Close();
 
             var now = DateTimeOffset.UtcNow;
@@ -331,7 +408,7 @@ public sealed class ProductStore
                 updateUserCooldown.ExecuteNonQuery();
             }
 
-            Log("Comandos", "Comando !" + name.TrimStart('!') + " ejecutado por " + username + ".");
+            Log("Comandos", "Comando !" + canonicalName + " (entrada: !" + name.TrimStart('!') + ") ejecutado por " + username + ".");
             return CommandResult.Succeeded(output);
         }
     }

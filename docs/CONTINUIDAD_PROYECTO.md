@@ -335,3 +335,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Usa el sprite Blink configurado si existe y conserva la fallback visual si no existe uno.
 - La opción de reducir movimiento suspende el parpadeo automático junto con la respiración/escala; el estado Blink manual continúa disponible en Avatar Studio.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD. No es tracking facial ni lip-sync por fonemas.
+
+
+### Trabajo adicional — alias y comandos preinstalados
+- Se agregó la columna SQLite `aliases` con migración compatible y una lista de edición separada por comas en el formulario de comandos.
+- El router resuelve nombre principal o alias por el mismo camino de ejecución y cooldown. Se aceptan hasta 20 alias por comando y se rechazan conflictos con nombres/alias de otros comandos.
+- Los comandos preinstalados se guardan ahora sin `!` en el nombre; la migración normaliza los tres nombres de fábrica heredados `!hola`, `!puntos`, `!dado`, que no coincidían con la consulta del router al quitar el prefijo.
+- Se añadieron pruebas de alias persistidos, resolución por alias, conflictos y comandos de fábrica.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.

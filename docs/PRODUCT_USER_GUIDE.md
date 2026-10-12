@@ -33,7 +33,7 @@ Los mensajes del chat comparten el registro local de comandos; la actividad otor
 
 ## Comandos, comunidad y sorteos
 
-- **Comandos:** creá respuestas con variables `{user}`, `{points}`, `{roll}`, `{args}` y `{message}`. El cooldown puede ser global (un intervalo para todo el chat) o por usuario; ambas modalidades y sus marcas se guardan en SQLite. La previsualización usa el texto aún no guardado y no consume cooldown ni envía mensajes.
+- **Comandos:** creá respuestas con variables `{user}`, `{points}`, `{roll}`, `{args}` y `{message}`. Podés añadir hasta 20 alias separados por coma; cada alias se guarda y ejecuta como el mismo comando, y los conflictos con nombres/alias existentes se rechazan. El cooldown puede ser global (un intervalo para todo el chat) o por usuario; ambas modalidades y sus marcas se guardan en SQLite. La previsualización usa el texto aún no guardado y no consume cooldown ni envía mensajes.
 - **Comunidad y puntos:** los perfiles, el ranking, los ajustes manuales y el ledger de puntos se conservan en la base local. La actividad del chat puede otorgar puntos automáticamente.
 - **Sorteos:** creá un sorteo, registrá participantes manualmente o mediante `!entrar` en el chat y cerralo con selección uniforme usando el generador criptográfico del sistema. Las entradas duplicadas se descartan y un sorteo cerrado no puede volver a sortearse.
 - **Minijuegos:** las rondas locales guardan resultados y recompensas. No requieren Twitch conectado.

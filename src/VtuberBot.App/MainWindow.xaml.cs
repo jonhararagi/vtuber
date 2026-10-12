@@ -696,10 +696,11 @@ public partial class MainWindow : Window
     private UIElement BuildCommandsPage()
     {
         var root=new StackPanel();var panel=Panel("Registro de comandos");root.Children.Add(panel);
-        var list=new ListBox{Height=260};long? editingCommandId=null;void Reload(){list.ItemsSource=null;list.ItemsSource=store.GetCommands().Select(c=>$"{c.Id}  !{c.Name}  ·  {(c.Enabled?"Activo":"Pausado")}  ·  {c.CooldownSeconds}s ({(c.CooldownScope=="user"?"por usuario":"global")})\n     {c.Response}").ToList();}
+        var list=new ListBox{Height=260};long? editingCommandId=null;void Reload(){list.ItemsSource=null;list.ItemsSource=store.GetCommands().Select(c=>$"{c.Id}  !{c.Name}  ·  {(c.Enabled?"Activo":"Pausado")}  ·  {c.CooldownSeconds}s ({(c.CooldownScope=="user"?"por usuario":"global")})\n     Alias: {(string.IsNullOrWhiteSpace(c.Aliases)?"—":c.Aliases)}\n     {c.Response}").ToList();}
         Reload();panel.Children.Add(list);
         var name=TextField("Nombre (sin !, ej. hola)");
         var response=TextField("Respuesta. Variables: {user}, {points}, {roll}, {args}, {message}");
+        var aliases=TextField("Alias separados por comas (ej. hi, saludo), sin !");
         var cooldown=TextField("Cooldown en segundos");cooldown.Text="5";
         var cooldownScope=new ComboBox
         {
@@ -709,10 +710,10 @@ public partial class MainWindow : Window
         };
         var testArguments=TextField("Argumentos de prueba (no se envían al chat)");
         var enabled=new CheckBox{Content="Comando habilitado",IsChecked=true,Foreground=Brush("#F8FAFC"),Margin=new Thickness(0,0,0,10)};
-        list.SelectionChanged+=(_,_)=>{if(list.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split((char)32)[0]);var selected=store.GetCommands().FirstOrDefault(c=>c.Id==selectedId);if(selected is null)return;editingCommandId=selected.Id;name.Text=selected.Name;response.Text=selected.Response;cooldown.Text=selected.CooldownSeconds.ToString();cooldownScope.SelectedIndex=selected.CooldownScope=="user"?1:0;enabled.IsChecked=selected.Enabled;}catch{}};
-        panel.Children.Add(Label("Crear o editar",13,"#F8FAFC",true));panel.Children.Add(name);panel.Children.Add(response);panel.Children.Add(cooldown);panel.Children.Add(Label("Tipo de cooldown",12,"#98A4BE"));panel.Children.Add(cooldownScope);panel.Children.Add(testArguments);panel.Children.Add(enabled);
+        list.SelectionChanged+=(_,_)=>{if(list.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split((char)32)[0]);var selected=store.GetCommands().FirstOrDefault(c=>c.Id==selectedId);if(selected is null)return;editingCommandId=selected.Id;name.Text=selected.Name;aliases.Text=selected.Aliases;response.Text=selected.Response;cooldown.Text=selected.CooldownSeconds.ToString();cooldownScope.SelectedIndex=selected.CooldownScope=="user"?1:0;enabled.IsChecked=selected.Enabled;}catch{}};
+        panel.Children.Add(Label("Crear o editar",13,"#F8FAFC",true));panel.Children.Add(name);panel.Children.Add(aliases);panel.Children.Add(response);panel.Children.Add(cooldown);panel.Children.Add(Label("Tipo de cooldown",12,"#98A4BE"));panel.Children.Add(cooldownScope);panel.Children.Add(testArguments);panel.Children.Add(enabled);
         var row=new WrapPanel();
-        row.Children.Add(ActionButton("Guardar comando",(_,_)=>{try{store.SaveCommand(editingCommandId,name.Text,response.Text,int.Parse(cooldown.Text),enabled.IsChecked==true,cooldownScope.SelectedIndex==1?"user":"global");Reload();list.SelectedItem=null;editingCommandId=null;name.Clear();response.Clear();testArguments.Clear();cooldownScope.SelectedIndex=0;FooterStatus.Text="Comando guardado en SQLite.";}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
+        row.Children.Add(ActionButton("Guardar comando",(_,_)=>{try{store.SaveCommand(editingCommandId,name.Text,response.Text,int.Parse(cooldown.Text),enabled.IsChecked==true,cooldownScope.SelectedIndex==1?"user":"global",aliases.Text);Reload();list.SelectedItem=null;editingCommandId=null;name.Clear();aliases.Clear();response.Clear();testArguments.Clear();cooldownScope.SelectedIndex=0;FooterStatus.Text="Comando guardado en SQLite.";}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
         row.Children.Add(ActionButton("Previsualizar respuesta",(_,_)=>{var result=store.PreviewCommandResponse(name.Text,response.Text,"preview_user",testArguments.Text);MessageBox.Show(this,result.Message,"Previsualización local");}));
         row.Children.Add(ActionButton("Eliminar seleccionado",(_,_)=>{if(list.SelectedIndex<0)return;var id=long.Parse(list.SelectedItem!.ToString()!.Split(' ')[0]);if(MessageBox.Show(this,"¿Eliminar el comando seleccionado?","Confirmar",MessageBoxButton.YesNo)==MessageBoxResult.Yes){store.DeleteCommand(id);Reload();}}));
         panel.Children.Add(row);root.Children.Add(Label("El cooldown se aplica al ejecutar desde el chat. Global bloquea ese comando para todos los espectadores; Por usuario limita solo a quien lo usó. La elección y las marcas quedan guardadas en SQLite. La previsualización no consume cooldown.",12,"#98A4BE"));return root;
