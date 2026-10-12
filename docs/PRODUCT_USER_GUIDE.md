@@ -111,3 +111,17 @@ Cuando se solicite la validación integrada, seguí una sola vez la lista [Valid
 ## Aplicaciones externas
 
 Configuración de rutas, apertura y estados de PNGTuber Plus y Streamer.bot: [Centro de integraciones externas](EXTERNAL-INTEGRATIONS.md).
+
+
+## Streamer.bot por WebSocket
+
+1. En Streamer.bot, abrí **Servers/Clients → WebSocket Server** y comprobá la dirección, el puerto, el endpoint y si se exige autenticación. La documentación oficial está en https://docs.streamer.bot/api/websocket/guide/configuration.
+2. En VTuberBot, entrá a **Streamer.bot** en el menú lateral. Usá los valores por defecto `127.0.0.1:8080/` o copiá los que muestra tu instancia.
+3. Marcá autenticación e introducí la contraseña si el servidor la exige. Al guardarla, VTuberBot usa DPAPI de Windows para protegerla para el usuario actual. No compartas el archivo cifrado entre usuarios.
+4. Pulsá **Conectar / probar**. Si el estado es Conectado, el cliente completó el handshake WebSocket y autenticación solicitada. El proceso de Streamer.bot abierto por sí solo no es prueba de conexión.
+5. **Consultar / actualizar acciones** consulta el catálogo real. Seleccioná una acción y verificá el ID antes de confirmar su ejecución. No pruebes acciones que modifiquen OBS, moderen usuarios o tengan efectos destructivos sin comprender su configuración.
+6. **Consultar eventos disponibles** obtiene los eventos admitidos por la instancia. Seleccioná los que quieras y pulsá **Suscribir eventos seleccionados**. Tras reconectar, repetí la suscripción; los eventos recibidos no ejecutan acciones automáticamente.
+
+El estado `status=ok` de `DoAction` confirma la respuesta de Streamer.bot, no que OBS o el avatar hayan realizado el efecto final. Para un servidor remoto, tené presente que `ws://` no cifra el tráfico. VTuberBot no cambia el firewall ni abre puertos automáticamente.
+
+La prueba automatizada de protocolo utiliza un servidor simulado; antes de considerar validada la integración completa, hace falta probar la conexión y los eventos contra tu instancia real de Streamer.bot en Windows, junto con OBS y PNGTuber Plus.
