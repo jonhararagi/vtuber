@@ -26,6 +26,7 @@ public partial class MainWindow
     private TextBlock? obsStreamOutputStatusLabel;
     private TextBlock? obsRecordOutputStatusLabel;
     private Action<string, JsonElement>? obsEventHandler;
+    private Action<string>? obsStatusHandler;
 
     private UIElement BuildObsPage()
     {
@@ -40,6 +41,9 @@ public partial class MainWindow
 
         if (obsEventHandler is not null)
             obs.EventReceived -= obsEventHandler;
+        if (obsStatusHandler is not null)
+            obs.StatusChanged -= obsStatusHandler;
+
         obsEventHandler = (eventType, eventData) =>
         {
             if (eventType is not ("StreamStateChanged" or "RecordStateChanged"))
@@ -111,6 +115,21 @@ public partial class MainWindow
                 store.Log("OBS", "No se pudo leer el estado de grabación (" + exception.GetType().Name + ").");
             }
         }
+
+        // Keep the output indicators aligned with the actual WebSocket session. The
+        // client can disconnect or reconnect without the user pressing a page button.
+        obsStatusHandler = _ =>
+        {
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() => _ = RefreshOutputStatusAsync()));
+            }
+            catch (InvalidOperationException)
+            {
+                // The dispatcher may already be shutting down.
+            }
+        };
+        obs.StatusChanged += obsStatusHandler;
 
         async Task RunOutputActionAsync(string action, Func<Task> operation)
         {
