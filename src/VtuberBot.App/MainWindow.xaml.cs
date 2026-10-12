@@ -64,7 +64,25 @@ public partial class MainWindow : Window
         eventSub.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         speechQueue.StatusChanged += (status, pending) => Dispatcher.BeginInvoke(new Action(() =>
             FooterStatus.Text = $"Voz local: {status} · pendientes: {pending}"));
-        eventSub.EventReceived += (type,summary) => Dispatcher.BeginInvoke(new Action(() => { chatLines.Insert(0,"[EventSub] "+type+": "+summary); while(chatLines.Count>200)chatLines.RemoveAt(chatLines.Count-1); store.Log("Twitch EventSub",type+": "+summary); if(type!="subscription_error"&&type!="revocation"&&!string.IsNullOrWhiteSpace(avatarPath)&&File.Exists(avatarPath)){if(overlay is null||!overlay.IsVisible)ShowOverlay();overlay?.ShowAlert(type+": "+summary);} }));
+        eventSub.EventReceived += (type,summary) => Dispatcher.BeginInvoke(new Action(() =>
+        {
+            chatLines.Insert(0, "[EventSub] " + type + ": " + summary);
+            while (chatLines.Count > 200) chatLines.RemoveAt(chatLines.Count - 1);
+            store.Log("Twitch EventSub", type + ": " + summary);
+            if (type != "subscription_error" && type != "revocation")
+            {
+                if (store.GetSetting("twitch.speak_alerts", "false") == "true")
+                {
+                    if (!speechQueue.Enqueue("Alerta de Twitch. " + summary, SpeechPriority.High))
+                        store.Log("Audio", "Alerta EventSub no encolada: la cola de voz está llena o cerrada.");
+                }
+                if (!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath))
+                {
+                    if (overlay is null || !overlay.IsVisible) ShowOverlay();
+                    overlay?.ShowAlert(type + ": " + summary);
+                }
+            }
+        }));
         obs.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         Closed += async (_, _) =>
         {
@@ -473,7 +491,18 @@ public partial class MainWindow : Window
         panel.Children.Add(Label("Canal",12,"#98A4BE"));panel.Children.Add(channel);
         panel.Children.Add(Label("Client ID de tu aplicación Twitch",12,"#98A4BE"));panel.Children.Add(clientId);
         panel.Children.Add(Label("Token OAuth de chat (no se registra en logs)",12,"#98A4BE"));panel.Children.Add(token);
-        panel.Children.Add(Label("Usá OAuth de Twitch con permisos chat:read, chat:edit, moderator:read:followers, channel:read:subscriptions y channel:read:redemptions. Registrá la URL de redirección local indicada abajo en la consola de desarrolladores. El token se cifra con DPAPI para el usuario actual y nunca se escribe en GitHub ni en el registro de actividad. Redirección: http://localhost:17563/callback/",12,"#98A4BE"));
+        panel.Children.Add(Label("Usá OAuth de Twitch con permisos chat:read, chat:edit, moderator:read:followers, moderator:manage:banned_users, channel:read:subscriptions y channel:read:redemptions. Registrá la URL de redirección local indicada abajo en la consola de desarrolladores. El token se cifra con DPAPI para el usuario actual y nunca se escribe en GitHub ni en el registro de actividad. Redirección: http://localhost:17563/callback/",12,"#98A4BE"));
+        var speakAlerts = new CheckBox
+        {
+            Content = "Leer alertas de Twitch con la voz local",
+            IsChecked = store.GetSetting("twitch.speak_alerts", "false") == "true",
+            Foreground = Brush("#F8FAFC"),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        speakAlerts.Checked += (_, _) => store.SetSetting("twitch.speak_alerts", "true");
+        speakAlerts.Unchecked += (_, _) => store.SetSetting("twitch.speak_alerts", "false");
+        panel.Children.Add(speakAlerts);
+        panel.Children.Add(Label("Si la opción está activa, las alertas EventSub se agregan a la cola TTS local con prioridad alta; el audio actual no se interrumpe.", 12, "#98A4BE"));
         var actions=new WrapPanel();
         actions.Children.Add(ActionButton("Autorizar con Twitch",async (_,_)=>{try{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());FooterStatus.Text="Esperando autorización de Twitch en el navegador…";var accessToken=await TwitchOAuth.AuthorizeAsync(clientId.Text.Trim());token.Password=accessToken;SaveTwitchToken(accessToken);FooterStatus.Text="OAuth completado; token cifrado localmente. Presioná Conectar para iniciar chat.";store.Log("Twitch","Flujo OAuth completado; el token no se registra.");}catch(Exception ex){FooterStatus.Text=$"OAuth no completado: {ex.Message}";MessageBox.Show(this,$"No se pudo completar OAuth. Confirmá que el Client ID sea válido y que la URL de redirección registrada sea {TwitchOAuth.RedirectUri}\n\nDetalle: {ex.Message}");}}));
         actions.Children.Add(ActionButton("Guardar configuración segura",(_,_)=>{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());SaveTwitchToken(token.Password);FooterStatus.Text="Canal y token guardados localmente; aún no conectado.";store.Log("Twitch","Configuración local guardada sin registrar el token.");},true));
@@ -487,7 +516,7 @@ public partial class MainWindow : Window
         var send=TextField("Escribí un mensaje para el chat…");var sendRow=new DockPanel();DockPanel.SetDock(sendRow, Dock.Left);sendRow.Children.Add(send);
         sendRow.Children.Add(ActionButton("Enviar",async (_,_)=>{try{await twitch.SendMessageAsync(channel.Text,send.Text);store.Log("Twitch","Mensaje enviado al chat.");send.Clear();}catch(Exception ex){FooterStatus.Text=$"No se pudo enviar: {ex.Message}";}}));chatPanel.Children.Add(sendRow);
         root.Children.Add(chatPanel);
-        root.Children.Add(Label("La lectura de chat, los comandos y las alertas EventSub solo funcionan después de autenticación real. EventSub incluye follows, suscripciones, regalos, redenciones de puntos y raids hacia el canal; reconexión automática avanzada y alertas visuales personalizadas quedan pendientes.",12,"#98A4BE"));
+        root.Children.Add(Label("La lectura de chat, los comandos y las alertas EventSub solo funcionan después de autenticación real. EventSub incluye follows, suscripciones, regalos, redenciones de puntos y raids hacia el canal, reintenta tras perder la sesión y puede leer alertas en voz local si activaste esa opción. La conexión IRC del chat todavía requiere reconexión manual si se corta.",12,"#98A4BE"));
         return root;
     }
 

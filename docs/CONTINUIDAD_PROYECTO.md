@@ -174,3 +174,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La página Moderación tiene controles explícitos para timeout con duración seleccionable, ban permanente y desbanear; cada operación requiere confirmación del usuario. Las reglas regex siguen en modo observación y no ejecutan sanciones remotas automáticamente.
 - El flujo OAuth solicita `moderator:manage:banned_users`. Las llamadas explican errores de token/scope, permisos del canal y límites; no registran secretos.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD. No se prueba contra una cuenta real sin credenciales/permisos del dueño.
+
+
+### Trabajo adicional — voz de alertas Twitch
+
+- Añadida una opción persistente en la pantalla Twitch para activar la lectura por voz local de alertas EventSub.
+- Las alertas usan la cola TTS con prioridad Alta, sin interrumpir la frase actual; si la cola está llena, el caso se registra y no se presenta como hablado.
+- Confirmación visual de alertas continúa en el overlay y el registro de actividad.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD. Requiere EventSub autenticado y voz SAPI instalada para audio real.
