@@ -499,7 +499,7 @@ public partial class MainWindow
             var dialog = new OpenFileDialog
             {
                 Title = "Importar resultado para " + role,
-                Filter = "Imágenes PNG/JPG/BMP/WebP|*.png;*.jpg;*.jpeg;*.bmp;*.webp", Multiselect = false
+                Filter = "Imágenes PNG/JPG/BMP/WebP|*.png;*.jpg;*.jpeg;*.bmp", Multiselect = false
             };
             if (dialog.ShowDialog(this) != true) return;
             try
@@ -606,12 +606,12 @@ public partial class MainWindow
 
     private void ImportAvatar()
     {
-        var dialog=new OpenFileDialog{Title="Importar arte del avatar",Filter="Imágenes|*.png;*.jpg;*.jpeg;*.bmp;*.webp",Multiselect=false};
+        var dialog=new OpenFileDialog{Title="Importar arte del avatar",Filter="Imágenes|*.png;*.jpg;*.jpeg;*.bmp",Multiselect=false};
         if(dialog.ShowDialog(this)!=true)return;
         var info=new FileInfo(dialog.FileName);
         if(info.Length>25*1024*1024){MessageBox.Show(this,"El archivo supera el límite de 25 MB.","VTuberBot",MessageBoxButton.OK,MessageBoxImage.Warning);return;}
         var extension=Path.GetExtension(dialog.FileName).ToLowerInvariant();
-        if(extension is not (".png" or ".jpg" or ".jpeg" or ".bmp" or ".webp"))return;
+        if(!AvatarImageFormatPolicy.IsSupportedExtension(extension))return;
         try
         {
             _=LoadImage(dialog.FileName);
@@ -642,7 +642,7 @@ public partial class MainWindow
         var dialog = new OpenFileDialog
         {
             Title = "Importar sprite para " + expressionName,
-            Filter = "Imágenes|*.png;*.jpg;*.jpeg;*.bmp;*.webp",
+            Filter = "Imágenes|*.png;*.jpg;*.jpeg;*.bmp",
             Multiselect = false
         };
         if (dialog.ShowDialog(this) != true) return;
@@ -985,7 +985,7 @@ public partial class MainWindow
     }
 
     private static bool IsSupportedAvatarImageExtension(string extension) =>
-        extension is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".webp";
+        AvatarImageFormatPolicy.IsSupportedExtension(extension);
 
     private static bool IsSafeAvatarPackageEntry(string entryName)
     {

@@ -736,3 +736,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Integridad:** solo se podan filas de `product_activity`. Saldos/ledger, participantes e historial de sorteos, sesiones de minijuegos, comandos y reglas permanecen en sus tablas y no se ven afectados.
 - **Pruebas:** conserva los tres eventos más recientes en una poda pequeña, verifica que los puntos y un sorteo sigan intactos, y rechaza límites inválidos.
 - **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.
+
+
+### 2026-10-12 — Formatos portables de imágenes coherentes con el decodificador
+
+- Los diálogos de Avatar Studio anunciaban WebP aunque WPF depende del códec WIC instalado para leer ese formato. Un paquete portable no puede suponer que el códec opcional exista en todos los Windows.
+- Se centralizó la política de formatos portables en Core; PNG/JPG/JPEG/BMP quedan aceptados por los importadores y los paquetes `.vtuberavatar`. WebP y formatos no declarados se rechazan con la validación común en lugar de fallar más tarde al renderizar.
+- Pruebas para extensiones válidas, comparación sin distinguir mayúsculas y formatos no admitidos.
+- Estado: implementado; Windows CI pendiente.
