@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     private readonly string avatarDirectory;
     private readonly string secretDirectory;
     private readonly TwitchChatClient twitch = new();
+    private readonly TwitchEventSubClient eventSub = new();
     private readonly ObsWebSocketClient obs = new();
     private AvatarOverlayWindow? overlay;
     private string? avatarPath;
@@ -58,6 +59,8 @@ public partial class MainWindow : Window
         avatarPath = store.GetSetting("avatar.path");
         twitch.StatusChanged += status => Dispatcher.Invoke(() => { FooterStatus.Text = status; RuntimeStatus.Text = twitch.IsConnected ? "●  TWITCH CONECTADO" : "●  LOCAL ACTIVO"; });
         twitch.MessageReceived += HandleTwitchMessage;
+        eventSub.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
+        eventSub.EventReceived += (type,summary) => Dispatcher.BeginInvoke(new Action(() => { chatLines.Insert(0,"[EventSub] "+type+": "+summary); while(chatLines.Count>200)chatLines.RemoveAt(chatLines.Count-1); store.Log("Twitch EventSub",type+": "+summary); }));
         obs.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         Closed += async (_, _) =>
         {
@@ -66,6 +69,7 @@ public partial class MainWindow : Window
             if (overlay is not null) overlay.Close();
             await twitch.DisposeAsync();
             await obs.DisposeAsync();
+            await eventSub.DisposeAsync();
         };
         automationTimer.Tick += async (_, _) => await ProcessAutomationsAsync();
         automationTimer.Start();
@@ -257,6 +261,8 @@ public partial class MainWindow : Window
         actions.Children.Add(ActionButton("Autorizar con Twitch",async (_,_)=>{try{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());FooterStatus.Text="Esperando autorización de Twitch en el navegador…";var accessToken=await TwitchOAuth.AuthorizeAsync(clientId.Text.Trim());token.Password=accessToken;SaveTwitchToken(accessToken);FooterStatus.Text="OAuth completado; token cifrado localmente. Presioná Conectar para iniciar chat.";store.Log("Twitch","Flujo OAuth completado; el token no se registra.");}catch(Exception ex){FooterStatus.Text=$"OAuth no completado: {ex.Message}";MessageBox.Show(this,$"No se pudo completar OAuth. Confirmá que el Client ID sea válido y que la URL de redirección registrada sea {TwitchOAuth.RedirectUri}\n\nDetalle: {ex.Message}");}}));
         actions.Children.Add(ActionButton("Guardar configuración segura",(_,_)=>{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());SaveTwitchToken(token.Password);FooterStatus.Text="Canal y token guardados localmente; aún no conectado.";store.Log("Twitch","Configuración local guardada sin registrar el token.");},true));
         actions.Children.Add(ActionButton("Conectar",async (_,_)=>{try{store.SetSetting("twitch.channel",channel.Text.Trim());SaveTwitchToken(token.Password);await twitch.ConnectAsync(channel.Text,token.Password); }catch(Exception ex){FooterStatus.Text=$"Twitch: {ex.Message}";store.Log("Twitch",$"Falló conexión: {ex.GetType().Name}; revisá configuración y permisos.");MessageBox.Show(this,$"No se pudo conectar a Twitch. Revisá canal, token OAuth, permisos y conexión a Internet.\n\nDetalle: {ex.Message}");}}));
+        actions.Children.Add(ActionButton("Conectar EventSub (alertas)",async (_,_)=>{try{SaveTwitchToken(token.Password);await eventSub.ConnectAsync(clientId.Text.Trim(),token.Password,channel.Text.Trim());}catch(Exception ex){FooterStatus.Text="EventSub no conectado: "+ex.Message;MessageBox.Show(this,"No se pudieron registrar los eventos oficiales. Si el token ya existía, volvé a autorizar para aceptar los scopes adicionales.\n\n"+ex.Message);}}));
+        actions.Children.Add(ActionButton("Desconectar EventSub",async (_,_)=>await eventSub.DisconnectAsync()));
         actions.Children.Add(ActionButton("Desconectar",async (_,_)=>await twitch.DisconnectAsync()));
         panel.Children.Add(actions);
         var chatPanel=Panel("Chat en directo");chatPanel.Margin=new Thickness(0,16,0,0);

@@ -27,7 +27,7 @@ public static class TwitchOAuth
         var url = "https://id.twitch.tv/oauth2/authorize" +
             "?response_type=code&client_id=" + Uri.EscapeDataString(clientId.Trim()) +
             "&redirect_uri=" + Uri.EscapeDataString(RedirectUri) +
-            "&scope=" + Uri.EscapeDataString("chat:read chat:edit") +
+            "&scope=" + Uri.EscapeDataString("chat:read chat:edit moderator:read:followers channel:read:subscriptions channel:read:redemptions") +
             "&state=" + Uri.EscapeDataString(state) +
             "&code_challenge=" + Uri.EscapeDataString(challenge) +
             "&code_challenge_method=S256";
