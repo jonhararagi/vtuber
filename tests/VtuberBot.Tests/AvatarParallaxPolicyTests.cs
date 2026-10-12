@@ -55,7 +55,7 @@ public sealed class AvatarParallaxPolicyTests
         Assert.Equal(AvatarParallaxPolicy.MaximumOffsetPixels,
             AvatarParallaxPolicy.GetOffset(10, 10));
         Assert.Equal(-AvatarParallaxPolicy.MaximumOffsetPixels,
-            AvatarParallaxPolicy.GetOffset(-10, -10));
+            AvatarParallaxPolicy.GetOffset(-10, 10));
         Assert.Equal(0, AvatarParallaxPolicy.GetOffset(double.NaN, 1));
     }
 }

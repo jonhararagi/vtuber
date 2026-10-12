@@ -800,3 +800,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Hallazgo:** cuando la cola SAPI estaba llena o cerrándose, `LocalSpeechQueue.Enqueue` notificaba a la UI dentro del bloqueo `gate`. Un suscriptor que ejecutara trabajo síncrono o intentara cerrar/reentrar en la cola podía prolongar la sección crítica o bloquear al worker.
 - **Corrección:** la ruta de rechazo captura el mensaje/cantidad bajo el bloqueo y notifica después de soltarlo. `StatusChanged` usa `SafeEventDispatch`, por lo que una excepción de un listener no impide notificar a los posteriores ni termina el worker de voz.
 - **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.
+
+
+### Corrección de prueba — dirección negativa del parallax
+
+- CI #217 compiló correctamente y la corrección de SQLite se incorporó, pero la prueba `OffsetsNeverExceedTheBoundedRange` usaba simultáneamente posición y factor negativos, cuyo producto es positivo.
+- Se cambió el vector a posición negativa y factor positivo, para probar un desplazamiento negativo real. No modifica código de producción.
+- El smoke test WPF no figura como fallo en #217; el mensaje SQLite del log corresponde a una ruta de inicialización que no falló como prueba independiente en esa ejecución. La prueba específica de directorio SQLite permanece añadida.
