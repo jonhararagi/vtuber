@@ -319,7 +319,7 @@ public sealed class StreamerBotWebSocketClient : IStreamerBotClient
                     var root = document.RootElement;
                     if (root.ValueKind != JsonValueKind.Object)
                         throw new StreamerBotProtocolException("La raíz del mensaje debe ser un objeto JSON.");
-                    if (root.TryGetProperty("request", out var requestName) &&
+                    if (root.TryGetProperty("request", out var requestName) && requestName.ValueKind == JsonValueKind.String &&
                         string.Equals(requestName.GetString(), "Hello", StringComparison.OrdinalIgnoreCase))
                     {
                         if (helloReceived is not null)
