@@ -172,15 +172,26 @@ public partial class MainWindow : Window
         var preview = new Border { Background=Brush("#101525"), CornerRadius=new CornerRadius(14), Padding=new Thickness(14), MinHeight=350 };
         if(!string.IsNullOrWhiteSpace(avatarPath)&&File.Exists(avatarPath))
         {
-            var img=new Image{Source=LoadImage(avatarPath),Stretch=Stretch.Uniform,MaxHeight=360};
-            preview.Child=img;
+            var previewLayers=new Grid();
+            previewLayers.Children.Add(new Image{Source=LoadImage(avatarPath),Stretch=Stretch.Uniform,MaxHeight=360});
+            foreach(var layer in store.GetAvatarLayers().Where(l=>l.Visible&&File.Exists(l.Path))) previewLayers.Children.Add(new Image{Source=LoadImage(layer.Path),Stretch=Stretch.Uniform,MaxHeight=360});
+            preview.Child=previewLayers;
         }
         else preview.Child=Label("Todavía no hay arte importado.\nUsá un PNG propio para comenzar.",16,"#98A4BE");
         left.Children.Add(preview);
         var right=Panel("Avatar y salida"); right.Margin=new Thickness(18,0,0,0);
         right.Children.Add(Label("Avatar activo",14,"#F8FAFC",true));
         right.Children.Add(Label(string.IsNullOrWhiteSpace(avatarPath)? "Ningún archivo seleccionado":Path.GetFileName(avatarPath),12,"#98A4BE"));
-        right.Children.Add(ActionButton("＋  Importar PNG / imagen",(_,_)=>ImportAvatar(),true));
+        right.Children.Add(ActionButton("＋  Importar PNG / imagen base",(_,_)=>ImportAvatar(),true));
+        right.Children.Add(Label("Capas adicionales (orden de abajo hacia arriba)",13,"#F8FAFC",true));
+        var layerList=new ListBox{Height=150};
+        void ReloadLayers(){layerList.ItemsSource=store.GetAvatarLayers().Select(l=>string.Format("{0} | {1} | {2}",l.Id,l.Visible?"●":"○",l.Name)).ToList();}
+        ReloadLayers();right.Children.Add(layerList);
+        var layerActions=new WrapPanel();
+        layerActions.Children.Add(ActionButton("＋ Importar capa",(_,_)=>{ImportAvatarLayer();ReloadLayers();}));
+        layerActions.Children.Add(ActionButton("Mostrar / ocultar",(_,_)=>{if(layerList.SelectedItem is null)return;var id=long.Parse(layerList.SelectedItem.ToString()!.Split('|')[0].Trim());var layer=store.GetAvatarLayers().FirstOrDefault(l=>l.Id==id);if(layer is not null)store.SetAvatarLayerVisibility(id,!layer.Visible);ReloadLayers();}));
+        layerActions.Children.Add(ActionButton("Eliminar capa",(_,_)=>{if(layerList.SelectedItem is null)return;var id=long.Parse(layerList.SelectedItem.ToString()!.Split('|')[0].Trim());if(MessageBox.Show(this,"¿Eliminar esta capa del perfil? El archivo local no se borra.","Confirmar",MessageBoxButton.YesNo)==MessageBoxResult.Yes){store.DeleteAvatarLayer(id);ReloadLayers();}}));
+        right.Children.Add(layerActions);
         right.Children.Add(ActionButton("Mostrar overlay transparente",(_,_)=>ShowOverlay()));
         right.Children.Add(ActionButton("Ocultar overlay",(_,_)=>{overlay?.Hide();store.Log("Avatar","Overlay ocultado.");}));
         right.Children.Add(Label("Estados disponibles para el runtime",14,"#F8FAFC",true));
@@ -209,10 +220,25 @@ public partial class MainWindow : Window
         catch(Exception ex){MessageBox.Show(this,$"No se pudo importar la imagen: {ex.Message}","VTuberBot",MessageBoxButton.OK,MessageBoxImage.Error);}
     }
 
+    private void ImportAvatarLayer()
+    {
+        var dialog=new OpenFileDialog{Title="Importar capa del avatar",Filter="Imágenes PNG/JPG/BMP|*.png;*.jpg;*.jpeg;*.bmp",Multiselect=false};
+        if(dialog.ShowDialog(this)!=true)return;
+        try
+        {
+            var info=new FileInfo(dialog.FileName);if(info.Length>25*1024*1024)throw new InvalidOperationException("El archivo supera 25 MB.");
+            _=LoadImage(dialog.FileName);
+            var destination=Path.Combine(avatarDirectory,"layer-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-"+Guid.NewGuid().ToString("N")+Path.GetExtension(dialog.FileName).ToLowerInvariant());
+            File.Copy(dialog.FileName,destination,false);store.AddAvatarLayer(Path.GetFileNameWithoutExtension(dialog.FileName),destination);store.Log("Avatar","Capa importada: "+Path.GetFileName(destination));
+            Navigate("Avatar Studio");
+        }
+        catch(Exception ex){MessageBox.Show(this,"No se pudo importar la capa: "+ex.Message);}
+    }
+
     private void ShowOverlay()
     {
         if(string.IsNullOrWhiteSpace(avatarPath)||!File.Exists(avatarPath)){MessageBox.Show(this,"Primero importá una imagen en Avatar Studio.");return;}
-        try { overlay??=new AvatarOverlayWindow(); overlay.SetImage(avatarPath); if(!overlay.IsVisible)overlay.Show();overlay.Activate();store.Log("Avatar","Overlay mostrado."); }
+        try { overlay??=new AvatarOverlayWindow(); overlay.SetLayers(new[]{avatarPath}.Concat(store.GetAvatarLayers().Where(l=>l.Visible).Select(l=>l.Path))); if(!overlay.IsVisible)overlay.Show();overlay.Activate();store.Log("Avatar","Overlay mostrado."); }
         catch(Exception ex){MessageBox.Show(this,$"No se pudo abrir el overlay: {ex.Message}");}
     }
 

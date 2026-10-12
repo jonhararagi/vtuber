@@ -7,6 +7,7 @@ public sealed record CommunityUser(string Username, long Points, DateTimeOffset 
 public sealed record GiveawayRecord(long Id, string Name, string Status, string? Winner, int Entries);
 public sealed record ProductActivity(DateTimeOffset At, string Module, string Message);
 public sealed record AutomationRule(long Id, string Name, string Message, int IntervalMinutes, bool Enabled);
+public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrder, bool Visible);
 
 /// <summary>Persistence for product-level features. Uses the same local SQLite file as the core.</summary>
 public sealed class ProductStore
@@ -49,7 +50,7 @@ public sealed class ProductStore
               message TEXT NOT NULL, interval_minutes INTEGER NOT NULL, enabled INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE IF NOT EXISTS product_activity(
               id INTEGER PRIMARY KEY AUTOINCREMENT, at_utc TEXT NOT NULL, module TEXT NOT NULL, message TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS product_settings(
+            CREATE TABLE IF NOT EXISTS avatar_layers(\n              id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, path TEXT NOT NULL,\n              sort_order INTEGER NOT NULL, visible INTEGER NOT NULL DEFAULT 1);\n            CREATE TABLE IF NOT EXISTS product_settings(
               key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS idx_activity_time ON product_activity(id DESC);
             """;
@@ -247,6 +248,28 @@ public sealed class ProductStore
     public IReadOnlyList<(string Name,string Pattern,bool Enabled,string Action)> GetModerationRules()
     {
         lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="SELECT name,pattern,enabled,action FROM moderation_rules ORDER BY name"; using var r=cmd.ExecuteReader(); var list=new List<(string,string,bool,string)>(); while(r.Read()) list.Add((r.GetString(0),r.GetString(1),r.GetInt32(2)!=0,r.GetString(3))); return list; }
+    }
+
+    public IReadOnlyList<AvatarLayer> GetAvatarLayers()
+    {
+        lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="SELECT id,name,path,sort_order,visible FROM avatar_layers ORDER BY sort_order,id"; using var r=cmd.ExecuteReader(); var list=new List<AvatarLayer>(); while(r.Read()) list.Add(new(r.GetInt64(0),r.GetString(1),r.GetString(2),r.GetInt32(3),r.GetInt32(4)!=0)); return list; }
+    }
+
+    public long AddAvatarLayer(string name, string path)
+    {
+        if(string.IsNullOrWhiteSpace(name)||!File.Exists(path)) throw new ArgumentException("La capa necesita un nombre y un archivo existente.");
+        lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="INSERT INTO avatar_layers(name,path,sort_order,visible) VALUES($n,$p,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM avatar_layers),1); SELECT last_insert_rowid();"; cmd.Parameters.AddWithValue("$n",name.Trim()); cmd.Parameters.AddWithValue("$p",Path.GetFullPath(path)); return (long)cmd.ExecuteScalar()!; }
+    }
+
+    public void SetAvatarLayerVisibility(long id, bool visible)
+    {
+        lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="UPDATE avatar_layers SET visible=$v WHERE id=$id"; cmd.Parameters.AddWithValue("$v",visible?1:0); cmd.Parameters.AddWithValue("$id",id); cmd.ExecuteNonQuery(); }
+    }
+
+    public void DeleteAvatarLayer(long id)
+    {
+        lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="DELETE FROM avatar_layers WHERE id=$id"; cmd.Parameters.AddWithValue("$id",id); cmd.ExecuteNonQuery(); }
+        Log("Avatar",$"Capa ID {id} eliminada del perfil.");
     }
 
     public IReadOnlyList<AutomationRule> GetAutomationRules()

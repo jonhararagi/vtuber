@@ -8,7 +8,7 @@ namespace VtuberBot.App;
 
 public sealed class AvatarOverlayWindow : Window
 {
-    private readonly Image image = new() { Stretch = Stretch.Uniform, RenderTransformOrigin = new Point(.5,.5) };
+    private readonly Grid layerCanvas = new();
     private readonly ScaleTransform breathing = new(1,1);
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(80) };
     private double phase;
@@ -19,18 +19,25 @@ public sealed class AvatarOverlayWindow : Window
         Width = 420; Height = 520; MinWidth = 160; MinHeight = 180;
         WindowStyle = WindowStyle.None; AllowsTransparency = true; Background = Brushes.Transparent;
         Topmost = true; ShowInTaskbar = false; ResizeMode = ResizeMode.CanResizeWithGrip;
-        image.RenderTransform = breathing;
-        Content = image;
+        layerCanvas.RenderTransformOrigin = new Point(.5,.5);
+        layerCanvas.RenderTransform = breathing;
+        Content = layerCanvas;
         MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) Topmost = !Topmost; else if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed) DragMove(); };
         timer.Tick += (_, _) => { phase += .035; breathing.ScaleY = 1 + Math.Sin(phase) * .008; breathing.ScaleX = 1 + Math.Sin(phase + .6) * .004; };
         timer.Start();
         Closed += (_, _) => timer.Stop();
     }
 
-    public void SetImage(string path)
+    public void SetImage(string path) => SetLayers([path]);
+
+    public void SetLayers(IEnumerable<string> paths)
     {
-        var bitmap = new BitmapImage();
-        bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.UriSource = new Uri(path); bitmap.EndInit(); bitmap.Freeze();
-        image.Source = bitmap;
+        layerCanvas.Children.Clear();
+        foreach (var path in paths.Where(File.Exists))
+        {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.UriSource = new Uri(Path.GetFullPath(path)); bitmap.DecodePixelWidth = 1000; bitmap.EndInit(); bitmap.Freeze();
+            layerCanvas.Children.Add(new Image { Source = bitmap, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch, IsHitTestVisible = false });
+        }
     }
 }
