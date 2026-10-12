@@ -206,3 +206,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - La auditoría detectó que el cliente podía aceptar un servidor OBS que no enviara challenge de autenticación y aun así mostrar el estado «autenticado». Ahora exige que OBS WebSocket tenga contraseña habilitada y que se proporcione una contraseña antes de enviar Identify.
 - La validación se extrajo a Core y tiene pruebas para servidor sin challenge, contraseña vacía y configuración válida. No se cambia el algoritmo de challenge/salt de OBS v5.
 - Estado: corrección en la rama de producto; pendiente CI del SHA nuevo y prueba contra OBS real. El usuario debe activar contraseña en Ajustes del servidor WebSocket de OBS.
+
+
+## OBS — autenticación obligatoria del WebSocket v5
+
+- Se cerró el hallazgo que permitía etiquetar como autenticada una sesión sin challenge de contraseña. La política de Core exige challenge del servidor y contraseña no vacía; la UI lo indica explícitamente.
+- Cuatro pruebas cubren la política. Windows CI #250 confirmó restore, build Release, tests, publish self-contained win-x64 y upload para SHA `095d2889303bc4ed17ef47ef2bce4452ca0c5764`.
+- Sigue pendiente comprobar la autenticación contra una instancia real de OBS del usuario.

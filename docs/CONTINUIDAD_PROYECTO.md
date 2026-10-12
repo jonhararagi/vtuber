@@ -1059,3 +1059,17 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Corrección en `ObsWebSocketClient`: el handshake exige challenge de autenticación y contraseña no vacía; si OBS no exige contraseña, falla con instrucción clara para habilitarla en los ajustes del servidor WebSocket.
 - Añadida política pura `ObsAuthenticationPolicy` en Core y pruebas para ausencia de challenge, contraseña ausente/espacios y configuración válida.
 - CI del SHA nuevo y validación contra OBS real pendientes; no se afirma conexión real comprobada.
+
+
+## Verificación de seguridad OBS — Windows CI #250
+
+- Hallazgo corregido: OBS WebSocket podía aceptar un Hello sin challenge y mostrar igualmente «autenticado». Ahora `ObsAuthenticationPolicy` exige que OBS solicite autenticación y que haya contraseña; la interfaz ya no describe el campo como opcional.
+- Pruebas añadidas: servidor sin challenge rechazado, contraseña nula/vacía/espacios rechazada y challenge con contraseña aceptado.
+- Commit funcional de la política: `b6d1c82334f8503ed74dbb05200f82bebdfec577`.
+- Ajuste de UI: `095d2889303bc4ed17ef47ef2bce4452ca0c5764`.
+- Windows CI #250: SUCCESS sobre el SHA exacto de UI `095d2889303bc4ed17ef47ef2bce4452ca0c5764`; Restore, Build Release, automated tests, publicación self-contained win-x64 y upload de artefacto pasaron.
+- Run: https://github.com/jonhararagi/vtuber/actions/runs/38293944405
+- Artefacto: https://github.com/jonhararagi/vtuber/actions/runs/38293944405/artifacts/11767054521
+- Nombre: `VTuberBot-Product-Candidate-win-x64-095d2889303bc4ed17ef47ef2bce4452ca0c5764`.
+- Tamaño: 77,909,346 bytes. Expira el 2026-10-26 18:55:06 UTC. GitHub no proporcionó un SHA-256 del ZIP en los metadatos consultados, así que no se inventa uno.
+- Límite de validación: CI verifica compilación/pruebas/publicación, no la conexión con OBS real. La validación manual global continúa pendiente.
