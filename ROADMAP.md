@@ -213,3 +213,11 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - Se cerró el hallazgo que permitía etiquetar como autenticada una sesión sin challenge de contraseña. La política de Core exige challenge del servidor y contraseña no vacía; la UI lo indica explícitamente.
 - Cuatro pruebas cubren la política. Windows CI #250 confirmó restore, build Release, tests, publish self-contained win-x64 y upload para SHA `095d2889303bc4ed17ef47ef2bce4452ca0c5764`.
 - Sigue pendiente comprobar la autenticación contra una instancia real de OBS del usuario.
+
+## Ajustes integrados recientes — 2026-10-12
+
+- **OBS:** los indicadores de transmisión/grabación se actualizan al entrar al workspace y cuando la sesión cambia o se reconecta; los handlers de la página se liberan al navegar fuera. Código validado en Windows CI #258.
+- **Voz local:** la cola SAPI puede detener la frase activa y purga el audio durante el cierre ordenado; «Vaciar frases pendientes» sigue siendo una acción distinta. Pruebas con sesión de voz inyectada verifican cancelación y cierre. Windows CI #265: 361/361 casos.
+- **Twitch:** un PRIVMSG con login inválido se descarta antes de otorgar puntos, consumir cooldowns o ejecutar comandos; ya no se asigna una identidad artificial. Windows CI #269: 371/371 casos.
+- **Sorteos:** cuando el chat está desconectado, crear/cerrar/cancelar informa que el resultado queda local y que no hubo anuncio remoto. Windows CI #271: 371/371 casos.
+- **No cierra la aceptación global:** los commits indicados validan sus respectivos SHA, pero sigue pendiente una única validación manual en Windows con OBS, Twitch, micrófono/SAPI, WebView2/Telegram y overlay reales. No marcar el Bloque G como terminado hasta completar la auditoría del blueprint y esa validación externa.
