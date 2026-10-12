@@ -130,6 +130,23 @@ public partial class MainWindow
             }
         };
         obs.StatusChanged += obsStatusHandler;
+        root.Unloaded += (_, _) =>
+        {
+            if (obsStatusHandler is not null)
+            {
+                obs.StatusChanged -= obsStatusHandler;
+                obsStatusHandler = null;
+            }
+
+            if (obsEventHandler is not null)
+            {
+                obs.EventReceived -= obsEventHandler;
+                obsEventHandler = null;
+            }
+        };
+
+        // Refresh on entry as well as on subsequent connection/reconnection events.
+        _ = RefreshOutputStatusAsync();
 
         async Task RunOutputActionAsync(string action, Func<Task> operation)
         {
