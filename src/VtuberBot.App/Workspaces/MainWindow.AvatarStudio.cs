@@ -417,6 +417,84 @@ public partial class MainWindow
         }
         right.Children.Add(expressionPanel);
 
+
+        var artPanel = Panel("Consola de arte — assets y prompts");
+        artPanel.Margin = new Thickness(0, 12, 0, 0);
+        artPanel.Children.Add(Label("Escribí o ajustá un prompt por tipo de asset. Los prompts quedan guardados localmente. La app no llama a un generador externo: importá el resultado de tu herramienta de imágenes y se asignará automáticamente al rol seleccionado.", 12, "#98A4BE"));
+        var artRoles = new[] { "Personaje base", "Fondo", "Objeto / capa", "Idle", "Talking", "Blink", "Happy", "Surprised" };
+        var artRole = new ComboBox { ItemsSource = artRoles, SelectedIndex = 0, MinWidth = 220, Margin = new Thickness(0, 6, 0, 8) };
+        artPanel.Children.Add(Label("Asignar resultado a", 12, "#98A4BE"));
+        artPanel.Children.Add(artRole);
+        var artPrompt = new TextBox
+        {
+            AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MinHeight = 120, MaxHeight = 220,
+            Padding = new Thickness(10), Background = Brush("#101525"),
+            Foreground = Brush("#F8FAFC"), BorderBrush = Brush("#34415E")
+        };
+        string ArtPromptKey(string role) => "avatar.art_prompt." + Regex.Replace(role.ToLowerInvariant(), "[^a-z0-9]+", "_").Trim('_');
+        string DefaultArtPrompt(string role) => role switch
+        {
+            "Personaje base" => "VTuber character sprite, full body, centered, clean silhouette, transparent background, front-facing, consistent proportions, no text, no watermark. Style and design: [describir personaje, ropa, paleta y estilo].",
+            "Fondo" => "Streaming background plate, 16:9 composition, clear central safe area for a VTuber character, layered depth, no character, no text, no watermark. Scene and palette: [describir escenario].",
+            "Objeto / capa" => "Isolated accessory or prop for a VTuber sprite, centered, transparent background, clean edges, matching the character art style, no text, no watermark. Object: [describir objeto].",
+            "Idle" => "Expression sprite for the same VTuber character, neutral idle expression, same framing, pose, outfit, linework and palette as the base reference, transparent background, no text, no watermark. Character details: [describir o adjuntar referencia].",
+            "Talking" => "Expression sprite for the same VTuber character, talking mouth open naturally, same framing, pose, outfit, linework and palette as the base reference, transparent background, no text, no watermark. Character details: [describir o adjuntar referencia].",
+            "Blink" => "Expression sprite for the same VTuber character, eyes closed in a natural blink, same framing, pose, outfit, linework and palette as the base reference, transparent background, no text, no watermark. Character details: [describir o adjuntar referencia].",
+            "Happy" => "Expression sprite for the same VTuber character, happy expression, same framing, pose, outfit, linework and palette as the base reference, transparent background, no text, no watermark. Character details: [describir o adjuntar referencia].",
+            "Surprised" => "Expression sprite for the same VTuber character, surprised expression, same framing, pose, outfit, linework and palette as the base reference, transparent background, no text, no watermark. Character details: [describir o adjuntar referencia].",
+            _ => string.Empty
+        };
+        void LoadArtPromptForRole()
+        {
+            if (artRole.SelectedItem is not string role) return;
+            artPrompt.Text = store.GetSetting(ArtPromptKey(role), DefaultArtPrompt(role));
+        }
+        artRole.SelectionChanged += (_, _) => LoadArtPromptForRole();
+        LoadArtPromptForRole();
+        artPanel.Children.Add(artPrompt);
+        var artActions = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+        artActions.Children.Add(ActionButton("Guardar prompt", (_, _) =>
+        {
+            if (artRole.SelectedItem is not string role) return;
+            if (artPrompt.Text.Length > 12000) { MessageBox.Show(this, "El prompt supera el límite de 12.000 caracteres."); return; }
+            store.SetSetting(ArtPromptKey(role), artPrompt.Text);
+            store.Log("Avatar", "Prompt de arte guardado para el rol " + role + ".");
+            FooterStatus.Text = "Prompt guardado localmente para: " + role + ".";
+        }, true));
+        artActions.Children.Add(ActionButton("Copiar prompt", (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(artPrompt.Text)) return;
+            try { Clipboard.SetText(artPrompt.Text); FooterStatus.Text = "Prompt copiado. Pegalo en tu generador de imágenes."; }
+            catch (Exception exception) { MessageBox.Show(this, "No se pudo copiar el prompt: " + exception.Message); }
+        }));
+        artActions.Children.Add(ActionButton("Restaurar plantilla", (_, _) =>
+        {
+            if (artRole.SelectedItem is string role) artPrompt.Text = DefaultArtPrompt(role);
+        }));
+        artActions.Children.Add(ActionButton("Importar resultado y asignar", (_, _) =>
+        {
+            if (artRole.SelectedItem is not string role) return;
+            var dialog = new OpenFileDialog
+            {
+                Title = "Importar resultado para " + role,
+                Filter = "Imágenes PNG/JPG/BMP/WebP|*.png;*.jpg;*.jpeg;*.bmp;*.webp", Multiselect = false
+            };
+            if (dialog.ShowDialog(this) != true) return;
+            try
+            {
+                ImportArtAssetForRole(role, dialog.FileName);
+                FooterStatus.Text = "Asset importado y asignado a: " + role + ".";
+                Navigate("Avatar Studio");
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, "No se pudo asignar el asset: " + exception.Message, "Consola de arte", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }, true));
+        artPanel.Children.Add(artActions);
+        right.Children.Add(artPanel);
+
         right.Children.Add(Label("X/Y, escala, rotación y orden se guardan localmente. El runtime admite sprites por estado; la física por huesos y el lip-sync por fonemas/visemas todavía requieren un rig más avanzado.", 12, "#98A4BE"));
 
         Grid.SetColumn(left, 0);
@@ -440,6 +518,49 @@ public partial class MainWindow
                 overlay.SetAvatar(avatarPath, store.GetAvatarLayers(), GetAvatarExpressionPaths());
             Navigate("Avatar Studio");
         }
+    }
+
+    private void ImportArtAssetForRole(string role, string sourcePath)
+    {
+        var info = new FileInfo(sourcePath);
+        if (!info.Exists || info.Length is <= 0 or > 25 * 1024 * 1024)
+            throw new InvalidDataException("La imagen debe existir y ocupar entre 1 byte y 25 MB.");
+        var extension = Path.GetExtension(sourcePath).ToLowerInvariant();
+        if (!IsSupportedAvatarImageExtension(extension))
+            throw new InvalidDataException("Formato de imagen no admitido: " + extension + ".");
+        _ = LoadImage(sourcePath);
+
+        var folder = role is "Idle" or "Talking" or "Blink" or "Happy" or "Surprised"
+            ? "expressions" : role == "Personaje base" ? "base" : "layers";
+        var destinationFolder = Path.Combine(avatarDirectory, "art-library", folder);
+        Directory.CreateDirectory(destinationFolder);
+        var destination = Path.Combine(destinationFolder,
+            Regex.Replace(role.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-') + "-" +
+            DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N") + extension);
+        File.Copy(sourcePath, destination, false);
+
+        switch (role)
+        {
+            case "Personaje base":
+                avatarPath = destination;
+                store.SetActiveAvatarProfileBasePath(destination);
+                break;
+            case "Idle":
+            case "Talking":
+            case "Blink":
+            case "Happy":
+            case "Surprised":
+                store.SetAvatarExpression(role, destination);
+                break;
+            case "Fondo":
+            case "Objeto / capa":
+                store.AddAvatarLayer(role == "Fondo" ? "Fondo" : Path.GetFileNameWithoutExtension(sourcePath), destination);
+                break;
+            default:
+                throw new InvalidOperationException("Rol de arte desconocido: " + role);
+        }
+        RefreshActiveAvatarOverlay();
+        store.Log("Avatar", "Asset asignado desde la consola de arte al rol " + role + ".");
     }
 
     private void ImportAvatar()
