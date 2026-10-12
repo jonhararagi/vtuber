@@ -1230,3 +1230,6 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Documentación actualizada:** `docs/EXTERNAL-INTEGRATIONS.md`, `docs/PRODUCT_USER_GUIDE.md`, este archivo y `ROADMAP.md`.
 - **Límites conocidos:** reconexión manual, sin EventManager genérico encontrado en el Core actual, sin ejecución automática de acciones a partir de eventos. No se probó contra Streamer.bot/OBS/PNGTuber Plus reales.
 - **Evidencia pendiente:** no declarar la orden aceptada hasta comprobar restauración, compilación, todas las pruebas y paquete Windows para el SHA final exacto. La existencia del workflow no prueba que haya terminado correctamente.
+
+
+- **Corrección durante la validación de Orden 3/5:** el primer Windows CI consultado (run [38324588159](https://github.com/jonhararagi/vtuber/actions/runs/38324588159), commit `96e8d284f88ae38732edf5d43ebd4944dfa66b39`) falló en compilación por un literal multilínea sin escapar preexistente en `MainWindow.PngtuberWorkspace.cs:118-121`, perteneciente al trabajo previo de PNGTuber Plus. Se corrigió con un literal raw multilínea de C# sin cambiar la funcionalidad. El fallo no prueba el estado de los commits posteriores; debe verificarse un nuevo run para el SHA final.
