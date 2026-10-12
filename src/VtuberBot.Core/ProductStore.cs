@@ -219,7 +219,8 @@ public sealed class ProductStore
                 DataSource = temporaryPath,
                 Mode = SqliteOpenMode.ReadWriteCreate,
                 ForeignKeys = true,
-                DefaultTimeout = 10
+                DefaultTimeout = 10,
+                Pooling = false
             };
 
             using (var source = Open())
@@ -251,7 +252,8 @@ public sealed class ProductStore
             DataSource = sourcePath,
             Mode = SqliteOpenMode.ReadOnly,
             ForeignKeys = true,
-            DefaultTimeout = 10
+            DefaultTimeout = 10,
+            Pooling = false
         };
 
         using var source = new SqliteConnection(sourceBuilder.ConnectionString);
@@ -276,7 +278,8 @@ public sealed class ProductStore
                 DataSource = Path.GetFullPath(path),
                 Mode = SqliteOpenMode.ReadOnly,
                 ForeignKeys = true,
-                DefaultTimeout = 10
+                DefaultTimeout = 10,
+                Pooling = false
             };
             using var connection = new SqliteConnection(builder.ConnectionString);
             connection.Open();

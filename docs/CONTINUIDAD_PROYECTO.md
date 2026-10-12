@@ -385,3 +385,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La guía aclara que SQLite no incluye assets de imagen, cookies de Telegram ni credenciales OAuth DPAPI.
 - Pruebas nuevas: restauración conserva el estado de la copia y crea una copia de emergencia del estado anterior; archivo inválido se rechaza sin modificar la DB activa.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este nuevo HEAD.
+
+
+### Corrección de CI — handles de SQLite en Windows al crear backup
+- En la primera prueba de backup/restauración, Build Release pasó; 142/143 pruebas pasaron. La prueba nueva falló en `File.Move` porque Microsoft.Data.Sqlite conservaba un handle del archivo temporal en el pool tras cerrar la conexión.
+- Las conexiones temporales de escritura, validación y lectura de backup ahora usan `Pooling=false`, para que el handle se libere al salir del `using` antes de renombrar la copia en Windows.
+- No se ha marcado el backup como validado hasta que pase la ejecución CI de este nuevo HEAD.
