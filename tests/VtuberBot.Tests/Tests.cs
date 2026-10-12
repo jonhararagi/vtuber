@@ -1,4 +1,5 @@
 using Xunit;
+using VtuberBot.App;
 using CoreTaskScheduler = VtuberBot.Core.TaskScheduler;
 using Microsoft.Data.Sqlite;
 using System.Diagnostics;
