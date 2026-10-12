@@ -9,7 +9,7 @@ public sealed class VoiceActivityDetectorTests
     public void LoudSignalActivatesAndQuietSignalReleasesAfterHold()
     {
         var detector = new VoiceActivityDetector(
-            thresholdPercent: 10,
+            thresholdPercent: 25,
             releaseHold: TimeSpan.FromMilliseconds(300),
             smoothingFactor: 0.5);
         var start = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
@@ -17,7 +17,7 @@ public sealed class VoiceActivityDetectorTests
         var loud = detector.Process(80, start);
         Assert.True(loud.IsActive);
         Assert.True(loud.StateChanged);
-        Assert.True(loud.SmoothedLevelPercent >= 10);
+        Assert.True(loud.SmoothedLevelPercent >= 25);
 
         var held = detector.Process(0, start.AddMilliseconds(150));
         Assert.True(held.IsActive);
@@ -32,7 +32,7 @@ public sealed class VoiceActivityDetectorTests
     public void QuietSignalDoesNotActivateAndLevelIsSmoothed()
     {
         var detector = new VoiceActivityDetector(
-            thresholdPercent: 12,
+            thresholdPercent: 25,
             releaseHold: TimeSpan.FromMilliseconds(200),
             smoothingFactor: 0.25);
         var start = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
