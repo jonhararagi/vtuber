@@ -358,10 +358,7 @@ public partial class MainWindow : Window
         return transform;
     }
 
-    private static BitmapImage LoadImage(string path)
-    {
-        var image=new BitmapImage();image.BeginInit();image.CacheOption=BitmapCacheOption.OnLoad;image.DecodePixelWidth=900;image.UriSource=new Uri(Path.GetFullPath(path));image.EndInit();image.Freeze();return image;
-    }
+    private static BitmapImage LoadImage(string path) => AvatarImageLoader.Load(path, decodePixelWidth: 900);
     private static SolidColorBrush Brush(string color)=>(SolidColorBrush)new BrushConverter().ConvertFromString(color)!;
     private static TextBlock Label(string text,double size,string color,bool bold=false)=>new(){Text=text,FontSize=size,Foreground=Brush(color),FontWeight=bold?FontWeights.SemiBold:FontWeights.Normal,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,8)};
     private static TextBox TextField(string placeholder,string initial="")=>new(){Text=initial,ToolTip=placeholder,MinWidth=220};

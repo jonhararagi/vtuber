@@ -655,3 +655,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Los tipos EventSub desconocidos ya no exponen el JSON crudo del payload a la actividad/overlay/voz; producen un aviso genérico con el tipo de evento.
 - Pruebas nuevas para payload desconocido y texto largo con caracteres de control.
 - Windows CI para este cambio pendiente.
+
+
+### 2026-10-12 — Límites de resolución para importar arte
+
+- **Hallazgo:** el límite anterior de 25 MB controlaba el tamaño del archivo, pero no sus dimensiones decodificadas. Un archivo comprimido con dimensiones extremas podía consumir memoria excesiva en la previsualización o el overlay.
+- **Corrección:** se añade `AvatarImageLimits` en Core (máximo 16.384 píxeles por dimensión y 80 millones de píxeles totales). `AvatarImageLoader` inspecciona los metadatos del primer fotograma y valida esos límites antes de cargar el bitmap. Avatar Studio y el overlay comparten el mismo cargador.
+- **Pruebas:** resoluciones Full HD, 4K, 8K y límite exacto aceptadas; dimensiones negativas/cero, eje superior al máximo y exceso de píxeles rechazados.
+- **Estado:** código y pruebas añadidos; Windows CI pendiente.

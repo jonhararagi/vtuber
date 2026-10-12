@@ -149,10 +149,7 @@ public sealed class AvatarOverlayWindow : Window
 
     private void AddLayerImage(string path, AvatarLayer? layer)
     {
-        var bitmap = new BitmapImage();
-        bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.UriSource = new Uri(Path.GetFullPath(path)); bitmap.DecodePixelWidth = 1000;
-        bitmap.EndInit(); bitmap.Freeze();
+        var bitmap = AvatarImageLoader.Load(path, decodePixelWidth: 1000);
         var image = new Image
         {
             Source = bitmap, Stretch = AvatarLayerOrdering.IsBackground(layer) ? Stretch.UniformToFill : Stretch.Uniform,
