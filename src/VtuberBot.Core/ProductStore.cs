@@ -2,7 +2,7 @@ using Microsoft.Data.Sqlite;
 
 namespace VtuberBot.Core;
 
-public sealed record ProductCommand(long Id, string Name, string Response, int CooldownSeconds, bool Enabled, string CooldownScope = "global", string Aliases = "");
+public sealed record ProductCommand(long Id, string Name, string Response, int CooldownSeconds, bool Enabled, string CooldownScope = "global", string Aliases = "", string PermissionScope = "everyone");
 public sealed record CommunityUser(string Username, long Points, DateTimeOffset LastSeen);
 public sealed record GiveawayRecord(long Id, string Name, string Status, string? Winner, int Entries);
 public sealed record ProductActivity(DateTimeOffset At, string Module, string Message);
@@ -28,7 +28,8 @@ public sealed class ProductStore
               id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL COLLATE NOCASE UNIQUE,
               response TEXT NOT NULL, cooldown_seconds INTEGER NOT NULL DEFAULT 0,
               enabled INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, last_used_utc TEXT NULL,
-              cooldown_scope TEXT NOT NULL DEFAULT 'global', aliases TEXT NOT NULL DEFAULT '');
+              cooldown_scope TEXT NOT NULL DEFAULT 'global', aliases TEXT NOT NULL DEFAULT '',
+              permission_scope TEXT NOT NULL DEFAULT 'everyone');
             CREATE TABLE IF NOT EXISTS product_command_user_cooldowns(
               command_id INTEGER NOT NULL, username TEXT NOT NULL COLLATE NOCASE,
               last_used_utc TEXT NOT NULL, PRIMARY KEY(command_id,username));
@@ -70,6 +71,7 @@ public sealed class ProductStore
         EnsureColumn(connection, "product_commands", "last_used_utc", "TEXT NULL");
         EnsureColumn(connection, "product_commands", "cooldown_scope", "TEXT NOT NULL DEFAULT 'global'");
         EnsureColumn(connection, "product_commands", "aliases", "TEXT NOT NULL DEFAULT ''");
+        EnsureColumn(connection, "product_commands", "permission_scope", "TEXT NOT NULL DEFAULT 'everyone'");
         // Repair names from early builds whose built-in commands incorrectly included the display prefix.
         // If a user had already created the canonical name, keep that command and discard only the
         // malformed seeded duplicate; otherwise a UNIQUE-name migration could fail at startup.
@@ -190,16 +192,16 @@ public sealed class ProductStore
         lock (gate)
         {
             using var c = Open(); using var cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT id,name,response,cooldown_seconds,enabled,cooldown_scope,aliases FROM product_commands ORDER BY name";
+            cmd.CommandText = "SELECT id,name,response,cooldown_seconds,enabled,cooldown_scope,aliases,permission_scope FROM product_commands ORDER BY name";
             using var r = cmd.ExecuteReader(); var list = new List<ProductCommand>();
-            while (r.Read()) list.Add(new(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetInt32(4) != 0, r.GetString(5), r.GetString(6).Replace(",", ", ")));
+            while (r.Read()) list.Add(new(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetInt32(4) != 0, r.GetString(5), r.GetString(6).Replace(",", ", "), r.GetString(7)));
             return list;
         }
     }
 
     public void SaveCommand(
         long? id, string name, string response, int cooldown, bool enabled,
-        string cooldownScope = "global", string aliases = "")
+        string cooldownScope = "global", string aliases = "", string permissionScope = "everyone")
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(response))
             throw new ArgumentException("El nombre y la respuesta son obligatorios.");
@@ -207,6 +209,9 @@ public sealed class ProductStore
         cooldownScope = cooldownScope.Trim().ToLowerInvariant();
         if (cooldownScope is not ("global" or "user"))
             throw new ArgumentOutOfRangeException(nameof(cooldownScope), "Usá 'global' o 'user'.");
+        permissionScope = (permissionScope ?? string.Empty).Trim().ToLowerInvariant();
+        if (!CommandPermissionPolicy.IsRecognizedScope(permissionScope))
+            throw new ArgumentOutOfRangeException(nameof(permissionScope), "Usá everyone, subscriber, vip, moderator o broadcaster.");
 
         var normalizedName = NormalizeCommandToken(name, "nombre del comando");
         var normalizedAliases = NormalizeCommandAliases(aliases, normalizedName);
@@ -238,8 +243,8 @@ public sealed class ProductStore
             if (id is null)
             {
                 cmd.CommandText = """
-                    INSERT INTO product_commands(name,response,cooldown_seconds,enabled,created_utc,cooldown_scope,aliases)
-                    VALUES($name,$response,$cooldown,$enabled,$now,$scope,$aliases)
+                    INSERT INTO product_commands(name,response,cooldown_seconds,enabled,created_utc,cooldown_scope,aliases,permission_scope)
+                    VALUES($name,$response,$cooldown,$enabled,$now,$scope,$aliases,$permission)
                     """;
             }
             else
@@ -247,7 +252,7 @@ public sealed class ProductStore
                 cmd.CommandText = """
                     UPDATE product_commands
                     SET name=$name,response=$response,cooldown_seconds=$cooldown,enabled=$enabled,
-                        cooldown_scope=$scope,aliases=$aliases
+                        cooldown_scope=$scope,aliases=$aliases,permission_scope=$permission
                     WHERE id=$id
                     """;
                 cmd.Parameters.AddWithValue("$id", id.Value);
@@ -258,9 +263,10 @@ public sealed class ProductStore
             cmd.Parameters.AddWithValue("$enabled", enabled ? 1 : 0);
             cmd.Parameters.AddWithValue("$scope", cooldownScope);
             cmd.Parameters.AddWithValue("$aliases", aliasesText);
+            cmd.Parameters.AddWithValue("$permission", permissionScope);
             cmd.Parameters.AddWithValue("$now", Now());
             cmd.ExecuteNonQuery();
-            Log("Comandos", $"Comando !{normalizedName} guardado (cooldown {cooldownScope}; alias {normalizedAliases.Count}).");
+            Log("Comandos", $"Comando !{normalizedName} guardado (cooldown {cooldownScope}; permiso {permissionScope}; alias {normalizedAliases.Count}).");
         }
     }
 
@@ -350,7 +356,7 @@ public sealed class ProductStore
             .Replace("{message}", arguments, StringComparison.OrdinalIgnoreCase);
     }
 
-    public CommandResult RunLocalCommand(string name, string username = "Streamer", string arguments = "")
+    public CommandResult RunLocalCommand(string name, string username = "Streamer", string arguments = "", IReadOnlyCollection<string>? userRoles = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             return CommandResult.Failed("Nombre de comando vacío.");
@@ -363,7 +369,7 @@ public sealed class ProductStore
             using var c = Open();
             using var cmd = c.CreateCommand();
             cmd.CommandText = """
-                SELECT id,response,cooldown_seconds,last_used_utc,cooldown_scope,name
+                SELECT id,response,cooldown_seconds,last_used_utc,cooldown_scope,name,permission_scope
                 FROM product_commands
                 WHERE enabled=1 AND (
                     name=$name COLLATE NOCASE OR
@@ -379,7 +385,14 @@ public sealed class ProductStore
             DateTimeOffset? globalLastUsed = reader.IsDBNull(3) ? null : DateTimeOffset.Parse(reader.GetString(3));
             var cooldownScope = reader.GetString(4);
             var canonicalName = reader.GetString(5);
+            var requiredPermission = reader.GetString(6);
             reader.Close();
+
+            if (!CommandPermissionPolicy.IsAllowed(requiredPermission, userRoles))
+            {
+                Log("Comandos", $"Uso de !{canonicalName} denegado a {username}; requiere {requiredPermission}.");
+                return CommandResult.Failed("No tenés permiso para usar este comando.");
+            }
 
             var now = DateTimeOffset.UtcNow;
             DateTimeOffset? lastUsed = globalLastUsed;

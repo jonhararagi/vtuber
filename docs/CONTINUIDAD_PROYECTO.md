@@ -356,3 +356,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - El CI #152 compiló correctamente y 137/138 pruebas pasaron. La prueba de cooldown por usuario intentaba crear un segundo comando `hola`, ahora reservado por el seed preinstalado corregido; por eso fallaba la preparación del fixture, no la lógica de cooldown.
 - La prueba usa ahora el nombre único `cooldown-demo` para seguir comprobando el cooldown global por usuario, persistencia tras reabrir SQLite y rechazo del scope inválido.
 - La corrección de migración y alias del HEAD #153 también queda cubierta por el nuevo CI que se dispara con este commit.
+
+
+### Trabajo adicional — permisos por rol en comandos
+- Se añadió `permission_scope` con migración compatible y selector Todos/Suscriptores/VIP/Moderadores/Broadcaster en el editor de comandos.
+- `CommandPermissionPolicy` valida el nivel requerido y resuelve los roles a partir de etiquetas de servidor de Twitch (badges, mod, subscriber, vip) y la identidad del canal. No se acepta un rol declarado dentro del texto del chat.
+- Los comandos restringidos se bloquean antes del cooldown y de la creación/actualización de puntos; el rechazo se registra. Moderadores heredan permiso para comandos de suscriptor/VIP; Broadcaster tiene acceso a todos, pero Moderador no puede usar el nivel exclusivo Broadcaster.
+- Se añadieron pruebas para la matriz de permisos y el análisis de roles IRC.
+- **CI #154** [run 38246959459](https://github.com/jonhararagi/vtuber/actions/runs/38246959459) validó el HEAD anterior con restore/build/tests/publish/upload SUCCESS. Esta integración de permisos está **IMPLEMENTADA EN CÓDIGO; PENDIENTE DE CI**.

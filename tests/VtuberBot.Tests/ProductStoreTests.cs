@@ -33,18 +33,21 @@ public sealed class ProductStoreTests
     {
         using var temp = new TempDb();
         var store = new ProductStore(temp.DatabasePath);
-        store.SaveCommand(null, "welcome", "Hola {user}", 0, true, "global", "bienvenida, saludo");
+        store.SaveCommand(null, "welcome", "Hola {user}", 0, true, "global", "bienvenida, saludo", "subscriber");
 
         var command = Assert.Single(store.GetCommands(), item => item.Name == "welcome");
         Assert.Contains("bienvenida", command.Aliases);
         Assert.Contains("saludo", command.Aliases);
-        Assert.True(store.RunLocalCommand("!bienvenida", "alice").Success);
+        Assert.Equal("subscriber", command.PermissionScope);
+        Assert.False(store.RunLocalCommand("!bienvenida", "viewer").Success);
+        Assert.True(store.RunLocalCommand("!bienvenida", "alice", userRoles: new[] { "subscriber" }).Success);
         Assert.True(store.RunLocalCommand("saludo", "bob").Success);
 
         var reopened = new ProductStore(temp.DatabasePath);
-        Assert.True(reopened.RunLocalCommand("!bienvenida", "carol").Success);
+        Assert.True(reopened.RunLocalCommand("!bienvenida", "carol", userRoles: new[] { "moderator" }).Success);
         Assert.Throws<ArgumentException>(() => reopened.SaveCommand(null, "otro", "Hola", 0, true, "global", "bienvenida"));
         Assert.Throws<ArgumentException>(() => reopened.SaveCommand(null, "bienvenida", "Hola", 0, true));
+        Assert.Throws<ArgumentOutOfRangeException>(() => reopened.SaveCommand(null, "bad-permission", "Hola", 0, true, "global", "", "owner"));
 
         var persisted = reopened.GetCommands().Single(item => item.Name == "welcome");
         reopened.DeleteCommand(persisted.Id);
