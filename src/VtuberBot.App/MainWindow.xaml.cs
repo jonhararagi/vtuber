@@ -38,9 +38,15 @@ public partial class MainWindow : Window
     private WebView2? telegramView;
     private readonly ObservableCollection<string> chatLines = [];
     private readonly DispatcherTimer automationTimer = new() { Interval = TimeSpan.FromMinutes(1) };
+    private readonly DispatcherTimer twitchCredentialTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly Dictionary<long, DateTimeOffset> automationLastRun = [];
     private readonly Dictionary<string, DateTimeOffset> lastPointAward = new(StringComparer.OrdinalIgnoreCase);
     private string currentPage = "Inicio";
+    private PasswordBox? twitchTokenBox;
+    private bool twitchChatDesired;
+    private bool twitchEventSubDesired;
+    private int twitchCredentialMaintenanceInProgress;
+    private DateTimeOffset lastTwitchCredentialWarning = DateTimeOffset.MinValue;
 
     private static readonly string[] Pages =
     [
@@ -87,6 +93,7 @@ public partial class MainWindow : Window
         Closed += async (_, _) =>
         {
             automationTimer.Stop();
+            twitchCredentialTimer.Stop();
             StopMicrophone();
             speechQueue.Dispose();
             if (overlay is not null) overlay.Close();
@@ -96,6 +103,8 @@ public partial class MainWindow : Window
         };
         automationTimer.Tick += async (_, _) => await ProcessAutomationsAsync();
         automationTimer.Start();
+        twitchCredentialTimer.Tick += async (_, _) => await MaintainTwitchCredentialsAsync();
+        twitchCredentialTimer.Start();
         Navigate("Inicio");
     }
 
@@ -488,6 +497,7 @@ public partial class MainWindow : Window
         var channel=TextField("Nombre del canal",store.GetSetting("twitch.channel"));
         var clientId=TextField("Twitch Application Client ID",store.GetSetting("twitch.client_id"));
         var token=new PasswordBox{Password=LoadTwitchToken(),Background=Brush("#101525"),Foreground=Brush("#F8FAFC"),BorderBrush=Brush("#34415E"),Padding=new Thickness(10),Margin=new Thickness(0,0,0,8)};
+        twitchTokenBox = token;
         panel.Children.Add(Label("Canal",12,"#98A4BE"));panel.Children.Add(channel);
         panel.Children.Add(Label("Client ID de tu aplicación Twitch",12,"#98A4BE"));panel.Children.Add(clientId);
         panel.Children.Add(Label("Token OAuth de chat (no se registra en logs)",12,"#98A4BE"));panel.Children.Add(token);
@@ -504,12 +514,12 @@ public partial class MainWindow : Window
         panel.Children.Add(speakAlerts);
         panel.Children.Add(Label("Si la opción está activa, las alertas EventSub se agregan a la cola TTS local con prioridad alta; el audio actual no se interrumpe.", 12, "#98A4BE"));
         var actions=new WrapPanel();
-        actions.Children.Add(ActionButton("Autorizar con Twitch",async (_,_)=>{try{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());FooterStatus.Text="Esperando autorización de Twitch en el navegador…";var accessToken=await TwitchOAuth.AuthorizeAsync(clientId.Text.Trim());token.Password=accessToken;SaveTwitchToken(accessToken);FooterStatus.Text="OAuth completado; token cifrado localmente. Presioná Conectar para iniciar chat.";store.Log("Twitch","Flujo OAuth completado; el token no se registra.");}catch(Exception ex){FooterStatus.Text=$"OAuth no completado: {ex.Message}";MessageBox.Show(this,$"No se pudo completar OAuth. Confirmá que el Client ID sea válido y que la URL de redirección registrada sea {TwitchOAuth.RedirectUri}\n\nDetalle: {ex.Message}");}}));
-        actions.Children.Add(ActionButton("Guardar configuración segura",(_,_)=>{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());SaveTwitchToken(token.Password);FooterStatus.Text="Canal y token guardados localmente; aún no conectado.";store.Log("Twitch","Configuración local guardada sin registrar el token.");},true));
-        actions.Children.Add(ActionButton("Conectar",async (_,_)=>{try{store.SetSetting("twitch.channel",channel.Text.Trim());SaveTwitchToken(token.Password);await twitch.ConnectAsync(channel.Text,token.Password); }catch(Exception ex){FooterStatus.Text=$"Twitch: {ex.Message}";store.Log("Twitch",$"Falló conexión: {ex.GetType().Name}; revisá configuración y permisos.");MessageBox.Show(this,$"No se pudo conectar a Twitch. Revisá canal, token OAuth, permisos y conexión a Internet.\n\nDetalle: {ex.Message}");}}));
-        actions.Children.Add(ActionButton("Conectar EventSub (alertas)",async (_,_)=>{try{SaveTwitchToken(token.Password);await eventSub.ConnectAsync(clientId.Text.Trim(),token.Password,channel.Text.Trim());}catch(Exception ex){FooterStatus.Text="EventSub no conectado: "+ex.Message;MessageBox.Show(this,"No se pudieron registrar los eventos oficiales. Si el token ya existía, volvé a autorizar para aceptar los scopes adicionales.\n\n"+ex.Message);}}));
-        actions.Children.Add(ActionButton("Desconectar EventSub",async (_,_)=>await eventSub.DisconnectAsync()));
-        actions.Children.Add(ActionButton("Desconectar",async (_,_)=>await twitch.DisconnectAsync()));
+        actions.Children.Add(ActionButton("Autorizar con Twitch",async (_,_)=>{try{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());FooterStatus.Text="Esperando autorización de Twitch en el navegador…";var credentials=await TwitchOAuth.AuthorizeCredentialsAsync(clientId.Text.Trim());SaveTwitchCredentials(credentials);token.Password=credentials.AccessToken;FooterStatus.Text="OAuth completado. Access y refresh token cifrados localmente; renovación automática habilitada cuando Twitch entrega refresh token.";store.Log("Twitch","Flujo OAuth completado; los tokens no se registran.");}catch(Exception ex){FooterStatus.Text=$"OAuth no completado: {ex.Message}";MessageBox.Show(this,$"No se pudo completar OAuth. Confirmá que el Client ID sea válido y que la URL de redirección registrada sea {TwitchOAuth.RedirectUri}\n\nDetalle: {ex.Message}");}}));
+        actions.Children.Add(ActionButton("Guardar configuración segura",(_,_)=>{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());var saved=LoadTwitchCredentials();if(string.IsNullOrWhiteSpace(token.Password))SaveTwitchToken("");else if(saved is null||!string.Equals(saved.AccessToken,token.Password.Trim(),StringComparison.Ordinal))SaveTwitchToken(token.Password);FooterStatus.Text="Canal y credenciales guardados localmente; aún no conectado.";store.Log("Twitch","Configuración local guardada sin registrar tokens.");},true));
+        actions.Children.Add(ActionButton("Conectar",async (_,_)=>{try{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());var credentials=await EnsureValidTwitchCredentialsAsync(clientId.Text,token.Password);token.Password=credentials.AccessToken;twitchChatDesired=true;await twitch.ConnectAsync(channel.Text,credentials.AccessToken);}catch(Exception ex){twitchChatDesired=false;FooterStatus.Text=$"Twitch: {ex.Message}";store.Log("Twitch",$"Falló conexión: {ex.GetType().Name}; revisá configuración y permisos.");MessageBox.Show(this,$"No se pudo conectar a Twitch. Revisá canal, Client ID, token OAuth, permisos y conexión a Internet.\n\nDetalle: {ex.Message}");}}));
+        actions.Children.Add(ActionButton("Conectar EventSub (alertas)",async (_,_)=>{try{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());var credentials=await EnsureValidTwitchCredentialsAsync(clientId.Text,token.Password);token.Password=credentials.AccessToken;await eventSub.ConnectAsync(clientId.Text.Trim(),credentials.AccessToken,channel.Text.Trim());twitchEventSubDesired=true;}catch(Exception ex){twitchEventSubDesired=false;FooterStatus.Text="EventSub no conectado: "+ex.Message;MessageBox.Show(this,"No se pudieron registrar los eventos oficiales. Si el token ya existía, volvé a autorizar para aceptar los scopes adicionales.\n\n"+ex.Message);}}));
+        actions.Children.Add(ActionButton("Desconectar EventSub",async (_,_)=>{twitchEventSubDesired=false;await eventSub.DisconnectAsync();}));
+        actions.Children.Add(ActionButton("Desconectar",async (_,_)=>{twitchChatDesired=false;await twitch.DisconnectAsync();}));
         panel.Children.Add(actions);
         var chatPanel=Panel("Chat en directo");chatPanel.Margin=new Thickness(0,16,0,0);
         var list=new ListBox{ItemsSource=chatLines,Height=260};chatPanel.Children.Add(list);
@@ -996,18 +1006,142 @@ public partial class MainWindow : Window
         return root;
     }
 
-    private string LoadTwitchToken()
+    private TwitchOAuthCredentials? LoadTwitchCredentials()
     {
-        var path=Path.Combine(secretDirectory,"twitch-token.bin");if(!File.Exists(path))return "";
-        try{return Encoding.UTF8.GetString(ProtectedData.Unprotect(File.ReadAllBytes(path),null,DataProtectionScope.CurrentUser));}
-        catch{FooterStatus.Text="No se pudo descifrar el token guardado. Volvé a ingresarlo.";return "";}
+        var path = Path.Combine(secretDirectory, "twitch-token.bin");
+        if (!File.Exists(path)) return null;
+        try
+        {
+            var plaintext = Encoding.UTF8.GetString(ProtectedData.Unprotect(
+                File.ReadAllBytes(path), null, DataProtectionScope.CurrentUser));
+            try
+            {
+                var credentials = JsonSerializer.Deserialize<TwitchOAuthCredentials>(plaintext);
+                if (credentials is not null && !string.IsNullOrWhiteSpace(credentials.AccessToken))
+                    return credentials;
+            }
+            catch (JsonException) { }
+
+            // Backward compatibility: previous builds encrypted only the raw access token.
+            if (!string.IsNullOrWhiteSpace(plaintext))
+                return new TwitchOAuthCredentials(
+                    plaintext.Trim(), null, DateTimeOffset.MinValue,
+                    store.GetSetting("twitch.client_id"), []);
+            return null;
+        }
+        catch
+        {
+            FooterStatus.Text = "No se pudieron descifrar las credenciales guardadas. Volvé a autorizar Twitch.";
+            return null;
+        }
     }
+
+    private string LoadTwitchToken() => LoadTwitchCredentials()?.AccessToken ?? string.Empty;
+
+    private void SaveTwitchCredentials(TwitchOAuthCredentials credentials)
+    {
+        ArgumentNullException.ThrowIfNull(credentials);
+        var json = JsonSerializer.Serialize(credentials);
+        var bytes = ProtectedData.Protect(Encoding.UTF8.GetBytes(json), null, DataProtectionScope.CurrentUser);
+        File.WriteAllBytes(Path.Combine(secretDirectory, "twitch-token.bin"), bytes);
+    }
+
     private void SaveTwitchToken(string token)
     {
-        var path=Path.Combine(secretDirectory,"twitch-token.bin");
-        if(string.IsNullOrWhiteSpace(token)){if(File.Exists(path))File.Delete(path);return;}
-        var bytes=ProtectedData.Protect(Encoding.UTF8.GetBytes(token.Trim()),null,DataProtectionScope.CurrentUser);
-        File.WriteAllBytes(path,bytes);
+        var path = Path.Combine(secretDirectory, "twitch-token.bin");
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            if (File.Exists(path)) File.Delete(path);
+            return;
+        }
+
+        SaveTwitchCredentials(new TwitchOAuthCredentials(
+            token.Trim(), null, DateTimeOffset.MinValue,
+            store.GetSetting("twitch.client_id"), []));
+    }
+
+    private async Task<TwitchOAuthCredentials> EnsureValidTwitchCredentialsAsync(
+        string clientId,
+        string? suppliedAccessToken = null,
+        CancellationToken cancellationToken = default)
+    {
+        var credentials = LoadTwitchCredentials();
+        if (!string.IsNullOrWhiteSpace(suppliedAccessToken) &&
+            (credentials is null || !string.Equals(credentials.AccessToken, suppliedAccessToken.Trim(), StringComparison.Ordinal)))
+        {
+            credentials = new TwitchOAuthCredentials(
+                suppliedAccessToken.Trim(), null, DateTimeOffset.MinValue, clientId.Trim(), []);
+        }
+
+        if (credentials is null)
+            throw new InvalidOperationException("No hay credenciales OAuth guardadas. Elegí Autorizar con Twitch primero.");
+
+        var verified = await TwitchOAuth.ValidateOrRefreshAsync(
+            clientId.Trim(), credentials, TimeSpan.FromMinutes(10), cancellationToken).ConfigureAwait(true);
+        SaveTwitchCredentials(verified);
+        if (twitchTokenBox is not null)
+            twitchTokenBox.Password = verified.AccessToken;
+        if (verified.ExpiresAtUtc <= DateTimeOffset.UtcNow.AddMinutes(10) &&
+            string.IsNullOrWhiteSpace(verified.RefreshToken))
+        {
+            FooterStatus.Text = "Twitch está autenticado, pero no hay refresh token: será necesario volver a autorizar antes de que expire.";
+        }
+        return verified;
+    }
+
+    private async Task MaintainTwitchCredentialsAsync()
+    {
+        if ((!twitchChatDesired && !twitchEventSubDesired) ||
+            Interlocked.Exchange(ref twitchCredentialMaintenanceInProgress, 1) != 0)
+            return;
+
+        try
+        {
+            var stored = LoadTwitchCredentials();
+            if (stored is null) return;
+            var clientId = store.GetSetting("twitch.client_id").Trim();
+            if (string.IsNullOrWhiteSpace(clientId)) return;
+
+            var oldAccessToken = stored.AccessToken;
+            var credentials = await EnsureValidTwitchCredentialsAsync(clientId).ConfigureAwait(true);
+            if (!string.Equals(oldAccessToken, credentials.AccessToken, StringComparison.Ordinal))
+            {
+                var reconnectChat = twitchChatDesired;
+                var reconnectEventSub = twitchEventSubDesired;
+                FooterStatus.Text = "Twitch renovó el token; restableciendo chat y alertas…";
+                await twitch.DisconnectAsync().ConfigureAwait(true);
+                await eventSub.DisconnectAsync().ConfigureAwait(true);
+
+                if (reconnectChat)
+                    await twitch.ConnectAsync(store.GetSetting("twitch.channel"), credentials.AccessToken).ConfigureAwait(true);
+                if (reconnectEventSub)
+                    await eventSub.ConnectAsync(clientId, credentials.AccessToken, store.GetSetting("twitch.channel")).ConfigureAwait(true);
+                FooterStatus.Text = "Token Twitch renovado y conexiones solicitadas restauradas.";
+            }
+        }
+        catch (Exception exception)
+        {
+            if (DateTimeOffset.UtcNow - lastTwitchCredentialWarning >= TimeSpan.FromMinutes(10))
+            {
+                lastTwitchCredentialWarning = DateTimeOffset.UtcNow;
+                FooterStatus.Text = "No se pudo mantener OAuth de Twitch: " + exception.Message;
+                store.Log("Twitch OAuth", "Mantenimiento de credenciales falló (" + exception.GetType().Name + ").");
+            }
+
+            var credentials = LoadTwitchCredentials();
+            if (credentials is not null && credentials.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+            {
+                twitchChatDesired = false;
+                twitchEventSubDesired = false;
+                await twitch.DisconnectAsync().ConfigureAwait(true);
+                await eventSub.DisconnectAsync().ConfigureAwait(true);
+                FooterStatus.Text = "El token de Twitch expiró y no pudo renovarse. Volvé a autorizar la cuenta.";
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref twitchCredentialMaintenanceInProgress, 0);
+        }
     }
 
     private static Transform BuildLayerTransform(AvatarLayer layer)

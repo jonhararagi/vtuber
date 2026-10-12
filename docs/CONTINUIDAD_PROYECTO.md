@@ -219,3 +219,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Los comandos personalizados ahora reciben lo escrito después del nombre y admiten las variables `{args}` y `{message}`, además de `{user}`, `{points}` y `{roll}`.
 - Las respuestas que superarían el límite de 500 caracteres se rechazan antes de aplicar el cooldown, para no simular envío y no castigar el comando con cooldown si la salida es demasiado larga.
 - Añadida prueba de persistencia/ejecución que valida el reemplazo de los argumentos; estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Trabajo adicional — ciclo de vida de credenciales OAuth
+
+- `TwitchOAuth` ahora conserva AccessToken, RefreshToken, expiración y scopes; valida contra el endpoint oficial de Twitch y refresca con el refresh token rotado cuando quedan 10 minutos o menos.
+- La persistencia usa DPAPI CurrentUser y JSON protegido, con lectura compatible de tokens cifrados por versiones anteriores.
+- El chat y EventSub validan el token antes de conectar. Mientras están solicitados, un monitor cada cinco minutos valida la sesión y restaura conexiones si hubo rotación de access token. Si el refresh token ya no es válido, se muestra que hace falta volver a autorizar; no se inventa una conexión exitosa.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD que contiene esta actualización.
