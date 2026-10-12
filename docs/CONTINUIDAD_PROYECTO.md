@@ -343,3 +343,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Los comandos preinstalados se guardan ahora sin `!` en el nombre; la migración normaliza los tres nombres de fábrica heredados `!hola`, `!puntos`, `!dado`, que no coincidían con la consulta del router al quitar el prefijo.
 - Se añadieron pruebas de alias persistidos, resolución por alias, conflictos y comandos de fábrica.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Prueba de migración de comandos antiguos
+- La migración ahora elimina solo el registro preinstalado malformado `!hola`/`!puntos`/`!dado` cuando ya existe el comando canónico correspondiente, y conserva el comando personalizado del usuario.
+- Los alias vacíos tras una coma final o con espacios se ignoran, para que ese formato de edición no bloquee el guardado.
+- Se añadió una prueba con una base SQLite creada en el esquema antiguo que contiene tanto `hola` personalizado como `!hola` preinstalado; la migración debe preservar el personalizado y dejar ejecutable `!hola`.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI**.

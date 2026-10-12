@@ -71,12 +71,28 @@ public sealed class ProductStore
         EnsureColumn(connection, "product_commands", "cooldown_scope", "TEXT NOT NULL DEFAULT 'global'");
         EnsureColumn(connection, "product_commands", "aliases", "TEXT NOT NULL DEFAULT ''");
         // Repair names from early builds whose built-in commands incorrectly included the display prefix.
+        // If a user had already created the canonical name, keep that command and discard only the
+        // malformed seeded duplicate; otherwise a UNIQUE-name migration could fail at startup.
         using (var normalizeCommands = connection.CreateCommand())
         {
             normalizeCommands.CommandText = """
+                DELETE FROM product_commands
+                WHERE name COLLATE NOCASE='!hola'
+                  AND EXISTS (SELECT 1 FROM product_commands existing
+                              WHERE existing.name COLLATE NOCASE='hola' AND existing.id<>product_commands.id);
+                DELETE FROM product_commands
+                WHERE name COLLATE NOCASE='!puntos'
+                  AND EXISTS (SELECT 1 FROM product_commands existing
+                              WHERE existing.name COLLATE NOCASE='puntos' AND existing.id<>product_commands.id);
+                DELETE FROM product_commands
+                WHERE name COLLATE NOCASE='!dado'
+                  AND EXISTS (SELECT 1 FROM product_commands existing
+                              WHERE existing.name COLLATE NOCASE='dado' AND existing.id<>product_commands.id);
                 UPDATE product_commands SET name='hola' WHERE name COLLATE NOCASE='!hola';
                 UPDATE product_commands SET name='puntos' WHERE name COLLATE NOCASE='!puntos';
                 UPDATE product_commands SET name='dado' WHERE name COLLATE NOCASE='!dado';
+                DELETE FROM product_command_user_cooldowns
+                WHERE command_id NOT IN (SELECT id FROM product_commands);
                 """;
             normalizeCommands.ExecuteNonQuery();
         }
@@ -260,8 +276,10 @@ public sealed class ProductStore
     private static List<string> NormalizeCommandAliases(string aliases, string primaryName)
     {
         var normalized = new List<string>();
-        foreach (var aliasPart in (aliases ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var aliasPart in (aliases ?? string.Empty).Split(','))
         {
+            if (string.IsNullOrWhiteSpace(aliasPart))
+                continue;
             var alias = NormalizeCommandToken(aliasPart, "alias");
             if (string.Equals(alias, primaryName, StringComparison.OrdinalIgnoreCase))
                 continue;

@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using VtuberBot.Core;
 using Xunit;
 
@@ -49,6 +50,44 @@ public sealed class ProductStoreTests
         reopened.DeleteCommand(persisted.Id);
         Assert.False(reopened.RunLocalCommand("bienvenida", "dave").Success);
         Assert.DoesNotContain(reopened.GetCommands(), item => item.Aliases.Contains("bienvenida", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void LegacyCommandMigrationKeepsCustomCanonicalNameWhenMalformedDefaultExists()
+    {
+        using var temp = new TempDb();
+        Directory.CreateDirectory(Path.GetDirectoryName(temp.DatabasePath)!);
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = temp.DatabasePath
+        }.ConnectionString))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE product_commands(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                    response TEXT NOT NULL,
+                    cooldown_seconds INTEGER NOT NULL DEFAULT 0,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    created_utc TEXT NOT NULL,
+                    last_used_utc TEXT NULL);
+                INSERT INTO product_commands(name,response,cooldown_seconds,enabled,created_utc)
+                VALUES('hola','Respuesta personalizada del usuario',0,1,'2026-01-01T00:00:00Z');
+                INSERT INTO product_commands(name,response,cooldown_seconds,enabled,created_utc)
+                VALUES('!hola','Respuesta preinstalada antigua',5,1,'2026-01-01T00:00:00Z');
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        var migrated = new ProductStore(temp.DatabasePath);
+        var hola = Assert.Single(migrated.GetCommands(), command => command.Name == "hola");
+        Assert.Equal("Respuesta personalizada del usuario", hola.Response);
+        Assert.DoesNotContain(migrated.GetCommands(), command => command.Name == "!hola");
+        var result = migrated.RunLocalCommand("!hola", "alice");
+        Assert.True(result.Success);
+        Assert.Equal("Respuesta personalizada del usuario", result.Message);
     }
 
     [Fact]
