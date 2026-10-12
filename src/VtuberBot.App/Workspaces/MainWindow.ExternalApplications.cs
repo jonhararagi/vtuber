@@ -45,7 +45,6 @@ public partial class MainWindow
         string description)
     {
         var panel = Panel(displayName);
-        panel.Padding = new Thickness(16);
         panel.Children.Add(Label(description, 12, "#98A4BE"));
 
         var pathField = TextField("Ruta completa al ejecutable", store.GetSetting(settingKey));
