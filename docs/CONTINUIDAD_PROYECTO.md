@@ -1103,3 +1103,16 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Windows CI exacto:** [run #258](https://github.com/jonhararagi/vtuber/actions/runs/38300103344) — **SUCCESS** para el SHA anterior. Restore y build Release pasaron sin warnings/errores; **359/359 pruebas pasaron**; publicación autocontenida win-x64 y subida del artefacto terminaron correctamente.
 - **Artefacto de ese SHA:** [descarga del artefacto](https://github.com/jonhararagi/vtuber/actions/runs/38300103344/artifacts/11770103744), ID `11770103744`, tamaño `77,910,077` bytes, digest `sha256:43298d09fc598bd81aab89db2af72a65006dbbaf0960438f90a3cfab45058051`, expira el 2026-10-26.
 - **Validación externa pendiente:** la reconexión y los cambios de estado deben probarse con OBS Studio real configurado; CI valida compilación, pruebas automáticas y empaquetado, no una sesión OBS real.
+
+## Cancelación de voz SAPI y cierre de la cola local — 2026-10-12
+
+- **Objetivo:** permitir cancelar la frase TTS activa y asegurar que el cierre no espere a que una frase larga termine naturalmente.
+- **Código:** `src/VtuberBot.App/LocalSpeechQueue.cs`, `src/VtuberBot.App/Workspaces/MainWindow.Audio.cs`, `tests/VtuberBot.Tests/Tests.cs` y `tests/VtuberBot.Tests/VtuberBot.Tests.csproj`.
+  - SAPI ahora inicia la frase en modo asíncrono y el worker STA consulta `WaitUntilDone` en intervalos acotados, observando la cancelación.
+  - La cancelación emite el comando SAPI de purga antes de liberar las referencias COM; el cierre de la cola también solicita cancelar la frase actual y descarta frases pendientes.
+  - El workspace Audio incorpora «Detener voz actual», distinto de «Vaciar frases pendientes» (que conserva la frase actual).
+  - Se introdujo `ILocalSpeechSession` inyectable para probar cancelación y cierre sin depender de una voz física/SAPI instalada en el runner.
+- **Correcciones del propio cambio:** las primeras ejecuciones detectaron errores reales de compilación de las pruebas (falta del alias/using para contratos App, ambigüedad entre `SpeechPriority` de Core y App, y llamadas `WaitAsync` sin el token de cancelación requerido por el analizador xUnit). Se corrigieron antes de aceptar el bloque; no se suprimieron reglas ni pruebas.
+- **Windows CI exacto:** [run #265](https://github.com/jonhararagi/vtuber/actions/runs/38301679337), SHA `c0d5a4935f07b253393f0128a1b5843e509a46af` — **SUCCESS**. Restore y Build Release correctos con 0 warnings/0 errors; **361/361 casos de prueba pasaron**; publicación autocontenida win-x64 y subida del artefacto completadas.
+- **Artefacto:** [VTuberBot-Product-Candidate-win-x64-`c0d5a49`](https://github.com/jonhararagi/vtuber/actions/runs/38301679337/artifacts/11770876382), ID `11770876382`, tamaño `77,911,664` bytes, digest `sha256:1f7e12cda14402d898af0c3cdd7f4f71efd3684ae21edf4ef0c61418bd703e04`, expira el 2026-10-26.
+- **Límite externo pendiente:** las pruebas verifican la cancelación de la cola mediante un motor de prueba; la reproducción/cancelación real debe validarse con SAPI y un dispositivo de salida de Windows. El producto global todavía requiere continuar la auditoría y la validación manual de Twitch, OBS, Telegram, micrófono y overlay.
