@@ -279,7 +279,7 @@ public sealed class StreamerBotWebSocketClient : IStreamerBotClient
         {
             var bytes = Encoding.UTF8.GetBytes(message.ToJsonString());
             await sendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try { await ws.SendAsync(bytes, WebSocketMessageType.Text, true, cancellationToken).ConfigureAwait(false); }
+            try { await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken).ConfigureAwait(false); }
             finally { sendLock.Release(); }
             return await completion.Task.WaitAsync(RequestTimeout, cancellationToken).ConfigureAwait(false);
         }
