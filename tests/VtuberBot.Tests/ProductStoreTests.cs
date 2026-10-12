@@ -600,5 +600,11 @@ public sealed class ProductStoreTests
         }
 
         Assert.Throws<InvalidDataException>(() => new ProductStore(temp.DatabasePath));
+        using var verify = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temp.DatabasePath }.ConnectionString);
+        verify.Open();
+        using var versionQuery = verify.CreateCommand();
+        versionQuery.CommandText = "SELECT version FROM product_schema_meta WHERE id=1";
+        Assert.Equal(ProductStore.CurrentProductSchemaVersion + 1,
+            Convert.ToInt32(versionQuery.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture));
     }
 }

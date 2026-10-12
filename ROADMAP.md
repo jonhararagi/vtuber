@@ -112,4 +112,4 @@ Corrección del 2026-10-12: la primera versión del filtro de archivos sensibles
 
 ## Persistencia versionada — 2026-10-12
 
-Se añadió `product_schema_meta` para registrar la versión del esquema de funciones del producto y rechazar bases marcadas por una versión futura. El marcador se escribe después de aplicar las migraciones idempotentes y compatibilidad legacy existentes. La prueba automatizada valida tanto el registro como el rechazo de un marcador futuro; requiere Windows CI del nuevo SHA.
+Se añadió `product_schema_meta` para registrar la versión del esquema de funciones del producto y rechazar bases marcadas por una versión futura. El marcador se escribe después de aplicar las migraciones idempotentes y compatibilidad legacy existentes. La prueba automatizada valida el registro y el rechazo de un marcador futuro sin mutar el marcador; la validación de backups también rechaza esquemas futuros antes de restaurar. Requiere Windows CI del nuevo SHA.

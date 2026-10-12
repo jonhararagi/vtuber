@@ -46,6 +46,7 @@ public sealed class ProductStore
         var builder = new SqliteConnectionStringBuilder { DataSource = fullPath, ForeignKeys = true, DefaultTimeout = 5 };
         connectionString = builder.ConnectionString;
         using var connection = Open();
+        RejectFutureProductSchemaVersion(connection);
         using var command = connection.CreateCommand();
         command.CommandText = """
             CREATE TABLE IF NOT EXISTS product_commands(
@@ -143,6 +144,20 @@ public sealed class ProductStore
         SeedDefaults(connection);
         PruneActivityLog(connection, DefaultActivityRetention);
         EnsureProductSchemaVersion(connection);
+    }
+
+    private static void RejectFutureProductSchemaVersion(SqliteConnection connection)
+    {
+        using var exists = connection.CreateCommand();
+        exists.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_schema_meta'";
+        if (exists.ExecuteScalar() is null)
+            return;
+
+        using var query = connection.CreateCommand();
+        query.CommandText = "SELECT version FROM product_schema_meta WHERE id=1";
+        var value = query.ExecuteScalar();
+        if (value is not null && value is not DBNull && Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture) > CurrentProductSchemaVersion)
+            throw new InvalidDataException("La base de datos fue creada por una versión más nueva de VTuberBot y no se modificó.");
     }
 
     private static void EnsureProductSchemaVersion(SqliteConnection connection)
@@ -514,6 +529,16 @@ public sealed class ProductStore
                 using var reader = tables.ExecuteReader();
                 while (reader.Read())
                     existingTables.Add(reader.GetString(0));
+            }
+
+            if (existingTables.Contains("product_schema_meta"))
+            {
+                using var versionCommand = connection.CreateCommand();
+                versionCommand.CommandText = "SELECT version FROM product_schema_meta WHERE id=1";
+                var storedVersion = versionCommand.ExecuteScalar();
+                if (storedVersion is not null && storedVersion is not DBNull &&
+                    Convert.ToInt32(storedVersion, System.Globalization.CultureInfo.InvariantCulture) > CurrentProductSchemaVersion)
+                    throw new InvalidDataException("La copia pertenece a una versión futura de VTuberBot y no se puede restaurar con esta versión.");
             }
 
             foreach (var requiredTable in RequiredBackupColumns.Keys)

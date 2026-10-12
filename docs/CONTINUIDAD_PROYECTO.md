@@ -859,8 +859,8 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 ### Persistencia — marcador de versión del esquema de producto (2026-10-12)
 
 - `ProductStore` ahora registra la versión efectiva de su esquema en `product_schema_meta` después de las creaciones, `EnsureColumn`, normalizaciones legacy y semillas idempotentes.
-- La apertura rechaza explícitamente una base cuyo marcador indique una versión posterior a la aplicación, en lugar de intentar modificar silenciosamente datos creados por un build más nuevo.
-- Prueba añadida para verificar el marcador de versión y el rechazo de versiones futuras. Los respaldos anteriores siguen siendo compatibles: la tabla de metadatos se crea al abrir una base restaurada/antigua.
+- La apertura comprueba el marcador antes de tocar el esquema y rechaza explícitamente una base cuya versión sea posterior. La validación de backups también rechaza una copia futura antes de restaurarla, sin alterar la base activa.
+- Prueba añadida para verificar el marcador, rechazar versiones futuras y conservar el marcador de la base sin cambios después del rechazo. Los respaldos anteriores siguen siendo compatibles: la tabla de metadatos se crea al abrir una base restaurada/antigua.
 - **Estado:** pendiente del Windows CI del SHA que contiene este cambio.
 
 ---
