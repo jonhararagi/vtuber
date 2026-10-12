@@ -807,3 +807,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - CI #217 compiló correctamente y la corrección de SQLite se incorporó, pero la prueba `OffsetsNeverExceedTheBoundedRange` usaba simultáneamente posición y factor negativos, cuyo producto es positivo.
 - Se cambió el vector a posición negativa y factor positivo, para probar un desplazamiento negativo real. No modifica código de producción.
 - El smoke test WPF no figura como fallo en #217; el mensaje SQLite del log corresponde a una ruta de inicialización que no falló como prueba independiente en esa ejecución. La prueba específica de directorio SQLite permanece añadida.
+
+
+### 2026-10-12 — Controles reales de salida OBS
+
+- El cliente WebSocket v5 incluye peticiones tipadas para leer `GetStreamStatus`/`GetRecordStatus` e iniciar/detener transmisión/grabación (`StartStream`, `StopStream`, `StartRecord`, `StopRecord`). Se validan los estados de respuesta de OBS; una respuesta incompleta no se muestra como salida inactiva.
+- La página OBS añade estados de transmisión/grabación, actualización manual y botones de control; las órdenes de detención piden confirmación explícita. Toda orden pasa por la sesión autenticada existente y los rechazos quedan visibles en UI/actividad.
+- **Estado:** implementación en el nuevo HEAD; Windows CI pendiente. El envío real de órdenes y estados sigue requiriendo un OBS WebSocket local configurado.

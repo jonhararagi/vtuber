@@ -31,12 +31,65 @@ public partial class MainWindow
         var host=TextField("Host",store.GetSetting("obs.host","127.0.0.1"));
         var port=TextField("Puerto",store.GetSetting("obs.port","4455"));
         var password=new PasswordBox{Password=LoadObsPassword(),Background=Brush("#101525"),Foreground=Brush("#F8FAFC"),BorderBrush=Brush("#34415E"),Padding=new Thickness(10),Margin=new Thickness(0,0,0,8)};
+        var streamOutputStatus = Label("Transmisión: estado desconocido", 12, "#98A4BE");
+        var recordOutputStatus = Label("Grabación: estado desconocido", 12, "#98A4BE");
+
+        async Task RefreshOutputStatusAsync()
+        {
+            if (!obs.IsConnected)
+            {
+                streamOutputStatus.Text = "Transmisión: OBS desconectado";
+                recordOutputStatus.Text = "Grabación: OBS desconectado";
+                return;
+            }
+
+            try
+            {
+                var active = await obs.IsStreamingAsync();
+                streamOutputStatus.Text = "Transmisión: " + (active ? "ACTIVA" : "Inactiva");
+            }
+            catch (Exception exception)
+            {
+                streamOutputStatus.Text = "Transmisión: no disponible";
+                store.Log("OBS", "No se pudo leer el estado de transmisión (" + exception.GetType().Name + ").");
+            }
+
+            try
+            {
+                var active = await obs.IsRecordingAsync();
+                recordOutputStatus.Text = "Grabación: " + (active ? "ACTIVA" : "Inactiva");
+            }
+            catch (Exception exception)
+            {
+                recordOutputStatus.Text = "Grabación: no disponible";
+                store.Log("OBS", "No se pudo leer el estado de grabación (" + exception.GetType().Name + ").");
+            }
+        }
+
+        async Task RunOutputActionAsync(string action, Func<Task> operation)
+        {
+            try
+            {
+                await operation();
+                store.Log("OBS", action + " ejecutada correctamente.");
+                FooterStatus.Text = action + " ejecutada en OBS.";
+            }
+            catch (Exception exception)
+            {
+                store.Log("OBS", "Falló " + action + " (" + exception.GetType().Name + ").");
+                FooterStatus.Text = action + " falló: " + exception.Message;
+                MessageBox.Show(this, action + " no se pudo completar. Revisá el estado real de OBS.\n\n" + exception.Message,
+                    "OBS Studio", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            await RefreshOutputStatusAsync();
+        }
+
         panel.Children.Add(Label("Host",12,"#98A4BE"));panel.Children.Add(host);
         panel.Children.Add(Label("Puerto",12,"#98A4BE"));panel.Children.Add(port);
         panel.Children.Add(Label("Contraseña de WebSocket (si OBS la exige)",12,"#98A4BE"));panel.Children.Add(password);
         var actions=new WrapPanel();
-        actions.Children.Add(ActionButton("Conectar y autenticar",async (_,_)=>{try{store.SetSetting("obs.host",host.Text.Trim());store.SetSetting("obs.port",port.Text.Trim());SaveObsPassword(password.Password);await obs.ConnectAsync(host.Text.Trim(),int.Parse(port.Text),password.Password);var version=await obs.GetVersionAsync();FooterStatus.Text="OBS autenticado · versión "+version;store.Log("OBS","Conexión WebSocket v5 autenticada; versión "+version); }catch(Exception ex){FooterStatus.Text="OBS no conectado: "+ex.Message;store.Log("OBS","Conexión WebSocket fallida: "+ex.GetType().Name);MessageBox.Show(this,"No se pudo autenticar con OBS. Confirmá que WebSocket esté habilitado, el puerto y la contraseña.\n\n"+ex.Message);}} ,true));
-        actions.Children.Add(ActionButton("Desconectar",async (_,_)=>await obs.DisconnectAsync()));
+        actions.Children.Add(ActionButton("Conectar y autenticar",async (_,_)=>{try{store.SetSetting("obs.host",host.Text.Trim());store.SetSetting("obs.port",port.Text.Trim());SaveObsPassword(password.Password);await obs.ConnectAsync(host.Text.Trim(),int.Parse(port.Text),password.Password);var version=await obs.GetVersionAsync();FooterStatus.Text="OBS autenticado · versión "+version;store.Log("OBS","Conexión WebSocket v5 autenticada; versión "+version);await RefreshOutputStatusAsync();}catch(Exception ex){FooterStatus.Text="OBS no conectado: "+ex.Message;store.Log("OBS","Conexión WebSocket fallida: "+ex.GetType().Name);MessageBox.Show(this,"No se pudo autenticar con OBS. Confirmá que WebSocket esté habilitado, el puerto y la contraseña.\n\n"+ex.Message);}} ,true));
+        actions.Children.Add(ActionButton("Desconectar",async (_,_)=>{await obs.DisconnectAsync();await RefreshOutputStatusAsync();}));
         panel.Children.Add(actions);
         var scenes=new ComboBox{MinWidth=260};
         var sceneRow=new WrapPanel();
@@ -44,6 +97,35 @@ public partial class MainWindow
         sceneRow.Children.Add(scenes);
         sceneRow.Children.Add(ActionButton("Cambiar escena",async (_,_)=>{try{if(scenes.SelectedItem is not string selected)throw new InvalidOperationException("Primero cargá y elegí una escena.");await obs.SetCurrentSceneAsync(selected);store.Log("OBS","Escena cambiada a "+selected);FooterStatus.Text="Escena activa: "+selected;}catch(Exception ex){MessageBox.Show(this,ex.Message);}} ,true));
         panel.Children.Add(Label("Control de escenas",14,"#F8FAFC",true));panel.Children.Add(sceneRow);
+
+        var outputPanel = Panel("Transmisión y grabación");
+        outputPanel.Margin = new Thickness(0, 14, 0, 0);
+        outputPanel.Children.Add(streamOutputStatus);
+        outputPanel.Children.Add(recordOutputStatus);
+        var outputActions = new WrapPanel();
+        outputActions.Children.Add(ActionButton("Actualizar estado", async (_, _) => await RefreshOutputStatusAsync()));
+        outputActions.Children.Add(ActionButton("Iniciar transmisión", async (_, _) =>
+            await RunOutputActionAsync("Iniciar transmisión", () => obs.StartStreamingAsync()), true));
+        outputActions.Children.Add(ActionButton("Detener transmisión", async (_, _) =>
+        {
+            if (MessageBox.Show(this, "¿Detener la transmisión en vivo de OBS?", "Confirmar detención",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+            await RunOutputActionAsync("Detener transmisión", () => obs.StopStreamingAsync());
+        }));
+        outputActions.Children.Add(ActionButton("Iniciar grabación", async (_, _) =>
+            await RunOutputActionAsync("Iniciar grabación", () => obs.StartRecordingAsync())));
+        outputActions.Children.Add(ActionButton("Detener grabación", async (_, _) =>
+        {
+            if (MessageBox.Show(this, "¿Detener la grabación de OBS?", "Confirmar detención",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+            await RunOutputActionAsync("Detener grabación", () => obs.StopRecordingAsync());
+        }));
+        outputPanel.Children.Add(outputActions);
+        outputPanel.Children.Add(Label("Las acciones solo se envían tras la autenticación WebSocket. El estado se lee desde OBS; guardar la configuración no simula una salida activa.", 12, "#98A4BE"));
+        root.Children.Add(outputPanel);
+
         var overlayPanel=Panel("Avatar overlay para OBS");overlayPanel.Children.Add(Label("El overlay se abre como ventana sin bordes y fondo transparente. En OBS agregá una fuente Captura de ventana y seleccioná “VTuberBot Avatar Overlay”. Doble clic en el overlay alterna Topmost; arrastrá para ubicarlo.",13,"#98A4BE"));
         overlayPanel.Children.Add(ActionButton("Mostrar overlay",(_,_)=>ShowOverlay(),true));root.Children.Add(overlayPanel);
         return root;

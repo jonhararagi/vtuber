@@ -145,11 +145,69 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         if (string.IsNullOrWhiteSpace(sceneName))
             throw new ArgumentException("Elegí una escena.");
         var response = await RequestAsync("SetCurrentProgramScene", new { sceneName }).ConfigureAwait(false);
-        var status = response.GetProperty("requestStatus");
-        if (!status.GetProperty("result").GetBoolean())
-            throw new InvalidOperationException(status.TryGetProperty("comment", out var comment)
-                ? comment.GetString()
-                : "OBS no pudo cambiar la escena.");
+        EnsureRequestSucceeded(response, "OBS no pudo cambiar la escena.");
+    }
+
+    public Task<bool> IsStreamingAsync(CancellationToken cancellationToken = default) =>
+        GetOutputActiveAsync("GetStreamStatus", "estado de transmisión", cancellationToken);
+
+    public Task<bool> IsRecordingAsync(CancellationToken cancellationToken = default) =>
+        GetOutputActiveAsync("GetRecordStatus", "estado de grabación", cancellationToken);
+
+    public Task StartStreamingAsync(CancellationToken cancellationToken = default) =>
+        ExecuteOutputRequestAsync("StartStream", "OBS no pudo iniciar la transmisión.", cancellationToken);
+
+    public Task StopStreamingAsync(CancellationToken cancellationToken = default) =>
+        ExecuteOutputRequestAsync("StopStream", "OBS no pudo detener la transmisión.", cancellationToken);
+
+    public Task StartRecordingAsync(CancellationToken cancellationToken = default) =>
+        ExecuteOutputRequestAsync("StartRecord", "OBS no pudo iniciar la grabación.", cancellationToken);
+
+    public Task StopRecordingAsync(CancellationToken cancellationToken = default) =>
+        ExecuteOutputRequestAsync("StopRecord", "OBS no pudo detener la grabación.", cancellationToken);
+
+    private async Task<bool> GetOutputActiveAsync(
+        string requestType,
+        string outputDescription,
+        CancellationToken cancellationToken)
+    {
+        var response = await RequestAsync(requestType, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (!response.TryGetProperty("responseData", out var data) ||
+            data.ValueKind != JsonValueKind.Object ||
+            !data.TryGetProperty("outputActive", out var active) ||
+            active.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            throw new InvalidDataException("OBS no devolvió un estado válido para " + outputDescription + ".");
+        }
+
+        return active.GetBoolean();
+    }
+
+    private async Task ExecuteOutputRequestAsync(
+        string requestType,
+        string failureMessage,
+        CancellationToken cancellationToken)
+    {
+        var response = await RequestAsync(requestType, cancellationToken: cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(response, failureMessage);
+    }
+
+    private static void EnsureRequestSucceeded(JsonElement response, string failureMessage)
+    {
+        if (!response.TryGetProperty("requestStatus", out var status) ||
+            status.ValueKind != JsonValueKind.Object ||
+            !status.TryGetProperty("result", out var result) ||
+            result.ValueKind != JsonValueKind.True ||
+            !result.GetBoolean())
+        {
+            var comment = status.ValueKind == JsonValueKind.Object &&
+                status.TryGetProperty("comment", out var commentElement)
+                ? commentElement.GetString()
+                : null;
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(comment)
+                ? failureMessage
+                : failureMessage + " " + comment);
+        }
     }
 
     private async Task SuperviseConnectionAsync(
