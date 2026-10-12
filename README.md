@@ -11,6 +11,7 @@ VTuberBot está pensado para ser un programa de escritorio completo para gestion
 - [Roadmap de integración completa](ROADMAP.md)
 - [Prompt oficial para GPT Obrero — implementación integral](PROMPTS.md)
 - [Registro central de continuidad](docs/CONTINUIDAD_PROYECTO.md)
+- [Guía de configuración del candidato integral](docs/PRODUCT_USER_GUIDE.md)
 
 ## Tecnología y restricciones
 
@@ -22,7 +23,7 @@ VTuberBot está pensado para ser un programa de escritorio completo para gestion
 
 ## Estructura actual
 
-La rama product/complete-vtuber-experience contiene la especificación integral del producto y será la rama de trabajo para implementar el alcance completo. El PR #9 de estabilización se conserva abierto y no se fusiona automáticamente.
+La rama `product/complete-vtuber-experience` es el candidato de integración del producto. Incluye dashboard y navegación, capas de avatar/overlay, OAuth PKCE + chat IRC de Twitch, comandos con cooldown, puntos y ranking, sorteos, minijuegos locales, reglas de moderación en observación, mensajes programados, TTS/micrófono local, OBS WebSocket v5 para escenas, Telegram Web, SQLite y diagnóstico. Consultá la guía y la continuidad para las limitaciones pendientes. El PR #9 se conserva abierto y `main` no se modifica.
 
 ## Compilar y ejecutar en Windows
 

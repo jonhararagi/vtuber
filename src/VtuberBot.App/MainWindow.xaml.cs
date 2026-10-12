@@ -197,7 +197,7 @@ public partial class MainWindow : Window
         right.Children.Add(ActionButton("Ocultar overlay",(_,_)=>{overlay?.Hide();store.Log("Avatar","Overlay ocultado.");}));
         right.Children.Add(Label("Estados disponibles para el runtime",14,"#F8FAFC",true));
         var states=new WrapPanel();
-        foreach(var s in new[]{"Idle","Talking","Blink","Happy","Surprised"}) states.Children.Add(ActionButton(s,(_,_)=>{store.SetSetting("avatar.state",s);store.Log("Avatar",$"Estado seleccionado: {s}.");FooterStatus.Text=$"Estado de avatar: {s}. La animación avanzada por capas se ampliará en la siguiente integración."; }));
+        foreach(var s in new[]{"Idle","Talking","Blink","Happy","Surprised"}) states.Children.Add(ActionButton(s,(_,_)=>{store.SetSetting("avatar.state",s);if(overlay is not null)overlay.SetState(s);store.Log("Avatar",$"Estado seleccionado: {s}.");FooterStatus.Text=$"Cue visual del avatar: {s}. Los cues modifican movimiento/opacidad del overlay, no sustituyen un rig facial."; }));
         right.Children.Add(states);
         right.Children.Add(Label("La animación actual del overlay aplica movimiento respiratorio leve. El lip-sync requiere señal real de voz; no se finge tracking facial.",12,"#98A4BE"));
         Grid.SetColumn(left,0);Grid.SetColumn(right,1);columns.Children.Add(left);columns.Children.Add(right);root.Children.Add(columns);return root;
@@ -239,7 +239,7 @@ public partial class MainWindow : Window
     private void ShowOverlay()
     {
         if(string.IsNullOrWhiteSpace(avatarPath)||!File.Exists(avatarPath)){MessageBox.Show(this,"Primero importá una imagen en Avatar Studio.");return;}
-        try { overlay??=new AvatarOverlayWindow(); overlay.SetLayers(new[]{avatarPath}.Concat(store.GetAvatarLayers().Where(l=>l.Visible).Select(l=>l.Path))); if(!overlay.IsVisible)overlay.Show();overlay.Activate();store.Log("Avatar","Overlay mostrado."); }
+        try { overlay??=new AvatarOverlayWindow(); overlay.SetLayers(new[]{avatarPath}.Concat(store.GetAvatarLayers().Where(l=>l.Visible).Select(l=>l.Path))); overlay.ReduceMotion=store.GetSetting("ui.reduceMotion","false")=="true"; overlay.SetState(store.GetSetting("avatar.state","Idle")); if(!overlay.IsVisible)overlay.Show();overlay.Activate();store.Log("Avatar","Overlay mostrado."); }
         catch(Exception ex){MessageBox.Show(this,$"No se pudo abrir el overlay: {ex.Message}");}
     }
 

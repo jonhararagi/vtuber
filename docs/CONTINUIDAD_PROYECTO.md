@@ -96,3 +96,45 @@ No equivale a terminar: compilar, abrir una ventana, tener botones, mostrar esta
 - Usar los estados **IMPLEMENTADO**, **PROBADO AUTOMÁTICAMENTE**, **COMPROBADO MANUALMENTE** y **PENDIENTE** de forma explícita.
 - Mantener un único registro central: `docs/CONTINUIDAD_PROYECTO.md`.
 - No modificar `main` ni fusionar el PR #9 sin autorización explícita. El alcance ampliado de producto completo fue autorizado el 2026-10-12 y debe seguir la especificación `docs/PRODUCT_BLUEPRINT.md`.
+
+
+## 6. Candidato integral de producto — actualización 2026-10-12
+
+Esta sección supersede el estado de implementación descrito en la sección 4, que reflejaba el momento previo a iniciar la implementación del producto.
+
+### Implementado en la rama de producto
+
+- **Shell UX:** dashboard, navegación por áreas, estado de módulos y espacios de trabajo para avatar, Twitch, comandos, comunidad, sorteos, minijuegos, moderación, voz/audio, OBS, Telegram, ajustes y diagnóstico.
+- **Persistencia:** nuevas tablas SQLite para comandos, usuarios, ledger de puntos, sorteos/entradas, sesiones de juego, reglas de moderación, automatizaciones, capas de avatar, actividad y preferencias. Se añadieron migraciones idempotentes para columnas.
+- **Avatar Studio:** importación de imagen base y capas, visibilidad/eliminación de capas, composición de preview y overlay transparente movible/redimensionable. Los cues de estado modifican el movimiento/opacidad del overlay; no son un rig facial.
+- **Twitch:** flujo OAuth authorization-code con PKCE en navegador y callback local; el token se protege con DPAPI CurrentUser. El cliente IRC usa TLS, maneja PING/PONG, recibe chat y envía mensajes. El chat comparte comandos, concede un punto de actividad cada cinco minutos por usuario y soporta `!entrar` para el sorteo abierto.
+- **Comandos y comunidad:** comandos persistidos con variables y cooldowns aplicados, ranking, ajustes de puntos y exportación CSV.
+- **Sorteos/minijuegos:** entradas únicas, selección y persistencia del ganador, historial de juegos y recompensas.
+- **Moderación/automatización:** reglas regex persistidas que se evalúan sobre chat en modo observación; timers de mensajes con intervalo mínimo de cinco minutos y envío condicionado a Twitch conectado.
+- **Audio:** medidor de muestras del micrófono seleccionado y TTS local mediante Windows SAPI.
+- **OBS:** cliente WebSocket v5 con handshake/identificación, autenticación por challenge-response, consulta de versión/escenas y cambio de escena.
+- **Telegram/diagnóstico:** Telegram Web integrado mediante WebView2 con fallback al navegador; exportación de diagnóstico sin secretos.
+- **Seguridad/almacenamiento:** datos predeterminados en `%LocalAppData%\VtuberBot`, override `VTUBERBOT_HOME` para pruebas/instalación controlada, y secretos de Twitch/OBS cifrados con DPAPI.
+
+### Evidencia de CI
+
+- **Último SHA con CI completo verde en esta rama:** `aef9f82bae61537fe47455d7aaca452ec10b47c2`.
+- **Run:** [Windows CI #38214146691](https://github.com/jonhararagi/vtuber/actions/runs/38214146691) — restore, build Release, tests, publish self-contained Windows x64 y upload de artefacto: **SUCCESS**.
+- Después de ese SHA se añadieron cambios de configuración de la prueba smoke y nuevos ajustes del overlay/documentación. Esos cambios requieren CI sobre el HEAD final; no se atribuye el resultado verde anterior a commits posteriores.
+- El artefacto de ese run es histórico respecto del HEAD actual; no se debe distribuir como si contuviera cambios posteriores.
+
+### Limitaciones explícitas del candidato
+
+- **PENDIENTE:** Twitch EventSub y alertas oficiales de follows, suscripciones, raids y redenciones de puntos de canal.
+- **PENDIENTE:** rig 2.5D avanzado con pivotes/huesos/física, expresiones faciales basadas en assets y lip-sync real por fonemas/visemas.
+- **PENDIENTE:** VAD de habla distinto del medidor de amplitud, cola de voz priorizada y enrutamiento avanzado de audio.
+- **PENDIENTE:** acciones remotas de moderación (borrado/sanción) con permisos y confirmaciones; hoy solo se registran coincidencias en modo observación.
+- **PENDIENTE:** editor completo para reordenar/transformar capas y editar/pausar timers existentes individualmente; actualmente se pueden añadir, ocultar y quitar capas y crear timers.
+- **PENDIENTE:** validación manual global en el Windows del usuario. El CI no valida dispositivos de audio, OAuth real con su cuenta, runtime de WebView2 ni su instalación local de OBS/Twitch.
+
+### Siguiente paso
+
+1. Verificar CI/tests y artefacto del HEAD final exacto, corregir cualquier fallo.
+2. Actualizar esta sección con el SHA y el resultado final de CI cuando ese resultado exista.
+3. Entregar un único candidato para validación global; pedir una sola prueba integral al usuario, no pruebas por cada corrección.
+4. Mantener PR #9 abierto y no modificar ni fusionar `main`. Si se crea un PR de producto, usar como base `v0.2.3/stabilization-gate` para no mezclar ni volver a introducir en `main` los cambios del PR #9.
