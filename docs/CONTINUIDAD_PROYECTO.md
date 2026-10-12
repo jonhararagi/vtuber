@@ -951,3 +951,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - En ObsWebSocketClient.RequestAsync, el timeout de 15 segundos se inicia antes de enviar el frame y cubre el envío más la espera de respuesta. Esto evita que una escritura de socket atascada quede fuera de la fecha límite.
 - La cancelación del usuario sigue enlazada al token y el bloque finally elimina el ID pendiente incluso ante timeout/error.
 - Estado: corrección de código preparada en este commit; la evidencia automática del SHA exacto se añadirá después de que Windows CI finalice. No equivale a prueba manual con OBS.
+
+
+## Bloque funcional — cierre ordenado de la aplicación
+
+- Se corrigió el ciclo de vida de WPF: el cierre ahora se aplaza mientras se detienen timers, captura/reproducción de audio, overlay y clientes asíncronos Twitch IRC, EventSub y OBS. Esto evita depender de una continuación async disparada desde Window.Closed después de que la ventana principal ya inició el apagado del dispatcher.
+- Cada disposición de red se intenta de forma independiente; un fallo se registra y no omite la limpieza de los demás recursos. El cierre final solo se reintenta después de completar la rutina.
+- Estado: corrección de código preparada; Windows CI y cierre manual en el equipo objetivo aún deben verificarse para este SHA.

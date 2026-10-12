@@ -135,3 +135,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - La fecha límite de 15 segundos ahora incluye el envío del frame y la espera de respuesta de cada solicitud OBS; antes el contador empezaba después del envío y un socket de escritura atascado podía quedar fuera del timeout.
 - El token enlazado también respeta la cancelación del llamador y el bloque finally elimina la solicitud pendiente.
 - Requiere Windows CI del SHA nuevo; la conexión real y el comportamiento con OBS local siguen pendientes de validación manual.
+
+
+## Ciclo de vida WPF — cierre ordenado (2026-10-12)
+
+- Se reemplazó el handler async de Window.Closed por OnClosing cancelable y una rutina de cierre que termina las disposiciones asíncronas antes de volver a cerrar la ventana.
+- Los fallos al liberar un recurso se registran sin impedir la liberación de Twitch IRC, EventSub u OBS.
+- Requiere Windows CI del nuevo SHA y validación real de inicio/cierre en Windows; el cierre no se considera manualmente verificado.

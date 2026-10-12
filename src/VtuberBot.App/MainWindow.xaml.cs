@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
@@ -60,6 +61,8 @@ public partial class MainWindow : Window
     private const int CooldownPruneIntervalMessages = 1000;
     private int messagesSinceCooldownPrune;
     private string currentPage = "Inicio";
+    private bool shutdownStarted;
+    private bool shutdownCompleted;
 
     // Live values are sourced from the Core health monitor, not simulated.
     private DispatcherTimer? dashboardMetricsTimer;
@@ -237,24 +240,71 @@ public partial class MainWindow : Window
             FooterStatus.Text = $"Voz local: {status} · pendientes: {pending}"));
         eventSub.EventReceived += HandleEventSubEvent;
         obs.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
-        Closed += async (_, _) =>
-        {
-            dashboardMetricsTimer?.Stop();
-            automationTimer.Stop();
-            twitchCredentialTimer.Stop();
-            StopMicrophone();
-            StopSoundPlayback();
-            speechQueue.Dispose();
-            if (overlay is not null) overlay.Close();
-            await twitch.DisposeAsync();
-            await obs.DisposeAsync();
-            await eventSub.DisposeAsync();
-        };
+        // WPF may shut down its dispatcher as soon as the last window closes.
+        // Defer the close until every async network client has completed disposal.
+
         automationTimer.Tick += async (_, _) => await ProcessAutomationsAsync();
         automationTimer.Start();
         twitchCredentialTimer.Tick += async (_, _) => await MaintainTwitchCredentialsAsync();
         twitchCredentialTimer.Start();
         Navigate("Inicio");
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (!shutdownCompleted)
+        {
+            e.Cancel = true;
+            if (!shutdownStarted)
+            {
+                shutdownStarted = true;
+                _ = ShutdownBeforeCloseAsync();
+            }
+            return;
+        }
+
+        base.OnClosing(e);
+    }
+
+    private async Task ShutdownBeforeCloseAsync()
+    {
+        dashboardMetricsTimer?.Stop();
+        automationTimer.Stop();
+        twitchCredentialTimer.Stop();
+
+        try { StopMicrophone(); }
+        catch (Exception exception) { LogShutdownFailure("micrófono", exception); }
+        try { StopSoundPlayback(); }
+        catch (Exception exception) { LogShutdownFailure("reproducción de audio", exception); }
+        try { speechQueue.Dispose(); }
+        catch (Exception exception) { LogShutdownFailure("cola de voz", exception); }
+        try { overlay?.Close(); }
+        catch (Exception exception) { LogShutdownFailure("overlay", exception); }
+
+        // Dispose each client independently so one failed network shutdown does not
+        // prevent cleanup of the remaining clients.
+        try { await twitch.DisposeAsync(); }
+        catch (Exception exception) { LogShutdownFailure("Twitch IRC", exception); }
+        try { await eventSub.DisposeAsync(); }
+        catch (Exception exception) { LogShutdownFailure("Twitch EventSub", exception); }
+        try { await obs.DisposeAsync(); }
+        catch (Exception exception) { LogShutdownFailure("OBS WebSocket", exception); }
+
+        shutdownCompleted = true;
+        Dispatcher.BeginInvoke(new Action(Close));
+    }
+
+    private void LogShutdownFailure(string resource, Exception exception)
+    {
+        try
+        {
+            store.Log("Cierre", "No se pudo cerrar limpiamente " + resource + " (" +
+                exception.GetType().Name + ").");
+        }
+        catch
+        {
+            // A database/logging failure must not prevent the app from closing.
+        }
     }
 
     private void Navigate_Click(object sender, RoutedEventArgs e)
