@@ -1175,3 +1175,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Windows CI exacto:** [run #286](https://github.com/jonhararagi/vtuber/actions/runs/38306524189), SHA `5a359eb953a7fb26caa97cb2db0113584f4f1443` — **SUCCESS**, **376/376 pruebas**, 0 warnings/0 errors; publicación autocontenida win-x64 y validación del ZIP completadas.
 - **Artefacto:** [descarga win-x64](https://github.com/jonhararagi/vtuber/actions/runs/38306524189/artifacts/11772857508), ID `11772857508`, 77,912,303 bytes, digest `sha256:6f94c95d283cc818e50696bfe38e27dd6f66e2753fc4716a3a0545c2a026cb0f`, expira el 2026-10-26.
 - **Pendiente externo:** probar la voz elegida y la salida física de audio en Windows; CI valida la política y la integración de código, no el dispositivo acústico real.
+
+## Puerta única de validación manual global — 2026-10-12
+
+- **Documento creado:** `docs/PRODUCT-CANDIDATE-MANUAL-VALIDATION.md`. Incluye comprobación de procedencia del artefacto contra el HEAD exacto y una sola pasada por inicio/estado local, Avatar Studio/overlay, micrófono/VAD/SAPI/sonidos, Twitch OAuth/IRC/EventSub, comandos/puntos/sorteos/minijuegos, moderación/automatización, OBS WebSocket, Telegram Web, backup/restauración y cierre.
+- **Guía y roadmap:** `docs/PRODUCT_USER_GUIDE.md` enlaza la lista; `ROADMAP.md` registra que la puerta manual está preparada, no aprobada.
+- **Windows CI del commit que contiene la lista:** [run #288](https://github.com/jonhararagi/vtuber/actions/runs/38307051295), SHA `bf05011a66a5de6c722d58680067480dba86a9a9` — **SUCCESS**; 376/376 pruebas, 0 warnings/0 errors, publicación autocontenida win-x64 y subida del artefacto completadas.
+- **Artefacto de ese SHA:** [descarga](https://github.com/jonhararagi/vtuber/actions/runs/38307051295/artifacts/11772939102), ID `11772939102`, 77,912,331 bytes, digest `sha256:fc190bd0a79223b7ce9141f573ac55cb46a7d7f043241e35b5a5b562ec1e767f`, expira el 2026-10-26.
+- **Límite:** CI valida compilación, pruebas automatizadas y empaquetado; no autentica cuentas del usuario ni prueba un OBS real, micrófono/SAPI, WebView2 o captura de overlay. La validación global de Windows permanece pendiente y debe registrar áreas externas no disponibles como BLOQUEADAS, nunca APROBADAS.
