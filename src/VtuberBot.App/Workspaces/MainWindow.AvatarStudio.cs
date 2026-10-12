@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO.Compression;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
@@ -23,6 +24,23 @@ namespace VtuberBot.App;
 
 public partial class MainWindow
 {
+    private sealed record AvatarProfilePackageManifest(
+        int FormatVersion,
+        string Name,
+        string? BaseAsset,
+        List<AvatarProfilePackageLayer> Layers,
+        Dictionary<string, string> Expressions);
+
+    private sealed record AvatarProfilePackageLayer(
+        string Name,
+        string AssetEntry,
+        int SortOrder,
+        bool Visible,
+        double OffsetX,
+        double OffsetY,
+        double Scale,
+        double RotationDegrees);
+
     private UIElement BuildAvatarStudio()
     {
         var root = new StackPanel();
@@ -123,6 +141,8 @@ public partial class MainWindow
         var profileActions = new WrapPanel();
         profileActions.Children.Add(ActionButton("＋ Nuevo perfil vacío", (_, _) => CreateProfile(false), true));
         profileActions.Children.Add(ActionButton("Duplicar perfil", (_, _) => CreateProfile(true)));
+        profileActions.Children.Add(ActionButton("Exportar perfil (.vtuberavatar)", (_, _) => ExportActiveAvatarProfilePackage()));
+        profileActions.Children.Add(ActionButton("Importar perfil", (_, _) => ImportAvatarProfilePackage()));
         profileActions.Children.Add(ActionButton("Eliminar perfil activo", (_, _) =>
         {
             if (store.GetAvatarProfiles().Count <= 1)
@@ -494,6 +514,306 @@ public partial class MainWindow
     {
         if (overlay is { IsVisible: true })
             overlay.SetAvatar(avatarPath ?? string.Empty, store.GetAvatarLayers(), GetAvatarExpressionPaths());
+    }
+
+    private void ExportActiveAvatarProfilePackage()
+    {
+        var profile = store.GetActiveAvatarProfile();
+        var dialog = new SaveFileDialog
+        {
+            Title = "Exportar perfil de avatar",
+            FileName = new string(profile.Name.Select(character =>
+                Path.GetInvalidFileNameChars().Contains(character) ? '_' : character).ToArray()) + ".vtuberavatar",
+            Filter = "Perfil de avatar VTuberBot (*.vtuberavatar)|*.vtuberavatar|Archivo ZIP (*.zip)|*.zip",
+            AddExtension = true,
+            OverwritePrompt = true
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        var temporaryPath = dialog.FileName + ".tmp-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            var layers = store.GetAvatarLayers().OrderBy(layer => layer.SortOrder).ToList();
+            if (layers.Count > 100)
+                throw new InvalidOperationException("El paquete admite hasta 100 capas por perfil.");
+
+            var expressions = store.GetAvatarExpressions();
+            if (expressions.Count > 5)
+                throw new InvalidOperationException("El perfil contiene más expresiones de las admitidas por este formato.");
+
+            using (var file = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            using (var archive = new ZipArchive(file, ZipArchiveMode.Create, leaveOpen: false))
+            {
+                string AddAsset(string sourcePath, string archivePath)
+                {
+                    if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+                        throw new FileNotFoundException("Falta un asset utilizado por el perfil.", sourcePath);
+                    var info = new FileInfo(sourcePath);
+                    if (info.Length is <= 0 or > 25 * 1024 * 1024)
+                        throw new InvalidDataException("Cada imagen del paquete debe ocupar entre 1 byte y 25 MB: " + Path.GetFileName(sourcePath));
+                    var extension = Path.GetExtension(sourcePath).ToLowerInvariant();
+                    if (!IsSupportedAvatarImageExtension(extension))
+                        throw new InvalidDataException("Formato de imagen no admitido: " + extension);
+                    var entry = archive.CreateEntry(archivePath, CompressionLevel.Optimal);
+                    using var source = File.OpenRead(sourcePath);
+                    using var target = entry.Open();
+                    source.CopyTo(target);
+                    return archivePath;
+                }
+
+                var baseAsset = string.IsNullOrWhiteSpace(profile.BasePath)
+                    ? null
+                    : AddAsset(profile.BasePath, "base/avatar" + Path.GetExtension(profile.BasePath).ToLowerInvariant());
+
+                var exportedLayers = new List<AvatarProfilePackageLayer>(layers.Count);
+                for (var index = 0; index < layers.Count; index++)
+                {
+                    var layer = layers[index];
+                    var extension = Path.GetExtension(layer.Path).ToLowerInvariant();
+                    var entryPath = AddAsset(layer.Path, $"layers/{index + 1:000}{extension}");
+                    exportedLayers.Add(new AvatarProfilePackageLayer(
+                        layer.Name, entryPath, index, layer.Visible,
+                        layer.OffsetX, layer.OffsetY, layer.Scale, layer.RotationDegrees));
+                }
+
+                var exportedExpressions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var expression in expressions)
+                {
+                    ValidatePackageExpressionState(expression.Key);
+                    var extension = Path.GetExtension(expression.Value).ToLowerInvariant();
+                    exportedExpressions[expression.Key] = AddAsset(
+                        expression.Value, $"expressions/{expression.Key.ToLowerInvariant()}{extension}");
+                }
+
+                var manifest = new AvatarProfilePackageManifest(
+                    1, profile.Name, baseAsset, exportedLayers, exportedExpressions);
+                var manifestEntry = archive.CreateEntry("manifest.json", CompressionLevel.Optimal);
+                using var manifestStream = manifestEntry.Open();
+                JsonSerializer.Serialize(manifestStream, manifest, new JsonSerializerOptions { WriteIndented = true });
+            }
+
+            var packageInfo = new FileInfo(temporaryPath);
+            if (packageInfo.Length > 300 * 1024 * 1024)
+                throw new InvalidDataException("El paquete supera el límite de 300 MB.");
+            File.Move(temporaryPath, dialog.FileName, overwrite: true);
+            store.Log("Avatar", "Perfil exportado como paquete portable: " + Path.GetFileName(dialog.FileName) + ".");
+            FooterStatus.Text = "Perfil exportado con base, capas y expresiones.";
+            MessageBox.Show(this, "El paquete incluye los assets usados por este perfil y su composición. No contiene credenciales ni el resto de la base de datos.",
+                "Perfil de avatar exportado", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            try { if (File.Exists(temporaryPath)) File.Delete(temporaryPath); } catch { }
+            store.Log("Avatar", "Falló la exportación de perfil (" + exception.GetType().Name + ").");
+            MessageBox.Show(this, "No se pudo exportar el perfil: " + exception.Message,
+                "Exportar avatar", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ImportAvatarProfilePackage()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Importar perfil de avatar",
+            Filter = "Perfil de avatar VTuberBot (*.vtuberavatar;*.zip)|*.vtuberavatar;*.zip",
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        var packageDirectory = Path.Combine(avatarDirectory, "profile-packages", Guid.NewGuid().ToString("N"));
+        AvatarProfile? createdProfile = null;
+        var previousProfile = store.GetActiveAvatarProfile();
+        try
+        {
+            var packageInfo = new FileInfo(dialog.FileName);
+            if (packageInfo.Length is <= 0 or > 300 * 1024 * 1024)
+                throw new InvalidDataException("El paquete debe ocupar entre 1 byte y 300 MB.");
+
+            AvatarProfilePackageManifest manifest;
+            Dictionary<string, ZipArchiveEntry> archiveEntries;
+            using (var archive = ZipFile.OpenRead(dialog.FileName))
+            {
+                if (archive.Entries.Count is < 1 or > 120)
+                    throw new InvalidDataException("El paquete debe contener como máximo 120 archivos.");
+
+                long uncompressedTotal = 0;
+                archiveEntries = new Dictionary<string, ZipArchiveEntry>(StringComparer.Ordinal);
+                foreach (var entry in archive.Entries)
+                {
+                    uncompressedTotal = checked(uncompressedTotal + entry.Length);
+                    if (uncompressedTotal > 300 * 1024 * 1024)
+                        throw new InvalidDataException("El contenido descomprimido supera el límite de 300 MB.");
+                    if (!archiveEntries.TryAdd(entry.FullName, entry))
+                        throw new InvalidDataException("El paquete contiene nombres de archivo duplicados.");
+                }
+
+                if (!archiveEntries.TryGetValue("manifest.json", out var manifestEntry) ||
+                    manifestEntry.Length is <= 0 or > 1024 * 1024)
+                    throw new InvalidDataException("No se encontró un manifest.json válido en el paquete.");
+
+                using var manifestStream = manifestEntry.Open();
+                manifest = JsonSerializer.Deserialize<AvatarProfilePackageManifest>(manifestStream)
+                    ?? throw new InvalidDataException("No se pudo leer el manifiesto del perfil.");
+            }
+
+            if (manifest.FormatVersion != 1)
+                throw new InvalidDataException("Versión de paquete no admitida: " + manifest.FormatVersion + ".");
+            if (string.IsNullOrWhiteSpace(manifest.Name) || manifest.Name.Trim().Length > 64)
+                throw new InvalidDataException("El nombre de perfil del manifiesto no es válido.");
+            if (manifest.Layers is null || manifest.Layers.Count > 100)
+                throw new InvalidDataException("El paquete puede incluir hasta 100 capas.");
+            if (manifest.Expressions is null || manifest.Expressions.Count > 5)
+                throw new InvalidDataException("El paquete puede incluir hasta cinco expresiones.");
+
+            Directory.CreateDirectory(packageDirectory);
+            var extracted = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            string ExtractAsset(string entryName, string requiredPrefix, string destinationFolder, string destinationStem)
+            {
+                if (!IsSafeAvatarPackageEntry(entryName) ||
+                    !entryName.StartsWith(requiredPrefix + "/", StringComparison.Ordinal))
+                    throw new InvalidDataException("Ruta de asset no válida dentro del paquete: " + entryName);
+                if (!archiveEntries.TryGetValue(entryName, out var entry))
+                    throw new InvalidDataException("No se encontró el asset " + entryName + " dentro del paquete.");
+                if (entry.Length is <= 0 or > 25 * 1024 * 1024)
+                    throw new InvalidDataException("Cada imagen debe ocupar entre 1 byte y 25 MB.");
+
+                var extension = Path.GetExtension(entryName).ToLowerInvariant();
+                if (!IsSupportedAvatarImageExtension(extension))
+                    throw new InvalidDataException("Formato de imagen no admitido: " + extension);
+                var destinationPath = Path.Combine(packageDirectory, destinationFolder, destinationStem + extension);
+                Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+
+                using (var input = entry.Open())
+                using (var output = new FileStream(destinationPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    var buffer = new byte[81920];
+                    long copied = 0;
+                    int read;
+                    while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        copied += read;
+                        if (copied > 25 * 1024 * 1024)
+                            throw new InvalidDataException("El asset descomprimido supera el límite de 25 MB.");
+                        output.Write(buffer, 0, read);
+                    }
+                    if (copied == 0)
+                        throw new InvalidDataException("El asset está vacío.");
+                }
+
+                _ = LoadImage(destinationPath);
+                extracted[entryName] = destinationPath;
+                return destinationPath;
+            }
+
+            string? basePath = null;
+            if (!string.IsNullOrWhiteSpace(manifest.BaseAsset))
+                basePath = ExtractAsset(manifest.BaseAsset, "base", "base", "avatar");
+
+            var normalizedLayers = new List<(AvatarProfilePackageLayer Layer, string Path)>();
+            foreach (var layer in manifest.Layers.OrderBy(layer => layer.SortOrder))
+            {
+                if (string.IsNullOrWhiteSpace(layer.Name) || layer.Name.Trim().Length > 100)
+                    throw new InvalidDataException("Una capa tiene un nombre vacío o demasiado largo.");
+                if (!double.IsFinite(layer.OffsetX) || layer.OffsetX is < -500 or > 500 ||
+                    !double.IsFinite(layer.OffsetY) || layer.OffsetY is < -500 or > 500 ||
+                    !double.IsFinite(layer.Scale) || layer.Scale is < 0.1 or > 4 ||
+                    !double.IsFinite(layer.RotationDegrees) || layer.RotationDegrees is < -180 or > 180)
+                    throw new InvalidDataException("Una capa contiene transformaciones fuera de los límites permitidos.");
+                var assetPath = ExtractAsset(
+                    layer.AssetEntry, "layers", "layers", "layer-" + normalizedLayers.Count.ToString("000"));
+                normalizedLayers.Add((layer, assetPath));
+            }
+
+            var normalizedExpressions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var expression in manifest.Expressions)
+            {
+                ValidatePackageExpressionState(expression.Key);
+                var assetPath = ExtractAsset(
+                    expression.Value, "expressions", "expressions", expression.Key.ToLowerInvariant());
+                normalizedExpressions[expression.Key] = assetPath;
+            }
+
+            var usedNames = store.GetAvatarProfiles()
+                .Select(profile => profile.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var importRootName = manifest.Name.Trim();
+            if (importRootName.Length > 48) importRootName = importRootName[..48].TrimEnd();
+            var profileName = importRootName + " (importado)";
+            var suffix = 2;
+            while (usedNames.Contains(profileName))
+            {
+                var suffixText = " (" + suffix++ + ")";
+                profileName = importRootName[..Math.Min(importRootName.Length, 63 - suffixText.Length)].TrimEnd() + suffixText;
+            }
+
+            createdProfile = store.CreateAvatarProfile(profileName, duplicateActiveProfile: false);
+            store.SetActiveAvatarProfile(createdProfile.Id);
+            if (basePath is not null)
+                store.SetActiveAvatarProfileBasePath(basePath);
+
+            foreach (var item in normalizedLayers)
+            {
+                var layerId = store.AddAvatarLayer(item.Layer.Name, item.Path);
+                store.UpdateAvatarLayerTransform(layerId, item.Layer.OffsetX, item.Layer.OffsetY,
+                    item.Layer.Scale, item.Layer.RotationDegrees);
+                if (!item.Layer.Visible)
+                    store.SetAvatarLayerVisibility(layerId, false);
+            }
+            foreach (var expression in normalizedExpressions)
+                store.SetAvatarExpression(expression.Key, expression.Value);
+
+            avatarPath = store.GetActiveAvatarProfile().BasePath;
+            RefreshActiveAvatarOverlay();
+            store.Log("Avatar", "Paquete de avatar importado: " + profileName + ".");
+            Navigate("Avatar Studio");
+            MessageBox.Show(this, "El perfil se importó como «" + profileName + "». La composición y las imágenes quedaron guardadas localmente.",
+                "Importación completada", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            if (createdProfile is not null)
+            {
+                try
+                {
+                    store.SetActiveAvatarProfile(previousProfile.Id);
+                    store.DeleteAvatarProfile(createdProfile.Id);
+                }
+                catch (Exception rollbackException)
+                {
+                    store.Log("Avatar", "No se pudo retirar completamente el perfil parcial (" + rollbackException.GetType().Name + ").");
+                }
+            }
+            avatarPath = store.GetActiveAvatarProfile().BasePath;
+            try { RefreshActiveAvatarOverlay(); } catch { }
+            try { if (Directory.Exists(packageDirectory)) Directory.Delete(packageDirectory, recursive: true); } catch { }
+            store.Log("Avatar", "Falló la importación del paquete (" + exception.GetType().Name + ").");
+            MessageBox.Show(this, "No se importó el paquete. El perfil activo anterior se conserva.\n\nDetalle: " + exception.Message,
+                "Importar avatar", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private static bool IsSupportedAvatarImageExtension(string extension) =>
+        extension is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".webp";
+
+    private static bool IsSafeAvatarPackageEntry(string entryName)
+    {
+        if (string.IsNullOrWhiteSpace(entryName) || Path.IsPathRooted(entryName) ||
+            entryName.Contains('\\') || entryName.StartsWith('/', StringComparison.Ordinal))
+            return false;
+        return entryName.Split('/').All(segment =>
+            segment.Length > 0 && segment is not "." and not ".." &&
+            !segment.Contains(':', StringComparison.Ordinal));
+    }
+
+    private static void ValidatePackageExpressionState(string state)
+    {
+        if (state is null || !(state.Equals("Idle", StringComparison.OrdinalIgnoreCase) ||
+            state.Equals("Talking", StringComparison.OrdinalIgnoreCase) ||
+            state.Equals("Blink", StringComparison.OrdinalIgnoreCase) ||
+            state.Equals("Happy", StringComparison.OrdinalIgnoreCase) ||
+            state.Equals("Surprised", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidDataException("Estado de expresión no admitido: " + (state ?? "(vacío)") + ".");
     }
 
     private void ShowOverlay()

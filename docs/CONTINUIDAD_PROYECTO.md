@@ -477,3 +477,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Importar/cambiar/quitar un sprite de expresión ahora refresca también el overlay ya abierto, evitando que la previsualización y la salida de OBS diverjan hasta la próxima apertura.
 - La importación de la imagen base agrega un sufijo GUID para no fallar si se importan dos archivos durante el mismo segundo.
 - Estado: código actualizado; pendiente CI en el HEAD nuevo.
+
+
+### Trabajo adicional — paquete portable de avatar
+
+- Avatar Studio ahora exporta un perfil `.vtuberavatar` (ZIP con manifest versionado) que incluye la imagen base, las capas, transformaciones/visibilidad/orden y los sprites de expresión utilizados.
+- La importación valida formato y versión, limita cantidad/tamaño de archivos, comprueba extensiones, rechaza rutas inseguras y carga cada imagen antes de crear un perfil nuevo. No extrae los nombres de ruta directamente del ZIP; utiliza rutas locales generadas por la aplicación.
+- Si la creación del perfil falla, se intenta retirar el perfil parcial y recuperar el perfil anterior; los assets del paquete solo se conservan cuando la importación termina.
+- Credenciales, tokens, cookies y la base de datos completa no forman parte del paquete.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD que contiene esta función.

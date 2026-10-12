@@ -12,7 +12,7 @@ Esta guía corresponde a la rama `product/complete-vtuber-experience`. Las funci
 ## Dashboard, Avatar Studio y OBS overlay
 El Dashboard muestra CPU y RAM reales del proceso cada dos segundos mientras está abierto; no presenta valores GPU/FPS inventados.
 
-1. Abrí **Avatar Studio**. Podés crear un perfil vacío, duplicar el actual o cambiar entre perfiles desde la parte superior; cada uno conserva su propia imagen base, capas/transformaciones y sprites de expresión. Eliminar un perfil no borra los archivos de imagen importados, y siempre debe quedar al menos un perfil.
+1. Abrí **Avatar Studio**. Podés crear un perfil vacío, duplicar el actual o cambiar entre perfiles desde la parte superior; cada uno conserva su propia imagen base, capas/transformaciones y sprites de expresión. Eliminar un perfil no borra los archivos de imagen importados, y siempre debe quedar al menos un perfil. **Exportar perfil (.vtuberavatar)** guarda base, capas, transformaciones y expresiones juntos; al importarlo se crea otro perfil sin sobrescribir los existentes.
 2. Importá la imagen base del perfil activo.
 3. Importá capas PNG/JPG adicionales transparentes. Podés ocultar o eliminar una capa sin borrar el archivo original, cambiar su orden visual y ajustar X/Y, escala y rotación.
 4. En **Sprites por expresión**, asigná imágenes con el mismo tamaño para Idle, Talking, Blink, Happy o Surprised. La imagen base se usa como fallback para estados normales sin sprite; para Blink necesitás una imagen explícita de ojos cerrados.
