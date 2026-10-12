@@ -1,7 +1,11 @@
 namespace VtuberBot.Core;
 
 /// <summary>Produces an actionable, non-speculative diagnosis for revoked Twitch EventSub subscriptions.</summary>
-public sealed record EventSubRevocationGuidance(string Status, string Message, bool RequiresReauthorization);
+public sealed record EventSubRevocationGuidance(
+    string Status,
+    string Message,
+    bool RequiresReauthorization,
+    bool CanAttemptAutomaticRecovery = false);
 
 public static class EventSubRevocationPolicy
 {
@@ -26,9 +30,14 @@ public static class EventSubRevocationPolicy
                 normalized,
                 "La cuenta que había concedido el permiso de moderador ya no es moderadora del canal; restaurá ese rol o volvé a autorizar con una cuenta con permisos.",
                 false),
-            "websocket_disconnected" or "websocket_failed_ping_pong" or "websocket_network_timeout" or "websocket_network_error" =>
+            "websocket_network_timeout" or "websocket_network_error" or "websocket_internal_error" =>
                 new(normalized,
-                    "La suscripción se revocó por una condición de transporte WebSocket. La conexión puede recuperarse, pero esta suscripción ya no se asume activa; reconectá y comprobá el estado de suscripciones.",
+                    "Twitch informó un fallo transitorio de red/servidor. VTuberBot puede intentar registrar de nuevo solo esta suscripción en la sesión WebSocket activa; si la sesión ya no sirve, la reconexión completa registrará las suscripciones de nuevo.",
+                    false,
+                    true),
+            "websocket_disconnected" or "websocket_failed_ping_pong" or "websocket_received_inbound_traffic" or "websocket_connection_unused" =>
+                new(normalized,
+                    "La sesión WebSocket indica una desconexión o un problema del lado cliente. No se reintentará esta suscripción de forma aislada: comprobá el estado de la sesión; si la conexión se perdió, la reconexión completa la registrará de nuevo.",
                     false),
             "" => new(
                 "unknown",

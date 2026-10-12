@@ -22,6 +22,22 @@ public sealed class EventSubRevocationPolicyTests
         Assert.NotEmpty(guidance.Message);
     }
 
+    [Theory]
+    [InlineData("websocket_network_timeout", true)]
+    [InlineData("websocket_network_error", true)]
+    [InlineData("websocket_internal_error", true)]
+    [InlineData("websocket_disconnected", false)]
+    [InlineData("websocket_failed_ping_pong", false)]
+    [InlineData("websocket_received_inbound_traffic", false)]
+    [InlineData("websocket_connection_unused", false)]
+    [InlineData("authorization_revoked", false)]
+    [InlineData("version_removed", false)]
+    public void AutomaticRecoveryIsEnabledOnlyForTransientFailuresWeCanSafelyRetry(
+        string status, bool canRecover)
+    {
+        Assert.Equal(canRecover, EventSubRevocationPolicy.Describe(status).CanAttemptAutomaticRecovery);
+    }
+
     [Fact]
     public void MissingStatusProducesGenericActionableGuidance()
     {

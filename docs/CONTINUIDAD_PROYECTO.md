@@ -541,3 +541,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 ### Corrección CI — expectativa del estado EventSub ausente
 - CI #181 compiló correctamente, pero falló una prueba porque el texto esperado era el de un estado desconocido y no el del campo ausente. La prueba ahora valida el mensaje real que emite `Describe(null)`; se mantienen ambas rutas diferenciadas.
 - Estado: pendiente de CI en el nuevo HEAD.
+
+
+### Trabajo adicional — recuperación acotada de revocaciones EventSub
+
+- La guía de revocación distingue estados que no se pueden reparar con las credenciales actuales (OAuth revocado, usuario retirado, versión no soportada) de fallos transitorios de servidor/red.
+- Para `websocket_network_timeout`, `websocket_network_error` y `websocket_internal_error`, el cliente intenta registrar de nuevo solo el tipo de suscripción afectado, únicamente si la sesión WebSocket sigue abierta.
+- La recuperación por tipo tiene un límite de un intento cada 10 minutos y solo confirma éxito si Twitch acepta la petición. Si el socket ya no está activo o Twitch rechaza la solicitud, se conserva un diagnóstico explícito; la reconexión completa sigue siendo la ruta de recuperación.
+- Los estados de fallo del lado cliente (`websocket_disconnected`, `websocket_failed_ping_pong`, `websocket_received_inbound_traffic`, `websocket_connection_unused`) no se reintentan de manera aislada para no ocultar un problema de sesión/código.
+- Añadidas pruebas de la decisión de recuperación permitida/no permitida por estado.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el nuevo HEAD.
