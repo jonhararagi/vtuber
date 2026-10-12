@@ -814,3 +814,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - El cliente WebSocket v5 incluye peticiones tipadas para leer `GetStreamStatus`/`GetRecordStatus` e iniciar/detener transmisión/grabación (`StartStream`, `StopStream`, `StartRecord`, `StopRecord`). Se validan los estados de respuesta de OBS; una respuesta incompleta no se muestra como salida inactiva.
 - La página OBS añade estados de transmisión/grabación, actualización manual y botones de control; las órdenes de detención piden confirmación explícita. Toda orden pasa por la sesión autenticada existente y los rechazos quedan visibles en UI/actividad.
 - **Estado:** implementación en el nuevo HEAD; Windows CI pendiente. El envío real de órdenes y estados sigue requiriendo un OBS WebSocket local configurado.
+
+
+### 2026-10-12 — Estado OBS sincronizado con eventos del WebSocket
+
+- El receptor WebSocket procesa ahora los mensajes Event de OBS v5 (op 5) en lugar de descartarlos mientras espera respuestas a peticiones (op 7). El payload se clona antes de liberar el documento JSON y los suscriptores se invocan con aislamiento de excepciones.
+- La página OBS escucha `StreamStateChanged` y `RecordStateChanged`; los indicadores cambian cuando OBS inicia o detiene una salida, sin tener que pulsar «Actualizar estado». La consulta manual sigue disponible.
+- Al reconstruir la página se desconecta el listener anterior, evitando acumular callbacks que retengan controles antiguos.
+- **Estado:** implementado en el nuevo HEAD; Windows CI pendiente. Los eventos reales requieren OBS WebSocket v5 configurado y conectado.

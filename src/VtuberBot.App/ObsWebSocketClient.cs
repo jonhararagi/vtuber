@@ -21,6 +21,7 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
     public bool IsConnected { get; private set; }
     public bool IsActive => cancellation is not null;
     public event Action<string>? StatusChanged;
+    public event Action<string, JsonElement>? EventReceived;
 
     public async Task ConnectAsync(string host, int port, string password, CancellationToken cancellationToken = default)
     {
@@ -265,8 +266,28 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
                     {
                         using var message = await ReadJsonAsync(activeSocket, cancellationToken).ConfigureAwait(false);
                         var root = message.RootElement;
-                        if (!root.TryGetProperty("op", out var op) || op.GetInt32() != 7)
+                        if (!root.TryGetProperty("op", out var op))
                             continue;
+
+                        var opcode = op.GetInt32();
+                        if (opcode == 5)
+                        {
+                            var envelope = root.GetProperty("d");
+                            if (envelope.TryGetProperty("eventType", out var typeElement) &&
+                                typeElement.ValueKind == JsonValueKind.String)
+                            {
+                                var eventType = typeElement.GetString() ?? string.Empty;
+                                var eventData = envelope.TryGetProperty("eventData", out var eventPayload)
+                                    ? eventPayload.Clone()
+                                    : default;
+                                VtuberBot.Core.SafeEventDispatch.Invoke(EventReceived, eventType, eventData);
+                            }
+                            continue;
+                        }
+
+                        if (opcode != 7)
+                            continue;
+
                         var data = root.GetProperty("d");
                         var id = data.GetProperty("requestId").GetString() ?? "";
                         TaskCompletionSource<JsonElement>? completion;

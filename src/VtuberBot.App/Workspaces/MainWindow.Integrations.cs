@@ -23,6 +23,10 @@ namespace VtuberBot.App;
 
 public partial class MainWindow
 {
+    private TextBlock? obsStreamOutputStatusLabel;
+    private TextBlock? obsRecordOutputStatusLabel;
+    private Action<string, JsonElement>? obsEventHandler;
+
     private UIElement BuildObsPage()
     {
         var root=new StackPanel();var panel=Panel("OBS Studio · WebSocket v5");root.Children.Add(panel);
@@ -31,37 +35,79 @@ public partial class MainWindow
         var host=TextField("Host",store.GetSetting("obs.host","127.0.0.1"));
         var port=TextField("Puerto",store.GetSetting("obs.port","4455"));
         var password=new PasswordBox{Password=LoadObsPassword(),Background=Brush("#101525"),Foreground=Brush("#F8FAFC"),BorderBrush=Brush("#34415E"),Padding=new Thickness(10),Margin=new Thickness(0,0,0,8)};
-        var streamOutputStatus = Label("Transmisión: estado desconocido", 12, "#98A4BE");
-        var recordOutputStatus = Label("Grabación: estado desconocido", 12, "#98A4BE");
+        obsStreamOutputStatusLabel = Label("Transmisión: estado desconocido", 12, "#98A4BE");
+        obsRecordOutputStatusLabel = Label("Grabación: estado desconocido", 12, "#98A4BE");
+
+        if (obsEventHandler is not null)
+            obs.EventReceived -= obsEventHandler;
+        obsEventHandler = (eventType, eventData) =>
+        {
+            if (eventType is not ("StreamStateChanged" or "RecordStateChanged"))
+                return;
+
+            bool? active = eventData.ValueKind == JsonValueKind.Object &&
+                eventData.TryGetProperty("outputActive", out var activeValue) &&
+                activeValue.ValueKind is JsonValueKind.True or JsonValueKind.False
+                    ? activeValue.GetBoolean()
+                    : null;
+
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    var label = eventType == "StreamStateChanged"
+                        ? obsStreamOutputStatusLabel
+                        : obsRecordOutputStatusLabel;
+                    if (label is null)
+                        return;
+
+                    var outputName = eventType == "StreamStateChanged" ? "Transmisión" : "Grabación";
+                    label.Text = active.HasValue
+                        ? outputName + ": " + (active.Value ? "ACTIVA" : "Inactiva")
+                        : outputName + ": estado no disponible";
+                }));
+            }
+            catch (InvalidOperationException)
+            {
+                // Dispatcher shutdown is not a WebSocket transport error.
+            }
+        };
+        obs.EventReceived += obsEventHandler;
 
         async Task RefreshOutputStatusAsync()
         {
             if (!obs.IsConnected)
             {
-                streamOutputStatus.Text = "Transmisión: OBS desconectado";
-                recordOutputStatus.Text = "Grabación: OBS desconectado";
+                if (obsStreamOutputStatusLabel is not null)
+                    obsStreamOutputStatusLabel.Text = "Transmisión: OBS desconectado";
+                if (obsRecordOutputStatusLabel is not null)
+                    obsRecordOutputStatusLabel.Text = "Grabación: OBS desconectado";
                 return;
             }
 
             try
             {
                 var active = await obs.IsStreamingAsync();
-                streamOutputStatus.Text = "Transmisión: " + (active ? "ACTIVA" : "Inactiva");
+                if (obsStreamOutputStatusLabel is not null)
+                    obsStreamOutputStatusLabel.Text = "Transmisión: " + (active ? "ACTIVA" : "Inactiva");
             }
             catch (Exception exception)
             {
-                streamOutputStatus.Text = "Transmisión: no disponible";
+                if (obsStreamOutputStatusLabel is not null)
+                    obsStreamOutputStatusLabel.Text = "Transmisión: no disponible";
                 store.Log("OBS", "No se pudo leer el estado de transmisión (" + exception.GetType().Name + ").");
             }
 
             try
             {
                 var active = await obs.IsRecordingAsync();
-                recordOutputStatus.Text = "Grabación: " + (active ? "ACTIVA" : "Inactiva");
+                if (obsRecordOutputStatusLabel is not null)
+                    obsRecordOutputStatusLabel.Text = "Grabación: " + (active ? "ACTIVA" : "Inactiva");
             }
             catch (Exception exception)
             {
-                recordOutputStatus.Text = "Grabación: no disponible";
+                if (obsRecordOutputStatusLabel is not null)
+                    obsRecordOutputStatusLabel.Text = "Grabación: no disponible";
                 store.Log("OBS", "No se pudo leer el estado de grabación (" + exception.GetType().Name + ").");
             }
         }
@@ -100,8 +146,8 @@ public partial class MainWindow
 
         var outputPanel = Panel("Transmisión y grabación");
         outputPanel.Margin = new Thickness(0, 14, 0, 0);
-        outputPanel.Children.Add(streamOutputStatus);
-        outputPanel.Children.Add(recordOutputStatus);
+        outputPanel.Children.Add(obsStreamOutputStatusLabel);
+        outputPanel.Children.Add(obsRecordOutputStatusLabel);
         var outputActions = new WrapPanel();
         outputActions.Children.Add(ActionButton("Actualizar estado", async (_, _) => await RefreshOutputStatusAsync()));
         outputActions.Children.Add(ActionButton("Iniciar transmisión", async (_, _) =>
