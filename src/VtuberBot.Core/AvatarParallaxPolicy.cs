@@ -24,13 +24,18 @@ public static class AvatarParallaxPolicy
         return 0.55 + Math.Clamp(layer.SortOrder, 0, 10) * 0.05;
     }
 
-    public static double GetOffset(double normalizedPosition, double layerFactor)
+    public static double GetOffset(
+        double normalizedPosition,
+        double layerFactor,
+        double maximumOffsetPixels = MaximumOffsetPixels)
     {
-        if (!double.IsFinite(normalizedPosition) || !double.IsFinite(layerFactor))
+        if (!double.IsFinite(normalizedPosition) || !double.IsFinite(layerFactor) ||
+            !double.IsFinite(maximumOffsetPixels))
             return 0;
 
+        var strength = Math.Clamp(maximumOffsetPixels, 0, MaximumOffsetPixels);
         return Math.Clamp(normalizedPosition, -1, 1) *
             Math.Clamp(layerFactor, -1, 1.25) *
-            MaximumOffsetPixels;
+            strength;
     }
 }

@@ -769,3 +769,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Configuración:** nuevo ajuste persistente `avatar.parallax.enabled`, activado por defecto y aplicado al overlay actual. «Reducir movimiento» domina sobre el parallax y lo devuelve al centro. No se usa cámara ni se afirma rastreo facial.
 - **Pruebas:** normalización del puntero, dimensiones inválidas, fondo/primer plano en direcciones opuestas y límite máximo de desplazamiento.
 - **Estado:** implementado; Windows CI pendiente.
+
+
+### 2026-10-12 — Intensidad de parallax configurable
+
+- Ajustes incluye un control de intensidad de 0 a 5 píxeles, con pasos de 0,5 px, persistido en SQLite y aplicado tanto al overlay actual como al siguiente que se abra.
+- El Core limita el valor efectivo al rango válido y devuelve cero ante valores no finitos. «Reducir movimiento» sigue teniendo prioridad y deja el desplazamiento centrado.
+- Se ampliaron las pruebas del cálculo para intensidad cero, intermedia, máxima y valores fuera del rango.
+- Estado: implementación añadida; Windows CI pendiente.

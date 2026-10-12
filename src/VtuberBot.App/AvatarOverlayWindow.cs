@@ -21,6 +21,7 @@ public sealed class AvatarOverlayWindow : Window
     private double targetParallaxY;
     private double currentParallaxX;
     private double currentParallaxY;
+    private double parallaxStrength = AvatarParallaxPolicy.MaximumOffsetPixels;
     private double phase;
     private string state = "Idle";
     private string? transientState;
@@ -104,6 +105,13 @@ public sealed class AvatarOverlayWindow : Window
             targetParallaxX = 0;
             targetParallaxY = 0;
         }
+    }
+
+    public void SetParallaxStrength(double strength)
+    {
+        parallaxStrength = double.IsFinite(strength)
+            ? Math.Clamp(strength, 0, AvatarParallaxPolicy.MaximumOffsetPixels)
+            : 0;
     }
 
     public void SetImage(string path) => SetLayers([path]);
@@ -245,8 +253,8 @@ public sealed class AvatarOverlayWindow : Window
 
         foreach (var (transform, factor) in parallaxTransforms)
         {
-            transform.X = AvatarParallaxPolicy.GetOffset(currentParallaxX, factor);
-            transform.Y = AvatarParallaxPolicy.GetOffset(currentParallaxY, factor);
+            transform.X = AvatarParallaxPolicy.GetOffset(currentParallaxX, factor, parallaxStrength);
+            transform.Y = AvatarParallaxPolicy.GetOffset(currentParallaxY, factor, parallaxStrength);
         }
     }
 

@@ -37,6 +37,16 @@ public sealed class AvatarParallaxPolicyTests
         Assert.Equal(0, AvatarParallaxPolicy.GetLayerFactor(null));
     }
 
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(2.5, 2.5)]
+    [InlineData(5, 5)]
+    [InlineData(20, 5)]
+    [InlineData(-2, 0)]
+    public void ConfigurableStrengthIsBounded(double requestedStrength, double expectedStrength) =>
+        Assert.Equal(expectedStrength,
+            AvatarParallaxPolicy.GetOffset(1, 1, requestedStrength));
+
     [Fact]
     public void OffsetsNeverExceedTheBoundedRange()
     {
