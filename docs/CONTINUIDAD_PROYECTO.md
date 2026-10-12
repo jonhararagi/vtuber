@@ -647,3 +647,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Pruebas:** formato de redención con/sin texto opcional y regresión del resumen de suscripción.
 - **CI #197:** al registrar este cambio, Build Release y pruebas automatizadas estaban verdes; la generación del paquete Windows x64 continuaba ejecutándose para el commit [9a2e1fb](https://github.com/jonhararagi/vtuber/commit/9a2e1fb379015285dc5d6cbb60b49a3f260e2fe0).
 - **Estado:** este cambio genera un nuevo Windows CI. La recepción de redenciones reales sigue pendiente de validar con una cuenta Twitch configurada.
+
+
+### 2026-10-12 — Límites y saneamiento de resúmenes EventSub
+
+- Los resúmenes de alertas eliminan caracteres de control, compactan saltos de línea y limitan cada campo y el resumen final (400 caracteres máximo), evitando que el texto libre de una redención crezca sin límite al almacenarse, mostrarse o leerse por voz.
+- Los tipos EventSub desconocidos ya no exponen el JSON crudo del payload a la actividad/overlay/voz; producen un aviso genérico con el tipo de evento.
+- Pruebas nuevas para payload desconocido y texto largo con caracteres de control.
+- Windows CI para este cambio pendiente.
