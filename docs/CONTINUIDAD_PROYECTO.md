@@ -563,3 +563,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Commits de código/UI:** [975458f](https://github.com/jonhararagi/vtuber/commit/975458f5945d776b05f18716e55ec5c4e319f563), [4430cff](https://github.com/jonhararagi/vtuber/commit/4430cff77e3a6dc103197279dbbadaf50b3d27f0).
 - **Estado:** IMPLEMENTADO EN CÓDIGO; CI del HEAD posterior pendiente. No se afirma reconexión validada contra una cuenta real de Twitch.
 - **Siguiente paso:** comprobar el CI del HEAD actual, corregir cualquier regresión y seguir con el próximo hueco funcional del producto sin solicitar validación manual intermedia.
+
+
+### Corrección adicional — confirmación real de ingreso a canal IRC
+
+- **Hallazgo:** el cliente marcaba el chat como conectado tanto al recibir `001` (registro IRC completado) como al recibir `366` (fin de la lista de nombres tras el ingreso al canal). `001` no confirma que el JOIN al canal se haya completado, por lo que la UI podía habilitar envíos demasiado pronto.
+- **Cambio implementado en** [`1dca351`](https://github.com/jonhararagi/vtuber/commit/1dca35144a51056595a3ed14104279b557f0a67d): `001` ahora solo informa que el registro IRC terminó y que se espera la confirmación; el cliente solo marca `IsConnected` y completa la conexión inicial tras recibir `366`.
+- **Validación:** Windows CI #187 para SHA `1dca35144a51056595a3ed14104279b557f0a67d` se lanzó; el resultado aún debe comprobarse. El CI #183 verde corresponde únicamente al HEAD anterior `bf9e3d6`.
