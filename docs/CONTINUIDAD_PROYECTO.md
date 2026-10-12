@@ -536,3 +536,8 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 ### Corrección preventiva — campos de guía de revocación
 - Cada guía de revocación ahora declara explícitamente si exige reautorización; motivos que requieren actualización/rol o desconocidos no se equiparan a un fallo de OAuth.
 - Se comprobarán los overloads de este modelo con el siguiente CI; el cambio no altera la decisión de no reintentar silenciosamente.
+
+
+### Corrección CI — expectativa del estado EventSub ausente
+- CI #181 compiló correctamente, pero falló una prueba porque el texto esperado era el de un estado desconocido y no el del campo ausente. La prueba ahora valida el mensaje real que emite `Describe(null)`; se mantienen ambas rutas diferenciadas.
+- Estado: pendiente de CI en el nuevo HEAD.

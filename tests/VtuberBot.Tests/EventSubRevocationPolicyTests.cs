@@ -29,6 +29,6 @@ public sealed class EventSubRevocationPolicyTests
 
         Assert.Equal("unknown", guidance.Status);
         Assert.False(guidance.RequiresReauthorization);
-        Assert.Contains("No se intentará restaurar", guidance.Message);
+        Assert.Contains("Twitch no proporcionó el motivo", guidance.Message);
     }
 }
