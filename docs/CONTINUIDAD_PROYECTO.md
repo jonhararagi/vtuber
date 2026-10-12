@@ -1125,3 +1125,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Windows CI exacto:** [run #269](https://github.com/jonhararagi/vtuber/actions/runs/38302244458), SHA `388eaa65b418f0200966b63e425f85f2c89b3066` — **SUCCESS**. Build Release con 0 warnings/0 errors; **371/371 casos de prueba pasaron**; publicación y subida del paquete autocontenido win-x64 correctas.
 - **Artefacto:** [VTuberBot-Product-Candidate-win-x64-`388eaa6`](https://github.com/jonhararagi/vtuber/actions/runs/38302244458/artifacts/11771122106), ID `11771122106`, tamaño `77,911,901` bytes, digest `sha256:adc3ba874f8cff8bb440bd135b4fc19abda067b438db860c18fa23536207d226`, expira el 2026-10-26.
 - **Estado:** el contrato local y su integración con el flujo de chat están probados automáticamente; la recepción y el comportamiento del chat en un canal Twitch real siguen pendientes de validación con una cuenta autorizada.
+
+## Estado honesto de anuncios de sorteos — 2026-10-12
+
+- **Defecto:** al crear, cerrar o cancelar un sorteo con el chat Twitch desconectado, la operación local se completaba correctamente, pero el estado de pie no siempre dejaba explícito que no hubo anuncio remoto.
+- **Solución:** `src/VtuberBot.App/Workspaces/MainWindow.Community.cs` ahora distingue explícitamente entre resultado local y anuncio enviado a Twitch en las tres acciones. Si el chat no está conectado, informa que no se anunció; si el envío falla, conserva el resultado local y comunica el error. No simula publicaciones remotas.
+- **Windows CI exacto:** [run #271](https://github.com/jonhararagi/vtuber/actions/runs/38302840849), SHA `c3cfee39e25beeec6a8b80afa8cca7b2d1605628` — **SUCCESS**. Restore y Build Release correctos con 0 warnings/0 errors; **371/371 pruebas pasaron**; paquete autocontenido win-x64 publicado y subido.
+- **Artefacto:** [VTuberBot-Product-Candidate-win-x64-`c3cfee3`](https://github.com/jonhararagi/vtuber/actions/runs/38302840849/artifacts/11770928205), ID `11770928205`, tamaño `77,911,964` bytes, digest `sha256:a1e536bb75d2dc8a5eadaeac3b39c787d90d033680a44cf0ab446be132acaab9`, expira el 2026-10-26.
+- **Estado:** la condición de conexión y los mensajes de resultado se verificaron mediante revisión de flujo y CI; no se realizó una publicación real a un canal Twitch durante CI.
