@@ -134,9 +134,12 @@ public sealed class AvatarOverlayWindow : Window
         var activeBasePath = expressionImages.TryGetValue(visualState, out var expressionPath) && File.Exists(expressionPath)
             ? expressionPath
             : baseImagePath;
+        var visibleLayers = avatarLayers.Where(layer => layer.Visible && File.Exists(layer.Path)).ToArray();
+        foreach (var layer in AvatarLayerOrdering.BackgroundLayers(visibleLayers))
+            AddLayerImage(layer.Path, layer);
         if (!string.IsNullOrWhiteSpace(activeBasePath) && File.Exists(activeBasePath))
             AddLayerImage(activeBasePath, null);
-        foreach (var layer in avatarLayers.Where(layer => layer.Visible && File.Exists(layer.Path)).OrderBy(layer => layer.SortOrder))
+        foreach (var layer in AvatarLayerOrdering.ForegroundLayers(visibleLayers))
             AddLayerImage(layer.Path, layer);
         if (additionalPaths is not null)
             foreach (var path in additionalPaths.Where(File.Exists))
@@ -152,7 +155,7 @@ public sealed class AvatarOverlayWindow : Window
         bitmap.EndInit(); bitmap.Freeze();
         var image = new Image
         {
-            Source = bitmap, Stretch = Stretch.Uniform,
+            Source = bitmap, Stretch = AvatarLayerOrdering.IsBackground(layer) ? Stretch.UniformToFill : Stretch.Uniform,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             IsHitTestVisible = false

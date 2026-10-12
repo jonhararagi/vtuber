@@ -582,3 +582,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Windows CI #189:** lanzado para este commit; en la última comprobación estaba en cola: [ejecución 38262572633](https://github.com/jonhararagi/vtuber/actions/runs/38262572633). No declarar compilación validada hasta que termine.
 - **CI anteriores:** Windows CI #184, #185, #186, #187 y #188 finalizaron SUCCESS en sus respectivos SHA. El resultado de cada ejecución solo valida ese commit, no prueba conexiones manuales con una cuenta real de Twitch.
 - **Siguiente paso:** comprobar el CI #189 y corregir cualquier error de compilación/integración; continuar ampliando los flujos reales del producto, sin modificar `main` ni fusionar PR #9.
+
+
+### 2026-10-12 — Corrección del orden de composición de fondos del avatar
+
+- **Hallazgo reproducible por código:** la consola de arte asignaba los resultados de rol «Fondo» como capas ordinarias; la previsualización y el overlay dibujaban todas las capas después de la imagen base. Por eso el fondo quedaba delante del personaje.
+- **Corrección:** se añadió `AvatarLayerOrdering` al Core para clasificar y ordenar capas de fondo por debajo de la imagen base y capas normales/expresiones visuales por encima. Tanto Avatar Studio como la ventana overlay usan el mismo criterio. Los fondos usan `UniformToFill` para cubrir su superficie.
+- **Pruebas nuevas:** clasificación por nombre sin distinguir mayúsculas, normalización de espacios y orden estable por `SortOrder`.
+- **Estado:** corrección implementada; Windows CI pendiente para el nuevo commit. No se ha hecho una comprobación visual manual en Windows/OBS.

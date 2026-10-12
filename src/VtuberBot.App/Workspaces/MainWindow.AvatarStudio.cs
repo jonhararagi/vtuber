@@ -189,11 +189,20 @@ public partial class MainWindow
         if (!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath))
         {
             previewCanvas = new Grid { Background = Brush("#101525"), Focusable = true };
+            var visibleLayers = store.GetAvatarLayers().Where(layer => layer.Visible && File.Exists(layer.Path)).ToArray();
+            foreach (var layer in AvatarLayerOrdering.BackgroundLayers(visibleLayers))
+            {
+                var image = new Image { Source = LoadImage(layer.Path), Stretch = Stretch.UniformToFill, MaxHeight = 360 };
+                image.RenderTransformOrigin = new Point(.5, .5);
+                image.RenderTransform = BuildLayerTransform(layer);
+                previewCanvas.Children.Add(image);
+                layerImages[layer.Id] = image;
+            }
             var savedExpression = store.GetAvatarExpression(previewState) ?? string.Empty;
             var initialImagePath = !string.IsNullOrWhiteSpace(savedExpression) && File.Exists(savedExpression) ? savedExpression : avatarPath;
             basePreviewImage = new Image { Source = LoadImage(initialImagePath), Stretch = Stretch.Uniform, MaxHeight = 360 };
             previewCanvas.Children.Add(basePreviewImage);
-            foreach (var layer in store.GetAvatarLayers().Where(l => l.Visible && File.Exists(l.Path)).OrderBy(l => l.SortOrder))
+            foreach (var layer in AvatarLayerOrdering.ForegroundLayers(visibleLayers))
             {
                 var image = new Image { Source = LoadImage(layer.Path), Stretch = Stretch.Uniform, MaxHeight = 360 };
                 image.RenderTransformOrigin = new Point(.5, .5);
