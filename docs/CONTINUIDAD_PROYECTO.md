@@ -570,3 +570,15 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Hallazgo:** el cliente marcaba el chat como conectado tanto al recibir `001` (registro IRC completado) como al recibir `366` (fin de la lista de nombres tras el ingreso al canal). `001` no confirma que el JOIN al canal se haya completado, por lo que la UI podía habilitar envíos demasiado pronto.
 - **Cambio implementado en** [`1dca351`](https://github.com/jonhararagi/vtuber/commit/1dca35144a51056595a3ed14104279b557f0a67d): `001` ahora solo informa que el registro IRC terminó y que se espera la confirmación; el cliente solo marca `IsConnected` y completa la conexión inicial tras recibir `366`.
 - **Validación:** Windows CI #187 para SHA `1dca35144a51056595a3ed14104279b557f0a67d` se lanzó; el resultado aún debe comprobarse. El CI #183 verde corresponde únicamente al HEAD anterior `bf9e3d6`.
+
+
+### 2026-10-12 — Consola de arte y asignación de assets desde Avatar Studio
+
+- **HEAD de código:** [c3e0e46](https://github.com/jonhararagi/vtuber/commit/c3e0e46482580104f693291b3847c07db3318ba0).
+- **Cambio:** Avatar Studio incorpora una consola local para escribir, editar, guardar y copiar prompts por rol de arte, con plantillas iniciales para personaje base, fondo, objeto/capa y expresiones Idle/Talking/Blink/Happy/Surprised.
+- **Asignación:** al importar el resultado, el panel lo copia a la biblioteca local de assets del usuario y lo asigna al perfil activo como imagen base, sprite de expresión o capa. Los fondos se incorporan como capa llamada «Fondo», que puede reordenarse desde la lista de capas.
+- **Persistencia y seguridad:** los prompts se guardan en la configuración local de la aplicación; los assets se almacenan bajo el directorio local de avatares. Se valida formato de imagen, lectura y límite de 25 MB. No se agregan imágenes personales ni credenciales al repositorio.
+- **Límite explícito:** esta consola no genera imágenes por sí misma ni invoca APIs externas; facilita preparar/copiar el prompt en el generador que el usuario elija e importar/asignar su resultado.
+- **Windows CI #189:** lanzado para este commit; en la última comprobación estaba en cola: [ejecución 38262572633](https://github.com/jonhararagi/vtuber/actions/runs/38262572633). No declarar compilación validada hasta que termine.
+- **CI anteriores:** Windows CI #184, #185, #186, #187 y #188 finalizaron SUCCESS en sus respectivos SHA. El resultado de cada ejecución solo valida ese commit, no prueba conexiones manuales con una cuenta real de Twitch.
+- **Siguiente paso:** comprobar el CI #189 y corregir cualquier error de compilación/integración; continuar ampliando los flujos reales del producto, sin modificar `main` ni fusionar PR #9.
