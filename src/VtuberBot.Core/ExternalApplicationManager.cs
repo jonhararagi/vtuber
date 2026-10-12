@@ -97,7 +97,7 @@ public sealed class ExternalApplicationManager(IExternalApplicationRuntime runti
 
             return new(ExternalApplicationState.Configured, path, "Ejecutable encontrado; la aplicación no está en ejecución.");
         }
-        catch (Exception exception) when (IsOperationalException(exception))
+        catch (Exception exception)
         {
             return new(ExternalApplicationState.Error, path, "No se pudo comprobar el estado: " + exception.Message);
         }
@@ -120,7 +120,7 @@ public sealed class ExternalApplicationManager(IExternalApplicationRuntime runti
             runtime.Start(path);
             return new(ExternalApplicationState.Started, path, "Windows aceptó la solicitud de inicio. Esto no confirma una conexión con VTuberBot.");
         }
-        catch (Exception exception) when (IsOperationalException(exception))
+        catch (Exception exception)
         {
             return new(ExternalApplicationState.Error, path, "No se pudo iniciar la aplicación: " + exception.Message);
         }
@@ -128,7 +128,4 @@ public sealed class ExternalApplicationManager(IExternalApplicationRuntime runti
 
     private static string Normalize(string? executablePath) => executablePath?.Trim() ?? string.Empty;
 
-    private static bool IsOperationalException(Exception exception) =>
-        exception is IOException or UnauthorizedAccessException or InvalidOperationException or
-        System.ComponentModel.Win32Exception or ArgumentException or NotSupportedException;
 }
