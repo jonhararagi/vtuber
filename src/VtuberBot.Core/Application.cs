@@ -5,7 +5,7 @@ public sealed class VtuberApplication
     public const string InternalTestEvent = "internal.test";
     public const string CommandExecutedEvent = "command.executed";
     public const string HealthUpdatedEvent = "health.updated";
-    public const string Version = "0.2.1";
+    public const string Version = "0.2.3";
 
     private readonly string? configPath;
     private AppState state = AppState.Stopped;

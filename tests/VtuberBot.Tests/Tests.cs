@@ -1355,7 +1355,7 @@ public sealed class Tests
 
             Assert.True(result.Success);
             Assert.Contains("Name: VTuber Bot", result.Message);
-            Assert.Contains("Version: 0.2.1", result.Message);
+            Assert.Contains($"Version: {VtuberApplication.Version}", result.Message);
             Assert.Contains("State: Running", result.Message);
         }
         finally
@@ -2068,7 +2068,7 @@ public sealed class Tests
             Assert.True(application.PerformanceMonitor.IsRunning);
             Assert.NotNull(application.LatestHealth);
             Assert.Equal(PerformanceProfile.Equilibrado, application.PerformanceProfile);
-            Assert.Equal("0.2.1", VtuberApplication.Version);
+            Assert.Equal("0.2.3", VtuberApplication.Version);
         }
         finally
         {
