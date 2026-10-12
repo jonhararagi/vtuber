@@ -509,3 +509,8 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La contraseña de OBS se conserva solo en memoria para reautenticar la conexión durante esa ejecución. No se escribe en mensajes de diagnóstico.
 - Se añadieron pruebas de la política de backoff acotada.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** para el nuevo HEAD. No se afirma prueba de reconexión contra OBS real.
+
+
+### Ajuste preventivo de nulabilidad en OBS reconectable
+- Se usan variables locales no nulas para host, contraseña en memoria y socket autenticado antes de arrancar el supervisor. Esto evita depender del análisis de nulabilidad de campos mutables bajo `TreatWarningsAsErrors`.
+- La política de reconexión no cambia; pendiente CI en el HEAD nuevo.

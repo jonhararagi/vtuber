@@ -32,28 +32,28 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         if (string.IsNullOrWhiteSpace(host) || port is < 1 or > 65535)
             throw new ArgumentException("Host o puerto inválido.");
 
-        configuredHost = host.Trim();
+        var normalizedHost = host.Trim();
+        var normalizedPassword = password ?? string.Empty;
+        configuredHost = normalizedHost;
         configuredPort = port;
-        configuredPassword = password ?? string.Empty;
+        configuredPassword = normalizedPassword;
         cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cancellation.CancelAfter(TimeSpan.FromSeconds(15));
 
-        ClientWebSocket? candidate = null;
         try
         {
             StatusChanged?.Invoke("Conectando a OBS WebSocket…");
-            candidate = await OpenAndIdentifyAsync(
-                configuredHost, configuredPort, configuredPassword, cancellation.Token).ConfigureAwait(false);
-            socket = candidate;
-            candidate = null;
+            var establishedSocket = await OpenAndIdentifyAsync(
+                normalizedHost, port, normalizedPassword, cancellation.Token).ConfigureAwait(false);
+            socket = establishedSocket;
             cancellation.CancelAfter(Timeout.InfiniteTimeSpan);
             IsConnected = true;
             StatusChanged?.Invoke("OBS WebSocket autenticado.");
-            receiveTask = SuperviseConnectionAsync(socket, configuredHost, configuredPort, configuredPassword, cancellation.Token);
+            receiveTask = SuperviseConnectionAsync(
+                establishedSocket, normalizedHost, port, normalizedPassword, cancellation.Token);
         }
         catch
         {
-            candidate?.Dispose();
             await DisconnectAsync().ConfigureAwait(false);
             throw;
         }
