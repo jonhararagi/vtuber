@@ -244,3 +244,11 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - **Compatibilidad nativa:** Avatar Studio, perfiles .vtuberavatar, capas y sprites permanecen separados. No se declara conversión de formatos.
 - **Fuentes revisadas:** https://pngtuber.cc/es/ ; https://pngtuber.cc/about/ ; https://github.com/kaiakairos/PNGTuber-Plus ; https://github.com/kaiakairos/PNGTuber-Plus/blob/master/main_scenes/main.gd . El portal pngtuber.cc se identifica a sí mismo como sitio independiente; la versión 1.4.5 que anuncia no prueba la versión de una instalación local. El código público revisado muestra hotkeys de disfraces por defecto 1–0 y señales internas de visibilidad; no se encontró contrato público documentado de IPC/WebSocket/API en el punto de entrada revisado.
 - **Pendiente para aceptación:** Windows CI del SHA final de este bloque y validación manual de una instalación real de PNGTuber Plus, micrófono, atajos y captura OBS. No instalar ni empaquetar binarios de terceros.
+
+
+### Orden 3/5 — Streamer.bot WebSocket
+
+- Cliente Core basado en `ClientWebSocket` con handshake, autenticación documentada, solicitudes correlacionadas, catálogo `GetActions`, ejecución explícita `DoAction`, descubrimiento `GetEvents` y suscripción `Subscribe`.
+- Página WPF dedicada; credencial protegida con DPAPI; recepción de eventos sin ejecutar acciones automáticamente.
+- Prueba de protocolo con servidor WebSocket simulado añadida. La prueba simulada no equivale a validación contra una instancia real.
+- **Pendiente de aceptación:** Windows CI sobre el SHA final exacto y validación manual con Streamer.bot, OBS y PNGTuber Plus. La reconexión automática queda fuera de la implementación actual; la reconexión y suscripciones son manuales.
