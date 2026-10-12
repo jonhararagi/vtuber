@@ -924,7 +924,7 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - `CommunityCommandRouter` expone `!puntos`, `!top` y `!jugar` a la UI local y a Twitch. Las rondas usan `ProductStore.PlayGame`, la misma liquidación transaccional y el mismo ledger/historial; se rechazan apuestas inválidas o saldo insuficiente.
 - Duplicar un perfil copia sus prompts de arte por rol con claves aisladas por perfil, además de base/capas/expresiones.
 - Pruebas nuevas cubren saldo/ranking, práctica gratuita, saldo insuficiente y desconocimiento de comandos integrados. Windows CI #234 aprobó restore, build, tests, publish win-x64 y upload para el SHA de código indicado arriba.
-- La documentación se está sincronizando en un commit separado; su propio CI debe comprobarse antes de entregar el HEAD documental como candidato.
+- La sincronización documental quedó en el commit `4fd53ef8cf2b60605708b8b6c1882c4017f3e85a`; Windows CI #235 pasó sobre ese SHA exacto: https://github.com/jonhararagi/vtuber/actions/runs/38287802675. Pasos verificados: restore, build Release, pruebas automatizadas, publicación win-x64 y upload de artefacto. Artefacto: [VTuberBot-Product-Candidate-win-x64-4fd53ef8cf2b60605708b8b6c1882c4017f3e85a](https://github.com/jonhararagi/vtuber/actions/runs/38287802675/artifacts/11764008008), 77.907.018 bytes, SHA-256 `c50d79858a3594da0a8abda0c9ca9940a52d3a13fd2c71c329472f2aaf4b8560`, expira el 2026-10-26 18:00:18 UTC. Este paquete contiene el router compartido de comunidad y los documentos actualizados. El commit de continuidad actual también dispara su propia ejecución CI; verificarla antes de informar el HEAD final.
 
 ## Validaciones que todavía no se han realizado manualmente
 
