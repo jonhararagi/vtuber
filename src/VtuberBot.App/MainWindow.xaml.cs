@@ -87,7 +87,7 @@ public partial class MainWindow : Window
     private static readonly string[] Pages =
     [
         "Inicio","Avatar Studio","Twitch y chat","Comandos","Comunidad y puntos","Sorteos",
-        "Minijuegos","Moderación","Voz y audio","OBS","Telegram Web","Actividad y diagnóstico","Ajustes"
+        "Minijuegos","Moderación","Voz y audio","OBS","Integraciones","Telegram Web","Actividad y diagnóstico","Ajustes"
     ];
 
     private void HandleEventSubEvent(string type, string summary)
@@ -338,6 +338,7 @@ public partial class MainWindow : Window
             "Moderación" => "Reglas configurables; el modo actual marca coincidencias sin castigar automáticamente.",
             "Voz y audio" => "Micrófono, VAD, TTS local y biblioteca de efectos de sonido.",
             "OBS" => "Diagnóstico local del puerto de OBS WebSocket; no se afirma control remoto sin autenticar.",
+            "Integraciones" => "Aplicaciones externas opcionales; el proceso no equivale a una conexión verificada.",
             "Telegram Web" => "Telegram Web integrado cuando WebView2 está disponible.",
             "Actividad y diagnóstico" => "Registro local de acciones y exportación sin tokens ni cookies.",
             "Ajustes" => "Preferencias locales, seguridad y perfil de rendimiento.",
@@ -355,6 +356,7 @@ public partial class MainWindow : Window
             "Moderación" => BuildModerationPage(),
             "Voz y audio" => BuildAudioPage(),
             "OBS" => BuildObsPage(),
+            "Integraciones" => BuildIntegrationsPage(),
             "Telegram Web" => BuildTelegramPage(),
             "Actividad y diagnóstico" => BuildActivityPage(),
             "Ajustes" => BuildSettingsPage(),
