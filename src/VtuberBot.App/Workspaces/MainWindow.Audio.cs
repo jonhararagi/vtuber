@@ -110,13 +110,14 @@ public partial class MainWindow
                 var chosenDevice = WaveIn.GetCapabilities(devices.SelectedIndex).ProductName;
                 store.SetSetting("audio.microphone.deviceName", chosenDevice);
                 voiceActivity.Reset();
-                microphone = new WaveInEvent
+                var capture = new WaveInEvent
                 {
                     DeviceNumber = devices.SelectedIndex,
                     WaveFormat = new WaveFormat(16000, 16, 1),
                     BufferMilliseconds = 50
                 };
-                microphone.DataAvailable += (_, e) =>
+                microphone = capture;
+                capture.DataAvailable += (_, e) =>
                 {
                     double sum = 0;
                     for (var i = 0; i < e.BytesRecorded - 1; i += 2)
@@ -148,9 +149,41 @@ public partial class MainWindow
                             : "Señal de entrada por debajo del umbral durante el tiempo de retención; cue Idle activado.");
                     }));
                 };
-                microphone.RecordingStopped += (_, _) => Dispatcher.BeginInvoke(new Action(() =>
-                    meterLabel.Text = "Captura detenida."));
-                microphone.StartRecording();
+                capture.RecordingStopped += (_, args) =>
+                {
+                    try
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            // Ignore a late stop callback from an older capture after a new
+                            // device session has already started.
+                            if (!ReferenceEquals(microphone, capture))
+                                return;
+
+                            microphone = null;
+                            try { capture.Dispose(); } catch (InvalidOperationException) { }
+                            voiceActivity.Reset();
+                            meter.Value = 0;
+                            meterLabel.Text = args.Exception is null
+                                ? "Captura detenida."
+                                : "Captura detenida por error: " + args.Exception.GetType().Name;
+                            store.SetSetting("avatar.state", "Idle");
+                            overlay?.SetState("Idle");
+
+                            if (args.Exception is not null)
+                            {
+                                store.Log("Audio", "La captura del micrófono se detuvo por un error (" +
+                                    args.Exception.GetType().Name + "). El detector se restableció.");
+                                FooterStatus.Text = "El micrófono se detuvo; se restableció el avatar a Idle.";
+                            }
+                        }));
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // The Dispatcher is already shutting down; MainWindow.Close handles cleanup.
+                    }
+                };
+                capture.StartRecording();
                 store.Log("Audio", "Micrófono real y detección acústica iniciados.");
                 FooterStatus.Text = "Micrófono activo. Ajustá umbral y retención para tu ambiente.";
             }

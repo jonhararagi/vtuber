@@ -685,3 +685,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **TTS:** se añadió `SpeechRequestPolicy`, que normaliza espacios/saltos de línea y limita cada frase encolada a 2.000 caracteres. La cola rechaza la frase fuera de esos límites con un mensaje visible, sin entregarla a SAPI.
 - **Pruebas:** retroceso del reloj, normalización de espacios y saltos de línea, longitud exacta admitida, texto vacío y exceso de longitud.
 - **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.
+
+
+### 2026-10-12 — Recuperación tras parada inesperada del micrófono
+
+- **Hallazgo:** `RecordingStopped` solo actualizaba el texto de estado. Si Windows perdía el dispositivo o fallaba la captura mientras el VAD estaba activo, no llegaban más muestras de silencio y el avatar podía permanecer en `Talking`.
+- **Corrección:** el callback ahora verifica que corresponde a la sesión de captura actual, libera el dispositivo detenido, restablece detector/medidor y devuelve el estado del avatar a `Idle`. Los callbacks tardíos de sesiones anteriores se ignoran para no reiniciar una captura nueva.
+- **Pruebas:** `VoiceActivityDetector.Reset` vuelve a nivel cero y estado inactivo; la ruta de regresión de reloj también queda cubierta.
+- **Estado:** implementación en el nuevo HEAD; Windows CI pendiente. La desconexión física real de un micrófono aún requiere validación manual en Windows.
