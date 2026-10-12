@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private readonly TwitchChatClient twitch = new();
     private readonly TwitchEventSubClient eventSub = new();
     private readonly ObsWebSocketClient obs = new();
+    private readonly LocalSpeechQueue speechQueue = new();
     private AvatarOverlayWindow? overlay;
     private string? avatarPath;
     private WaveInEvent? microphone;
@@ -61,12 +62,15 @@ public partial class MainWindow : Window
         twitch.StatusChanged += status => Dispatcher.Invoke(() => { FooterStatus.Text = status; RuntimeStatus.Text = twitch.IsConnected ? "●  TWITCH CONECTADO" : "●  LOCAL ACTIVO"; });
         twitch.MessageReceived += HandleTwitchMessage;
         eventSub.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
+        speechQueue.StatusChanged += (status, pending) => Dispatcher.BeginInvoke(new Action(() =>
+            FooterStatus.Text = $"Voz local: {status} · pendientes: {pending}"));
         eventSub.EventReceived += (type,summary) => Dispatcher.BeginInvoke(new Action(() => { chatLines.Insert(0,"[EventSub] "+type+": "+summary); while(chatLines.Count>200)chatLines.RemoveAt(chatLines.Count-1); store.Log("Twitch EventSub",type+": "+summary); if(type!="subscription_error"&&type!="revocation"&&!string.IsNullOrWhiteSpace(avatarPath)&&File.Exists(avatarPath)){if(overlay is null||!overlay.IsVisible)ShowOverlay();overlay?.ShowAlert(type+": "+summary);} }));
         obs.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         Closed += async (_, _) =>
         {
             automationTimer.Stop();
             StopMicrophone();
+            speechQueue.Dispose();
             if (overlay is not null) overlay.Close();
             await twitch.DisposeAsync();
             await obs.DisposeAsync();
@@ -730,18 +734,30 @@ public partial class MainWindow : Window
 
         var speech = TextField("Texto para sintetizar en voz local");
         speech.Text = "Hola, chat. ¡Gracias por acompañarme!";
+        var priority = new ComboBox
+        {
+            ItemsSource = Enum.GetValues<SpeechPriority>(),
+            SelectedItem = SpeechPriority.Normal,
+            Width = 180
+        };
         panel.Children.Add(Label("Síntesis de voz de Windows (SAPI)", 14, "#F8FAFC", true));
         panel.Children.Add(speech);
-        panel.Children.Add(ActionButton("Hablar", (_, _) =>
+        panel.Children.Add(Label("Prioridad de reproducción", 12, "#98A4BE"));
+        panel.Children.Add(priority);
+        panel.Children.Add(ActionButton("＋ Encolar voz", (_, _) =>
         {
-            try
-            {
-                SpeakLocal(speech.Text);
-                store.Log("Audio", "Prueba de TTS local solicitada.");
-            }
-            catch (Exception ex) { MessageBox.Show(this, $"El motor de voz local no está disponible: {ex.Message}"); }
+            var selectedPriority = priority.SelectedItem is SpeechPriority selected ? selected : SpeechPriority.Normal;
+            if (speechQueue.Enqueue(speech.Text, selectedPriority))
+                store.Log("Audio", "Frase agregada a la cola TTS local con prioridad " + selectedPriority + ".");
+            else
+                FooterStatus.Text = "No se pudo encolar: revisá el texto o el límite de la cola.";
         }, true));
-        root.Children.Add(Label("La detección usa nivel acústico, suavizado y un tiempo de retención configurable; no es reconocimiento semántico ni lip-sync por fonemas. Al superar el umbral, el overlay cambia a Talking; al bajar sostenidamente, vuelve a Idle. TTS utiliza las voces instaladas en Windows.", 12, "#98A4BE"));
+        panel.Children.Add(ActionButton("Vaciar frases pendientes", (_, _) =>
+        {
+            speechQueue.ClearPending();
+            store.Log("Audio", "Cola de voz pendiente vaciada.");
+        }));
+        root.Children.Add(Label("La cola procesa una frase por vez en un hilo STA separado para que la ventana siga respondiendo. Prioridad Alta se reproduce antes que las frases normales/bajas que aún esperan; no interrumpe la frase que ya está sonando. La detección de micrófono usa amplitud suavizada/retención, no reconocimiento semántico ni lip-sync por fonemas.", 12, "#98A4BE"));
         return root;
     }
 
@@ -757,15 +773,6 @@ public partial class MainWindow : Window
             store.SetSetting("avatar.state", "Idle");
             overlay?.SetState("Idle");
         }
-    }
-
-    private static void SpeakLocal(string text)
-    {
-        if(string.IsNullOrWhiteSpace(text))throw new ArgumentException("Escribí un texto.");
-        var type=Type.GetTypeFromProgID("SAPI.SpVoice")??throw new InvalidOperationException("Windows SAPI no está disponible.");
-        var voice=Activator.CreateInstance(type)??throw new InvalidOperationException("No se pudo crear el motor SAPI.");
-        try{type.InvokeMember("Speak",BindingFlags.InvokeMethod,null,voice,[text,0]);}
-        finally{if(Marshal.IsComObject(voice))Marshal.ReleaseComObject(voice);}
     }
 
     private UIElement BuildObsPage()

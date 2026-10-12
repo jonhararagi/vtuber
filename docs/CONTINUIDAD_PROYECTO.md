@@ -130,7 +130,8 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **PENDIENTE:** reconexión automática de EventSub, recuperación de suscripciones revocadas, estilos/plantillas configurables de alertas y más tipos de eventos.
 - **PENDIENTE:** rig 2.5D avanzado con pivotes/huesos/física, expresiones faciales basadas en assets y lip-sync real por fonemas/visemas.
 - **IMPLEMENTADO EN CÓDIGO:** detector local de actividad acústica con suavizado, umbral y retención configurable; alimenta el estado Talking/Idle del overlay. No es reconocimiento de habla.
-- **PENDIENTE:** cola de voz priorizada, enrutamiento avanzado de audio y lip-sync por fonemas/visemas.
+- **IMPLEMENTADO EN CÓDIGO:** cola TTS local limitada a 32 frases, procesada de forma secuencial en un hilo STA; prioridades Alta/Normal/Baja y limpieza de pendientes. La frase en curso no se interrumpe.
+- **PENDIENTE:** enrutamiento avanzado de audio y lip-sync por fonemas/visemas.
 - **PENDIENTE:** acciones remotas de moderación (borrado/sanción) con permisos y confirmaciones; hoy solo se registran coincidencias en modo observación.
 - **IMPLEMENTADO EN CÓDIGO:** editor de capas con posición X/Y, escala, rotación y orden persistidos; preview y overlay comparten la configuración.
 - **IMPLEMENTADO EN CÓDIGO:** sprites opcionales por estado (Idle, Talking, Blink, Happy, Surprised), persistidos bajo LocalAppData y utilizados por preview/overlay. Si no existe sprite para un estado, usa la imagen base.
@@ -158,3 +159,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - El preview y el overlay usan el sprite del estado activo cuando existe, con fallback a la imagen base; las capas mantienen sus transformaciones.
 - El estado Talking generado por el micrófono activa el sprite correspondiente si fue configurado.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD que incluye esta actualización.
+
+
+### Trabajo adicional — cola de voz local priorizada
+
+- Añadido `LocalSpeechQueue`: voz Windows SAPI secuencial en un hilo STA, con prioridad Alta/Normal/Baja, límite de 32 elementos, contador de pendientes y limpieza de pendientes.
+- El panel encola voz sin bloquear la ventana y muestra su estado en el pie; la voz activa termina antes de reproducir la siguiente frase.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD. El motor necesita Windows SAPI y voces instaladas para emitir audio real.
