@@ -43,8 +43,11 @@ public sealed class ProductStoreTests
         Assert.True(actual.Success);
         Assert.Contains("primer mensaje", actual.Message);
 
-        // The editor preview neither consumed the command cooldown nor changed its saved response.
-        Assert.True(store.RunLocalCommand("eco", "viewer_2", "segundo mensaje").Success);
+        // The preview left the command available; the first real execution then starts
+        // the persisted command-wide cooldown as intended.
+        var blocked = store.RunLocalCommand("eco", "viewer_2", "segundo mensaje");
+        Assert.False(blocked.Success);
+        Assert.Contains("cooldown", blocked.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(store.GetCommands(), command => command.Name == "eco" && command.Response == "Guardado {user}: {args}");
     }
 

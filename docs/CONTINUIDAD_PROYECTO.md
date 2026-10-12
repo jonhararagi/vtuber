@@ -275,3 +275,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La lista de timers muestra también el último envío persistido.
 - Se añadió prueba de reinicio del `ProductStore` tras borrar el timer incorporado.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI**.
+
+
+### Corrección de la prueba de previsualización — CI #142
+
+- Build Release pasó; una prueba falló porque tras la primera ejecución real se esperaba que otro usuario pudiera ejecutar inmediatamente el mismo comando, aunque el cooldown es global por comando.
+- Se ajustó la prueba a la semántica correcta: la previsualización no consume el cooldown; la primera ejecución real sí lo inicia y la segunda ejecución durante el intervalo queda bloqueada.
+- No fue un fallo del código de preview; el test anterior tenía una expectativa contradictoria con el diseño actual del cooldown. El nuevo HEAD debe validarlo.
