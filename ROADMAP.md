@@ -236,3 +236,11 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - Preparada `docs/PRODUCT-CANDIDATE-MANUAL-VALIDATION.md` para reemplazar la lista antigua centrada solo en el smoke básico por una pasada integrada: inicio/estados desconectados, Avatar Studio/overlay, audio/SAPI, Twitch/EventSub, comunidad/juegos/sorteos, moderación/automatizaciones, OBS, Telegram, backup/restauración y cierre.
 - La lista exige verificar la procedencia del artefacto contra el HEAD exacto y distingue **APROBADO / FALLIDO / BLOQUEADO** cuando una cuenta o dispositivo externo no está disponible.
 - Estado: la preparación documental no equivale a validación manual. El candidato sigue pendiente de una pasada real en Windows y de los servicios que requieran cuentas/dispositivos.
+
+### Bloque G2 — Avatar externo PNGTuber Plus (Orden 2/5)
+
+- **Implementado en la rama de producto:** página WPF **Avatar externo**, persistencia SQLite de ruta, asistente de seis pasos recuperable, guía integrada para micrófono/expresiones/OBS, registro local de atajos y adaptador Windows de envío de tecla con estados de cancelación/error.
+- **Veracidad de estados:** ruta y proceso se comprueban automáticamente; los hitos de avatar, micrófono, expresiones y OBS requieren confirmación manual. Un envío de tecla nunca se presenta como cambio de expresión confirmado.
+- **Compatibilidad nativa:** Avatar Studio, perfiles .vtuberavatar, capas y sprites permanecen separados. No se declara conversión de formatos.
+- **Fuentes revisadas:** https://pngtuber.cc/es/ ; https://pngtuber.cc/about/ ; https://github.com/kaiakairos/PNGTuber-Plus ; https://github.com/kaiakairos/PNGTuber-Plus/blob/master/main_scenes/main.gd . El portal pngtuber.cc se identifica a sí mismo como sitio independiente; la versión 1.4.5 que anuncia no prueba la versión de una instalación local. El código público revisado muestra hotkeys de disfraces por defecto 1–0 y señales internas de visibilidad; no se encontró contrato público documentado de IPC/WebSocket/API en el punto de entrada revisado.
+- **Pendiente para aceptación:** Windows CI del SHA final de este bloque y validación manual de una instalación real de PNGTuber Plus, micrófono, atajos y captura OBS. No instalar ni empaquetar binarios de terceros.
