@@ -182,3 +182,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Las alertas usan la cola TTS con prioridad Alta, sin interrumpir la frase actual; si la cola está llena, el caso se registra y no se presenta como hablado.
 - Confirmación visual de alertas continúa en el overlay y el registro de actividad.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD. Requiere EventSub autenticado y voz SAPI instalada para audio real.
+
+
+### Trabajo adicional — reconexión del chat IRC
+
+- Se reemplazó la sesión IRC de una sola conexión por un supervisor con reconexiones escalonadas (1, 2, 4, 8, 16 y 30 segundos), TLS y respuesta a PING/PONG.
+- Se informa conectado solo después de la confirmación de registro/unión de Twitch. Un rechazo explícito de autenticación no queda en un bucle de reintentos: requiere volver a autorizar.
+- Los mensajes salientes comparten un semáforo con PONG y el cambio de sesión para evitar escrituras concurrentes al StreamWriter.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.

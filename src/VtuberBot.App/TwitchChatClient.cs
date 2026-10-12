@@ -1,48 +1,50 @@
 using System.IO;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Text;
 
 namespace VtuberBot.App;
 
-/// <summary>Small official Twitch IRC-over-TLS client. It never claims to be connected before registration succeeds.</summary>
+/// <summary>
+/// Twitch IRC-over-TLS client with supervised reconnects. A connection is only considered
+/// active after Twitch sends its registration/join acknowledgement.
+/// </summary>
 public sealed class TwitchChatClient : IAsyncDisposable
 {
     private TcpClient? client;
     private StreamReader? reader;
     private StreamWriter? writer;
     private CancellationTokenSource? cancellation;
-    private Task? receiveTask;
-    private readonly SemaphoreSlim sendGate = new(1,1);
+    private Task? supervisorTask;
+    private readonly SemaphoreSlim sendGate = new(1, 1);
+    private string? connectedChannel;
+
     public event Action<string>? MessageReceived;
     public event Action<string>? StatusChanged;
     public bool IsConnected { get; private set; }
 
     public async Task ConnectAsync(string channel, string oauthToken, CancellationToken external = default)
     {
-        if (IsConnected) throw new InvalidOperationException("Ya existe una conexión Twitch.");
+        if (cancellation is not null)
+            throw new InvalidOperationException("Twitch ya está conectado o intentando reconectarse.");
+
         channel = channel.Trim().TrimStart('#').ToLowerInvariant();
         var token = oauthToken.Trim();
-        if (channel.Length == 0 || token.Length == 0) throw new ArgumentException("Se necesitan canal y token OAuth.");
-        if (token.StartsWith("oauth:", StringComparison.OrdinalIgnoreCase)) token = token[6..];
+        if (channel.Length == 0 || token.Length == 0)
+            throw new ArgumentException("Se necesitan canal y token OAuth.");
+        if (token.StartsWith("oauth:", StringComparison.OrdinalIgnoreCase))
+            token = token[6..];
+
+        connectedChannel = channel;
         cancellation = CancellationTokenSource.CreateLinkedTokenSource(external);
-        client = new TcpClient();
-        StatusChanged?.Invoke("Conectando a Twitch IRC sobre TLS…");
+        var firstConnection = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tokenSource = cancellation;
+        supervisorTask = RunConnectionSupervisorAsync(channel, token, firstConnection, tokenSource.Token);
+
         try
         {
-            await client.ConnectAsync("irc.chat.twitch.tv", 6697, cancellation.Token).ConfigureAwait(false);
-            var ssl = new SslStream(client.GetStream(), false);
-            await ssl.AuthenticateAsClientAsync(new System.Net.Security.SslClientAuthenticationOptions { TargetHost = "irc.chat.twitch.tv" }, cancellation.Token).ConfigureAwait(false);
-            reader = new StreamReader(ssl, Encoding.UTF8);
-            writer = new StreamWriter(ssl, new UTF8Encoding(false)) { NewLine = "\r\n", AutoFlush = true };
-            await writer.WriteLineAsync($"PASS oauth:{token}".AsMemory(), cancellation.Token).ConfigureAwait(false);
-            await writer.WriteLineAsync($"NICK {channel}".AsMemory(), cancellation.Token).ConfigureAwait(false);
-            await writer.WriteLineAsync("CAP REQ :twitch.tv/tags twitch.tv/commands".AsMemory(), cancellation.Token).ConfigureAwait(false);
-            await writer.WriteLineAsync($"JOIN #{channel}".AsMemory(), cancellation.Token).ConfigureAwait(false);
-            receiveTask = ReceiveLoopAsync(channel, cancellation.Token);
-            // IRC sends a server welcome after valid registration. The receive loop is authoritative.
-            await Task.Delay(350, cancellation.Token).ConfigureAwait(false);
-            if (client.Connected) StatusChanged?.Invoke("Socket TLS abierto; esperando confirmación de Twitch.");
+            await firstConnection.Task.WaitAsync(TimeSpan.FromSeconds(25), external).ConfigureAwait(false);
         }
         catch
         {
@@ -53,53 +55,242 @@ public sealed class TwitchChatClient : IAsyncDisposable
 
     public async Task SendMessageAsync(string channel, string message, CancellationToken cancellationToken = default)
     {
-        if (!IsConnected || writer is null) throw new InvalidOperationException("Twitch no está conectado.");
-        var safe = message.Replace("\r"," ").Replace("\n"," ").Trim();
-        if (safe.Length is 0 or > 500) throw new ArgumentException("El mensaje debe tener entre 1 y 500 caracteres.");
-        await sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try { await writer.WriteLineAsync($"PRIVMSG #{channel.Trim().TrimStart('#')} :{safe}".AsMemory(), cancellationToken).ConfigureAwait(false); }
-        finally { sendGate.Release(); }
-    }
+        var safe = message.Replace("\r", " ").Replace("\n", " ").Trim();
+        if (safe.Length is 0 or > 500)
+            throw new ArgumentException("El mensaje debe tener entre 1 y 500 caracteres.");
 
-    private async Task ReceiveLoopAsync(string channel, CancellationToken ct)
-    {
+        await sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            while (!ct.IsCancellationRequested && reader is not null)
+            if (!IsConnected || writer is null)
+                throw new InvalidOperationException("Twitch no está conectado; se reintentará automáticamente.");
+            var targetChannel = channel.Trim().TrimStart('#');
+            await writer.WriteLineAsync($"PRIVMSG #{targetChannel} :{safe}".AsMemory(), cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            sendGate.Release();
+        }
+    }
+
+    private async Task RunConnectionSupervisorAsync(
+        string channel,
+        string token,
+        TaskCompletionSource<bool> firstConnection,
+        CancellationToken cancellationToken)
+    {
+        var retryAttempt = 0;
+        var firstConnectedAt = (DateTimeOffset?)null;
+        var initialSignalled = false;
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
             {
-                var line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
-                if (line is null) break;
-                if (line.StartsWith("PING ", StringComparison.Ordinal))
+                TcpClient? nextClient = null;
+                SslStream? ssl = null;
+                StreamReader? nextReader = null;
+                StreamWriter? nextWriter = null;
+                var fatalAuthenticationFailure = false;
+                var sessionConnectedAt = (DateTimeOffset?)null;
+                try
                 {
-                    if (writer is not null) await writer.WriteLineAsync(("PONG " + line[5..]).AsMemory(), ct).ConfigureAwait(false);
-                    continue;
+                    StatusChanged?.Invoke(retryAttempt == 0
+                        ? "Conectando a Twitch IRC sobre TLS…"
+                        : $"Reconectando a Twitch IRC (intento {retryAttempt})…");
+
+                    nextClient = new TcpClient();
+                    await nextClient.ConnectAsync("irc.chat.twitch.tv", 6697, cancellationToken).ConfigureAwait(false);
+                    ssl = new SslStream(nextClient.GetStream(), false);
+                    await ssl.AuthenticateAsClientAsync(
+                        new SslClientAuthenticationOptions { TargetHost = "irc.chat.twitch.tv" },
+                        cancellationToken).ConfigureAwait(false);
+
+                    nextReader = new StreamReader(ssl, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
+                    nextWriter = new StreamWriter(ssl, new UTF8Encoding(false), leaveOpen: true)
+                    {
+                        NewLine = "\r\n",
+                        AutoFlush = true
+                    };
+
+                    await nextWriter.WriteLineAsync(("PASS oauth:" + token).AsMemory(), cancellationToken).ConfigureAwait(false);
+                    await nextWriter.WriteLineAsync(("NICK " + channel).AsMemory(), cancellationToken).ConfigureAwait(false);
+                    await nextWriter.WriteLineAsync("CAP REQ :twitch.tv/tags twitch.tv/commands".AsMemory(), cancellationToken).ConfigureAwait(false);
+                    await nextWriter.WriteLineAsync(("JOIN #" + channel).AsMemory(), cancellationToken).ConfigureAwait(false);
+
+                    await sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    try
+                    {
+                        client = nextClient;
+                        reader = nextReader;
+                        writer = nextWriter;
+                    }
+                    finally { sendGate.Release(); }
+
+                    while (!cancellationToken.IsCancellationRequested)
+                    {
+                        var line = await nextReader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+                        if (line is null)
+                            throw new IOException("Twitch cerró el flujo IRC.");
+
+                        if (line.StartsWith("PING ", StringComparison.Ordinal))
+                        {
+                            await sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                            try
+                            {
+                                if (ReferenceEquals(writer, nextWriter))
+                                    await nextWriter.WriteLineAsync(("PONG " + line[5..]).AsMemory(), cancellationToken).ConfigureAwait(false);
+                            }
+                            finally { sendGate.Release(); }
+                            continue;
+                        }
+
+                        if (line.Contains("Login authentication failed", StringComparison.OrdinalIgnoreCase) ||
+                            line.Contains("Improperly formatted auth", StringComparison.OrdinalIgnoreCase) ||
+                            line.Contains(" 464 ", StringComparison.Ordinal))
+                        {
+                            fatalAuthenticationFailure = true;
+                            throw new TwitchChatAuthenticationException(
+                                "Twitch rechazó la autenticación IRC. Volvé a autorizar la cuenta y comprobá los permisos chat:read/chat:edit.");
+                        }
+
+                        if (line.Contains(" 001 ", StringComparison.Ordinal) || line.Contains(" 366 ", StringComparison.Ordinal))
+                        {
+                            IsConnected = true;
+                            sessionConnectedAt ??= DateTimeOffset.UtcNow;
+                            firstConnectedAt ??= sessionConnectedAt;
+                            firstConnection.TrySetResult(true);
+                            initialSignalled = true;
+                            StatusChanged?.Invoke(line.Contains(" 366 ", StringComparison.Ordinal)
+                                ? $"Chat unido: #{channel}."
+                                : $"Conectado a Twitch IRC; completando el ingreso a #{channel}.");
+                        }
+
+                        if (line.Contains(" PRIVMSG ", StringComparison.Ordinal))
+                        {
+                            var separator = line.IndexOf(" :", StringComparison.Ordinal);
+                            if (separator >= 0)
+                                MessageReceived?.Invoke(line);
+                        }
+                    }
                 }
-                if (line.Contains(" 001 ", StringComparison.Ordinal)) { IsConnected = true; StatusChanged?.Invoke($"Conectado a #{channel}."); }
-                if (line.Contains(" 366 ", StringComparison.Ordinal)) { IsConnected = true; StatusChanged?.Invoke($"Chat unido: #{channel}."); }
-                if (line.Contains("Login authentication failed", StringComparison.OrdinalIgnoreCase) || line.Contains("Improperly formatted auth", StringComparison.OrdinalIgnoreCase))
-                    StatusChanged?.Invoke("Autenticación rechazada por Twitch; revisá el token y sus permisos.");
-                if (line.Contains(" PRIVMSG ", StringComparison.Ordinal))
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    var sep = line.IndexOf(" :", StringComparison.Ordinal);
-                    if (sep >= 0) MessageReceived?.Invoke(line);
+                    break;
+                }
+                catch (TwitchChatAuthenticationException exception)
+                {
+                    StatusChanged?.Invoke(exception.Message);
+                    firstConnection.TrySetException(exception);
+                    fatalAuthenticationFailure = true;
+                }
+                catch (Exception exception)
+                {
+                    IsConnected = false;
+                    if (sessionConnectedAt.HasValue && DateTimeOffset.UtcNow - sessionConnectedAt.Value > TimeSpan.FromSeconds(30))
+                        retryAttempt = 0;
+                    retryAttempt++;
+                    var delaySeconds = Math.Min(30, 1 << Math.Min(retryAttempt - 1, 5));
+                    StatusChanged?.Invoke("Chat Twitch perdido (" + exception.GetType().Name +
+                        "); reintento automático en " + delaySeconds + " s.");
+                }
+                finally
+                {
+                    IsConnected = false;
+                    try
+                    {
+                        await sendGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+                        try
+                        {
+                            if (ReferenceEquals(writer, nextWriter)) writer = null;
+                            if (ReferenceEquals(reader, nextReader)) reader = null;
+                            if (ReferenceEquals(client, nextClient)) client = null;
+                        }
+                        finally { sendGate.Release(); }
+                    }
+                    catch (ObjectDisposedException) { }
+
+                    try { nextClient?.Close(); } catch { }
+                    nextReader?.Dispose();
+                    nextWriter?.Dispose();
+                    ssl?.Dispose();
+                    nextClient?.Dispose();
+                }
+
+                if (cancellationToken.IsCancellationRequested || fatalAuthenticationFailure)
+                    break;
+
+                var delaySecondsAfterFailure = Math.Min(30, 1 << Math.Min(retryAttempt - 1, 5));
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(delaySecondsAfterFailure), cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
                 }
             }
         }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) { StatusChanged?.Invoke($"Error de chat: {ex.Message}"); }
-        finally { IsConnected = false; StatusChanged?.Invoke("Twitch desconectado."); }
+        finally
+        {
+            IsConnected = false;
+            firstConnection.TrySetException(new IOException(
+                initialSignalled
+                    ? "La conexión inicial se perdió antes de completarse."
+                    : "No se pudo establecer la primera conexión IRC."));
+            StatusChanged?.Invoke("Twitch chat desconectado.");
+        }
     }
 
     public async Task DisconnectAsync()
     {
-        cancellation?.Cancel();
-        try { if (writer is not null) await writer.WriteLineAsync("QUIT :VTuberBot cerrando conexión".AsMemory()).ConfigureAwait(false); } catch { }
-        client?.Close();
-        if (receiveTask is not null) { try { await receiveTask.ConfigureAwait(false); } catch { } }
-        reader?.Dispose(); writer?.Dispose(); client?.Dispose(); cancellation?.Dispose();
-        reader=null; writer=null; client=null; cancellation=null; receiveTask=null; IsConnected=false;
+        var tokenSource = cancellation;
+        if (tokenSource is null) return;
+        tokenSource.Cancel();
+
+        try
+        {
+            await sendGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (writer is not null)
+                {
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+                    try { await writer.WriteLineAsync("QUIT :VTuberBot cerrando conexión".AsMemory(), timeout.Token).ConfigureAwait(false); }
+                    catch { }
+                }
+                client?.Close();
+            }
+            finally { sendGate.Release(); }
+        }
+        catch (ObjectDisposedException) { }
+
+        if (supervisorTask is not null)
+        {
+            try { await supervisorTask.ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+            catch (IOException) { }
+            catch (TwitchChatAuthenticationException) { }
+        }
+
+        reader?.Dispose();
+        writer?.Dispose();
+        client?.Dispose();
+        tokenSource.Dispose();
+        cancellation = null;
+        supervisorTask = null;
+        reader = null;
+        writer = null;
+        client = null;
+        connectedChannel = null;
+        IsConnected = false;
         StatusChanged?.Invoke("Twitch desconectado.");
     }
 
-    public async ValueTask DisposeAsync() { await DisconnectAsync().ConfigureAwait(false); sendGate.Dispose(); }
+    public async ValueTask DisposeAsync()
+    {
+        await DisconnectAsync().ConfigureAwait(false);
+        sendGate.Dispose();
+    }
+
+    private sealed class TwitchChatAuthenticationException(string message) : Exception(message);
 }
