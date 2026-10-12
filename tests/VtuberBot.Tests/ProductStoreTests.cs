@@ -18,16 +18,17 @@ public sealed class ProductStoreTests
     {
         using var temp = new TempDb();
         var store = new ProductStore(temp.DatabasePath);
-        for (var index = 0; index < 8; index++)
-            store.Log("test", "activity-" + index);
-
         store.AddPoints("alice", 42, "initial balance");
         var raffle = store.CreateGiveaway("keep raffle history");
         Assert.True(store.EnterGiveaway(raffle, "alice"));
 
+        for (var index = 0; index < 8; index++)
+            store.Log("test", "activity-" + index);
+        var originalCount = store.GetActivity(500).Count;
+
         var deleted = store.PruneActivityLog(3);
 
-        Assert.Equal(8, deleted);
+        Assert.Equal(originalCount - 3, deleted);
         var remaining = store.GetActivity(20).Select(item => item.Message).ToArray();
         Assert.Equal(new[] { "activity-7", "activity-6", "activity-5" }, remaining);
         Assert.Equal(42, Assert.Single(store.GetLeaderboard(), user => user.Username == "alice").Points);
