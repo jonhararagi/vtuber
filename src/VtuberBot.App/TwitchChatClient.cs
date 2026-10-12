@@ -18,7 +18,6 @@ public sealed class TwitchChatClient : IAsyncDisposable
     private CancellationTokenSource? cancellation;
     private Task? supervisorTask;
     private readonly SemaphoreSlim sendGate = new(1, 1);
-    private string? connectedChannel;
 
     public event Action<string>? MessageReceived;
     public event Action<string>? StatusChanged;
@@ -36,7 +35,6 @@ public sealed class TwitchChatClient : IAsyncDisposable
         if (token.StartsWith("oauth:", StringComparison.OrdinalIgnoreCase))
             token = token[6..];
 
-        connectedChannel = channel;
         cancellation = CancellationTokenSource.CreateLinkedTokenSource(external);
         var firstConnection = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var tokenSource = cancellation;
@@ -80,7 +78,6 @@ public sealed class TwitchChatClient : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         var retryAttempt = 0;
-        var firstConnectedAt = (DateTimeOffset?)null;
         var initialSignalled = false;
         try
         {
@@ -105,8 +102,8 @@ public sealed class TwitchChatClient : IAsyncDisposable
                         new SslClientAuthenticationOptions { TargetHost = "irc.chat.twitch.tv" },
                         cancellationToken).ConfigureAwait(false);
 
-                    nextReader = new StreamReader(ssl, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
-                    nextWriter = new StreamWriter(ssl, new UTF8Encoding(false), leaveOpen: true)
+                    nextReader = new StreamReader(ssl, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
+                    nextWriter = new StreamWriter(ssl, new UTF8Encoding(false), bufferSize: 1024, leaveOpen: true)
                     {
                         NewLine = "\r\n",
                         AutoFlush = true
@@ -157,7 +154,6 @@ public sealed class TwitchChatClient : IAsyncDisposable
                         {
                             IsConnected = true;
                             sessionConnectedAt ??= DateTimeOffset.UtcNow;
-                            firstConnectedAt ??= sessionConnectedAt;
                             firstConnection.TrySetResult(true);
                             initialSignalled = true;
                             StatusChanged?.Invoke(line.Contains(" 366 ", StringComparison.Ordinal)
@@ -292,5 +288,5 @@ public sealed class TwitchChatClient : IAsyncDisposable
         sendGate.Dispose();
     }
 
-    private sealed class TwitchChatAuthenticationException(string message) : Exception(message);
+    private sealed class TwitchChatAuthenticationException(string message) : Exception(message) { }
 }
