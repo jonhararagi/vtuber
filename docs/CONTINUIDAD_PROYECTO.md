@@ -988,3 +988,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La validación del delta ya no usa Math.Abs, que lanza OverflowException para long.MinValue; el rango permitido se comprueba directamente y produce ArgumentOutOfRangeException.
 - Se agregó prueba de no-mutación tras overflow con un balance SQLite próximo al máximo y de rechazo de long.MinValue.
 - Estado: pendiente de Windows CI del SHA que contiene este endurecimiento.
+
+
+## Seguridad de diagnóstico — redacción de secretos
+
+- La exportación de soporte antes incluía directamente mensajes de actividad y la ruta completa de la base SQLite. Aunque no se guardaban tokens intencionalmente, no había un filtro final sobre el texto exportado.
+- Se agregó DiagnosticTextRedactor en Core y pruebas para credenciales Bearer/OAuth, access/refresh tokens, client secrets, contraseñas y token de bot de Telegram. El exportador redacta módulo y mensaje, evita revelar el path de perfil Windows y maneja errores de escritura.
+- El redactor falla de forma cerrada ante timeout de regex y no requiere red ni APIs pagas.
+- Estado: pendiente Windows CI del SHA exacto; la política está automatizada, pero no se afirma que se haya inspeccionado un paquete compartido por un usuario.

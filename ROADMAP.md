@@ -170,3 +170,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - Se añadió protección contra overflow al acreditar puntos y se sustituyó Math.Abs(delta) por límites directos para que long.MinValue también produzca una validación de rango controlada.
 - Prueba SQLite: un crédito que excede Int64.MaxValue se rechaza sin mutar el saldo; un delta fuera del contrato se rechaza antes de abrir la transacción.
 - Pendiente Windows CI del nuevo SHA.
+
+
+## Diagnóstico — filtrado de credenciales antes de exportar
+
+- El exportador ya no incluye la ruta completa de SQLite (que puede revelar el nombre de usuario de Windows) y filtra el texto de actividad antes de escribirlo.
+- Se añadió una política Core sin dependencias WPF que redacta formatos comunes de Bearer/OAuth, assignments de tokens/secretos/password/API keys y tokens de bot de Telegram. Si el filtrado agota su límite de tiempo, omite el texto en vez de exportarlo sin filtrar.
+- La escritura del informe ahora presenta un error comprensible en lugar de dejar escapar una excepción de I/O desde el evento UI. Pendiente Windows CI.

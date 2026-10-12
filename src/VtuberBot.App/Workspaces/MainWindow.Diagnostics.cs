@@ -35,7 +35,36 @@ public partial class MainWindow
     private void ExportDiagnostics()
     {
         var dialog=new SaveFileDialog{Filter="Texto|*.txt",FileName="vtuberbot-diagnostic.txt"};if(dialog.ShowDialog(this)!=true)return;
-        var sb=new StringBuilder();sb.AppendLine("VTuberBot — diagnóstico local");sb.AppendLine($"Fecha UTC: {DateTimeOffset.UtcNow:O}");sb.AppendLine($"Versión core: {VtuberApplication.Version}");sb.AppendLine($"Estado core: {application.State}");sb.AppendLine($"SQLite: {application.Database.Path}");sb.AppendLine($"Avatar configurado: {!string.IsNullOrWhiteSpace(avatarPath)&&File.Exists(avatarPath)}");sb.AppendLine($"Twitch conectado: {twitch.IsConnected}");sb.AppendLine($"Dispositivos de entrada: {WaveIn.DeviceCount}");sb.AppendLine("No se exportan tokens, cookies ni contraseñas.");sb.AppendLine();foreach(var a in store.GetActivity(250))sb.AppendLine($"{a.At:O}\t{a.Module}\t{a.Message}");
-        File.WriteAllText(dialog.FileName,sb.ToString(),new UTF8Encoding(true));store.Log("Diagnóstico","Informe de diagnóstico exportado.");
+        try
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("VTuberBot — diagnóstico local");
+            sb.AppendLine($"Fecha UTC: {DateTimeOffset.UtcNow:O}");
+            sb.AppendLine($"Versión: {VtuberApplication.Version}");
+            sb.AppendLine($"Estado core: {application.State}");
+            // Avoid exporting the user's Windows profile path as part of a support bundle.
+            sb.AppendLine($"SQLite disponible: {File.Exists(application.Database.Path)}");
+            sb.AppendLine($"Avatar configurado: {!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath)}");
+            sb.AppendLine($"Twitch conectado: {twitch.IsConnected}");
+            sb.AppendLine($"Dispositivos de entrada: {WaveIn.DeviceCount}");
+            sb.AppendLine("Los mensajes del registro se filtran para retirar credenciales reconocibles.");
+            sb.AppendLine();
+            foreach (var activity in store.GetActivity(250))
+            {
+                var safeMessage = DiagnosticTextRedactor.Redact(activity.Message);
+                var safeModule = DiagnosticTextRedactor.Redact(activity.Module);
+                sb.AppendLine($"{activity.At:O}\t{safeModule}\t{safeMessage}");
+            }
+
+            File.WriteAllText(dialog.FileName, sb.ToString(), new UTF8Encoding(true));
+            store.Log("Diagnóstico", "Informe de diagnóstico exportado.");
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this,
+                "No se pudo exportar el diagnóstico. Revisá la ruta elegida y los permisos de escritura.\n\n" +
+                exception.Message,
+                "Exportación de diagnóstico", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }
