@@ -36,7 +36,6 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer automationTimer = new() { Interval = TimeSpan.FromMinutes(1) };
     private readonly Dictionary<long, DateTimeOffset> automationLastRun = []; 
     private string currentPage = "Inicio";
-    private bool navigating;
 
     private static readonly string[] Pages =
     [
@@ -79,7 +78,6 @@ public partial class MainWindow : Window
     private void Navigate(string page)
     {
         currentPage = Pages.Contains(page, StringComparer.Ordinal) ? page : "Inicio";
-        navigating = true;
         PageTitle.Text = currentPage;
         PageSubtitle.Text = currentPage switch
         {
@@ -115,7 +113,6 @@ public partial class MainWindow : Window
             "Ajustes" => BuildSettingsPage(),
             _ => BuildDashboard()
         };
-        navigating = false;
     }
 
     private UIElement BuildDashboard()
@@ -240,7 +237,7 @@ public partial class MainWindow : Window
 
     private void HandleTwitchMessage(string raw)
     {
-        Dispatcher.BeginInvoke(async () =>
+        Dispatcher.BeginInvoke(new Action(async () =>
         {
             var sep=raw.IndexOf(" :",StringComparison.Ordinal);
             var text=sep>=0?raw[(sep+2)..]:raw;
@@ -254,7 +251,7 @@ public partial class MainWindow : Window
                 var result=store.RunLocalCommand(command,username);
                 if(result.Success){try{await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),result.Message);}catch(Exception ex){FooterStatus.Text=$"Comando ejecutado localmente, respuesta no enviada: {ex.Message}";}}
             }
-        });
+        }));
     }
 
     private UIElement BuildCommandsPage()
