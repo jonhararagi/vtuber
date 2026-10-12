@@ -500,3 +500,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Las notificaciones duplicadas con el mismo `metadata.message_id` se descartan antes de invocar alertas/voz/log de evento; un mensaje sin ID se procesa porque no hay una clave estable para deduplicar.
 - Añadidas pruebas de duplicados, IDs distintos, capacidad acotada, IDs evictados y concurrencia.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Correcciones de CI e integración — EventSub dedupe y recuperación de OBS
+
+- CI #175 detectó la regla xUnit2031 en la prueba de concurrencia del deduplicador; se sustituyó el filtro previo por el overload `Assert.Single(collection, predicate)`, preservando la comprobación de un único evento aceptado.
+- Se añadió reconexión automática para OBS WebSocket v5. Tras una caída inesperada, las peticiones pendientes fallan de forma explícita y la sesión reintenta con backoff limitado 1/2/4/8/16/30 s. Una desconexión manual cancela los reintentos; el estado conectado vuelve a activarse solo después de completar Hello/Identify.
+- La contraseña de OBS se conserva solo en memoria para reautenticar la conexión durante esa ejecución. No se escribe en mensajes de diagnóstico.
+- Se añadieron pruebas de la política de backoff acotada.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** para el nuevo HEAD. No se afirma prueba de reconexión contra OBS real.

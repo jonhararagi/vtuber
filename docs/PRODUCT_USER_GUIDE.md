@@ -61,7 +61,7 @@ Los mensajes del chat comparten el registro local de comandos; la actividad otor
 2. En **OBS**, ingresá host, puerto y contraseña, y elegí **Conectar y autenticar**.
 3. Al completar el handshake WebSocket v5, podés consultar escenas y cambiar la escena del programa.
 
-Si OBS está cerrado o la contraseña no coincide, la app sigue funcionando y muestra el error sin fingir conexión.
+Si OBS está cerrado o la contraseña no coincide, la app sigue funcionando y muestra el error sin fingir conexión. Si una conexión ya autenticada se corta de forma transitoria, la app reintenta cada vez con una espera creciente limitada a 30 segundos; la desconexión manual detiene los reintentos. La reconexión real debe confirmarse en un OBS configurado.
 
 ## Telegram Web
 

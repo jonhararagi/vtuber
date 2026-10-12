@@ -38,7 +38,7 @@ public sealed class EventNotificationDeduplicatorTests
             .ToArray();
 
         var results = await Task.WhenAll(attempts);
-        Assert.Single(results.Where(accepted => accepted));
+        Assert.Single(results, accepted => accepted);
     }
 
     [Fact]
