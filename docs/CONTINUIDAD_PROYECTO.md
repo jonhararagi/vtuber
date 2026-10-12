@@ -118,7 +118,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 
 ### Evidencia de CI
 
-- **Último SHA con CI completo verde verificado antes de las nuevas mejoras de producto:** `0f5f4f177ed0e9861fde449c7ef584c5b907e88d` (corregido umbral/tests del detector).
+- **Último SHA con CI completo verde verificado:** `0f5f4f177ed0e9861fde449c7ef584c5b907e88d` — [Windows CI #122](https://github.com/jonhararagi/vtuber/actions/runs/38215869281), restore/build/tests/publish/upload **SUCCESS**.
+- **Ejecución #123, SHA `18558d4964b57705ccf16c823f124e3bd6fc7a26`:** compilación Release **SUCCESS**, tests **FAIL** en `ProductStoreTests.CommandsPersistAndRunLocally` porque el caso de prueba usaba un cooldown de 2 segundos y el test tardó más que eso antes de comprobar la segunda llamada. Se cambió la prueba a 60 segundos para evitar que la duración del runner altere el resultado; el cooldown de producción sigue configurable y en segundos. El siguiente CI debe confirmar la corrección.
+- **Sprites por expresión:** añadidos en el commit `71946203d89042ac1a756a4f01e2310bea82040c`; validación de CI pendiente.
 - **Run:** [Windows CI #38214945910](https://github.com/jonhararagi/vtuber/actions/runs/38214945910) — restore, build Release, tests, publish self-contained Windows x64 y upload de artefacto: **SUCCESS**.
 - **Artefacto:** [VTuberBot-Product-Candidate-win-x64](https://github.com/jonhararagi/vtuber/actions/runs/38214945910/artifacts/11732285947) · ID `11732285947` · 77,780,953 bytes · SHA-256 `1c6cd363b2dc4eef1b9fa4dc0f5778b7ea9904a0f81d01e21066466de1381882` · expira el 2026-10-26 06:56:50 UTC.
 - Después de ese SHA se añadieron una tarjeta de alerta temporal al overlay y edición/pausa de timers, además de corregir textos y metadatos del paquete. El artefacto anterior no contiene esos cambios y no debe entregarse como el HEAD final; se requiere un nuevo CI/artifact exacto.

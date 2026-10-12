@@ -99,7 +99,7 @@ public sealed class AvatarOverlayWindow : Window
         avatarLayers = layers.ToArray();
         expressionImages = expressions is null
             ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            : new Dictionary<string, string>(expressions, StringComparer.OrdinalIgnoreCase);
+            : expressions.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
         RenderAvatar();
     }
 

@@ -17,12 +17,12 @@ public sealed class ProductStoreTests
     {
         using var temp = new TempDb();
         var store = new ProductStore(temp.DatabasePath);
-        store.SaveCommand(null, "saludo", "Hola {user}; tenés {points} puntos", 2, true);
+        store.SaveCommand(null, "saludo", "Hola {user}; tenés {points} puntos", 60, true);
         var result = store.RunLocalCommand("!saludo", "PruebaUser");
         Assert.True(result.Success);
         Assert.Contains("Hola PruebaUser", result.Message);
         Assert.Contains("0 puntos", result.Message);
-        Assert.Contains(store.GetCommands(), c => c.Name == "saludo" && c.CooldownSeconds == 2);
+        Assert.Contains(store.GetCommands(), c => c.Name == "saludo" && c.CooldownSeconds == 60);
         Assert.False(store.RunLocalCommand("!saludo", "PruebaUser").Success);
     }
 
