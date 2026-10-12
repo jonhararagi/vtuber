@@ -625,3 +625,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Corrección:** `TwitchChatClient` conserva el login asociado a la sesión y `TwitchIrcValidation.NormalizeTargetChannel` exige que el destino validado coincida con ese canal. Para cambiar de canal se debe desconectar y volver a conectar; los valores inválidos siguen siendo rechazados antes de escribir al socket.
 - **Pruebas:** destino normalizado equivalente aceptado; destino de otro canal y destino con salto de línea rechazados.
 - **Estado:** implementado en el HEAD posterior al cambio de validación IRC; Windows CI pendiente.
+
+
+### Corrección del CI #194 — referencia explícita al validador del Core
+
+- Windows CI #194 falló en Build Release porque `TwitchChatClient.cs`, que reside en el proyecto App, no importaba el namespace `VtuberBot.Core` donde se agregó `TwitchIrcValidation`. Se añade la directiva de uso explícita; no cambia la lógica de validación.
+- CI #195 incluye el cambio anterior de vinculación del canal y deberá comprobarse por separado; el commit de corrección actual dispara un nuevo CI.

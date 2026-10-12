@@ -1,3 +1,4 @@
+using VtuberBot.Core;
 using System.IO;
 using System.Net.Security;
 using System.Net.Sockets;
