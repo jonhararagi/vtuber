@@ -1,93 +1,77 @@
 # ROADMAP — VTuber Bot
 
-Development order: core -> data -> panel -> avatar -> Twitch -> community -> voice -> integrations -> hardening -> release.
+Este roadmap distingue el núcleo confirmado de las funciones que aún necesitan una decisión de alcance. Las fases son una secuencia de trabajo orientativa, no una autorización para implementar automáticamente cada función.
 
-## V0.1 Foundation
-- module skeleton
-- main.py
-- configuration and logging
-- Event Manager, Task Scheduler, Resource Manager
-- SQLite
-- minimal panel
-- smoke tests
+## Alcance confirmado para V1.0
 
-Exit: app starts, opens local DB, shows panel and processes an internal test event.
+- Aplicación de escritorio para Windows.
+- Núcleo estable, controles funcionales, configuración y registros adecuados.
+- Ciclo de vida robusto, manejo de errores y recuperación.
+- Arquitectura modular que permita integrar un avatar sin acoplar la presentación a la lógica central.
+- Pruebas automatizadas, documentación útil y validación en Windows antes de aceptar una versión.
 
-## V0.2.0 Control Plane + Command Core
-- local CommandRouter
-- help, status and ping
-- functional WPF control panel
-- local command execution
-- basic lifecycle controls
-- visible command results and activity
-- command/application integration tests
+## V0.1 — Fundación
 
-Exit: local application opens, shows the real state, executes help/status/ping, reports controlled failures and can start/stop/restart its lifecycle without external providers.
+- Estructura modular, configuración y logging.
+- Event Manager, Task Scheduler y Resource Manager.
+- Persistencia SQLite y pruebas de humo.
 
-## V0.2.1 Performance & Health
-- CPU/RAM monitoring
-- GPU monitoring where viable
-- avatar FPS measurement when an avatar exists
-- Ahorro/Equilibrado/Calidad
-- adaptive FPS and internal metrics
+**Salida:** la aplicación inicia, abre la base local y procesa un evento interno de prueba.
 
-Exit: resource and health information is observable without unnecessary polling or permanent workers.
+## V0.2.0 — Control y comandos
 
-## V0.2.2 SQLite Concurrency Hardening
-- explicit serialization strategy for concurrent database access
-- schema migration groundwork
-- concurrency and recovery tests
+- CommandRouter local y comandos `help`, `status`, `ping`.
+- Interfaz WPF con controles básicos y resultados visibles.
+- Integración de comandos con el ciclo de vida y pruebas automatizadas.
 
-Exit: the database access model is safe for the first genuinely concurrent workload.
+**Salida:** la app se abre, ejecuta los comandos y permite controlar el ciclo de vida sin proveedores externos.
 
-## V0.2.3 Stabilization Gate
-- full regression
-- repeated start/stop cycles
-- long-running smoke
-- resource review
-- documentation update
+## V0.2.1 — Rendimiento y salud
 
-Exit: V0.2 is stable, documented and ready for the V0.3 avatar phase.
+- Observación de CPU/RAM y métricas viables.
+- Perfiles de rendimiento si están respaldados por la implementación y pruebas.
 
-## V0.3 Avatar MVP
-- PNG layer renderer
-- blinking, eyes, breathing
-- basic expressions
-- mouth open/closed
-- simple animation
-- transparent window and OBS capture
+## V0.2.2 — Concurrencia SQLite
 
-## V0.4 Twitch Core
-- Twitch adapter
-- supported event/message reception
-- command router
-- replies and automatic messages
-- reconnect/error handling
+- Acceso serializado y pruebas de concurrencia/recuperación.
 
-The no-API restriction may limit official Twitch capabilities; document limitations before locking the adapter.
+## V0.2.3 — Puerta de estabilización
 
-## V0.5 Community Systems
-Users, points, rankings, profiles, statistics, inventory, history and persistence.
+- Regresión automatizada, ciclos repetidos, revisión de recursos, smoke de Windows y documentación.
+- La prueba prolongada y la interacción manual de Windows deben quedar documentadas antes de aceptar esta versión.
 
-## V0.6 Games & Giveaways
-Giveaways, minigames, rewards, cooldowns, anti-spam limits and game history.
+**Salida:** evidencia automatizada y humana suficiente; defectos críticos y altos resueltos. La aprobación no se infiere únicamente de CI.
 
-## V0.7 Moderation & Automation
-Moderation rules, filters, cooldowns, automatic messages, configurable actions and action history.
+## Funciones planificadas que requieren definición antes de comprometer alcance
 
-## V0.8 Voice
-Local TTS, audio queue/priorities, prerecorded sounds, emotional profiles, mouth synchronization and queue recovery.
+### Avatar animado
+Definir formato y pipeline del avatar, expresiones, animación mínima, integración con ventana transparente y/o OBS, y separación estricta entre presentación y lógica. No integrar recursos concretos en runtime hasta aprobar el alcance y revisar licencias.
 
-## V0.9 Telegram & Advanced Panel
-Telegram Web interface, event history, statistics, avatar/voice controls and diagnostics.
+### Twitch
+Definir capacidades necesarias, autenticación, eventos, permisos, límites y estrategia de reconexión. Documentar las restricciones de APIs y evitar prometer funciones no verificadas.
 
-## V0.10 Hardening
-Recovery, reconnection, configuration validation, secret protection, expanded tests, load testing, memory/loop/process review and long-running sessions.
+### Voz local
+Definir motor local, idiomas, latencia, calidad, consumo y sincronización con el avatar. No depender de APIs de IA de pago obligatorias durante la ejecución.
 
-## V1.0 Release
-Critical features stable, tests green, GPT Cerebro final review completed, critical/high issues resolved, documentation current, simple configuration, useful logs, recovery and acceptable resource usage on the target PC.
+### Persistencia, comunidad, juegos y moderación
+Aprobar los casos de uso y el alcance mínimo de cada sistema antes de estimar o implementar. No se consideran automáticamente requisitos de V1.0 por existir en versiones históricas del roadmap.
 
-## Release rule
-Do not advance merely because something works manually. It must be implemented, tested, stable, documented and free of known critical regressions.
+## Funciones opcionales pendientes de aprobación
 
-Priority: stability -> performance -> recovery -> maintainability -> features -> visual effects.
+- Integración con Telegram.
+- Panel avanzado adicional a la interfaz WPF actual.
+- Otras integraciones externas sin caso de uso confirmado.
+
+No se planifican como trabajo obligatorio de V1.0 hasta que exista una decisión explícita.
+
+## Orden recomendado, sujeto a aprobación
+
+1. Completar y aceptar V0.2.3.
+2. Definir requisitos y criterios de aceptación del Avatar MVP.
+3. Implementar el Avatar MVP en una rama de trabajo aprobada, conservando el núcleo independiente de la presentación.
+4. Definir y priorizar Twitch, voz local, persistencia, juegos y moderación según el producto deseado.
+5. Endurecimiento, validación de extremo a extremo y preparación de V1.0.
+
+## Regla de salida
+
+No avanzar solo porque una función parece funcionar manualmente. Debe estar probada, documentada y libre de regresiones críticas conocidas. Prioridad: estabilidad, recuperación, mantenibilidad, funciones aprobadas y, después, pulido visual.
