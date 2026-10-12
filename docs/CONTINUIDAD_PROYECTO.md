@@ -609,3 +609,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Paquetes `.vtuberavatar`:** la exportación incluye los prompts personalizados; la importación restaura sus valores bajo el nuevo perfil sin modificar los prompts del perfil anterior. Los paquetes v1 existentes siguen siendo compatibles porque el campo nuevo es opcional.
 - **Validación del manifiesto:** se rechazan roles desconocidos y prompts superiores a 12.000 caracteres; la biblioteca y los prompts permanecen fuera de Git y de los binarios.
 - **Estado:** código y pruebas unitarias del catálogo añadidos; Windows CI para este HEAD pendiente. No declarar importación/exportación visual validada hasta que termine CI y se realice la futura validación global en Windows.
+
+
+### 2026-10-12 — Validación contra inyección de líneas IRC
+
+- **Hallazgo:** el cliente interpolaba el canal en comandos IRC `NICK`, `JOIN` y `PRIVMSG` sin validar caracteres de protocolo; el token OAuth manual también podía contener saltos de línea. Valores manipulados podían introducir líneas adicionales en el socket.
+- **Corrección:** se añadió `TwitchIrcValidation` en Core. El canal se normaliza a un login Twitch de 1–25 caracteres ASCII (letras, dígitos y guion bajo); el token retira el prefijo opcional `oauth:` y rechaza espacios/caracteres de control internos. El cliente valida antes de iniciar la sesión y antes de enviar mensajes.
+- **Pruebas:** canales válidos normalizados; espacios, caracteres no permitidos, longitud excesiva y saltos de línea rechazados; tokens válidos y payloads con espacios/controles cubiertos.
+- **Estado:** implementado en el siguiente HEAD; Windows CI pendiente. Las comprobaciones automáticas no sustituyen la validación global posterior con una cuenta real de Twitch.

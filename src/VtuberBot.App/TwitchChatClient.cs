@@ -36,12 +36,8 @@ public sealed class TwitchChatClient : IAsyncDisposable
                 throw new InvalidOperationException("Twitch ya está conectado o intentando reconectarse.");
         }
 
-        channel = channel.Trim().TrimStart('#').ToLowerInvariant();
-        var token = oauthToken.Trim();
-        if (channel.Length == 0 || token.Length == 0)
-            throw new ArgumentException("Se necesitan canal y token OAuth.");
-        if (token.StartsWith("oauth:", StringComparison.OrdinalIgnoreCase))
-            token = token[6..];
+        channel = TwitchIrcValidation.NormalizeChannelLogin(channel);
+        var token = TwitchIrcValidation.NormalizeOAuthToken(oauthToken);
 
         cancellation = CancellationTokenSource.CreateLinkedTokenSource(external);
         var firstConnection = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -70,7 +66,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
         {
             if (!IsConnected || writer is null)
                 throw new InvalidOperationException("Twitch no está conectado; se reintentará automáticamente.");
-            var targetChannel = channel.Trim().TrimStart('#');
+            var targetChannel = TwitchIrcValidation.NormalizeChannelLogin(channel);
             await writer.WriteLineAsync($"PRIVMSG #{targetChannel} :{safe}".AsMemory(), cancellationToken).ConfigureAwait(false);
         }
         finally
