@@ -1342,6 +1342,22 @@ public sealed class ProductStore
                     copyExpressions.Parameters.AddWithValue("$newId", newId);
                     copyExpressions.Parameters.AddWithValue("$activeId", activeId);
                     copyExpressions.ExecuteNonQuery();
+
+                    // A duplicated profile must also inherit its eight role-specific art prompts.
+                    // Keep the prompts namespaced to the new profile so later edits remain isolated.
+                    using var copyArtPrompts = connection.CreateCommand();
+                    copyArtPrompts.Transaction = transaction;
+                    copyArtPrompts.CommandText = """
+                        INSERT INTO product_settings(key,value)
+                        SELECT $targetPrefix || substr(key,length($sourcePrefix)+1),value
+                        FROM product_settings
+                        WHERE substr(key,1,length($sourcePrefix))=$sourcePrefix;
+                        """;
+                    copyArtPrompts.Parameters.AddWithValue("$sourcePrefix",
+                        "avatar.profile." + activeId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".art_prompt.");
+                    copyArtPrompts.Parameters.AddWithValue("$targetPrefix",
+                        "avatar.profile." + newId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".art_prompt.");
+                    copyArtPrompts.ExecuteNonQuery();
                 }
 
                 transaction.Commit();

@@ -467,7 +467,16 @@ public sealed class ProductStoreTests
         store.UpdateAvatarLayerTransform(originalLayer, 12, -7, 1.2, 4);
         store.SetAvatarExpression("Talking", talkingImage);
 
+        var sourceProfileId = store.GetActiveAvatarProfile().Id;
+        var sourcePromptKey = "avatar.profile." + sourceProfileId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".art_prompt.Idle";
+        store.SetSetting(sourcePromptKey, "prompt original del perfil");
+
         var duplicate = store.CreateAvatarProfile("Copia de prueba", duplicateActiveProfile: true);
+        var copiedPromptKey = "avatar.profile." + duplicate.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".art_prompt.Idle";
+        Assert.Equal("prompt original del perfil", store.GetSetting(copiedPromptKey));
+        store.SetSetting(copiedPromptKey, "prompt editado en copia");
+        Assert.Equal("prompt original del perfil", store.GetSetting(sourcePromptKey));
+
         store.SetActiveAvatarProfile(duplicate.Id);
         Assert.Equal(Path.GetFullPath(baseImage), store.GetActiveAvatarProfile().BasePath);
         var clonedLayer = Assert.Single(store.GetAvatarLayers());
