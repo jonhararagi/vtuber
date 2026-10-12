@@ -46,6 +46,9 @@ public partial class MainWindow
                 ExternalApplicationState.Error => "ERROR — " + status.Message,
                 _ => status.State.ToString().ToUpperInvariant() + " — " + status.Message
             };
+            var packageWarning = GetPngtuberPackageWarning(pathField.Text);
+            if (packageWarning is not null)
+                statusLabel.Text += "\\nADVERTENCIA DE PAQUETE — " + packageWarning;
             statusLabel.Foreground = Brush(status.State switch
             {
                 ExternalApplicationState.Running => "#8FE6D0",
@@ -346,6 +349,28 @@ No se importa ni se convierte automáticamente un archivo .vtuberavatar. Los dos
         panel.Children.Add(actions);
         RefreshEntries();
         return panel;
+    }
+
+    private static string? GetPngtuberPackageWarning(string executablePath)
+    {
+        if (!File.Exists(executablePath))
+            return null;
+        try
+        {
+            var directory = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+            if (string.IsNullOrWhiteSpace(directory))
+                return "No se pudo identificar la carpeta de instalación.";
+            var hasPack = Directory.EnumerateFiles(directory, "*.pck", SearchOption.TopDirectoryOnly).Any();
+            var hasLibrary = Directory.EnumerateFiles(directory, "*.dll", SearchOption.TopDirectoryOnly).Any();
+            if (!hasPack || !hasLibrary)
+                return "No se detectó " + (!hasPack ? "un archivo .pck" : "una biblioteca .dll") +
+                    " junto al ejecutable. Verifica el paquete completo de la versión instalada; algunas distribuciones pueden variar.";
+        }
+        catch (Exception exception)
+        {
+            return "No se pudo revisar la carpeta del paquete: " + exception.Message;
+        }
+        return null;
     }
 
     private static string? ToPngtuberKeyName(Key key)
