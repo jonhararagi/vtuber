@@ -1460,8 +1460,20 @@ public sealed class Tests
         };
 
         Assert.True(process.Start());
-        var standardOutputTask = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
-        var standardErrorTask = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
+        var standardOutput = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        var standardError = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        process.OutputDataReceived += (_, eventArgs) =>
+        {
+            if (eventArgs.Data is not null)
+                standardOutput.Enqueue(eventArgs.Data);
+        };
+        process.ErrorDataReceived += (_, eventArgs) =>
+        {
+            if (eventArgs.Data is not null)
+                standardError.Enqueue(eventArgs.Data);
+        };
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
 
         try
         {
@@ -1481,35 +1493,31 @@ public sealed class Tests
                 await Task.Delay(TimeSpan.FromMilliseconds(100), token);
             }
 
-            Assert.False(process.HasExited, "WPF executable exited before presenting its main window.");
+            Assert.False(
+                process.HasExited,
+                "WPF executable exited before presenting its main window." +
+                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError));
 
             process.Refresh();
-            Assert.NotEqual(
-                IntPtr.Zero,
-                process.MainWindowHandle);
+            Assert.True(
+                process.MainWindowHandle != IntPtr.Zero,
+                "WPF executable remained alive but did not expose its main window within 30 seconds." +
+                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError));
 
-            Assert.True(process.CloseMainWindow());
+            Assert.True(
+                process.CloseMainWindow(),
+                "WPF executable did not accept the main-window close request." +
+                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError));
 
             await process.WaitForExitAsync(token).WaitAsync(
                 TimeSpan.FromSeconds(10),
                 token);
 
-            var standardOutput = await standardOutputTask;
-            var standardError = await standardErrorTask;
-            var logFiles = Directory.Exists(dataDirectory.Path)
-                ? Directory.GetFiles(dataDirectory.Path, "*.log", SearchOption.AllDirectories)
-                : [];
-            var logSummary = string.Join(
-                Environment.NewLine,
-                logFiles.Select(path =>
-                    $"--- {Path.GetRelativePath(dataDirectory.Path, path)} ---{Environment.NewLine}" +
-                    File.ReadAllText(path)));
+            process.WaitForExit();
             Assert.True(
                 process.ExitCode == 0,
-                $"WPF executable exited with code {process.ExitCode}.{Environment.NewLine}" +
-                $"STDOUT:{Environment.NewLine}{standardOutput}{Environment.NewLine}" +
-                $"STDERR:{Environment.NewLine}{standardError}{Environment.NewLine}" +
-                $"APPLICATION LOGS:{Environment.NewLine}{logSummary}");
+                $"WPF executable exited with code {process.ExitCode}." +
+                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError));
         }
         finally
         {
@@ -2869,6 +2877,37 @@ public sealed class Tests
         public void Dispose()
         {
         }
+    }
+
+    private static string BuildWpfStartupDiagnostics(
+        string dataDirectory,
+        IEnumerable<string> standardOutput,
+        IEnumerable<string> standardError)
+    {
+        var logFiles = Directory.Exists(dataDirectory)
+            ? Directory.GetFiles(dataDirectory, "*.log", SearchOption.AllDirectories)
+            : [];
+        var logSummary = string.Join(
+            Environment.NewLine,
+            logFiles.Select(logPath =>
+            {
+                string content;
+                try
+                {
+                    content = File.ReadAllText(logPath);
+                }
+                catch (Exception exception)
+                {
+                    content = "[No se pudo leer el log: " + exception.GetType().Name + "]";
+                }
+
+                return $"--- {Path.GetRelativePath(dataDirectory, logPath)} ---{Environment.NewLine}{content}";
+            }));
+
+        return Environment.NewLine +
+            $"STDOUT:{Environment.NewLine}{string.Join(Environment.NewLine, standardOutput)}{Environment.NewLine}" +
+            $"STDERR:{Environment.NewLine}{string.Join(Environment.NewLine, standardError)}{Environment.NewLine}" +
+            $"APPLICATION LOGS:{Environment.NewLine}{logSummary}";
     }
 
     private static int GetActiveWaiters(OwnedProcess process)
