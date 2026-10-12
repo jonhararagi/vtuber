@@ -64,22 +64,40 @@ public partial class MainWindow
 
     private void HandleTwitchMessage(string raw)
     {
-        Dispatcher.BeginInvoke(new Action(() =>
+        // Reserve capacity before posting to the UI Dispatcher. This bounds both the
+        // dispatcher backlog and the messages waiting for asynchronous command processing.
+        if (!twitchMessageSlots.Wait(0))
         {
-            if (pendingTwitchMessages.Count >= MaxPendingTwitchMessages)
+            if (Interlocked.Exchange(ref twitchQueueOverflowNotificationPending, 1) == 0)
             {
-                if (!twitchQueueOverflowLogged)
+                try
                 {
-                    twitchQueueOverflowLogged = true;
-                    store.Log("Twitch", "La cola de chat alcanzó 1000 mensajes; se descartarán nuevas entradas hasta que baje la carga.");
+                    Dispatcher.BeginInvoke(new Action(() =>
+                        store.Log("Twitch", "La cola de chat alcanzó 1000 mensajes; se descartan entradas nuevas hasta que baje la carga.")));
                 }
-                return;
+                catch
+                {
+                    Interlocked.Exchange(ref twitchQueueOverflowNotificationPending, 0);
+                }
             }
+            return;
+        }
 
-            pendingTwitchMessages.Enqueue(raw);
-            if (!isProcessingTwitchMessages)
-                _ = ProcessPendingTwitchMessagesAsync();
-        }));
+        try
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                pendingTwitchMessages.Enqueue(raw);
+                if (!isProcessingTwitchMessages)
+                    _ = ProcessPendingTwitchMessagesAsync();
+            }));
+        }
+        catch
+        {
+            // The window may be closing. Return the reserved slot without crashing the
+            // IRC receiver or treating UI shutdown as a network failure.
+            twitchMessageSlots.Release();
+        }
     }
 
     private async Task ProcessPendingTwitchMessagesAsync()
@@ -103,8 +121,12 @@ public partial class MainWindow
                     FooterStatus.Text = "No se pudo procesar un mensaje de Twitch; revisá Actividad y diagnóstico.";
                 }
 
-                if (pendingTwitchMessages.Count < MaxPendingTwitchMessages / 2)
-                    twitchQueueOverflowLogged = false;
+                finally
+                {
+                    twitchMessageSlots.Release();
+                    if (twitchMessageSlots.CurrentCount > MaxPendingTwitchMessages / 2)
+                        Interlocked.Exchange(ref twitchQueueOverflowNotificationPending, 0);
+                }
             }
         }
         finally

@@ -55,10 +55,11 @@ public partial class MainWindow : Window
     private ProgressBar? dashboardRamBar;
 
     // Keep PRIVMSG processing ordered and bounded when commands await network calls.
-    private readonly Queue<string> pendingTwitchMessages = new();
     private const int MaxPendingTwitchMessages = 1000;
+    private readonly Queue<string> pendingTwitchMessages = new();
+    private readonly SemaphoreSlim twitchMessageSlots = new(MaxPendingTwitchMessages, MaxPendingTwitchMessages);
     private bool isProcessingTwitchMessages;
-    private bool twitchQueueOverflowLogged;
+    private int twitchQueueOverflowNotificationPending;
 
     private PasswordBox? twitchTokenBox;
     private bool twitchChatDesired;

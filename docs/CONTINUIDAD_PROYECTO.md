@@ -631,3 +631,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 
 - Windows CI #194 falló en Build Release porque `TwitchChatClient.cs`, que reside en el proyecto App, no importaba el namespace `VtuberBot.Core` donde se agregó `TwitchIrcValidation`. Se añade la directiva de uso explícita; no cambia la lógica de validación.
 - CI #195 incluye el cambio anterior de vinculación del canal y deberá comprobarse por separado; el commit de corrección actual dispara un nuevo CI.
+
+
+### 2026-10-12 — Límite real de cola de mensajes IRC
+
+- **Hallazgo:** el límite anterior de 1.000 mensajes se comprobaba dentro de callbacks ya encolados en el Dispatcher de WPF. En una ráfaga alta, el backlog de callbacks podía crecer antes de que se aplicara el límite.
+- **Corrección:** cada mensaje reserva capacidad en un `SemaphoreSlim` antes de publicar el callback; los mensajes en espera de despacho, los pendientes y el que se procesa cuentan contra la misma capacidad. El cupo se libera al completar el procesamiento o si la ventana se está cerrando. El aviso de saturación queda limitado a un callback mientras persista la sobrecarga.
+- **Estado:** implementación en el nuevo HEAD; CI de Windows pendiente.
