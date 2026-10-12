@@ -1073,3 +1073,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Nombre: `VTuberBot-Product-Candidate-win-x64-095d2889303bc4ed17ef47ef2bce4452ca0c5764`.
 - Tamaño: 77,909,346 bytes. Expira el 2026-10-26 18:55:06 UTC. GitHub no proporcionó un SHA-256 del ZIP en los metadatos consultados, así que no se inventa uno.
 - Límite de validación: CI verifica compilación/pruebas/publicación, no la conexión con OBS real. La validación manual global continúa pendiente.
+
+## Auditoría funcional — Telegram Web — 2026-10-12
+
+- **HEAD auditado antes del cambio:** `1da946ea1873c9db74bfaff77a09b92b2932ab6c`.
+- **Evidencia previa:** Windows CI #251 terminó correctamente para ese SHA (restore, compilación Release, tests automatizados, publicación autocontenida Windows x64 y subida del artefacto). No es evidencia de esta corrección ni prueba de integración manual con Telegram.
+- **Hallazgo real:** `BuildTelegramPage` registraba el autocargado en `MainWindow.Loaded`. Como la navegación construye esa página después de que la ventana principal ya está cargada, el manejador no iniciaba Telegram al entrar a la página; el botón seguía ofreciendo una ruta manual.
+- **Corrección aplicada:** el inicio ahora se vincula al evento `Loaded` del control WebView2 de esa página. La acción del botón y el autocargado comparten la misma tarea de inicialización para evitar que dos llamadas compitan, mantienen el fallback de navegador externo y registran el fallo sin afirmar que Telegram está conectado.
+- **Estado de validación del cambio:** pendiente del Windows CI que se ejecutará sobre el commit que contiene esta modificación. La sesión real de Telegram/WebView2 sigue necesitando validación manual en Windows.
+- **Alcance no resuelto por esta corrección:** no demuestra rig facial/lip-sync por fonemas, voz anime local instalada, ni una conexión real a cuentas Twitch/OBS; estas áreas deben mantenerse diferenciadas entre implementación, CI y prueba manual global.
+

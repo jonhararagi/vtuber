@@ -192,11 +192,54 @@ public partial class MainWindow
 
     private UIElement BuildTelegramPage()
     {
-        var root=new DockPanel();var toolbar=new WrapPanel();DockPanel.SetDock(toolbar,Dock.Top);
-        toolbar.Children.Add(ActionButton("Abrir Telegram Web",async (_,_)=>{if(telegramView is null){FooterStatus.Text="Inicializando WebView2…";return;}try{await telegramView.EnsureCoreWebView2Async();telegramView.Source=new Uri("https://web.telegram.org/");FooterStatus.Text="Telegram Web cargando en WebView2.";}catch(Exception ex){FooterStatus.Text=$"WebView2 no disponible: {ex.Message}";OpenTelegramExternal();}},true));
-        toolbar.Children.Add(ActionButton("Abrir en navegador",(_,_)=>OpenTelegramExternal()));
-        root.Children.Add(toolbar);telegramView=new WebView2();root.Children.Add(telegramView);
-        Loaded+=async (_,_)=>{try{await telegramView.EnsureCoreWebView2Async();telegramView.Source=new Uri("https://web.telegram.org/");}catch{FooterStatus.Text="WebView2 no está disponible. Usá el botón para abrir Telegram en el navegador.";}};return root;
+        var root = new DockPanel();
+        var toolbar = new WrapPanel();
+        DockPanel.SetDock(toolbar, Dock.Top);
+
+        // This page is rebuilt during navigation, so subscribe to the WebView2 control
+        // itself, not MainWindow.Loaded (which has already fired by the time the user
+        // navigates here). Share one initialization task to avoid racing auto-load and
+        // the toolbar action when both run as soon as the control enters the visual tree.
+        var view = new WebView2();
+        telegramView = view;
+        Task? initializationTask = null;
+
+        async Task EnsureTelegramWebAsync(bool openBrowserOnFailure)
+        {
+            try
+            {
+                if (view.CoreWebView2 is null)
+                {
+                    initializationTask ??= view.EnsureCoreWebView2Async();
+                    await initializationTask;
+                }
+
+                if (view.Source is null)
+                    view.Source = new Uri("https://web.telegram.org/");
+
+                FooterStatus.Text = "Telegram Web cargando en WebView2.";
+            }
+            catch (Exception exception)
+            {
+                initializationTask = null;
+                FooterStatus.Text = "WebView2 no disponible: " + exception.Message;
+                store.Log("Telegram", "No se pudo inicializar WebView2 (" + exception.GetType().Name + ").");
+                if (openBrowserOnFailure)
+                    OpenTelegramExternal();
+            }
+        }
+
+        toolbar.Children.Add(ActionButton(
+            "Abrir Telegram Web",
+            async (_, _) => await EnsureTelegramWebAsync(openBrowserOnFailure: true),
+            true));
+        toolbar.Children.Add(ActionButton("Abrir en navegador", (_, _) => OpenTelegramExternal()));
+
+        root.Children.Add(toolbar);
+        root.Children.Add(view);
+        view.Loaded += async (_, _) => await EnsureTelegramWebAsync(openBrowserOnFailure: false);
+        return root;
     }
+
     private void OpenTelegramExternal(){try{Process.Start(new ProcessStartInfo("https://web.telegram.org/"){UseShellExecute=true});store.Log("Telegram","Telegram Web abierto en navegador externo.");}catch(Exception ex){MessageBox.Show(this,ex.Message);}}
 }
