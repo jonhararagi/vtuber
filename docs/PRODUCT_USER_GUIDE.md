@@ -35,6 +35,8 @@ Usá **Avatar externo** para configurar una copia de PNGTuber Plus que ya esté 
 
 El portal pngtuber.cc/es se presenta en su página “About” como un sitio independiente de fans. Consulta su guía de distribución y el [código fuente público de PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus). La versión que anuncia el portal no demuestra qué versión tienes instalada. VTuberBot no descarga ni instala binarios de terceros y no declara una API/IPC/WebSocket de PNGTuber Plus que no haya podido verificar.
 
+Descarga del creador: [PNGTuber Plus en itch.io](https://kaiakairos.itch.io/pngtuber-plus). El portal [pngtuber.cc/es](https://pngtuber.cc/es/) ofrece guía en español, pero se identifica como un sitio independiente.
+
 Guía ampliada: [Avatar externo: PNGTuber Plus](PNGTUBER-PLUS-AVATAR-SETUP.md).
 
 ## Twitch: OAuth y chat real
