@@ -447,3 +447,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Botones con esquinas redondeadas, hover/pressed/focus/disabled visibles; campos de texto con borde redondeado y foco cian; selección de elementos de lista con contraste consistente.
 - La navegación lateral resalta la página actual en cian/azul y conserva el resto en superficies oscuras, ayudando a distinguir la sección activa.
 - Estado de código: **IMPLEMENTADO; PENDIENTE DE CI** en el commit siguiente.
+
+
+### Persistencia de configuración de voz y micrófono
+
+- Se eliminó el umbral/retención hardcodeados del inicializador y se cargan desde SQLite al crear la ventana, con valores predeterminados seguros cuando no hay configuración válida.
+- El umbral acústico (2–30%), la retención (100–1200 ms) y el nombre del dispositivo de entrada se guardan en cuanto se cambia el ajuste o se inicia la captura.
+- Al abrir Voz y audio, el selector restaura el dispositivo por nombre si Windows aún lo enumera; si ya no existe, selecciona el primer dispositivo disponible sin fingir que está capturando.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD siguiente.

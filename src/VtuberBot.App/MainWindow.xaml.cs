@@ -35,7 +35,7 @@ public partial class MainWindow : Window
     private AvatarOverlayWindow? overlay;
     private string? avatarPath;
     private WaveInEvent? microphone;
-    private readonly VoiceActivityDetector voiceActivity = new(thresholdPercent: 8, releaseHold: TimeSpan.FromMilliseconds(350), smoothingFactor: 0.35);
+    private readonly VoiceActivityDetector voiceActivity;
     private WebView2? telegramView;
     private readonly ObservableCollection<string> chatLines = [];
     private readonly DispatcherTimer automationTimer = new() { Interval = TimeSpan.FromMinutes(1) };
@@ -77,6 +77,26 @@ public partial class MainWindow : Window
         InitializeComponent();
         this.application = application;
         store = new ProductStore(application.Database.Path);
+
+        var savedVadThreshold = double.TryParse(
+            store.GetSetting("audio.vad.threshold", "8"),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var configuredThreshold)
+            ? Math.Clamp(configuredThreshold, 2, 30)
+            : 8;
+        var savedVadHoldMilliseconds = double.TryParse(
+            store.GetSetting("audio.vad.releaseHoldMs", "350"),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var configuredHold)
+            ? Math.Clamp(configuredHold, 100, 1200)
+            : 350;
+        voiceActivity = new VoiceActivityDetector(
+            thresholdPercent: savedVadThreshold,
+            releaseHold: TimeSpan.FromMilliseconds(savedVadHoldMilliseconds),
+            smoothingFactor: 0.35);
+
         dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VtuberBot");
         avatarDirectory = Path.Combine(dataDirectory, "avatars");
         secretDirectory = Path.Combine(dataDirectory, "secrets");

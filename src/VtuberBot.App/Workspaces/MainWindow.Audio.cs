@@ -29,10 +29,22 @@ public partial class MainWindow
         var panel = Panel("Micrófono, detección de voz y TTS local");
         root.Children.Add(panel);
 
+        var deviceItems = Enumerable.Range(0, WaveIn.DeviceCount)
+            .Select(i => $"{i}: {WaveIn.GetCapabilities(i).ProductName}")
+            .ToList();
+        var savedDeviceName = store.GetSetting("audio.microphone.deviceName");
+        var savedDeviceIndex = deviceItems.FindIndex(item =>
+        {
+            var separator = item.IndexOf(':');
+            return separator >= 0 && string.Equals(
+                item[(separator + 1)..].Trim(),
+                savedDeviceName,
+                StringComparison.OrdinalIgnoreCase);
+        });
         var devices = new ComboBox
         {
-            ItemsSource = Enumerable.Range(0, WaveIn.DeviceCount).Select(i => $"{i}: {WaveIn.GetCapabilities(i).ProductName}").ToList(),
-            SelectedIndex = WaveIn.DeviceCount > 0 ? 0 : -1
+            ItemsSource = deviceItems,
+            SelectedIndex = deviceItems.Count == 0 ? -1 : savedDeviceIndex >= 0 ? savedDeviceIndex : 0
         };
         panel.Children.Add(Label("Dispositivo de entrada", 12, "#98A4BE"));
         panel.Children.Add(devices);
@@ -47,6 +59,15 @@ public partial class MainWindow
         {
             voiceActivity.SetThreshold(thresholdSlider.Value);
             thresholdLabel.Text = $"Umbral de actividad: {voiceActivity.ThresholdPercent:0}%";
+            try
+            {
+                store.SetSetting("audio.vad.threshold",
+                    voiceActivity.ThresholdPercent.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo guardar el umbral: " + exception.Message;
+            }
         };
         panel.Children.Add(thresholdLabel);
         panel.Children.Add(thresholdSlider);
@@ -57,6 +78,15 @@ public partial class MainWindow
         {
             voiceActivity.SetReleaseHold(TimeSpan.FromMilliseconds(holdSlider.Value));
             holdLabel.Text = $"Retención para evitar parpadeo: {voiceActivity.ReleaseHold.TotalMilliseconds:0} ms";
+            try
+            {
+                store.SetSetting("audio.vad.releaseHoldMs",
+                    voiceActivity.ReleaseHold.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo guardar la retención de voz: " + exception.Message;
+            }
         };
         panel.Children.Add(holdLabel);
         panel.Children.Add(holdSlider);
@@ -71,11 +101,18 @@ public partial class MainWindow
                     FooterStatus.Text = "No hay micrófonos disponibles.";
                     return;
                 }
+                if (devices.SelectedIndex < 0 || devices.SelectedIndex >= WaveIn.DeviceCount)
+                {
+                    FooterStatus.Text = "Elegí un dispositivo de entrada válido.";
+                    return;
+                }
 
+                var chosenDevice = WaveIn.GetCapabilities(devices.SelectedIndex).ProductName;
+                store.SetSetting("audio.microphone.deviceName", chosenDevice);
                 voiceActivity.Reset();
                 microphone = new WaveInEvent
                 {
-                    DeviceNumber = Math.Max(0, devices.SelectedIndex),
+                    DeviceNumber = devices.SelectedIndex,
                     WaveFormat = new WaveFormat(16000, 16, 1),
                     BufferMilliseconds = 50
                 };
@@ -210,7 +247,7 @@ public partial class MainWindow
             speechQueue.ClearPending();
             store.Log("Audio", "Cola de voz pendiente vaciada.");
         }));
-        root.Children.Add(Label("La cola procesa una frase por vez en un hilo STA separado. Podés elegir una voz SAPI instalada, ajustar velocidad (-10 a 10) y volumen (0 a 100). Las alertas usan las preferencias guardadas. No se descarga ni se promete una voz anime: el resultado depende de las voces que tenga Windows. La detección de micrófono usa amplitud suavizada/retención, no reconocimiento semántico ni lip-sync por fonemas.", 12, "#98A4BE"));
+        root.Children.Add(Label("El dispositivo de micrófono, el umbral acústico y la retención se guardan automáticamente y se recuperan al reiniciar. La cola procesa una frase por vez en un hilo STA separado. Podés elegir una voz SAPI instalada, ajustar velocidad (-10 a 10) y volumen (0 a 100). Las alertas usan las preferencias guardadas. No se descarga ni se promete una voz anime: el resultado depende de las voces que tenga Windows. La detección de micrófono usa amplitud suavizada/retención, no reconocimiento semántico ni lip-sync por fonemas.", 12, "#98A4BE"));
         return root;
     }
 
