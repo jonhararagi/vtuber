@@ -849,6 +849,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Esto complementa la generación desde un directorio limpio de `dotnet publish`; no equivale a un análisis antivirus ni a una auditoría del contenido binario, pero evita empaquetar accidentalmente archivos locales con esos nombres.
 - **Estado:** el nuevo workflow debe pasar su propio Windows CI antes de considerar activa esta comprobación.
 
+
+### Corrección del workflow de distribución — 2026-10-12
+
+- La primera edición del filtro de archivos sensibles dejó una expresión PowerShell incompleta; el run #226 falló antes de crear un job, por lo que no llegó a compilar ni empaquetar.
+- Se restauró la expresión completa y la comprobación de error del ZIP. No se considera verificada hasta que el nuevo run del SHA corregido termine en SUCCESS.
+
 ---
 
 # Corte consolidado de continuidad — 2026-10-12

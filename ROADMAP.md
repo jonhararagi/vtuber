@@ -105,3 +105,6 @@ Se estudian las ideas de arquitectura y los flujos; no se copia código, diseño
 ## Distribución segura — endurecimiento CI (2026-10-12)
 
 La comprobación del ZIP de validación se amplió para fallar si aparecen nombres conocidos de bases de datos, journals, logs, backups, cookies, credenciales, secretos, tokens OAuth o archivos `.env`. La generación sigue partiendo de un directorio limpio de publicación; la modificación requiere su propio Windows CI verde.
+
+
+Corrección del 2026-10-12: la primera versión del filtro de archivos sensibles provocó un fallo de parseo del workflow antes de que comenzara un job. La expresión y el `if` de validación se restauraron; el nuevo SHA necesita Windows CI completo.

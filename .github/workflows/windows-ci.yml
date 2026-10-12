@@ -56,8 +56,8 @@ jobs:
           $names = @($archive.Entries | ForEach-Object { $_.FullName })
           if (-not ($names -contains "VtuberBot.App.exe")) { throw "ZIP does not contain VtuberBot.App.exe" }
           if (-not ($names -contains "BUILD-INFO.txt")) { throw "ZIP does not contain BUILD-INFO.txt" }
-          $forbidden = @($names | Where-Object { $_ -match '(^|/)(config\.toml|.*\.(db|sqlite|sqlite3|sqlite-wal|sqlite-shm|db-wal|db-shm|log|bak|backup)|vtuber\.log(\..*)?|cookies?(\..*)?|credentials(\..*)?|secrets?(\..*)?|access[_-]?token(\..*)?|refresh[_-]?token(\..*)?|oauth(\..*)?|token(\..*)?|\.env(\..*)?)
-          "Validated ZIP entries: $($names.Count)"
+          $forbidden = @($names | Where-Object { $_ -match '(^|/)(config\.toml|[^/]*\.(db|sqlite|sqlite3|sqlite-wal|sqlite-shm|db-wal|db-shm|log|bak|backup)|vtuber\.log(\..*)?|cookies?(\..*)?|credentials(\..*)?|secrets?(\..*)?|access[_-]?token(\..*)?|refresh[_-]?token(\..*)?|oauth(\..*)?|token(\..*)?|\.env(\..*)?)$' })
+          if ($forbidden.Count -gt 0) { throw "Package unexpectedly contains local data or credential files: $($forbidden -join ', ')" }
           "ZIP size bytes: $((Get-Item $zipPath).Length)"
         }
         finally { $archive.Dispose() }
