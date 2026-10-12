@@ -80,14 +80,20 @@ public sealed class StreamerBotWebSocketTests
                         await SendTextAsync(socket, """{"timeStamp":"2026-10-12T00:00:00Z","event":{"source":"Twitch","type":"Follow"},"data":{"userName":"viewer"}}""");
                         continue;
                     case "DoAction":
-                        response = JsonSerializer.Serialize(new { status = "ok", id });
+                        var requestedAction = root.GetProperty("action").GetProperty("id").GetString();
+                        response = JsonSerializer.Serialize(new
+                        {
+                            status = requestedAction == "00000000-0000-0000-0000-000000000001" ? "error" : "ok",
+                            id
+                        });
                         break;
                     default:
                         response = JsonSerializer.Serialize(new { status = "error", id });
                         break;
                 }
                 await SendTextAsync(socket, response);
-                if (request == "DoAction") break;
+                if (request == "DoAction" &&
+                    root.GetProperty("action").GetProperty("id").GetString() == "00000000-0000-0000-0000-000000000001") break;
             }
         });
 
@@ -103,6 +109,8 @@ public sealed class StreamerBotWebSocketTests
         Assert.Equal("Twitch.Follow", received.Key);
         var action = await client.DoActionAsync("a0ff6f91-a51e-4b7d-948b-5e03ff4a82f0");
         Assert.True(action.Success);
+        var rejected = await client.DoActionAsync("00000000-0000-0000-0000-000000000001");
+        Assert.False(rejected.Success);
         await server.WaitAsync(TimeSpan.FromSeconds(5));
         await client.DisconnectAsync();
         Assert.Equal(StreamerBotConnectionState.ConfiguredDisconnected, client.Snapshot.State);
