@@ -170,11 +170,12 @@ public static class TwitchOAuth
         if (!response.IsSuccessStatusCode)
             throw CreateOAuthError(response.StatusCode, json,
                 "Twitch no pudo renovar la sesión. Volvé a autorizar la cuenta si el refresh token fue revocado.");
-        return ParseCredentials(json, clientId, previous.RefreshToken) with
+        var refreshed = ParseCredentials(json, clientId, previous.RefreshToken);
+        return refreshed with
         {
             ClientId = clientId,
-            Scopes = previous.Scopes.Length == 0
-                ? ParseCredentials(json, clientId, previous.RefreshToken).Scopes
+            Scopes = previous.Scopes is null || previous.Scopes.Length == 0
+                ? refreshed.Scopes
                 : previous.Scopes
         };
     }
@@ -263,5 +264,5 @@ public static class TwitchOAuth
     private static string Base64Url(byte[] bytes) =>
         Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
-    private sealed class InvalidOAuthTokenException(string message) : Exception(message);
+    private sealed class InvalidOAuthTokenException(string message) : Exception(message) { }
 }

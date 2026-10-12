@@ -227,3 +227,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La persistencia usa DPAPI CurrentUser y JSON protegido, con lectura compatible de tokens cifrados por versiones anteriores.
 - El chat y EventSub validan el token antes de conectar. Mientras están solicitados, un monitor cada cinco minutos valida la sesión y restaura conexiones si hubo rotación de access token. Si el refresh token ya no es válido, se muestra que hace falta volver a autorizar; no se inventa una conexión exitosa.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD que contiene esta actualización.
+
+
+### Revisión posterior — OAuth/credenciales
+- La clase de excepción privada de OAuth usa un cuerpo de clase explícito compatible con C# y MainWindow importa `System.Text.Json` para serializar el registro de credenciales.
+- El monitor de credenciales no desconecta el chat por fallos transitorios de red; solo desactiva conexiones cuando hay evidencia de token expirado/revocado sin renovación posible.
+- Estado: pendiente del resultado del CI de este nuevo HEAD.

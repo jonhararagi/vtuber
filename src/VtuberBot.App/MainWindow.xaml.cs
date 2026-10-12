@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -1129,7 +1130,12 @@ public partial class MainWindow : Window
             }
 
             var credentials = LoadTwitchCredentials();
-            if (credentials is not null && credentials.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+            var authFailure = exception is InvalidOperationException &&
+                (exception.Message.Contains("expiró", StringComparison.OrdinalIgnoreCase) ||
+                 exception.Message.Contains("revocado", StringComparison.OrdinalIgnoreCase) ||
+                 exception.Message.Contains("refresh token", StringComparison.OrdinalIgnoreCase) ||
+                 exception.Message.Contains("Volvé a autorizar", StringComparison.OrdinalIgnoreCase));
+            if (authFailure && credentials is not null && credentials.ExpiresAtUtc <= DateTimeOffset.UtcNow)
             {
                 twitchChatDesired = false;
                 twitchEventSubDesired = false;
