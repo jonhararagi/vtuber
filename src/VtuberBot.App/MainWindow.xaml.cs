@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     private readonly string avatarDirectory;
     private readonly string secretDirectory;
     private readonly TwitchChatClient twitch = new();
+    private readonly ObsWebSocketClient obs = new();
     private AvatarOverlayWindow? overlay;
     private string? avatarPath;
     private WaveInEvent? microphone;
@@ -56,12 +57,14 @@ public partial class MainWindow : Window
         avatarPath = store.GetSetting("avatar.path");
         twitch.StatusChanged += status => Dispatcher.Invoke(() => { FooterStatus.Text = status; RuntimeStatus.Text = twitch.IsConnected ? "●  TWITCH CONECTADO" : "●  LOCAL ACTIVO"; });
         twitch.MessageReceived += HandleTwitchMessage;
+        obs.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         Closed += async (_, _) =>
         {
             automationTimer.Stop();
             microphone?.StopRecording(); microphone?.Dispose();
             if (overlay is not null) overlay.Close();
             await twitch.DisposeAsync();
+            await obs.DisposeAsync();
         };
         automationTimer.Tick += async (_, _) => await ProcessAutomationsAsync();
         automationTimer.Start();
@@ -361,12 +364,41 @@ public partial class MainWindow : Window
 
     private UIElement BuildObsPage()
     {
-        var root=new StackPanel();var panel=Panel("OBS Studio · diagnóstico local");root.Children.Add(panel);
-        panel.Children.Add(Label("WebSocket de OBS",19,"#F8FAFC",true));panel.Children.Add(Label("Dirección predeterminada: 127.0.0.1:4455. La prueba verifica si el puerto acepta conexiones TCP; no autentica ni ejecuta acciones en OBS.",13,"#98A4BE"));
-        var host=TextField("Host");host.Text=store.GetSetting("obs.host","127.0.0.1");var port=TextField("Puerto");port.Text=store.GetSetting("obs.port","4455");panel.Children.Add(host);panel.Children.Add(port);
-        panel.Children.Add(ActionButton("Probar disponibilidad del puerto",async (_,_)=>{try{var p=int.Parse(port.Text);using var tcp=new TcpClient();using var cts=new CancellationTokenSource(TimeSpan.FromSeconds(2));await tcp.ConnectAsync(host.Text,p,cts.Token);FooterStatus.Text="El puerto TCP responde. La sesión OBS WebSocket aún no está autenticada.";MessageBox.Show(this,"Puerto accesible. Para declarar OBS conectado falta completar el handshake WebSocket v5 y la autenticación configurada en OBS.");store.Log("OBS","Puerto TCP accesible; no se realizó autenticación WebSocket.");}catch(Exception ex){FooterStatus.Text=$"OBS no disponible: {ex.Message}";store.Log("OBS",$"Puerto no disponible ({ex.GetType().Name}).");MessageBox.Show(this,$"No se pudo alcanzar el puerto de OBS: {ex.Message}");}},true));
-        panel.Children.Add(ActionButton("Guardar dirección",(_,_)=>{store.SetSetting("obs.host",host.Text.Trim());store.SetSetting("obs.port",port.Text.Trim());FooterStatus.Text="Dirección OBS guardada."; }));
-        root.Children.Add(Label("La ventana overlay transparente se puede agregar a OBS mediante captura de ventana. La integración de escenas y fuentes no se presenta como implementada en esta compilación.",12,"#98A4BE"));return root;
+        var root=new StackPanel();var panel=Panel("OBS Studio · WebSocket v5");root.Children.Add(panel);
+        panel.Children.Add(Label("Conexión autenticada y control de escenas",19,"#F8FAFC",true));
+        panel.Children.Add(Label("Activá WebSocket Server en OBS → Herramientas. La app no registra una conexión hasta completar Hello/Identify. La contraseña se cifra con DPAPI CurrentUser.",13,"#98A4BE"));
+        var host=TextField("Host",store.GetSetting("obs.host","127.0.0.1"));
+        var port=TextField("Puerto",store.GetSetting("obs.port","4455"));
+        var password=new PasswordBox{Password=LoadObsPassword(),Background=Brush("#101525"),Foreground=Brush("#F8FAFC"),BorderBrush=Brush("#34415E"),Padding=new Thickness(10),Margin=new Thickness(0,0,0,8)};
+        panel.Children.Add(Label("Host",12,"#98A4BE"));panel.Children.Add(host);
+        panel.Children.Add(Label("Puerto",12,"#98A4BE"));panel.Children.Add(port);
+        panel.Children.Add(Label("Contraseña de WebSocket (si OBS la exige)",12,"#98A4BE"));panel.Children.Add(password);
+        var actions=new WrapPanel();
+        actions.Children.Add(ActionButton("Conectar y autenticar",async (_,_)=>{try{store.SetSetting("obs.host",host.Text.Trim());store.SetSetting("obs.port",port.Text.Trim());SaveObsPassword(password.Password);await obs.ConnectAsync(host.Text.Trim(),int.Parse(port.Text),password.Password);var version=await obs.GetVersionAsync();FooterStatus.Text="OBS autenticado · versión "+version;store.Log("OBS","Conexión WebSocket v5 autenticada; versión "+version); }catch(Exception ex){FooterStatus.Text="OBS no conectado: "+ex.Message;store.Log("OBS","Conexión WebSocket fallida: "+ex.GetType().Name);MessageBox.Show(this,"No se pudo autenticar con OBS. Confirmá que WebSocket esté habilitado, el puerto y la contraseña.\n\n"+ex.Message);}} ,true));
+        actions.Children.Add(ActionButton("Desconectar",async (_,_)=>await obs.DisconnectAsync()));
+        panel.Children.Add(actions);
+        var scenes=new ComboBox{MinWidth=260};
+        var sceneRow=new WrapPanel();
+        sceneRow.Children.Add(ActionButton("Actualizar escenas",async (_,_)=>{try{scenes.ItemsSource=await obs.GetScenesAsync();if(scenes.Items.Count>0)scenes.SelectedIndex=0;FooterStatus.Text="Escenas recibidas de OBS.";}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));
+        sceneRow.Children.Add(scenes);
+        sceneRow.Children.Add(ActionButton("Cambiar escena",async (_,_)=>{try{if(scenes.SelectedItem is not string selected)throw new InvalidOperationException("Primero cargá y elegí una escena.");await obs.SetCurrentSceneAsync(selected);store.Log("OBS","Escena cambiada a "+selected);FooterStatus.Text="Escena activa: "+selected;}catch(Exception ex){MessageBox.Show(this,ex.Message);}} ,true));
+        panel.Children.Add(Label("Control de escenas",14,"#F8FAFC",true));panel.Children.Add(sceneRow);
+        var overlayPanel=Panel("Avatar overlay para OBS");overlayPanel.Children.Add(Label("El overlay se abre como ventana sin bordes y fondo transparente. En OBS agregá una fuente Captura de ventana y seleccioná “VTuberBot Avatar Overlay”. Doble clic en el overlay alterna Topmost; arrastrá para ubicarlo.",13,"#98A4BE"));
+        overlayPanel.Children.Add(ActionButton("Mostrar overlay",(_,_)=>ShowOverlay(),true));root.Children.Add(overlayPanel);
+        return root;
+    }
+
+    private string LoadObsPassword()
+    {
+        var path=Path.Combine(secretDirectory,"obs-password.bin");if(!File.Exists(path))return "";
+        try{return Encoding.UTF8.GetString(ProtectedData.Unprotect(File.ReadAllBytes(path),null,DataProtectionScope.CurrentUser));}
+        catch{FooterStatus.Text="No se pudo descifrar la contraseña guardada de OBS.";return "";}
+    }
+    private void SaveObsPassword(string password)
+    {
+        var path=Path.Combine(secretDirectory,"obs-password.bin");
+        if(string.IsNullOrEmpty(password)){if(File.Exists(path))File.Delete(path);return;}
+        File.WriteAllBytes(path,ProtectedData.Protect(Encoding.UTF8.GetBytes(password),null,DataProtectionScope.CurrentUser));
     }
 
     private UIElement BuildTelegramPage()
