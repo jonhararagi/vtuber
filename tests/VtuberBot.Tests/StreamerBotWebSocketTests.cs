@@ -123,5 +123,5 @@ public sealed class StreamerBotWebSocketTests
     }
 
     private static Task SendTextAsync(WebSocket socket, string message) =>
-        socket.SendAsync(Encoding.UTF8.GetBytes(message), WebSocketMessageType.Text, true, CancellationToken.None);
+        socket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(message)), WebSocketMessageType.Text, true, CancellationToken.None);
 }
