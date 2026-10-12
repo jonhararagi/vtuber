@@ -325,10 +325,17 @@ public partial class MainWindow
             else
                 FooterStatus.Text = "No se pudo encolar: revisá el texto, velocidad, volumen o el límite de la cola.";
         }, true));
+        panel.Children.Add(ActionButton("Detener voz actual", (_, _) =>
+        {
+            if (speechQueue.StopCurrentSpeech())
+                FooterStatus.Text = "Se solicitó detener la frase que está sonando.";
+            else
+                FooterStatus.Text = "No hay una frase de voz en reproducción.";
+        }));
         panel.Children.Add(ActionButton("Vaciar frases pendientes", (_, _) =>
         {
             speechQueue.ClearPending();
-            store.Log("Audio", "Cola de voz pendiente vaciada.");
+            store.Log("Audio", "Cola de voz pendiente vaciada; la frase actual no se interrumpió.");
         }));
         var soundPanel = Panel("Biblioteca de sonidos locales");
         soundPanel.Margin = new Thickness(0, 14, 0, 0);
