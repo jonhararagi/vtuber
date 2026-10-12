@@ -15,6 +15,23 @@ public sealed class ProductStore
     private readonly string connectionString;
     private readonly object gate = new();
 
+    private static readonly IReadOnlyDictionary<string, string[]> RequiredBackupColumns =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["product_commands"] = ["id","name","response","cooldown_seconds","enabled","created_utc","last_used_utc","cooldown_scope","aliases","permission_scope"],
+            ["product_command_user_cooldowns"] = ["command_id","username","last_used_utc"],
+            ["community_users"] = ["username","points","first_seen_utc","last_seen_utc"],
+            ["point_ledger"] = ["id","username","delta","reason","created_utc"],
+            ["giveaways"] = ["id","name","status","winner","created_utc","closed_utc"],
+            ["giveaway_entries"] = ["giveaway_id","username","entered_utc"],
+            ["game_sessions"] = ["id","game","username","result","reward","created_utc"],
+            ["moderation_rules"] = ["id","name","pattern","enabled","action"],
+            ["automation_rules"] = ["id","name","message","interval_minutes","enabled","last_run_utc"],
+            ["product_activity"] = ["id","at_utc","module","message"],
+            ["avatar_layers"] = ["id","name","path","sort_order","visible","offset_x","offset_y","scale","rotation_degrees"],
+            ["product_settings"] = ["key","value"]
+        };
+
     public ProductStore(string databasePath)
     {
         var fullPath = Path.GetFullPath(databasePath);
@@ -122,6 +139,205 @@ public sealed class ProductStore
     }
 
     private static string Now() => DateTimeOffset.UtcNow.ToString("O");
+
+    /// <summary>Creates an integrity-checked, transactionally consistent SQLite backup.</summary>
+    public string BackupTo(string destinationPath)
+    {
+        if (string.IsNullOrWhiteSpace(destinationPath))
+            throw new ArgumentException("Elegí una ruta para la copia de seguridad.", nameof(destinationPath));
+
+        lock (gate)
+            return BackupLocked(destinationPath);
+    }
+
+    /// <summary>
+    /// Restores a backup after validating its integrity/schema. Before replacement, an automatic
+    /// emergency copy of the current database is written next to it and its path is returned.
+    /// </summary>
+    public string RestoreFromBackup(string backupPath)
+    {
+        if (string.IsNullOrWhiteSpace(backupPath))
+            throw new ArgumentException("Elegí una copia de seguridad para restaurar.", nameof(backupPath));
+
+        lock (gate)
+        {
+            var currentPath = GetDatabasePath();
+            var sourcePath = Path.GetFullPath(backupPath);
+            if (string.Equals(sourcePath, currentPath, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("La ruta elegida es la base activa, no una copia de seguridad.", nameof(backupPath));
+
+            ValidateBackupFile(sourcePath);
+            var directory = Path.GetDirectoryName(currentPath)!;
+            var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss");
+            var emergencyPath = Path.Combine(directory,
+                Path.GetFileName(currentPath) + ".pre-restore-" + timestamp + "-" + Guid.NewGuid().ToString("N")[..8] + ".vtuberbot.db");
+
+            BackupLocked(emergencyPath);
+            try
+            {
+                CopySnapshotToActiveDatabase(sourcePath);
+                ValidateBackupFile(currentPath);
+                return emergencyPath;
+            }
+            catch (Exception restoreError)
+            {
+                try
+                {
+                    CopySnapshotToActiveDatabase(emergencyPath);
+                    ValidateBackupFile(currentPath);
+                }
+                catch (Exception rollbackError)
+                {
+                    throw new InvalidOperationException(
+                        "La restauración falló y no se pudo completar la reversión automática. Conservá la copia de seguridad de emergencia: " + emergencyPath,
+                        new AggregateException(restoreError, rollbackError));
+                }
+
+                throw new InvalidOperationException(
+                    "La restauración falló; la base anterior fue recuperada. La copia de seguridad de emergencia está en: " + emergencyPath,
+                    restoreError);
+            }
+        }
+    }
+
+    private string BackupLocked(string destinationPath)
+    {
+        var activePath = GetDatabasePath();
+        var fullPath = Path.GetFullPath(destinationPath);
+        if (string.Equals(activePath, fullPath, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("La ruta de destino no puede sobrescribir la base activa.", nameof(destinationPath));
+
+        var directory = Path.GetDirectoryName(fullPath)
+            ?? throw new ArgumentException("La ruta de destino no tiene una carpeta.", nameof(destinationPath));
+        Directory.CreateDirectory(directory);
+        var temporaryPath = fullPath + ".tmp-" + Guid.NewGuid().ToString("N");
+
+        try
+        {
+            var destinationBuilder = new SqliteConnectionStringBuilder
+            {
+                DataSource = temporaryPath,
+                Mode = SqliteOpenMode.ReadWriteCreate,
+                ForeignKeys = true,
+                DefaultTimeout = 10
+            };
+
+            using (var source = Open())
+            using (var destination = new SqliteConnection(destinationBuilder.ConnectionString))
+            {
+                destination.Open();
+                source.BackupDatabase(destination);
+            }
+
+            ValidateBackupFile(temporaryPath);
+            File.Move(temporaryPath, fullPath, true);
+            return fullPath;
+        }
+        catch
+        {
+            DeleteSqliteFiles(temporaryPath);
+            throw;
+        }
+        finally
+        {
+            DeleteSqliteFiles(temporaryPath);
+        }
+    }
+
+    private void CopySnapshotToActiveDatabase(string sourcePath)
+    {
+        var sourceBuilder = new SqliteConnectionStringBuilder
+        {
+            DataSource = sourcePath,
+            Mode = SqliteOpenMode.ReadOnly,
+            ForeignKeys = true,
+            DefaultTimeout = 10
+        };
+
+        using var source = new SqliteConnection(sourceBuilder.ConnectionString);
+        source.Open();
+        using (var destination = Open())
+            source.BackupDatabase(destination);
+    }
+
+    private string GetDatabasePath() => Path.GetFullPath(new SqliteConnectionStringBuilder(connectionString).DataSource);
+
+    private static void ValidateBackupFile(string path)
+    {
+        if (!File.Exists(path))
+            throw new FileNotFoundException("No existe el archivo de copia de seguridad.", path);
+        if (new FileInfo(path).Length == 0)
+            throw new InvalidDataException("El archivo de copia de seguridad está vacío.");
+
+        try
+        {
+            var builder = new SqliteConnectionStringBuilder
+            {
+                DataSource = Path.GetFullPath(path),
+                Mode = SqliteOpenMode.ReadOnly,
+                ForeignKeys = true,
+                DefaultTimeout = 10
+            };
+            using var connection = new SqliteConnection(builder.ConnectionString);
+            connection.Open();
+
+            using (var integrity = connection.CreateCommand())
+            {
+                integrity.CommandText = "PRAGMA integrity_check";
+                var result = integrity.ExecuteScalar() as string;
+                if (!string.Equals(result, "ok", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("SQLite no superó integrity_check: " + (result ?? "sin resultado") + ".");
+            }
+
+            var existingTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var tables = connection.CreateCommand())
+            {
+                tables.CommandText = "SELECT name FROM sqlite_master WHERE type='table'";
+                using var reader = tables.ExecuteReader();
+                while (reader.Read())
+                    existingTables.Add(reader.GetString(0));
+            }
+
+            foreach (var requiredTable in RequiredBackupColumns.Keys)
+            {
+                if (!existingTables.Contains(requiredTable))
+                    throw new InvalidDataException("La copia no contiene la tabla requerida '" + requiredTable + "' y no corresponde a este esquema de VTuberBot.");
+
+                var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                using var columns = connection.CreateCommand();
+                columns.CommandText = "PRAGMA table_info(" + requiredTable + ")";
+                using (var reader = columns.ExecuteReader())
+                    while (reader.Read()) existingColumns.Add(reader.GetString(1));
+
+                foreach (var requiredColumn in RequiredBackupColumns[requiredTable])
+                    if (!existingColumns.Contains(requiredColumn))
+                        throw new InvalidDataException(
+                            "La copia no contiene la columna requerida '" + requiredTable + "." + requiredColumn +
+                            "'. Restaurá una copia creada por una versión compatible de VTuberBot.");
+            }
+        }
+        catch (InvalidDataException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is SqliteException or IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidDataException("No se pudo validar la copia de seguridad como base SQLite íntegra de VTuberBot.", exception);
+        }
+    }
+
+    private static void DeleteSqliteFiles(string path)
+    {
+        foreach (var suffix in new[] { "", "-wal", "-shm", "-journal" })
+        {
+            try
+            {
+                var candidate = path + suffix;
+                if (File.Exists(candidate)) File.Delete(candidate);
+            }
+            catch { /* Best-effort cleanup of transient SQLite snapshot files. */ }
+        }
+    }
 
     private void SeedDefaults(SqliteConnection connection)
     {

@@ -156,6 +156,45 @@ public sealed class ProductStoreTests
     }
 
     [Fact]
+    public void BackupAndRestorePreserveDatabaseAndCreateEmergencyCopy()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SaveCommand(null, "before", "Antes {user}", 0, true);
+        store.SetSetting("backup.test.marker", "from-backup");
+        var backupPath = Path.Combine(temp.DirectoryPath, "manual-backup.vtuberbot.db");
+
+        Assert.Equal(backupPath, store.BackupTo(backupPath));
+        Assert.True(File.Exists(backupPath));
+
+        store.SaveCommand(null, "after", "Después {user}", 0, true);
+        store.SetSetting("backup.test.marker", "before-restore");
+        var emergencyPath = store.RestoreFromBackup(backupPath);
+
+        Assert.True(File.Exists(emergencyPath));
+        Assert.Contains(store.GetCommands(), command => command.Name == "before");
+        Assert.DoesNotContain(store.GetCommands(), command => command.Name == "after");
+        Assert.Equal("from-backup", store.GetSetting("backup.test.marker"));
+
+        var emergencyStore = new ProductStore(emergencyPath);
+        Assert.Contains(emergencyStore.GetCommands(), command => command.Name == "after");
+        Assert.Equal("before-restore", emergencyStore.GetSetting("backup.test.marker"));
+    }
+
+    [Fact]
+    public void InvalidBackupIsRejectedWithoutChangingTheActiveDatabase()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SaveCommand(null, "keep", "No perder", 0, true);
+        var invalidBackup = Path.Combine(temp.DirectoryPath, "not-a-database.db");
+        File.WriteAllText(invalidBackup, "esto no es SQLite");
+
+        Assert.Throws<InvalidDataException>(() => store.RestoreFromBackup(invalidBackup));
+        Assert.Contains(store.GetCommands(), command => command.Name == "keep");
+    }
+
+    [Fact]
     public void PointsNeverBecomeNegativeAndLeaderboardPersists()
     {
         using var temp = new TempDb();

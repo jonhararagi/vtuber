@@ -375,3 +375,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Límite de aceptación:** estos 141 tests y la publicación certifican el build, no un end-to-end con credenciales reales del usuario. No se declara el producto finalizado todavía; las limitaciones corregidas arriba describen los siguientes huecos reales.
 - **Estado del control de versiones:** la rama `product/complete-vtuber-experience` es la vía de integración. El PR #9 de estabilización permanece separado y abierto; `main` no se fusionó ni modificó en esta entrega.
 - **Siguiente trabajo recomendado dentro de la misma rama:** backup/restauración guiados de SQLite y un modo de prueba/preview de reglas de moderación; después, una única validación end-to-end de la build actual con Twitch/OBS reales.
+
+
+### Trabajo adicional — backup y restauración guiados de SQLite
+
+- Se añadieron `ProductStore.BackupTo` y `RestoreFromBackup`: usan SQLite Online Backup API (snapshot consistente), verifican `PRAGMA integrity_check`, exigen tablas/columnas compatibles y rechazan archivos corruptos o de otro esquema antes de tocar la base activa.
+- Antes de restaurar se crea una copia automática de emergencia de la base actual. Si la restauración falla, el método intenta revertir a esa copia y señala su ruta.
+- Ajustes/Privacidad ahora permite crear backup con diálogo SaveFileDialog y restaurar con confirmación explícita. La restauración se bloquea con Chat/EventSub activos o mientras el scheduler procesa un mensaje; la UI invalida caches de cooldown y refresca la página.
+- La guía aclara que SQLite no incluye assets de imagen, cookies de Telegram ni credenciales OAuth DPAPI.
+- Pruebas nuevas: restauración conserva el estado de la copia y crea una copia de emergencia del estado anterior; archivo inválido se rechaza sin modificar la DB activa.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este nuevo HEAD.
