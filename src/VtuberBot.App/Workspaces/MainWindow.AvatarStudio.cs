@@ -533,6 +533,7 @@ public partial class MainWindow
         var temporaryPath = dialog.FileName + ".tmp-" + Guid.NewGuid().ToString("N");
         try
         {
+            long totalAssetBytes = 0;
             var layers = store.GetAvatarLayers().OrderBy(layer => layer.SortOrder).ToList();
             if (layers.Count > 100)
                 throw new InvalidOperationException("El paquete admite hasta 100 capas por perfil.");
@@ -554,6 +555,9 @@ public partial class MainWindow
                     var extension = Path.GetExtension(sourcePath).ToLowerInvariant();
                     if (!IsSupportedAvatarImageExtension(extension))
                         throw new InvalidDataException("Formato de imagen no admitido: " + extension);
+                    totalAssetBytes = checked(totalAssetBytes + info.Length);
+                    if (totalAssetBytes > 250 * 1024 * 1024)
+                        throw new InvalidDataException("Los assets del perfil superan el límite total de 250 MB.");
                     var entry = archive.CreateEntry(archivePath, CompressionLevel.Optimal);
                     using var source = File.OpenRead(sourcePath);
                     using var target = entry.Open();

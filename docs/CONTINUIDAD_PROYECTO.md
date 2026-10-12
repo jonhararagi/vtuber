@@ -486,3 +486,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Si la creación del perfil falla, se intenta retirar el perfil parcial y recuperar el perfil anterior; los assets del paquete solo se conservan cuando la importación termina.
 - Credenciales, tokens, cookies y la base de datos completa no forman parte del paquete.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD que contiene esta función.
+
+
+### Límite de tamaño del paquete de avatar
+
+- La exportación ahora rechaza perfiles cuyos assets sumados superan 250 MB, antes de copiar el asset que excedería el límite; mantiene un máximo de 25 MB por imagen.
+- Esta limitación evita que un perfil con muchas copias/repeticiones llene el disco durante la compresión. Pendiente de CI en este HEAD.
