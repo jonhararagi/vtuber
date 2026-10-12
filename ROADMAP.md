@@ -192,3 +192,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 
 - El run #246 falló solo en WpfExecutableSmokeStartsAndClosesCleanly: el proceso no había salido, pero MainWindowHandle seguía en cero al vencer el límite de 15 s. Build y restauración pasaron; el test no completó su verificación de ventana.
 - La prueba mantiene las aserciones de ventana visible y salida limpia, pero concede hasta 30 s para arrancar y 10 s para cerrar. Pendiente de CI del nuevo SHA.
+
+
+## Estabilidad de smoke test y cierre de candidato — CI #247
+
+- Se amplió el tiempo acotado para que el proceso WPF exponga su ventana de 15 a 30 segundos y el cierre limpio de 5 a 10 segundos. No se quitaron las aserciones de ventana visible ni de salida con código 0.
+- Windows CI #247 pasó build, tests, publish self-contained y upload para SHA 76bb8ed4c84805e204f3768ffa1fff3fc8395d5e.
+- El candidato está listo para una única validación global de usuario en Windows; los servicios reales necesitan las credenciales/dispositivos indicados abajo y no se declaran manualmente validados.

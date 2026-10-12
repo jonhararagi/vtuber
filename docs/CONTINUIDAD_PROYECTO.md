@@ -1032,3 +1032,22 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 
 - CI #246 del commit documental 61ed9fcacd600c8a0f05b7bb7f84e95105702eb3 compiló correctamente pero falló una prueba de humo WPF: el proceso seguía vivo tras 15 segundos, pero no había expuesto todavía MainWindowHandle. La misma prueba pasó en CI #245 con el mismo código de aplicación; el resultado es consistente con una carrera/arranque lento del runner, no prueba por sí solo un defecto funcional.
 - Se amplía el límite acotado de arranque de la prueba a 30 s y el cierre a 10 s, sin quitar la comprobación de que la ventana principal aparece ni la de salida limpia. El siguiente CI debe confirmar si queda resuelto.
+
+
+## Resultado posterior — CI #247 y candidato global
+
+- El ajuste de tiempo del smoke test WPF resolvió la ejecución inestable del run #246: Windows CI #247 terminó SUCCESS en el SHA exacto 76bb8ed4c84805e204f3768ffa1fff3fc8395d5e.
+- Run: https://github.com/jonhararagi/vtuber/actions/runs/38291952562
+- Artefacto win-x64: https://github.com/jonhararagi/vtuber/actions/runs/38291952562/artifacts/11766821323
+- Nombre: VTuberBot-Product-Candidate-win-x64-76bb8ed4c84805e204f3768ffa1fff3fc8395d5e.
+- Tamaño: 77,909,102 bytes. SHA-256: 4cbcf0abb26c3c8137d46646f7b14bd501be6aab89910538080fd93cfac6fbe9. Expira 2026-10-26T18:37:24Z.
+- CI #247: Restore, Build Release, automated tests, publicación self-contained Windows x64 y upload de artefacto pasaron. El test de humo mantiene las verificaciones de ventana principal y salida limpia, con límites de espera más tolerantes a la carga del runner.
+- El SHA #247 incluye los cambios de ledger, límites de saldo, redacción de diagnóstico y timeout del smoke test; CI #245 ya había pasado también con el código funcional y pruebas de redacción. CI #246 falló de forma intermitente en la espera de MainWindowHandle; el cambio se hizo en la prueba y #247 confirmó éxito.
+
+### Pendiente para cierre real
+
+- La aplicación no se ha ejecutado manualmente en el equipo del usuario por esta sesión. La validación global sigue pendiente y debe ser una sola pasada, no pruebas por commit.
+- Twitch OAuth/IRC/EventSub, OBS WebSocket real, micrófono y salida SAPI, WebView2/Telegram y captura del overlay en OBS requieren configuración/servicio/hardware del equipo del usuario.
+- No se afirma que haya tracking facial: el parallax depende del cursor sobre el overlay; el Talking/Idle depende de la señal acústica del micrófono.
+- No modificar main; PR #9 sigue abierto, no fusionado. La rama de producto permanece separada.
+- El siguiente commit solo documenta la evidencia del candidato; su propio CI debe verificarse antes de usarlo como HEAD final de entrega.
