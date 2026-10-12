@@ -305,10 +305,14 @@ public partial class MainWindow
         panel.Children.Add(volumeSlider);
         panel.Children.Add(ActionButton("Guardar voz y ajustes", (_, _) =>
         {
-            if (voiceListLoaded)
-                savedVoiceId = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? string.Empty;
-            if (outputListLoaded)
-                savedOutputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty;
+            savedVoiceId = AudioPreferenceSelectionPolicy.Resolve(
+                (voicePicker.SelectedItem as LocalSpeechVoice)?.Id,
+                savedVoiceId,
+                voiceListLoaded);
+            savedOutputId = AudioPreferenceSelectionPolicy.Resolve(
+                (outputPicker.SelectedItem as LocalSpeechOutput)?.Id,
+                savedOutputId,
+                outputListLoaded);
             store.SetSetting("audio.tts.voiceId", savedVoiceId);
             store.SetSetting("audio.tts.outputId", savedOutputId);
             store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -322,8 +326,14 @@ public partial class MainWindow
         panel.Children.Add(ActionButton("＋ Encolar voz", (_, _) =>
         {
             var selectedPriority = priority.SelectedItem is SpeechPriority selected ? selected : SpeechPriority.Normal;
-            var voiceId = voiceListLoaded ? (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? string.Empty : savedVoiceId;
-            var outputId = outputListLoaded ? (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty : savedOutputId;
+            var voiceId = AudioPreferenceSelectionPolicy.Resolve(
+                (voicePicker.SelectedItem as LocalSpeechVoice)?.Id,
+                savedVoiceId,
+                voiceListLoaded);
+            var outputId = AudioPreferenceSelectionPolicy.Resolve(
+                (outputPicker.SelectedItem as LocalSpeechOutput)?.Id,
+                savedOutputId,
+                outputListLoaded);
             if (speechQueue.Enqueue(speech.Text, selectedPriority, voiceId, (int)rateSlider.Value, (int)volumeSlider.Value, outputId))
                 store.Log("Audio", "Frase agregada a la cola TTS local con prioridad " + selectedPriority + ".");
             else
