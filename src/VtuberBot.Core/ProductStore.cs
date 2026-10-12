@@ -693,7 +693,13 @@ public sealed class ProductStore
     /// Renders the current editor text without checking or consuming command cooldowns,
     /// changing user activity, or writing to the activity log.
     /// </summary>
-    public CommandResult PreviewCommandResponse(string name, string response, string username = "Streamer", string arguments = "")
+    public CommandResult PreviewCommandResponse(
+        string name,
+        string response,
+        string username = "Streamer",
+        string arguments = "",
+        string requiredPermission = "everyone",
+        IReadOnlyCollection<string>? userRoles = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             return CommandResult.Failed("Nombre de comando vacío.");
@@ -705,6 +711,10 @@ public sealed class ProductStore
         arguments = (arguments ?? string.Empty).Trim();
         if (arguments.Length > 500)
             return CommandResult.Failed("Los argumentos superan el límite de 500 caracteres.");
+        if (!CommandPermissionPolicy.IsRecognizedScope(requiredPermission))
+            return CommandResult.Failed("El permiso configurado para la simulación no es válido.");
+        if (!CommandPermissionPolicy.IsAllowed(requiredPermission, userRoles))
+            return CommandResult.Failed("El usuario simulado no tiene permiso para usar este comando.");
 
         lock (gate)
         {

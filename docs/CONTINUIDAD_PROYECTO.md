@@ -702,3 +702,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Control:** nuevo ajuste persistente «Reaccionar a follows, suscripciones, redenciones y raids» en la página Twitch, habilitado por defecto.
 - **Pruebas:** mapeo de eventos de espectadores y exclusión de tipos internos/desconocidos.
 - **Estado:** implementado en el nuevo HEAD; Windows CI pendiente. La recepción de eventos reales aún necesita validación con cuenta Twitch.
+
+
+### 2026-10-12 — Simulación local de comandos con permisos de Twitch
+
+- **UX:** el formulario de comandos ahora permite simular usuario, argumentos y rol (sin rol, suscriptor, VIP, moderador o broadcaster).
+- **Seguridad de pruebas:** la simulación evalúa el permiso mínimo configurado con la misma política que el chat real. Se rechazan scopes desconocidos y los usuarios simulados sin rol suficiente reciben el mismo tipo de denegación sin enviar mensajes.
+- **Sin efectos persistentes:** la simulación sigue usando `PreviewCommandResponse`; no crea usuarios ni consume cooldown, a diferencia de ejecutar un comando real. La UI lo indica expresamente para evitar confundir la simulación con una ejecución del chat.
+- **Pruebas:** rol insuficiente rechazado, rol suficiente aprobado sin crear usuario, el comando sigue disponible para la primera ejecución real y scopes inválidos rechazados.
+- **Estado:** código y pruebas añadidos en el nuevo HEAD; Windows CI pendiente.

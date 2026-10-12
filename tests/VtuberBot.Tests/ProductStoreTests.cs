@@ -132,6 +132,38 @@ public sealed class ProductStoreTests
     }
 
     [Fact]
+    public void PreviewChecksConfiguredPermissionUsingSimulatedRolesWithoutCreatingUser()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SaveCommand(null, "staff-only", "Hola {user}", 3600, true, "global", "", "moderator");
+
+        var denied = store.PreviewCommandResponse(
+            "staff-only", "Hola {user}", "preview_staff", "", "moderator", Array.Empty<string>());
+        Assert.False(denied.Success);
+        Assert.Contains("permiso", denied.Message, StringComparison.OrdinalIgnoreCase);
+
+        var allowed = store.PreviewCommandResponse(
+            "staff-only", "Hola {user}", "preview_staff", "", "moderator", new[] { "moderator" });
+        Assert.True(allowed.Success);
+        Assert.Equal("Hola preview_staff", allowed.Message);
+        Assert.DoesNotContain(store.GetLeaderboard(), user => user.Username == "preview_staff");
+
+        // Preview never uses the persisted command record to start its cooldown.
+        Assert.True(store.RunLocalCommand("staff-only", "preview_staff", "", new[] { "moderator" }).Success);
+    }
+
+    [Fact]
+    public void PreviewRejectsUnknownPermissionScope()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var result = store.PreviewCommandResponse("demo", "Hello", "preview_user", "", "owner", new[] { "broadcaster" });
+        Assert.False(result.Success);
+        Assert.Contains("permiso", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void PreviewingEditedCommandDoesNotConsumeCooldownOrCreateUser()
     {
         using var temp = new TempDb();

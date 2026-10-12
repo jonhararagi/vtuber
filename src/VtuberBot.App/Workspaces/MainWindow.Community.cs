@@ -47,13 +47,42 @@ public partial class MainWindow
             MinWidth=250
         };
         string SelectedPermissionScope()=>permissionScope.SelectedIndex switch{1=>"subscriber",2=>"vip",3=>"moderator",4=>"broadcaster",_=>"everyone"};
+        var testUsername=TextField("Usuario de prueba (solo simulación)");
+        testUsername.Text="preview_user";
+        var testRole=new ComboBox
+        {
+            ItemsSource=new[]{"Sin rol","Suscriptor","VIP","Moderador","Broadcaster"},
+            SelectedIndex=0,
+            MinWidth=220
+        };
+        IReadOnlyCollection<string> SelectedTestRoles()=>testRole.SelectedIndex switch
+        {
+            1=>new[]{"subscriber"},
+            2=>new[]{"vip"},
+            3=>new[]{"moderator"},
+            4=>new[]{"broadcaster"},
+            _=>Array.Empty<string>()
+        };
         var testArguments=TextField("Argumentos de prueba (no se envían al chat)");
         var enabled=new CheckBox{Content="Comando habilitado",IsChecked=true,Foreground=Brush("#F8FAFC"),Margin=new Thickness(0,0,0,10)};
         list.SelectionChanged+=(_,_)=>{if(list.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split((char)32)[0]);var selected=store.GetCommands().FirstOrDefault(c=>c.Id==selectedId);if(selected is null)return;editingCommandId=selected.Id;name.Text=selected.Name;aliases.Text=selected.Aliases;response.Text=selected.Response;cooldown.Text=selected.CooldownSeconds.ToString();cooldownScope.SelectedIndex=selected.CooldownScope=="user"?1:0;permissionScope.SelectedIndex=selected.PermissionScope switch{"subscriber"=>1,"vip"=>2,"moderator"=>3,"broadcaster"=>4,_=>0};enabled.IsChecked=selected.Enabled;}catch{}};
-        panel.Children.Add(Label("Crear o editar",13,"#F8FAFC",true));panel.Children.Add(name);panel.Children.Add(aliases);panel.Children.Add(response);panel.Children.Add(cooldown);panel.Children.Add(Label("Tipo de cooldown",12,"#98A4BE"));panel.Children.Add(cooldownScope);panel.Children.Add(Label("Permiso mínimo",12,"#98A4BE"));panel.Children.Add(permissionScope);panel.Children.Add(testArguments);panel.Children.Add(enabled);
+        panel.Children.Add(Label("Crear o editar",13,"#F8FAFC",true));panel.Children.Add(name);panel.Children.Add(aliases);panel.Children.Add(response);panel.Children.Add(cooldown);panel.Children.Add(Label("Tipo de cooldown",12,"#98A4BE"));panel.Children.Add(cooldownScope);panel.Children.Add(Label("Permiso mínimo",12,"#98A4BE"));panel.Children.Add(permissionScope);
+        panel.Children.Add(Label("Usuario simulado",12,"#98A4BE"));panel.Children.Add(testUsername);
+        panel.Children.Add(Label("Rol de Twitch para simular permisos",12,"#98A4BE"));panel.Children.Add(testRole);
+        panel.Children.Add(testArguments);panel.Children.Add(enabled);
         var row=new WrapPanel();
-        row.Children.Add(ActionButton("Guardar comando",(_,_)=>{try{store.SaveCommand(editingCommandId,name.Text,response.Text,int.Parse(cooldown.Text),enabled.IsChecked==true,cooldownScope.SelectedIndex==1?"user":"global",aliases.Text,SelectedPermissionScope());Reload();list.SelectedItem=null;editingCommandId=null;name.Clear();aliases.Clear();response.Clear();testArguments.Clear();cooldownScope.SelectedIndex=0;permissionScope.SelectedIndex=0;FooterStatus.Text="Comando guardado en SQLite.";}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
-        row.Children.Add(ActionButton("Previsualizar respuesta",(_,_)=>{var result=store.PreviewCommandResponse(name.Text,response.Text,"preview_user",testArguments.Text);MessageBox.Show(this,result.Message,"Previsualización local");}));
+        row.Children.Add(ActionButton("Guardar comando",(_,_)=>{try{store.SaveCommand(editingCommandId,name.Text,response.Text,int.Parse(cooldown.Text),enabled.IsChecked==true,cooldownScope.SelectedIndex==1?"user":"global",aliases.Text,SelectedPermissionScope());Reload();list.SelectedItem=null;editingCommandId=null;name.Clear();aliases.Clear();response.Clear();testArguments.Clear();testUsername.Text="preview_user";testRole.SelectedIndex=0;cooldownScope.SelectedIndex=0;permissionScope.SelectedIndex=0;FooterStatus.Text="Comando guardado en SQLite.";}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
+        row.Children.Add(ActionButton("Simular comando (sin efectos)",(_,_) =>
+        {
+            var result=store.PreviewCommandResponse(
+                name.Text,response.Text,testUsername.Text,testArguments.Text,
+                SelectedPermissionScope(),SelectedTestRoles());
+            MessageBox.Show(this,result.Message,"Simulación local · sin cooldown ni cambios",MessageBoxButton.OK,
+                result.Success?MessageBoxImage.Information:MessageBoxImage.Warning);
+            FooterStatus.Text=result.Success
+                ?"Simulación completada; no se ejecutó el comando ni se consumió cooldown."
+                :"Simulación rechazada; el comando no se ejecutó.";
+        }));
         row.Children.Add(ActionButton("Eliminar seleccionado",(_,_)=>{if(list.SelectedIndex<0)return;var id=long.Parse(list.SelectedItem!.ToString()!.Split(' ')[0]);if(MessageBox.Show(this,"¿Eliminar el comando seleccionado?","Confirmar",MessageBoxButton.YesNo)==MessageBoxResult.Yes){store.DeleteCommand(id);Reload();}}));
         panel.Children.Add(row);root.Children.Add(Label("El cooldown puede ser global o por usuario. El permiso mínimo se comprueba con etiquetas autenticadas de Twitch: Todos, Suscriptores, VIP, Moderadores o solo Broadcaster. Moderadores pueden usar los niveles de suscriptor/VIP; solo el broadcaster puede usar los comandos exclusivos del broadcaster. Un uso denegado se registra y no consume cooldown.",12,"#98A4BE"));return root;
     }
