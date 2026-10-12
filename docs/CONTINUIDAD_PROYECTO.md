@@ -292,3 +292,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - OAuth ahora solicita `moderator:manage:chat_messages` además de `moderator:manage:banned_users`; los usuarios que ya habían autorizado deben repetir OAuth para obtener el nuevo scope.
 - Las reglas validan la acción permitida y se añaden pruebas de persistencia de acciones y rechazo de acciones desconocidas.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el nuevo HEAD. No se ha afirmado que una cuenta Twitch real acepte estas acciones sin probar credenciales/permisos del usuario.
+
+
+### Aclaración de permisos de moderación
+- El manual de usuario y la pantalla Twitch enumeran ahora `moderator:manage:chat_messages` además de `moderator:manage:banned_users`.
+- El endpoint de borrado utilizado es el oficial `DELETE /helix/moderation/chat` y requiere `broadcaster_id`, `moderator_id` y el ID individual del mensaje; el cliente rechaza un ID vacío para evitar una solicitud de borrado masivo. Fuente oficial consultada: https://dev.twitch.tv/docs/api/reference#delete-chat-messages
+- Las reglas automáticas siguen desactivadas por defecto y necesitan confirmación explícita para afectar a un chat real.
