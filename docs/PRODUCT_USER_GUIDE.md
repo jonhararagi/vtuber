@@ -23,6 +23,20 @@ El Dashboard muestra CPU y RAM reales del proceso cada dos segundos mientras est
 
 El overlay compone la imagen base con capas transformables, reproduce el sprite asignado al estado activo y aplica movimiento respiratorio sutil. El parpadeo automático requiere un sprite Blink de ojos cerrados asignado: sin ese archivo, no se atenúa la imagen completa ni se simula un parpadeo falso. “Reducir movimiento” suspende el parpadeo y la respiración. El micrófono activa Talking con un detector acústico configurable. Esto no equivale a un rig con huesos/física ni a lip-sync por fonemas; usá sprites de expresión con el mismo lienzo para evitar desalineaciones.
 
+## Avatar externo con PNGTuber Plus
+
+Usá **Avatar externo** para configurar una copia de PNGTuber Plus que ya esté instalada. Esta opción es independiente de los perfiles y capas de **Avatar Studio** nativo; no importa ni convierte archivos .vtuberavatar.
+
+1. Seleccioná el ejecutable dentro de la carpeta extraída. Según el paquete distribuido, el .exe, el .pck y las bibliotecas .dll deben permanecer juntos. No ejecutes desde dentro del ZIP.
+2. Abrí la aplicación y completá el asistente paso a paso. La ruta y las confirmaciones se guardan en SQLite y se recuperan al reiniciar VTuberBot.
+3. Importá PNG transparentes dentro de PNGTuber Plus, configurá el micrófono allí, prepara sprites/expresiones y guarda el avatar con las funciones propias de PNGTuber Plus.
+4. En OBS, prueba una captura de ventana con transparencia. Si el método de captura no conserva el canal alfa, usa un fondo verde sólido y aplica el filtro Chroma Key a esa fuente.
+5. Para los atajos, crea el registro en VTuberBot y asigna la misma tecla dentro de PNGTuber Plus. “Enviado, no verificado” significa que Windows envió la tecla; no confirma un cambio de expresión.
+
+El portal pngtuber.cc/es se presenta en su página “About” como un sitio independiente de fans. Consulta su guía de distribución y el [código fuente público de PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus). La versión que anuncia el portal no demuestra qué versión tienes instalada. VTuberBot no descarga ni instala binarios de terceros y no declara una API/IPC/WebSocket de PNGTuber Plus que no haya podido verificar.
+
+Guía ampliada: [Avatar externo: PNGTuber Plus](PNGTUBER-PLUS-AVATAR-SETUP.md).
+
 ## Twitch: OAuth y chat real
 
 1. Creá una aplicación en la [consola de desarrolladores de Twitch](https://dev.twitch.tv/console/apps).
