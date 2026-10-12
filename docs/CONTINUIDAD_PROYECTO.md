@@ -744,3 +744,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Se centralizó la política de formatos portables en Core; PNG/JPG/JPEG/BMP quedan aceptados por los importadores y los paquetes `.vtuberavatar`. WebP y formatos no declarados se rechazan con la validación común en lugar de fallar más tarde al renderizar.
 - Pruebas para extensiones válidas, comparación sin distinguir mayúsculas y formatos no admitidos.
 - Estado: implementado; Windows CI pendiente.
+
+
+### 2026-10-12 — Retención de cooldowns transitorios durante streams largos
+
+- Los diccionarios de cooldown de puntos de actividad y moderación podían acumular usuarios únicos durante toda la vida del proceso. Cada 1.000 mensajes procesados se eliminan entradas de más de 10 minutos, más del cooldown máximo actual de cinco minutos; los cooldowns activos se conservan.
+- La comparación no vence un registro si el reloj del sistema retrocede, evitando eliminarlo anticipadamente por una diferencia temporal negativa.
+- **CI #209:** falló la prueba inicial de retención de actividad porque la expectativa ignoraba los registros generados por operaciones de puntos/sorteos. La prueba se corrigió para medir la cantidad real previa a la poda; **Windows CI #210 terminó SUCCESS** con la expectativa corregida.
+- **CI #211:** incluye la política de formatos de imagen portables y estaba ejecutándose al registrar este trabajo. El presente commit lanza un nuevo CI; todavía debe verificarse.
+- **Estado:** código y pruebas de retención de cooldown añadidos; CI pendiente.

@@ -74,6 +74,31 @@ public partial class MainWindow
         return root;
     }
 
+    private void PruneExpiredTwitchCooldowns(DateTimeOffset now)
+    {
+        if (++messagesSinceCooldownPrune < CooldownPruneIntervalMessages)
+            return;
+
+        messagesSinceCooldownPrune = 0;
+        RemoveExpiredCooldowns(lastPointAward, now, TimeSpan.FromMinutes(10));
+        RemoveExpiredCooldowns(automaticModerationCooldown, now, TimeSpan.FromMinutes(10));
+    }
+
+    private static void RemoveExpiredCooldowns<TKey>(
+        Dictionary<TKey, DateTimeOffset> cooldowns,
+        DateTimeOffset now,
+        TimeSpan retention)
+        where TKey : notnull
+    {
+        var expiredKeys = cooldowns
+            .Where(entry => CooldownRetentionPolicy.IsExpired(entry.Value, now, retention))
+            .Select(entry => entry.Key)
+            .ToArray();
+
+        foreach (var key in expiredKeys)
+            cooldowns.Remove(key);
+    }
+
     private void HandleTwitchMessage(string raw)
     {
         // Reserve capacity before posting to the UI Dispatcher. This bounds both the
@@ -163,6 +188,7 @@ public partial class MainWindow
         if (!Regex.IsMatch(username, "^[a-zA-Z0-9_]{1,25}$"))
             username = "viewer";
         var text = parsed.Trailing;
+        PruneExpiredTwitchCooldowns(DateTimeOffset.UtcNow);
 
         chatLines.Insert(0, username + ": " + text);
         while (chatLines.Count > 200) chatLines.RemoveAt(chatLines.Count - 1);

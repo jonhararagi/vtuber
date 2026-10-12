@@ -51,6 +51,8 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, DateTimeOffset> lastPointAward = new(StringComparer.OrdinalIgnoreCase);
     private DateTimeOffset lastPointAwardStorageWarning = DateTimeOffset.MinValue;
     private readonly Dictionary<string, DateTimeOffset> automaticModerationCooldown = new(StringComparer.OrdinalIgnoreCase);
+    private const int CooldownPruneIntervalMessages = 1000;
+    private int messagesSinceCooldownPrune;
     private string currentPage = "Inicio";
 
     // Live values are sourced from the Core health monitor, not simulated.
