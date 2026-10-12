@@ -71,18 +71,15 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
                 throw new InvalidOperationException("OBS no envió el mensaje Hello esperado.");
 
             var data = hello.RootElement.GetProperty("d");
-            string? authentication = null;
-            if (data.TryGetProperty("authentication", out var auth))
-            {
-                if (string.IsNullOrEmpty(password))
-                    throw new InvalidOperationException("OBS requiere contraseña para WebSocket.");
-                var challenge = auth.GetProperty("challenge").GetString()
-                    ?? throw new InvalidOperationException("OBS no envió el challenge de autenticación.");
-                var salt = auth.GetProperty("salt").GetString()
-                    ?? throw new InvalidOperationException("OBS no envió el salt de autenticación.");
-                var secret = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(password + salt)));
-                authentication = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(secret + challenge)));
-            }
+            var requiresAuthentication = data.TryGetProperty("authentication", out var auth);
+            ObsAuthenticationPolicy.ValidateHandshake(requiresAuthentication, password);
+
+            var challenge = auth.GetProperty("challenge").GetString()
+                ?? throw new InvalidOperationException("OBS no envió el challenge de autenticación.");
+            var salt = auth.GetProperty("salt").GetString()
+                ?? throw new InvalidOperationException("OBS no envió el salt de autenticación.");
+            var secret = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(password + salt)));
+            var authentication = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(secret + challenge)));
 
             await SendJsonAsync(candidate,
                 new { op = 1, d = new { rpcVersion = 1, authentication, eventSubscriptions = 0x7FF } },

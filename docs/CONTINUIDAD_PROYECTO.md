@@ -1051,3 +1051,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - No se afirma que haya tracking facial: el parallax depende del cursor sobre el overlay; el Talking/Idle depende de la señal acústica del micrófono.
 - No modificar main; PR #9 sigue abierto, no fusionado. La rama de producto permanece separada.
 - El siguiente commit solo documenta la evidencia del candidato; su propio CI debe verificarse antes de usarlo como HEAD final de entrega.
+
+
+## Auditoría integrada — seguridad de autenticación OBS (2026-10-12)
+
+- Hallazgo real: el cliente OBS v5 enviaba Identify con `authentication = null` si el servidor no publicaba challenge y luego reportaba «OBS WebSocket autenticado». Esto permitía que una sesión sin autenticación se presentara como autenticada, contrario al contrato del producto.
+- Corrección en `ObsWebSocketClient`: el handshake exige challenge de autenticación y contraseña no vacía; si OBS no exige contraseña, falla con instrucción clara para habilitarla en los ajustes del servidor WebSocket.
+- Añadida política pura `ObsAuthenticationPolicy` en Core y pruebas para ausencia de challenge, contraseña ausente/espacios y configuración válida.
+- CI del SHA nuevo y validación contra OBS real pendientes; no se afirma conexión real comprobada.

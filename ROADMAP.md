@@ -199,3 +199,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - Se amplió el tiempo acotado para que el proceso WPF exponga su ventana de 15 a 30 segundos y el cierre limpio de 5 a 10 segundos. No se quitaron las aserciones de ventana visible ni de salida con código 0.
 - Windows CI #247 pasó build, tests, publish self-contained y upload para SHA 76bb8ed4c84805e204f3768ffa1fff3fc8395d5e.
 - El candidato está listo para una única validación global de usuario en Windows; los servicios reales necesitan las credenciales/dispositivos indicados abajo y no se declaran manualmente validados.
+
+
+## Seguridad OBS — exigir autenticación del servidor
+
+- La auditoría detectó que el cliente podía aceptar un servidor OBS que no enviara challenge de autenticación y aun así mostrar el estado «autenticado». Ahora exige que OBS WebSocket tenga contraseña habilitada y que se proporcione una contraseña antes de enviar Identify.
+- La validación se extrajo a Core y tiene pruebas para servidor sin challenge, contraseña vacía y configuración válida. No se cambia el algoritmo de challenge/salt de OBS v5.
+- Estado: corrección en la rama de producto; pendiente CI del SHA nuevo y prueba contra OBS real. El usuario debe activar contraseña en Ajustes del servidor WebSocket de OBS.
