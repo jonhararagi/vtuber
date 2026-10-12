@@ -277,7 +277,6 @@ public sealed class TwitchChatClient : IAsyncDisposable
         reader = null;
         writer = null;
         client = null;
-        connectedChannel = null;
         IsConnected = false;
         StatusChanged?.Invoke("Twitch desconectado.");
     }

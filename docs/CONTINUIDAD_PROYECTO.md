@@ -198,3 +198,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - `HandleTwitchMessage` ahora obtiene el usuario desde el prefix y el texto desde el campo trailing de `PRIVMSG`, en lugar de interpretar mal el primer ` :` de un mensaje etiquetado.
 - Añadidas pruebas de mensajes `PRIVMSG` con badges/display-name/message ID, escapes IRCv3 y entradas malformadas.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Corrección de CI — supervisor IRC
+
+- La ejecución #131 falló al compilar por una asignación residual a `connectedChannel` que ya no existía después de quitar ese campo sin uso.
+- Se eliminó la referencia residual. No era un fallo de la lógica de reconexión; igualmente el cambio completo necesita volver a pasar build/tests en el nuevo HEAD.
+- Estado del parser IRC y de esta corrección: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI**.
