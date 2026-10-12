@@ -1458,7 +1458,8 @@ public sealed class Tests
 
         try
         {
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);
+            // Windows CI can be heavily loaded; keep the smoke test bounded but allow WPF startup to settle.
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
             var token = TestContext.Current.CancellationToken;
 
             while (DateTime.UtcNow < deadline)
@@ -1483,7 +1484,7 @@ public sealed class Tests
             Assert.True(process.CloseMainWindow());
 
             await process.WaitForExitAsync(token).WaitAsync(
-                TimeSpan.FromSeconds(5),
+                TimeSpan.FromSeconds(10),
                 token);
 
             Assert.Equal(0, process.ExitCode);

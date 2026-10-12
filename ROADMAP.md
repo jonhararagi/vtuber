@@ -186,3 +186,9 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - El diagnóstico exportado ahora redacta formatos comunes de credenciales, no exporta la ruta completa de SQLite y maneja fallos de escritura.
 - Evidencia del código: SHA `86f93ceba9f74ecd9536921edd6001a32abae8df`; Windows CI #245 SUCCESS (restore, build Release, tests, publicación self-contained win-x64 y upload de artefacto).
 - El producto está listo para la siguiente auditoría global integrada, no declarado terminado: faltan las pruebas manuales de una sola pasada en Windows y las validaciones con las cuentas/dispositivos reales.
+
+
+## CI — tolerancia del smoke test WPF a runners lentos (2026-10-12)
+
+- El run #246 falló solo en WpfExecutableSmokeStartsAndClosesCleanly: el proceso no había salido, pero MainWindowHandle seguía en cero al vencer el límite de 15 s. Build y restauración pasaron; el test no completó su verificación de ventana.
+- La prueba mantiene las aserciones de ventana visible y salida limpia, pero concede hasta 30 s para arrancar y 10 s para cerrar. Pendiente de CI del nuevo SHA.

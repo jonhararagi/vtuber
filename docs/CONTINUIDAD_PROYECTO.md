@@ -1026,3 +1026,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Pendiente de una validación manual global: arranque/cierre en Windows, importación y overlay del avatar, captura de micrófono y voz local, configuración/autenticación de Twitch, comando/puntos/sorteo/minijuego, OBS, fallback Telegram y restauración de backup con datos de prueba.
 - No se modifica main ni se fusiona/cierra PR #9. La rama de producto permanece independiente.
 - Este documento es el corte verificado del SHA #245. El siguiente commit documental debe pasar su propio Windows CI antes de considerarse candidato de entrega.
+
+
+## Corrección de estabilidad del smoke test WPF — CI #246
+
+- CI #246 del commit documental 61ed9fcacd600c8a0f05b7bb7f84e95105702eb3 compiló correctamente pero falló una prueba de humo WPF: el proceso seguía vivo tras 15 segundos, pero no había expuesto todavía MainWindowHandle. La misma prueba pasó en CI #245 con el mismo código de aplicación; el resultado es consistente con una carrera/arranque lento del runner, no prueba por sí solo un defecto funcional.
+- Se amplía el límite acotado de arranque de la prueba a 30 s y el cierre a 10 s, sin quitar la comprobación de que la ventana principal aparece ni la de salida limpia. El siguiente CI debe confirmar si queda resuelto.
