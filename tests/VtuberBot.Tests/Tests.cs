@@ -1450,11 +1450,15 @@ public sealed class Tests
                 WorkingDirectory = Path.GetDirectoryName(executablePath)!,
                 UseShellExecute = false,
                 CreateNoWindow = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
                 Environment = { ["VTUBERBOT_HOME"] = dataDirectory.Path }
             }
         };
 
         Assert.True(process.Start());
+        var standardOutputTask = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
+        var standardErrorTask = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
 
         try
         {
@@ -1487,7 +1491,22 @@ public sealed class Tests
                 TimeSpan.FromSeconds(10),
                 token);
 
-            Assert.Equal(0, process.ExitCode);
+            var standardOutput = await standardOutputTask;
+            var standardError = await standardErrorTask;
+            var logFiles = Directory.Exists(dataDirectory.Path)
+                ? Directory.GetFiles(dataDirectory.Path, "*.log", SearchOption.AllDirectories)
+                : [];
+            var logSummary = string.Join(
+                Environment.NewLine,
+                logFiles.Select(path =>
+                    $"--- {Path.GetRelativePath(dataDirectory.Path, path)} ---{Environment.NewLine}" +
+                    File.ReadAllText(path)));
+            Assert.True(
+                process.ExitCode == 0,
+                $"WPF executable exited with code {process.ExitCode}.{Environment.NewLine}" +
+                $"STDOUT:{Environment.NewLine}{standardOutput}{Environment.NewLine}" +
+                $"STDERR:{Environment.NewLine}{standardError}{Environment.NewLine}" +
+                $"APPLICATION LOGS:{Environment.NewLine}{logSummary}");
         }
         finally
         {
