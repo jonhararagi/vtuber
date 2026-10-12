@@ -205,3 +205,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La ejecución #131 falló al compilar por una asignación residual a `connectedChannel` que ya no existía después de quitar ese campo sin uso.
 - Se eliminó la referencia residual. No era un fallo de la lógica de reconexión; igualmente el cambio completo necesita volver a pasar build/tests en el nuevo HEAD.
 - Estado del parser IRC y de esta corrección: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI**.
+
+
+### Trabajo adicional — juegos y sorteos conectados al chat
+
+- Crear un sorteo anuncia la apertura y el comando `!entrar`; elegir ganador anuncia el resultado si Twitch IRC está conectado.
+- Los minijuegos publican el resultado en el chat cuando la conexión está activa; la sesión y recompensa quedan guardadas en SQLite aunque falle el envío de chat.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
