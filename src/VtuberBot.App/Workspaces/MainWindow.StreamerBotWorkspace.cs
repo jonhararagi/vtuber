@@ -12,6 +12,8 @@ public partial class MainWindow
     private readonly IStreamerBotClient streamerBot = new StreamerBotWebSocketClient();
     private readonly List<CheckBox> streamerBotEventChecks = [];
     private IReadOnlyList<StreamerBotAction> streamerBotActions = [];
+    private TextBlock? streamerBotStateLabel;
+    private TextBlock? streamerBotInfoLabel;
     private const string StreamerBotPasswordFile = "streamerbot-websocket.bin";
 
     private UIElement BuildStreamerBotWorkspace()
@@ -37,6 +39,8 @@ public partial class MainWindow
         var configured = store.GetSetting("integrations.streamerBot.ws.configured", "false") == "true";
         var stateLabel = Label(configured ? "Estado: Configurado, desconectado — conectá para comprobar el servidor." : "Estado: Sin configurar — guardá los ajustes y conectá para comprobar el servidor.", 12, "#E7B56A", true);
         var infoLabel = Label("Instancia: aún no identificada", 12, "#98A4BE");
+        streamerBotStateLabel = stateLabel;
+        streamerBotInfoLabel = infoLabel;
         var errorLabel = Label("", 12, "#F2A6A6");
         config.Children.Add(stateLabel); config.Children.Add(infoLabel); config.Children.Add(errorLabel);
 
@@ -51,25 +55,7 @@ public partial class MainWindow
             remoteWarning.Text = IsLoopbackHost(host.Text) ? "Host local. No se abren puertos ni se modifica el firewall." : "ADVERTENCIA: host remoto. ws:// no cifra el tráfico; verificá la red. No se abre ningún puerto.";
         }
 
-        streamerBot.StateChanged += snapshot => Dispatcher.BeginInvoke(new Action(() =>
-        {
-            stateLabel.Text = "Estado: " + snapshot.State + " — " + snapshot.Message;
-            stateLabel.Foreground = Brush(snapshot.State switch
-            {
-                StreamerBotConnectionState.Connected => "#8FE6D0",
-                StreamerBotConnectionState.AuthenticationError or StreamerBotConnectionState.ProtocolError or StreamerBotConnectionState.ServerInaccessible or StreamerBotConnectionState.UnexpectedDisconnect => "#F2A6A6",
-                _ => "#E7B56A"
-            });
-            if (snapshot.Instance is { } instance)
-                infoLabel.Text = $"Instancia: {instance.Name} · versión {instance.Version} · ID {instance.InstanceId} · {instance.OperatingSystem}";
-            FooterStatus.Text = "Streamer.bot: " + snapshot.Message;
-        }));
-        streamerBot.EventReceived += evt => Dispatcher.BeginInvoke(new Action(() =>
-        {
-            var normalized = $"Streamer.bot/{evt.Source}/{evt.Type}";
-            store.Log("Streamer.bot event", normalized);
-            FooterStatus.Text = "Evento recibido: " + normalized;
-        }));
+
 
         var connectionButtons = new WrapPanel();
         connectionButtons.Children.Add(ActionButton("Guardar configuración", (_, _) =>
@@ -187,6 +173,30 @@ public partial class MainWindow
         root.Children.Add(eventsPanel);
         return root;
     }
+
+    private void HandleStreamerBotStateChanged(StreamerBotConnectionSnapshot snapshot) => Dispatcher.BeginInvoke(new Action(() =>
+    {
+        if (streamerBotStateLabel is not null)
+        {
+            streamerBotStateLabel.Text = "Estado: " + snapshot.State + " — " + snapshot.Message;
+            streamerBotStateLabel.Foreground = Brush(snapshot.State switch
+            {
+                StreamerBotConnectionState.Connected => "#8FE6D0",
+                StreamerBotConnectionState.AuthenticationError or StreamerBotConnectionState.ProtocolError or StreamerBotConnectionState.ServerInaccessible or StreamerBotConnectionState.UnexpectedDisconnect => "#F2A6A6",
+                _ => "#E7B56A"
+            });
+        }
+        if (streamerBotInfoLabel is not null && snapshot.Instance is { } instance)
+            streamerBotInfoLabel.Text = $"Instancia: {instance.Name} · versión {instance.Version} · ID {instance.InstanceId} · {instance.OperatingSystem}";
+        FooterStatus.Text = "Streamer.bot: " + snapshot.Message;
+    }));
+
+    private void HandleStreamerBotEventReceived(StreamerBotEvent evt) => Dispatcher.BeginInvoke(new Action(() =>
+    {
+        var normalized = $"Streamer.bot/{evt.Source}/{evt.Type}";
+        store.Log("Streamer.bot event", normalized);
+        FooterStatus.Text = "Evento recibido: " + normalized;
+    }));
 
     private static bool IsLoopbackHost(string host) =>
         host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || host == "127.0.0.1" || host == "::1";
