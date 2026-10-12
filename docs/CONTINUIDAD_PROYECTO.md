@@ -258,3 +258,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Artefacto asociado a esa referencia: `VTuberBot-Product-Candidate-win-x64-45f03622e71491882e5ae8bbc2c7c279cff73a6e`; digest `sha256:884c0d6bce125af440870097b58e7c9627a4bf4b87efc1f7d4c33aded18007ad`; artifact ID `11733571463`; caduca `2026-10-26T07:36:14Z`.
 - Esta revisión añade eliminación persistida de mensajes programados, botón de limpieza del formulario y una prueba automatizada para borrar el timer y rechazar la repetición de una eliminación. **Pendiente validar CI en el nuevo HEAD.**
 - Mantener el PR de estabilización separado: no fusionarlo, no marcar V0.2.3 final y no iniciar V0.3 en esta tarea sin autorización explícita.
+
+
+### Trabajo adicional — previsualización segura de comandos
+
+- Se separó el render de respuestas del camino de ejecución: `PreviewCommandResponse` acepta la respuesta aún no guardada, las variables y argumentos de prueba sin modificar cooldown, crear perfiles de comunidad ni escribir un evento de ejecución.
+- El editor de comandos incluye un campo de argumentos de prueba y muestra `{args}`/`{message}`; el botón de preview ya no ejecuta un comando real ni consume su cooldown.
+- Prueba de regresión: una previsualización de la respuesta editada no crea el usuario de prueba y no bloquea ejecuciones reales siguientes.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el nuevo HEAD.

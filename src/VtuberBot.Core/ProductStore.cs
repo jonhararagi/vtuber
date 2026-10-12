@@ -148,6 +148,52 @@ public sealed class ProductStore
         Log("Comandos", $"Comando ID {id} eliminado.");
     }
 
+    /// <summary>
+    /// Renders the current editor text without checking or consuming command cooldowns,
+    /// changing user activity, or writing to the activity log.
+    /// </summary>
+    public CommandResult PreviewCommandResponse(string name, string response, string username = "Streamer", string arguments = "")
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return CommandResult.Failed("Nombre de comando vacío.");
+        if (string.IsNullOrWhiteSpace(response))
+            return CommandResult.Failed("La respuesta del comando está vacía.");
+        if (string.IsNullOrWhiteSpace(username) || username.Length > 25 ||
+            username.Any(ch => !(char.IsLetterOrDigit(ch) || ch == '_' || ch == '-')))
+            return CommandResult.Failed("El usuario de prueba debe tener hasta 25 caracteres y usar letras, números, guion o guion bajo.");
+        arguments = (arguments ?? string.Empty).Trim();
+        if (arguments.Length > 500)
+            return CommandResult.Failed("Los argumentos superan el límite de 500 caracteres.");
+
+        lock (gate)
+        {
+            long points = 0;
+            using (var c = Open())
+            using (var cmd = c.CreateCommand())
+            {
+                cmd.CommandText = "SELECT points FROM community_users WHERE username=$user COLLATE NOCASE";
+                cmd.Parameters.AddWithValue("$user", username.Trim());
+                var storedPoints = cmd.ExecuteScalar();
+                if (storedPoints is not null && storedPoints is not DBNull)
+                    points = Convert.ToInt64(storedPoints, System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            var output = RenderCommandResponse(response, username.Trim(), points, arguments);
+            if (output.Length > 500)
+                return CommandResult.Failed("La respuesta supera el límite de 500 caracteres de Twitch; reducila en la configuración.");
+            return CommandResult.Succeeded(output);
+        }
+    }
+
+    private static string RenderCommandResponse(string response, string username, long points, string arguments)
+    {
+        return response.Replace("{user}", username, StringComparison.OrdinalIgnoreCase)
+            .Replace("{points}", points.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
+            .Replace("{roll}", Random.Shared.Next(1, 7).ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
+            .Replace("{args}", arguments, StringComparison.OrdinalIgnoreCase)
+            .Replace("{message}", arguments, StringComparison.OrdinalIgnoreCase);
+    }
+
     public CommandResult RunLocalCommand(string name, string username = "Streamer", string arguments = "")
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -171,12 +217,7 @@ public sealed class ProductStore
                 return CommandResult.Failed("Comando en cooldown; esperá " + Math.Ceiling((TimeSpan.FromSeconds(cooldown) - (now - lastUsed.Value)).TotalSeconds).ToString("0") + " s.");
 
             var user = GetOrCreateUser(c, username);
-            var roll = Random.Shared.Next(1, 7).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            var output = response.Replace("{user}", username, StringComparison.OrdinalIgnoreCase)
-                .Replace("{points}", user.Points.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
-                .Replace("{roll}", roll, StringComparison.OrdinalIgnoreCase)
-                .Replace("{args}", arguments, StringComparison.OrdinalIgnoreCase)
-                .Replace("{message}", arguments, StringComparison.OrdinalIgnoreCase);
+            var output = RenderCommandResponse(response, username, user.Points, arguments);
             if (output.Length > 500)
                 return CommandResult.Failed("La respuesta supera el límite de 500 caracteres de Twitch; reducila en la configuración del comando.");
 

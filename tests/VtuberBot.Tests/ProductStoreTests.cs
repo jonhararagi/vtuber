@@ -28,6 +28,27 @@ public sealed class ProductStoreTests
     }
 
     [Fact]
+    public void PreviewingEditedCommandDoesNotConsumeCooldownOrCreateUser()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SaveCommand(null, "eco", "Guardado {user}: {args}", 3600, true);
+
+        var preview = store.PreviewCommandResponse("eco", "¡{user} dice: {message}! ({points} pts)", "preview_user", "hola chat");
+        Assert.True(preview.Success);
+        Assert.Equal("¡preview_user dice: hola chat! (0 pts)", preview.Message);
+        Assert.DoesNotContain(store.GetLeaderboard(), user => user.Username == "preview_user");
+
+        var actual = store.RunLocalCommand("eco", "viewer_1", "primer mensaje");
+        Assert.True(actual.Success);
+        Assert.Contains("primer mensaje", actual.Message);
+
+        // The editor preview neither consumed the command cooldown nor changed its saved response.
+        Assert.True(store.RunLocalCommand("eco", "viewer_2", "segundo mensaje").Success);
+        Assert.Contains(store.GetCommands(), command => command.Name == "eco" && command.Response == "Guardado {user}: {args}");
+    }
+
+    [Fact]
     public void PointsNeverBecomeNegativeAndLeaderboardPersists()
     {
         using var temp = new TempDb();
