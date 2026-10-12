@@ -1,5 +1,7 @@
 using Xunit;
-using VtuberBot.App;
+using LocalSpeechQueue = VtuberBot.App.LocalSpeechQueue;
+using ILocalSpeechSession = VtuberBot.App.ILocalSpeechSession;
+using SpeechPlaybackResult = VtuberBot.App.SpeechPlaybackResult;
 using CoreTaskScheduler = VtuberBot.Core.TaskScheduler;
 using Microsoft.Data.Sqlite;
 using System.Diagnostics;
@@ -2900,10 +2902,10 @@ public sealed class Tests
         using var queue = new LocalSpeechQueue(() => session);
 
         Assert.True(queue.Enqueue("Frase de prueba que debe poder detenerse."));
-        await session.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await session.Started.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
 
         Assert.True(queue.StopCurrentSpeech());
-        await session.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await session.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -2913,10 +2915,10 @@ public sealed class Tests
         var queue = new LocalSpeechQueue(() => session);
 
         Assert.True(queue.Enqueue("Frase de prueba durante el cierre."));
-        await session.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await session.Started.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
 
         queue.Dispose();
-        await session.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await session.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
     }
 
     private sealed class BlockingSpeechSession : ILocalSpeechSession
