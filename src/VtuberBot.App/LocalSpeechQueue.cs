@@ -230,17 +230,28 @@ public sealed class LocalSpeechQueue : IDisposable
         }
 
         int pending;
+        string? rejection = null;
         lock (gate)
         {
             if (stopping || queue.Count + (speaking ? 1 : 0) >= MaximumPending)
             {
                 pending = queue.Count;
-                Notify(stopping ? "La cola está cerrándose." : "La cola llegó al límite de 32 frases.", pending);
-                return false;
+                rejection = stopping
+                    ? "La cola está cerrándose."
+                    : "La cola llegó al límite de 32 frases.";
             }
-            var item = new SpeechItem(text.Trim(), priority, ++sequence, voiceId?.Trim() ?? string.Empty, rate, volume);
-            queue.Enqueue(item, ((int)priority, item.Sequence));
-            pending = queue.Count;
+            else
+            {
+                var item = new SpeechItem(text.Trim(), priority, ++sequence, voiceId?.Trim() ?? string.Empty, rate, volume);
+                queue.Enqueue(item, ((int)priority, item.Sequence));
+                pending = queue.Count;
+            }
+        }
+
+        if (rejection is not null)
+        {
+            Notify(rejection, pending);
+            return false;
         }
 
         signal.Set();
@@ -312,11 +323,8 @@ public sealed class LocalSpeechQueue : IDisposable
         try { Marshal.FinalReleaseComObject(value); } catch { }
     }
 
-    private void Notify(string status, int pending)
-    {
-        try { StatusChanged?.Invoke(status, pending); }
-        catch { /* UI notification failures must not terminate the speech worker. */ }
-    }
+    private void Notify(string status, int pending) =>
+        VtuberBot.Core.SafeEventDispatch.Invoke(StatusChanged, status, pending);
 
     public void Dispose()
     {

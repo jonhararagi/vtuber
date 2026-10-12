@@ -793,3 +793,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Arranque WPF/SQLite:** el mismo CI falló de forma reproducible en el smoke test al usar una raíz de datos nueva: la base por defecto está en `data/vtuber.sqlite3`, pero solo se creaba la carpeta raíz, no el subdirectorio de la base. `VtuberApplication.Initialize` crea el directorio padre de la ruta de SQLite antes de abrir la conexión.
 - **Regresión añadida:** prueba de integración Core con un directorio de base inexistente que verifica creación del directorio y del archivo de base.
 - **Estado:** correcciones en el nuevo HEAD; Windows CI pendiente.
+
+
+### 2026-10-12 — Notificaciones TTS fuera del bloqueo de la cola
+
+- **Hallazgo:** cuando la cola SAPI estaba llena o cerrándose, `LocalSpeechQueue.Enqueue` notificaba a la UI dentro del bloqueo `gate`. Un suscriptor que ejecutara trabajo síncrono o intentara cerrar/reentrar en la cola podía prolongar la sección crítica o bloquear al worker.
+- **Corrección:** la ruta de rechazo captura el mensaje/cantidad bajo el bloqueo y notifica después de soltarlo. `StatusChanged` usa `SafeEventDispatch`, por lo que una excepción de un listener no impide notificar a los posteriores ni termina el worker de voz.
+- **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.
