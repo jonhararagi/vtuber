@@ -243,3 +243,8 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Se rechazan mensajes automáticos vacíos o de más de 500 caracteres, y la marca de última ejecución se escribe después del envío confirmado.
 - Añadida prueba de SQLite para round-trip de fecha, edición y conservación del intervalo de la última ejecución.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Corrección de prueba — timers con datos semilla
+- La base de pruebas incluye el timer semilla `Bienvenida`; la prueba de persistencia identifica ahora el timer `Timer` por nombre en lugar de asumir que la tabla contiene solo una fila.
+- Estado: ajuste de test implementado; validar en Windows CI.

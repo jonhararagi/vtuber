@@ -59,18 +59,18 @@ public sealed class ProductStoreTests
         using var temp = new TempDb();
         var store = new ProductStore(temp.DatabasePath);
         store.SaveAutomationRule(null, "Timer", "Mensaje de prueba", 10, true);
-        var automation = Assert.Single(store.GetAutomationRules());
+        var automation = Assert.Single(store.GetAutomationRules(), rule => rule.Name == "Timer");
         Assert.Equal("Timer", automation.Name);
         Assert.True(automation.Enabled);
         Assert.Null(automation.LastRunUtc);
 
         var sentAt = DateTimeOffset.Parse("2026-10-12T12:34:56Z");
         store.MarkAutomationRun(automation.Id, sentAt);
-        Assert.Equal(sentAt, Assert.Single(store.GetAutomationRules()).LastRunUtc);
+        Assert.Equal(sentAt, Assert.Single(store.GetAutomationRules(), rule => rule.Name == "Timer").LastRunUtc);
 
         // Editing an automation must preserve its persisted anti-spam timestamp.
         store.SaveAutomationRule(automation.Id, "Timer", "Mensaje editado", 15, true);
-        var edited = Assert.Single(store.GetAutomationRules());
+        var edited = Assert.Single(store.GetAutomationRules(), rule => rule.Name == "Timer");
         Assert.Equal("Mensaje editado", edited.Message);
         Assert.Equal(15, edited.IntervalMinutes);
         Assert.Equal(sentAt, edited.LastRunUtc);
