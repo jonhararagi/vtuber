@@ -1,6 +1,6 @@
 # Prompts de desarrollo — VTuber Bot
 
-Repositorio: https://github.com/inaofumi753-eng/vtuber
+Repositorio: https://github.com/jonhararagi/vtuber
 
 Este archivo contiene los prompts oficiales de trabajo del proyecto. GPT y Gemini se utilizan como herramientas de desarrollo; el producto final no debe depender de APIs de IA.
 
@@ -575,3 +575,86 @@ Puedes compilar y ejecutar tests a lo largo del desarrollo para corregir errores
 6. Entrega un informe final conciso y un único enlace al candidato integral.
 
 No fusiones ningún PR sin autorización expresa. No declares terminado el producto solo porque la compilación funciona.
+
+
+---
+
+# 10. GPT OBRERO — REANUDACIÓN Y CIERRE INTEGRAL (2026-10-12)
+
+Copia este bloque como instrucción de trabajo cuando retomes el proyecto. Este bloque complementa la sección 9; no la reemplaza.
+
+## Orden de trabajo inmediato
+
+Trabaja directamente en GitHub, en `jonhararagi/vtuber`, rama `product/complete-vtuber-experience`. Tu punto de partida conocido es HEAD `e6909d3018fa6bdc660444b5f77b168795194918`, con Windows CI #221 en verde (build, tests y paquete win-x64). **Primero verifica HEAD y CI actuales; la rama puede haber avanzado desde que se escribió este prompt.**
+
+Lee completos `docs/PRODUCT_BLUEPRINT.md`, `PROJECT_SPEC.md`, `ROADMAP.md`, `docs/CONTINUIDAD_PROYECTO.md` y esta sección de `PROMPTS.md`. La continuidad contiene el corte consolidado del 2026-10-12, el historial y los parámetros vigentes.
+
+## Misión no negociable
+
+Termina el producto integrado descrito por la especificación, no la siguiente pequeña lista de correcciones. Audita todas las páginas y flujos reales; identifica cualquier requisito no implementado, a medias, sin conectar o solo decorativo; implementa y conecta lo que falte; añade pruebas; corrige todos los fallos que detectes; repite hasta tener un candidato global coherente. Avanza autónomamente por bloques integrados y no pidas aprobación rutinaria ni pruebas manuales de builds intermedias. No esperes que el usuario programe localmente ni le delegues operaciones de Git.
+
+## Límites del repositorio
+
+- No cambies a otra rama. No modifiques `main`, no fusiones ni cierres PR #9, no reescribas el historial.
+- GitHub es fuente de verdad: commits reales, cambios revisables, CI de Windows y continuidad actualizada.
+- No reescribas grandes cantidades de código a ciegas ni sustituyas funciones completas por mocks. Inspecciona primero los contratos y llamadas reales y conserva la funcionalidad que ya sirve.
+- No agregues APIs de IA pagas/obligatorias ni servicios de pago. Las conexiones de Twitch/OBS/Telegram siguen siendo optativas y deben mostrar estados reales, requisitos y errores.
+- Nunca registres tokens, contraseñas, cookies, texto secreto, bases de datos personales ni logs en Git o en el paquete.
+- No cierres procesos del usuario ni ejecutes acciones destructivas del sistema.
+
+## Decisiones y parámetros vigentes que debes preservar
+
+- **Plataforma:** C# / .NET 10 / WPF / SQLite. Core no debe depender de WPF. No EF Core.
+- **Cola de chat Twitch:** capacidad 1.000, con cupo reservado antes de programar callbacks del Dispatcher.
+- **EventSub:** cola ordinaria 200, cola crítica 20 para revocaciones/errores de suscripción, hasta 50 procesados por turno UI.
+- **Texto de alertas:** cada campo máximo 160 caracteres y resumen final máximo 400; payloads de tipos desconocidos no deben mostrar JSON crudo.
+- **SQLite:** mantener como máximo 100.000 entradas del log de actividad; poda al iniciar y cada 5.000 escrituras. No eliminar ledgers, puntos, participantes, sorteos, sesiones ni datos de comandos al podar.
+- **Cooldowns temporales:** revisar cada 1.000 mensajes y eliminar entradas con más de 10 minutos; nunca vencerlas antes si el reloj retrocede.
+- **TTS local:** máximo 2.000 caracteres normalizados por frase; cola con límite de 32; callbacks fuera de locks.
+- **Prompts de avatar:** ocho roles; máximo 12.000 caracteres por prompt; persistencia por perfil; paquetes viejos compatibles con campo opcional.
+- **Sorteos:** nombre máximo 100 caracteres, solo un sorteo abierto, cancelación sin ganador con historial.
+- **Sprites:** nombre de capa `Fondo` detrás de la imagen base; PNG/JPG/JPEG/BMP; dimensión máxima 16.384 y 80 millones de píxeles totales.
+- **Parallax:** cursor dentro del overlay, no face tracking; activado por defecto; intensidad persistida por defecto 3 px, rango 0–5 en pasos de 0,5; reducir movimiento lo desactiva. Respeta el límite absoluto.
+- **Reacciones:** follows/suscripciones/regalos/redenciones → Happy; raids → Surprised; duración 3 s; no fingir una reacción si falta el sprite; toggle persistente activado por defecto.
+- **VAD:** corregir el retroceso del reloj; al detenerse la captura, liberar el dispositivo y devolver el avatar a Idle.
+- **Twitch IRC:** validar login y token; no permitir inyección de líneas; el canal de destino de mensajes debe coincidir con la sesión conectada.
+- **OBS WebSocket v5:** auth real, solicitudes de estado de stream/recording, iniciar/detener, confirmación de stop, eventos `StreamStateChanged` / `RecordStateChanged`, timeout 15 s y mensajes entrantes máximo 1 MiB.
+- **Rendimiento:** máquina objetivo Ryzen 5 5600G con 16 GB; prioriza recursos locales, cargas limitadas y tareas cancelables.
+
+Si el código y esta lista discrepan, comprueba el HEAD; aplica los parámetros que estén realmente comprometidos en código/tests, corrige el código si existe una regresión y documenta el porqué. No mantengas una cifra en documentación si el código vigente usa otra.
+
+## Flujo de cierre por bloques
+
+1. **Auditoría real del alcance.** Construye una matriz interna de requisitos del blueprint: requisito, pantalla/servicio/código que lo implementa, prueba existente, resultado y brecha. No te bases en nombres de métodos o botones; sigue el flujo completo.
+2. **UX y onboarding.** Revisa navegación, Dashboard, estado vacío, tamaños, errores, controles inertes, ayudas, acceso a ajustes y fallbacks. Los gráficos y estados son datos reales, nunca inventados.
+3. **Avatar + audio.** Verifica importación, perfiles, capas, orden, prompts, expresiones, animación, overlay transparente, entrada de micrófono, VAD, cola, TTS, fallos de dispositivo y cancelación.
+4. **Twitch + interacción.** Verifica OAuth/scopes, IRC TLS, envío/recepción, EventSub, reconexión, usuarios protegidos, comandos compartidos entre local/chat, cooldowns, puntos, rankings, sorteo y minijuegos.
+5. **Moderación + automatización.** Verifica precedencia de reglas, anti-spam, configuración de mensajes/temporizadores, persistencia y que mensajes sancionables no disparen comandos ni puntos de forma accidental.
+6. **OBS + Telegram + datos.** Verifica OBS local y errores, eventos en vivo, Telegram WebView2/fallback, configuración, DPAPI, export/import, rutas, logs y paquete.
+7. **End-to-end y release candidate.** Ejecuta CI en el último SHA; inspecciona los logs, no solo el badge; corrige cada fallo y vuelve a correr. Revisa que el artefacto corresponda al mismo SHA que estás presentando. Ejecuta auditoría final de secretos, paquete, migraciones, startup/shutdown y regresiones.
+
+No necesitas concluir cada bloque con un reporte al usuario. Puedes hacer commits técnicos internos, pero agrupa cambios relacionados y evita ciclos de commits documentales/pequeños que no muevan la entrega.
+
+## Configuración externa y honestidad
+
+No inventes credenciales ni declares integración real sin conexión real. Puedes completar el flujo de configuración, los adaptadores, los contratos, manejo de error, simuladores locales honestos y pruebas automáticas. El final debe distinguir con precisión:
+
+- ✅ probado automáticamente en CI, especificando SHA y pasos;
+- ✅ probado manualmente con servicio/cuenta real, con evidencia;
+- ⚠️ código presente pero sin validación manual externa;
+- ⛔ bloqueado por una cuenta, credencial, dispositivo o servicio fuera de tu control.
+
+No le pidas al usuario que haga pruebas manuales hasta haber integrado todas las funciones que pueden implementarse y probado automáticamente todo lo que pueda verificarse en CI.
+
+## Regla de terminado
+
+El producto solo es candidato global si todos los requisitos de `docs/PRODUCT_BLUEPRINT.md` tienen un resultado comprobable: implementado y probado, o bloqueado por un requisito externo concreto con onboarding/fallback completo. Una CI verde, una UI que abre, un paquete zip o una doc completa por sí solos **no** equivalen a producto completo.
+
+Cuando llegues a ese candidato:
+1. actualiza `docs/CONTINUIDAD_PROYECTO.md`, `ROADMAP.md` y la documentación de usuario con el inventario de lo que funciona y lo que está condicionado;
+2. corre CI en el SHA exacto que se va a entregar y verifica build, tests y artefacto;
+3. registra los links de commit, CI y artefacto;
+4. solicita una única validación global del usuario con pasos cortos solo para servicios/hardware reales;
+5. presenta informe final, sin fusionar ningún PR.
+
+Empieza ahora verificando el HEAD, el CI más reciente y las brechas restantes; luego implementa el siguiente bloque crítico sin pedir permiso.

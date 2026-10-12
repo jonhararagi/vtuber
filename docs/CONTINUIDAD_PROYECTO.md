@@ -822,3 +822,70 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La página OBS escucha `StreamStateChanged` y `RecordStateChanged`; los indicadores cambian cuando OBS inicia o detiene una salida, sin tener que pulsar «Actualizar estado». La consulta manual sigue disponible.
 - Al reconstruir la página se desconecta el listener anterior, evitando acumular callbacks que retengan controles antiguos.
 - **Estado:** implementado en el nuevo HEAD; Windows CI pendiente. Los eventos reales requieren OBS WebSocket v5 configurado y conectado.
+
+
+---
+
+# Corte consolidado de continuidad — 2026-10-12
+
+> Este corte consolidado prevalece para el estado actual sobre las notas históricas que dicen «CI pendiente» en entradas anteriores. Esas notas describen el momento de cada commit y no deben interpretarse como el estado vigente.
+
+## Estado verificado ahora
+
+- **Repositorio:** https://github.com/jonhararagi/vtuber
+- **Rama de trabajo exclusiva:** `product/complete-vtuber-experience`
+- **HEAD verificado:** `e6909d3018fa6bdc660444b5f77b168795194918`
+- **CI #221:** SUCCESS sobre ese SHA exacto: https://github.com/jonhararagi/vtuber/actions/runs/38270053366
+- Pasos de #221: Restore solution ✅; Build Release ✅; Run automated tests ✅; Publish self-contained Windows x64 validation package ✅; Upload temporary validation artifact ✅.
+- **Artefacto temporal de CI:** `VTuberBot-Product-Candidate-win-x64-e6909d3018fa6bdc660444b5f77b168795194918`, 77.897.319 bytes, SHA-256 `00bb91c53d582fad2f34c690c753523e5785feff1250706ddadd2b56bf5d0822`. Vence el 2026-10-26. Descarga del artefacto: https://api.github.com/repos/jonhararagi/vtuber/actions/artifacts/11756377553/zip
+- **No es una release final** y el verde de CI no demuestra validación manual con cuentas, hardware o servicios locales. `main` sigue intacta y el PR #9 sigue sin fusionar.
+
+## Cambios funcionales y de fiabilidad ya registrados en la rama
+
+- IRC de Twitch: recuperación de sesiones supervisoras terminadas, reconexión con backoff, confirmación real de entrada al canal y mensajes de estado de reconexión correctos.
+- Protección del protocolo IRC: login de canal restringido a 1–25 caracteres ASCII permitidos; token OAuth sin espacios ni caracteres de control internos; un envío solo puede dirigirse al canal de la sesión actual.
+- Procesamiento de chat: cola entrante realmente acotada antes de publicar callbacks WPF; cooldown de puntos consumido solo tras persistir correctamente; limpieza de cooldowns expirados; mensajes que activan moderación no reciben puntos ni ejecutan comandos si la sanción está pendiente, en cooldown o no tiene ID de mensaje.
+- EventSub: resúmenes legibles, texto saneado y acotado; cola común limitada y procesada por lotes; cola independiente de prioridad para revocaciones/errores de suscripción.
+- Eventos de integraciones: suscriptores aislados frente a excepciones para evitar que errores de UI simulen fallos de transporte.
+- SQLite: creación del directorio padre antes de abrir la base, retención limitada del registro de actividad y preservación de tablas transaccionales de puntos/sorteos/juegos.
+- Avatar Studio: capas llamadas `Fondo` por detrás de la imagen base; prompts por perfil y rol con migración desde claves antiguas, duplicación e importación/exportación; validación de resolución y lista portable de formatos; parallax 2.5D configurable; reacciones a eventos Twitch únicamente si existen los sprites configurados.
+- Audio: texto de TTS saneado y acotado; manejo del retroceso del reloj del VAD; si la captura del micrófono se detiene inesperadamente, se libera el dispositivo y se devuelve el avatar a Idle.
+- Sorteos: solo un sorteo abierto a la vez; nombre limitado; selección explícita, cierre/cancelación con historial retenido.
+- OBS: autenticación WebSocket v5, consulta de estado, controles de iniciar/detener transmisión/grabación con confirmación al detener; eventos de estado en tiempo real. La operación real aún depende de OBS local y debe comprobarse con él.
+
+## Parámetros actuales relevantes
+
+| Área | Parámetro vigente |
+|---|---|
+| Chat IRC | Hasta 1.000 mensajes ocupando cupo entre despacho UI, cola y procesamiento |
+| EventSub | 200 eventos ordinarios + 20 críticos reservados; lotes de hasta 50 por turno de UI |
+| Resúmenes EventSub | Campo individual máximo 160 caracteres; resumen completo máximo 400 |
+| Registro de actividad SQLite | Conserva 100.000 entradas; poda al iniciar y cada 5.000 escrituras |
+| Cooldowns en memoria | Revisión cada 1.000 mensajes; elimina registros de más de 10 minutos |
+| TTS local | Máximo 2.000 caracteres por solicitud; la cola admite hasta 32 frases pendientes/activas |
+| Prompts de arte | 8 roles soportados; máximo 12.000 caracteres por prompt; guardado por perfil |
+| Sorteos | Nombre máximo 100 caracteres; solo un estado OPEN a la vez |
+| Imágenes de avatar | PNG/JPG/JPEG/BMP; máximo 16.384 px por dimensión y 80.000.000 píxeles totales |
+| Parallax | Activado por defecto; intensidad por defecto 3 px; ajustable 0–5 px en pasos de 0,5 px; «Reducir movimiento» lo desactiva |
+| Reacciones del avatar | Activadas por defecto; follow/suscripción/regalo/redención → Happy; raid → Surprised; 3 segundos y solo con sprite existente |
+| Mensajes TTS de audio local | Se compactan espacios/saltos de línea antes de encolarse |
+| OBS WebSocket | Timeout de conexión de 15 s; límite de mensaje entrante 1 MiB; conexión opcional y autenticada |
+
+## Validaciones que todavía no se han realizado manualmente
+
+- Autorizar una cuenta real de Twitch y recorrer chat, permisos, reconexión, puntos, comandos, moderación y eventos EventSub reales.
+- Conectar a OBS Studio local y verificar escenas, estados, transmisión y grabación en un setup real.
+- Probar entrada de micrófono, desconexión física del dispositivo, audio de salida y TTS en Windows del usuario.
+- Inspeccionar visualmente Avatar Studio y el overlay en OBS con assets reales importados, incluida transparencia, expresiones y parallax.
+- Confirmar Telegram WebView2 y su alternativa de abrir navegador en un Windows que no tenga el runtime.
+- Auditar el producto de punta a punta frente a todos los criterios de `docs/PRODUCT_BLUEPRINT.md`, `PROJECT_SPEC.md` y `ROADMAP.md`. La existencia de páginas/controles no sirve como evidencia suficiente.
+
+## Orden obligatorio de la siguiente sesión de Obrero
+
+1. Volver a leer el HEAD real y el resultado de CI más reciente; no partir de este corte si el HEAD avanzó.
+2. Auditar todos los flujos frente al blueprint y categorizar cada requisito como funcional verificado por código/prueba, incompleto, bloqueado por credenciales/entorno o no implementado.
+3. Corregir primero defectos de compilación, persistencia, seguridad, ciclo de vida o integración hallados; agrupar cambios relacionados y correr CI con frecuencia suficiente para detectar regresiones.
+4. Continuar implementando bloques de producto pendientes sin detenerse a pedir aprobación por detalles rutinarios y sin entregar builds parciales para que el usuario actúe de QA.
+5. Solo pedir una validación manual del usuario cuando haya un candidato global coherente; enumerar entonces pasos concretos que dependan realmente de su Twitch/OBS/micrófono/Telegram.
+6. No modificar `main`, no fusionar PR #9, no declarar terminado el producto por CI verde ni por tener botones.
+7. Actualizar este archivo con el HEAD/CI nuevos y evidencia verificable después de cada bloque integrado.
