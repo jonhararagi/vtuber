@@ -100,3 +100,8 @@ Se estudian las ideas de arquitectura y los flujos; no se copia código, diseño
 - Voz y audio ahora permiten enumerar y seleccionar una salida de Windows expuesta por SAPI; el dispositivo elegido se persiste y se adjunta a cada frase encolada. La salida predeterminada queda como fallback si no se elige una salida específica o el dispositivo ya no aparece.
 - La restauración de la base también limpia las referencias temporales de timers en memoria.
 - Pendiente de verificar mediante Windows CI del nuevo SHA y de probar reproducción real con dispositivos disponibles en el entorno final.
+
+
+## Distribución segura — endurecimiento CI (2026-10-12)
+
+La comprobación del ZIP de validación se amplió para fallar si aparecen nombres conocidos de bases de datos, journals, logs, backups, cookies, credenciales, secretos, tokens OAuth o archivos `.env`. La generación sigue partiendo de un directorio limpio de publicación; la modificación requiere su propio Windows CI verde.

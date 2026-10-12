@@ -842,6 +842,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Recuperación:** la restauración de SQLite también limpia las referencias de planificación en memoria de los timers.
 - **Estado:** requiere Windows CI del nuevo SHA; la enumeración y reproducción reales dependen de los dispositivos SAPI disponibles en Windows.
 
+
+### Endurecimiento de distribución — validación del ZIP de CI (2026-10-12)
+
+- La validación del paquete Windows ahora rechaza nombres de archivos de datos locales y credenciales conocidos, incluidos bases SQLite/DB y sus journals, logs, backups, cookies, credenciales, secretos, tokens OAuth y archivos `.env`, además de la configuración local previa.
+- Esto complementa la generación desde un directorio limpio de `dotnet publish`; no equivale a un análisis antivirus ni a una auditoría del contenido binario, pero evita empaquetar accidentalmente archivos locales con esos nombres.
+- **Estado:** el nuevo workflow debe pasar su propio Windows CI antes de considerar activa esta comprobación.
+
 ---
 
 # Corte consolidado de continuidad — 2026-10-12
