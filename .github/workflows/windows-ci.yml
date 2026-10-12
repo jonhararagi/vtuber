@@ -44,7 +44,7 @@ jobs:
           "Deployment: self-contained, multi-file"
           "Generated UTC: $builtAt"
           "Build command: dotnet publish src/VtuberBot.App/VtuberBot.App.csproj --configuration Release --runtime win-x64 --self-contained true"
-          "Database/log isolation: first-run defaults resolve under the extracted package directory; extract to a new user-writable folder and do not copy an existing config.toml or data directory into it."
+          "Database/log isolation: defaults resolve under %LocalAppData%\VtuberBot; VTUBERBOT_HOME can override the data directory for portable/testing profiles. Twitch and OBS secrets use DPAPI CurrentUser encryption."
           "This package has not received human visual validation."
         ) | Set-Content -Path (Join-Path $publishDir "BUILD-INFO.txt") -Encoding utf8
 

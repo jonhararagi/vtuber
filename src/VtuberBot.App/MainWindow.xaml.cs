@@ -256,7 +256,7 @@ public partial class MainWindow : Window
         panel.Children.Add(Label("Canal",12,"#98A4BE"));panel.Children.Add(channel);
         panel.Children.Add(Label("Client ID de tu aplicación Twitch",12,"#98A4BE"));panel.Children.Add(clientId);
         panel.Children.Add(Label("Token OAuth de chat (no se registra en logs)",12,"#98A4BE"));panel.Children.Add(token);
-        panel.Children.Add(Label("Usá OAuth de Twitch con permiso chat:read y chat:edit. Registrá la URL de redirección local indicada abajo en la consola de desarrolladores. El token se cifra con DPAPI para el usuario actual y nunca se escribe en GitHub ni en el registro de actividad. Redirección: http://localhost:17563/callback/",12,"#98A4BE"));
+        panel.Children.Add(Label("Usá OAuth de Twitch con permisos chat:read, chat:edit, moderator:read:followers, channel:read:subscriptions y channel:read:redemptions. Registrá la URL de redirección local indicada abajo en la consola de desarrolladores. El token se cifra con DPAPI para el usuario actual y nunca se escribe en GitHub ni en el registro de actividad. Redirección: http://localhost:17563/callback/",12,"#98A4BE"));
         var actions=new WrapPanel();
         actions.Children.Add(ActionButton("Autorizar con Twitch",async (_,_)=>{try{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());FooterStatus.Text="Esperando autorización de Twitch en el navegador…";var accessToken=await TwitchOAuth.AuthorizeAsync(clientId.Text.Trim());token.Password=accessToken;SaveTwitchToken(accessToken);FooterStatus.Text="OAuth completado; token cifrado localmente. Presioná Conectar para iniciar chat.";store.Log("Twitch","Flujo OAuth completado; el token no se registra.");}catch(Exception ex){FooterStatus.Text=$"OAuth no completado: {ex.Message}";MessageBox.Show(this,$"No se pudo completar OAuth. Confirmá que el Client ID sea válido y que la URL de redirección registrada sea {TwitchOAuth.RedirectUri}\n\nDetalle: {ex.Message}");}}));
         actions.Children.Add(ActionButton("Guardar configuración segura",(_,_)=>{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());SaveTwitchToken(token.Password);FooterStatus.Text="Canal y token guardados localmente; aún no conectado.";store.Log("Twitch","Configuración local guardada sin registrar el token.");},true));
@@ -270,7 +270,7 @@ public partial class MainWindow : Window
         var send=TextField("Escribí un mensaje para el chat…");var sendRow=new DockPanel();DockPanel.SetDock(sendRow, Dock.Left);sendRow.Children.Add(send);
         sendRow.Children.Add(ActionButton("Enviar",async (_,_)=>{try{await twitch.SendMessageAsync(channel.Text,send.Text);store.Log("Twitch","Mensaje enviado al chat.");send.Clear();}catch(Exception ex){FooterStatus.Text=$"No se pudo enviar: {ex.Message}";}}));chatPanel.Children.Add(sendRow);
         root.Children.Add(chatPanel);
-        root.Children.Add(Label("La lectura de chat y la respuesta de comandos solo funcionan después de la autenticación real. Los eventos avanzados EventSub todavía requieren scopes/configuración adicional.",12,"#98A4BE"));
+        root.Children.Add(Label("La lectura de chat, los comandos y las alertas EventSub solo funcionan después de autenticación real. EventSub incluye follows, suscripciones, regalos, redenciones de puntos y raids hacia el canal; reconexión automática avanzada y alertas visuales personalizadas quedan pendientes.",12,"#98A4BE"));
         return root;
     }
 

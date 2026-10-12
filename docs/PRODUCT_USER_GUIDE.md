@@ -24,13 +24,11 @@ El render actual compone sprites alineados y añade un movimiento respiratorio s
 1. Creá una aplicación en la [consola de desarrolladores de Twitch](https://dev.twitch.tv/console/apps).
 2. Registrá exactamente esta URL de redirección: `http://localhost:17563/callback/`.
 3. Copiá el **Client ID** de la aplicación en **Twitch y chat**.
-4. Escribí el nombre de la cuenta/canal que corresponde al usuario autorizado y elegí **Autorizar con Twitch**. Se abre el navegador; aceptá los permisos `chat:read` y `chat:edit`.
+4. Escribí el nombre de la cuenta/canal que corresponde al usuario autorizado y elegí **Autorizar con Twitch**. Se abre el navegador; aceptá los permisos `chat:read`, `chat:edit`, `moderator:read:followers`, `channel:read:subscriptions` y `channel:read:redemptions`.
 5. Volvé a la app y elegí **Conectar**. El token queda cifrado con DPAPI. El estado conectado solo se informa después del registro IRC por TLS.
 6. Probá enviar un mensaje o usar comandos como `!hola`, `!puntos`, `!dado` y `!entrar`.
 
-Los mensajes del chat comparten el registro local de comandos; la actividad otorga puntos con un intervalo anti-farming y `!entrar` registra participantes únicos en el sorteo abierto. Los errores de autenticación no se tratan como conexión exitosa.
-
-**Limitación actual:** EventSub/alertas de follow, subs, raids y redenciones de puntos de canal aún no están integrados. El cliente actual cubre OAuth PKCE e IRC chat, no toda la API de eventos de Twitch.
+Los mensajes del chat comparten el registro local de comandos; la actividad otorga puntos con un intervalo anti-farming y `!entrar` registra participantes únicos en el sorteo abierto. Los errores de autenticación no se tratan como conexión exitosa. Para alertas oficiales, elegí **Conectar EventSub (alertas)** después de autorizar con los scopes ampliados. La app intenta registrar follows, suscripciones, regalos de subs, redenciones de puntos de canal y raids hacia tu canal. Las notificaciones aparecen en el registro del chat y en Actividad/diagnóstico.
 
 ## Comandos, comunidad y sorteos
 
@@ -66,7 +64,7 @@ La página **Actividad y diagnóstico** muestra el registro local y permite expo
 
 ## Limitaciones pendientes conocidas
 
-- EventSub y eventos avanzados de Twitch.
+- Reconexión automática de EventSub, recuperación de suscripciones revocadas, overlay visual personalizado para alertas y triggers avanzados.
 - Rig 2.5D avanzado (pivotes, parentado, física), estados faciales con assets por expresión y lip-sync real.
 - Enrutamiento avanzado de audio/cola priorizada y VAD de habla separado del medidor de amplitud.
 - Acciones remotas de moderación con permisos explícitos, panel de triggers más avanzado y configuración de timers con edición/pausa individual.
