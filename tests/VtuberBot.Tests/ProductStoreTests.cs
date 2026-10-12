@@ -266,6 +266,94 @@ public sealed class ProductStoreTests
     }
 
     [Fact]
+    public void AvatarProfilesIsolateBaseLayersAndExpressionsAcrossSwitches()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var baseOne = Path.Combine(temp.DirectoryPath, "base-one.png");
+        var layerOne = Path.Combine(temp.DirectoryPath, "layer-one.png");
+        var baseTwo = Path.Combine(temp.DirectoryPath, "base-two.png");
+        var layerTwo = Path.Combine(temp.DirectoryPath, "layer-two.png");
+        var expressionOne = Path.Combine(temp.DirectoryPath, "talk-one.png");
+        var expressionTwo = Path.Combine(temp.DirectoryPath, "talk-two.png");
+        foreach (var path in new[] { baseOne, layerOne, baseTwo, layerTwo, expressionOne, expressionTwo })
+            File.WriteAllBytes(path, [1, 2, 3]);
+
+        var firstProfile = store.GetActiveAvatarProfile();
+        store.SetActiveAvatarProfileBasePath(baseOne);
+        var firstLayer = store.AddAvatarLayer("Sombrero", layerOne);
+        store.SetAvatarExpression("Talking", expressionOne);
+
+        var secondProfile = store.CreateAvatarProfile("Avatar alternativo", duplicateActiveProfile: false);
+        store.SetActiveAvatarProfile(secondProfile.Id);
+        Assert.Null(store.GetActiveAvatarProfile().BasePath);
+        Assert.Empty(store.GetAvatarLayers());
+        Assert.Null(store.GetAvatarExpression("Talking"));
+
+        store.SetActiveAvatarProfileBasePath(baseTwo);
+        var secondLayer = store.AddAvatarLayer("Capa alternativa", layerTwo);
+        store.SetAvatarExpression("Talking", expressionTwo);
+
+        store.SetActiveAvatarProfile(firstProfile.Id);
+        Assert.Equal(Path.GetFullPath(baseOne), store.GetActiveAvatarProfile().BasePath);
+        Assert.Collection(store.GetAvatarLayers(), layer => Assert.Equal(firstLayer, layer.Id));
+        Assert.Equal(Path.GetFullPath(expressionOne), store.GetAvatarExpression("Talking"));
+
+        store.SetActiveAvatarProfile(secondProfile.Id);
+        Assert.Equal(Path.GetFullPath(baseTwo), store.GetActiveAvatarProfile().BasePath);
+        Assert.Collection(store.GetAvatarLayers(), layer => Assert.Equal(secondLayer, layer.Id));
+        Assert.Equal(Path.GetFullPath(expressionTwo), store.GetAvatarExpression("Talking"));
+    }
+
+    [Fact]
+    public void DuplicatingAvatarProfileCopiesItsCompositionWithoutSharingLayerRecords()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var baseImage = Path.Combine(temp.DirectoryPath, "base.png");
+        var layerImage = Path.Combine(temp.DirectoryPath, "layer.png");
+        var talkingImage = Path.Combine(temp.DirectoryPath, "talking.png");
+        foreach (var path in new[] { baseImage, layerImage, talkingImage })
+            File.WriteAllBytes(path, [1, 2, 3]);
+
+        store.SetActiveAvatarProfileBasePath(baseImage);
+        var originalLayer = store.AddAvatarLayer("Pelo", layerImage);
+        store.UpdateAvatarLayerTransform(originalLayer, 12, -7, 1.2, 4);
+        store.SetAvatarExpression("Talking", talkingImage);
+
+        var duplicate = store.CreateAvatarProfile("Copia de prueba", duplicateActiveProfile: true);
+        store.SetActiveAvatarProfile(duplicate.Id);
+        Assert.Equal(Path.GetFullPath(baseImage), store.GetActiveAvatarProfile().BasePath);
+        var clonedLayer = Assert.Single(store.GetAvatarLayers());
+        Assert.NotEqual(originalLayer, clonedLayer.Id);
+        Assert.Equal("Pelo", clonedLayer.Name);
+        Assert.Equal(12, clonedLayer.OffsetX);
+        Assert.Equal(-7, clonedLayer.OffsetY);
+        Assert.Equal(1.2, clonedLayer.Scale);
+        Assert.Equal(Path.GetFullPath(talkingImage), store.GetAvatarExpression("Talking"));
+
+        store.SetAvatarLayerVisibility(clonedLayer.Id, false);
+        store.SetActiveAvatarProfile(1);
+        Assert.True(Assert.Single(store.GetAvatarLayers()).Visible);
+    }
+
+    [Fact]
+    public void AvatarProfileCannotDeleteLastProfileAndDeletingActiveSelectsAnother()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var original = store.GetActiveAvatarProfile();
+        Assert.Throws<InvalidOperationException>(() => store.DeleteAvatarProfile(original.Id));
+
+        var secondary = store.CreateAvatarProfile("Para eliminar", duplicateActiveProfile: false);
+        store.SetActiveAvatarProfile(secondary.Id);
+        var activeAfterDelete = store.DeleteAvatarProfile(secondary.Id);
+        Assert.Equal(original.Id, activeAfterDelete.Id);
+        Assert.Equal(original.Id, store.GetActiveAvatarProfile().Id);
+        Assert.Single(store.GetAvatarProfiles());
+    }
+
+    [Fact]
     public void AvatarLayerTransformsAndStackingOrderPersist()
     {
         using var temp = new TempDb();

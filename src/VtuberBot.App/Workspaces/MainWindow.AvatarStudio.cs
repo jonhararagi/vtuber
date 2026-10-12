@@ -26,6 +26,134 @@ public partial class MainWindow
     private UIElement BuildAvatarStudio()
     {
         var root = new StackPanel();
+        var profilePanel = Panel("Perfiles de avatar");
+        profilePanel.Margin = new Thickness(0, 0, 0, 14);
+        profilePanel.Children.Add(Label("Cada perfil conserva su imagen base, capas, transformaciones y sprites de expresión.", 12, "#98A4BE"));
+        var profileList = store.GetAvatarProfiles();
+        var activeProfile = store.GetActiveAvatarProfile();
+        var profilePicker = new ComboBox
+        {
+            ItemsSource = profileList,
+            DisplayMemberPath = nameof(AvatarProfile.Name),
+            SelectedItem = profileList.First(profile => profile.Id == activeProfile.Id),
+            MinWidth = 240,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        profilePanel.Children.Add(profilePicker);
+
+        void SwitchToProfile(AvatarProfile profile)
+        {
+            try
+            {
+                store.SetActiveAvatarProfile(profile.Id);
+                var activated = store.GetActiveAvatarProfile();
+                avatarPath = activated.BasePath;
+                RefreshActiveAvatarOverlay();
+                store.Log("Avatar", "Perfil activo: " + activated.Name + ".");
+                Navigate("Avatar Studio");
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, "No se pudo activar el perfil: " + exception.Message);
+            }
+        }
+
+        string? PromptProfileName(string title, string initialName)
+        {
+            var dialog = new Window
+            {
+                Owner = this,
+                Title = title,
+                Width = 390,
+                Height = 190,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Background = Brush("#161F33"),
+                Foreground = Brush("#F8FAFC")
+            };
+            var body = new StackPanel { Margin = new Thickness(18) };
+            body.Children.Add(Label("Nombre del perfil (1–64 caracteres)", 12, "#98A4BE"));
+            var nameBox = new TextBox
+            {
+                Text = initialName,
+                Background = Brush("#101525"),
+                Foreground = Brush("#F8FAFC"),
+                BorderBrush = Brush("#34415E"),
+                Padding = new Thickness(8),
+                Margin = new Thickness(0, 6, 0, 12)
+            };
+            body.Children.Add(nameBox);
+            var buttons = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
+            var cancel = new Button { Content = "Cancelar", MinWidth = 90, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(10, 5, 10, 5) };
+            cancel.Click += (_, _) => { dialog.DialogResult = false; };
+            var save = new Button { Content = "Guardar", MinWidth = 90, Padding = new Thickness(10, 5, 10, 5) };
+            save.Click += (_, _) =>
+            {
+                if (string.IsNullOrWhiteSpace(nameBox.Text) || nameBox.Text.Trim().Length > 64)
+                {
+                    MessageBox.Show(dialog, "El nombre debe tener entre 1 y 64 caracteres.");
+                    return;
+                }
+                dialog.DialogResult = true;
+            };
+            buttons.Children.Add(cancel);
+            buttons.Children.Add(save);
+            body.Children.Add(buttons);
+            dialog.Content = body;
+            dialog.Loaded += (_, _) => { nameBox.Focus(); nameBox.SelectAll(); };
+            return dialog.ShowDialog() == true ? nameBox.Text.Trim() : null;
+        }
+
+        void CreateProfile(bool duplicate)
+        {
+            var suggestedName = duplicate ? activeProfile.Name + " (copia)" : "Nuevo avatar";
+            var name = PromptProfileName(duplicate ? "Duplicar perfil de avatar" : "Crear perfil de avatar", suggestedName);
+            if (name is null) return;
+            try
+            {
+                var created = store.CreateAvatarProfile(name, duplicate);
+                SwitchToProfile(created);
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, "No se pudo crear el perfil: " + exception.Message);
+            }
+        }
+
+        var profileActions = new WrapPanel();
+        profileActions.Children.Add(ActionButton("＋ Nuevo perfil vacío", (_, _) => CreateProfile(false), true));
+        profileActions.Children.Add(ActionButton("Duplicar perfil", (_, _) => CreateProfile(true)));
+        profileActions.Children.Add(ActionButton("Eliminar perfil activo", (_, _) =>
+        {
+            if (store.GetAvatarProfiles().Count <= 1)
+            {
+                MessageBox.Show(this, "Debe quedar al menos un perfil de avatar.");
+                return;
+            }
+            if (MessageBox.Show(this, "Se eliminará el perfil y sus capas registradas. Los archivos de imagen del disco no se borran. ¿Continuar?",
+                "Eliminar perfil de avatar", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+            try
+            {
+                var next = store.DeleteAvatarProfile(store.GetActiveAvatarProfile().Id);
+                avatarPath = next.BasePath;
+                RefreshActiveAvatarOverlay();
+                store.Log("Avatar", "Perfil eliminado; perfil activo: " + next.Name + ".");
+                Navigate("Avatar Studio");
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, "No se pudo eliminar el perfil: " + exception.Message);
+            }
+        }));
+        profilePicker.SelectionChanged += (_, _) =>
+        {
+            if (profilePicker.SelectedItem is AvatarProfile profile && profile.Id != store.GetActiveAvatarProfile().Id)
+                SwitchToProfile(profile);
+        };
+        root.Children.Add(profilePanel);
+        root.Children.Add(profileActions);
+
         var columns = new Grid();
         columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.1, GridUnitType.Star) });
         columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -41,7 +169,7 @@ public partial class MainWindow
         if (!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath))
         {
             previewCanvas = new Grid { Background = Brush("#101525"), Focusable = true };
-            var savedExpression = store.GetSetting("avatar.expression." + previewState);
+            var savedExpression = store.GetAvatarExpression(previewState) ?? string.Empty;
             var initialImagePath = !string.IsNullOrWhiteSpace(savedExpression) && File.Exists(savedExpression) ? savedExpression : avatarPath;
             basePreviewImage = new Image { Source = LoadImage(initialImagePath), Stretch = Stretch.Uniform, MaxHeight = 360 };
             previewCanvas.Children.Add(basePreviewImage);
@@ -243,7 +371,7 @@ public partial class MainWindow
         void UpdatePreviewState(string selectedState)
         {
             if (basePreviewImage is null || string.IsNullOrWhiteSpace(avatarPath) || !File.Exists(avatarPath)) return;
-            var expressionPath = store.GetSetting("avatar.expression." + selectedState);
+            var expressionPath = store.GetAvatarExpression(selectedState) ?? string.Empty;
             basePreviewImage.Source = !string.IsNullOrWhiteSpace(expressionPath) && File.Exists(expressionPath)
                 ? LoadImage(expressionPath)
                 : LoadImage(avatarPath);
@@ -254,13 +382,13 @@ public partial class MainWindow
         expressionPanel.Children.Add(Label("Asigná imágenes del mismo tamaño para cambiar la cara cuando el micrófono activa Talking o al elegir una expresión. Si no asignás una imagen, se usa la base.", 12, "#98A4BE"));
         foreach (var expressionName in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" })
         {
-            var savedPath = store.GetSetting("avatar.expression." + expressionName);
+            var savedPath = store.GetAvatarExpression(expressionName) ?? string.Empty;
             var row = new WrapPanel { Margin = new Thickness(0, 4, 0, 4) };
             row.Children.Add(Label(expressionName + ": " + (!string.IsNullOrWhiteSpace(savedPath) && File.Exists(savedPath) ? Path.GetFileName(savedPath) : "usa imagen base"), 12, "#F8FAFC"));
             row.Children.Add(ActionButton("Importar / cambiar", (_, _) => ImportAvatarExpression(expressionName)));
             row.Children.Add(ActionButton("Quitar", (_, _) =>
             {
-                store.SetSetting("avatar.expression." + expressionName, "");
+                store.SetAvatarExpression(expressionName, null);
                 store.Log("Avatar", "Sprite de expresión quitado: " + expressionName);
                 Navigate("Avatar Studio");
             }));
@@ -305,7 +433,7 @@ public partial class MainWindow
         {
             _=LoadImage(dialog.FileName);
             var destination=Path.Combine(avatarDirectory,$"avatar-{DateTime.UtcNow:yyyyMMdd-HHmmss}{extension}");
-            File.Copy(dialog.FileName,destination,false);avatarPath=destination;store.SetSetting("avatar.path",destination);store.Log("Avatar",$"Asset importado: {Path.GetFileName(destination)}");
+            File.Copy(dialog.FileName,destination,false);avatarPath=destination;store.SetActiveAvatarProfileBasePath(destination);RefreshActiveAvatarOverlay();store.Log("Avatar",$"Asset importado: {Path.GetFileName(destination)}");
             Navigate("Avatar Studio");
         }
         catch(Exception ex){MessageBox.Show(this,$"No se pudo importar la imagen: {ex.Message}","VTuberBot",MessageBoxButton.OK,MessageBoxImage.Error);}
@@ -345,7 +473,7 @@ public partial class MainWindow
             var destination = Path.Combine(avatarDirectory,
                 "expression-" + expressionName.ToLowerInvariant() + "-" + Guid.NewGuid().ToString("N") + extension);
             File.Copy(dialog.FileName, destination, false);
-            store.SetSetting("avatar.expression." + expressionName, destination);
+            store.SetAvatarExpression(expressionName, destination);
             store.Log("Avatar", "Sprite de expresión importado: " + expressionName);
             Navigate("Avatar Studio");
         }
@@ -355,13 +483,15 @@ public partial class MainWindow
         }
     }
 
-    private IReadOnlyDictionary<string, string> GetAvatarExpressionPaths()
+    private IReadOnlyDictionary<string, string> GetAvatarExpressionPaths() =>
+        store.GetAvatarExpressions()
+            .Where(item => !string.IsNullOrWhiteSpace(item.Value) && File.Exists(item.Value))
+            .ToDictionary(item => item.Key, item => item.Value, StringComparer.OrdinalIgnoreCase);
+
+    private void RefreshActiveAvatarOverlay()
     {
-        var states = new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" };
-        return states
-            .Select(state => new { State = state, Path = store.GetSetting("avatar.expression." + state) })
-            .Where(item => !string.IsNullOrWhiteSpace(item.Path) && File.Exists(item.Path))
-            .ToDictionary(item => item.State, item => item.Path, StringComparer.OrdinalIgnoreCase);
+        if (overlay is { IsVisible: true })
+            overlay.SetAvatar(avatarPath ?? string.Empty, store.GetAvatarLayers(), GetAvatarExpressionPaths());
     }
 
     private void ShowOverlay()

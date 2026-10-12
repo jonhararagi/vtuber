@@ -455,3 +455,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - El umbral acústico (2–30%), la retención (100–1200 ms) y el nombre del dispositivo de entrada se guardan en cuanto se cambia el ajuste o se inicia la captura.
 - Al abrir Voz y audio, el selector restaura el dispositivo por nombre si Windows aún lo enumera; si ya no existe, selecciona el primer dispositivo disponible sin fingir que está capturando.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD siguiente.
+
+
+### Trabajo adicional — perfiles de avatar independientes
+
+- Añadidas tablas `avatar_profiles` y `avatar_profile_expressions`; cada perfil tiene nombre, imagen base y sprites Idle/Talking/Blink/Happy/Surprised separados.
+- Las capas y sus transformaciones quedan asociadas al perfil activo. Crear perfil vacío, duplicar el actual y eliminar un perfil (sin borrar imágenes del disco ni permitir eliminar el último perfil) ya están disponibles desde Avatar Studio.
+- La migración conserva el `avatar.path`, capas y expresiones globales de instalaciones anteriores como perfil predeterminado. Las operaciones de capas se filtran por perfil para impedir que una selección antigua modifique otro avatar.
+- Se añadieron pruebas de aislamiento entre perfiles, duplicación con transformaciones/expresiones y protección al eliminar el último perfil.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** para el commit de esta actualización. La validación manual global continúa pendiente; este commit no se declara candidato definitivo.

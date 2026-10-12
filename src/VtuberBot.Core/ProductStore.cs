@@ -7,6 +7,7 @@ public sealed record CommunityUser(string Username, long Points, DateTimeOffset 
 public sealed record GiveawayRecord(long Id, string Name, string Status, string? Winner, int Entries);
 public sealed record ProductActivity(DateTimeOffset At, string Module, string Message);
 public sealed record AutomationRule(long Id, string Name, string Message, int IntervalMinutes, bool Enabled, DateTimeOffset? LastRunUtc = null);
+public sealed record AvatarProfile(long Id, string Name, string? BasePath, DateTimeOffset CreatedUtc);
 public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrder, bool Visible, double OffsetX = 0, double OffsetY = 0, double Scale = 1, double RotationDegrees = 0);
 
 /// <summary>Persistence for product-level features. Uses the same local SQLite file as the core.</summary>
@@ -28,7 +29,9 @@ public sealed class ProductStore
             ["moderation_rules"] = ["id","name","pattern","enabled","action"],
             ["automation_rules"] = ["id","name","message","interval_minutes","enabled","last_run_utc"],
             ["product_activity"] = ["id","at_utc","module","message"],
-            ["avatar_layers"] = ["id","name","path","sort_order","visible","offset_x","offset_y","scale","rotation_degrees"],
+            ["avatar_profiles"] = ["id","name","base_path","created_utc"],
+            ["avatar_profile_expressions"] = ["profile_id","state","path"],
+            ["avatar_layers"] = ["id","name","path","sort_order","visible","offset_x","offset_y","scale","rotation_degrees","profile_id"],
             ["product_settings"] = ["key","value"]
         };
 
@@ -75,11 +78,22 @@ public sealed class ProductStore
               last_run_utc TEXT NULL);
             CREATE TABLE IF NOT EXISTS product_activity(
               id INTEGER PRIMARY KEY AUTOINCREMENT, at_utc TEXT NOT NULL, module TEXT NOT NULL, message TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS avatar_profiles(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+              base_path TEXT NULL,
+              created_utc TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS avatar_profile_expressions(
+              profile_id INTEGER NOT NULL REFERENCES avatar_profiles(id) ON DELETE CASCADE,
+              state TEXT NOT NULL COLLATE NOCASE,
+              path TEXT NOT NULL,
+              PRIMARY KEY(profile_id, state));
             CREATE TABLE IF NOT EXISTS avatar_layers(
               id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, path TEXT NOT NULL,
               sort_order INTEGER NOT NULL, visible INTEGER NOT NULL DEFAULT 1,
               offset_x REAL NOT NULL DEFAULT 0, offset_y REAL NOT NULL DEFAULT 0,
-              scale REAL NOT NULL DEFAULT 1, rotation_degrees REAL NOT NULL DEFAULT 0);
+              scale REAL NOT NULL DEFAULT 1, rotation_degrees REAL NOT NULL DEFAULT 0,
+              profile_id INTEGER NOT NULL DEFAULT 1);
             CREATE TABLE IF NOT EXISTS product_settings(
               key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS idx_activity_time ON product_activity(id DESC);
@@ -120,7 +134,153 @@ public sealed class ProductStore
         EnsureColumn(connection, "avatar_layers", "offset_y", "REAL NOT NULL DEFAULT 0");
         EnsureColumn(connection, "avatar_layers", "scale", "REAL NOT NULL DEFAULT 1");
         EnsureColumn(connection, "avatar_layers", "rotation_degrees", "REAL NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "avatar_layers", "profile_id", "INTEGER NOT NULL DEFAULT 1");
+        EnsureDefaultAvatarProfile(connection);
         SeedDefaults(connection);
+    }
+
+    private static void EnsureDefaultAvatarProfile(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+        long profileCount;
+        using (var count = connection.CreateCommand())
+        {
+            count.Transaction = transaction;
+            count.CommandText = "SELECT COUNT(*) FROM avatar_profiles";
+            profileCount = Convert.ToInt64(count.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        if (profileCount == 0)
+        {
+            string? legacyBasePath = null;
+            using (var legacy = connection.CreateCommand())
+            {
+                legacy.Transaction = transaction;
+                legacy.CommandText = "SELECT value FROM product_settings WHERE key='avatar.path'";
+                legacyBasePath = legacy.ExecuteScalar() as string;
+            }
+
+            using var insertDefault = connection.CreateCommand();
+            insertDefault.Transaction = transaction;
+            insertDefault.CommandText = """
+                INSERT INTO avatar_profiles(id,name,base_path,created_utc)
+                VALUES(1,'Avatar principal',$base,$created);
+                """;
+            insertDefault.Parameters.AddWithValue("$base", (object?)legacyBasePath ?? DBNull.Value);
+            insertDefault.Parameters.AddWithValue("$created", DateTimeOffset.UtcNow.ToString("O"));
+            insertDefault.ExecuteNonQuery();
+        }
+
+        long activeId = 0;
+        using (var active = connection.CreateCommand())
+        {
+            active.Transaction = transaction;
+            active.CommandText = "SELECT value FROM product_settings WHERE key='avatar.activeProfileId'";
+            var value = active.ExecuteScalar() as string;
+            _ = long.TryParse(value, out activeId);
+        }
+
+        using (var verifyActive = connection.CreateCommand())
+        {
+            verifyActive.Transaction = transaction;
+            verifyActive.CommandText = "SELECT COUNT(*) FROM avatar_profiles WHERE id=$id";
+            verifyActive.Parameters.AddWithValue("$id", activeId);
+            if (activeId <= 0 || Convert.ToInt64(verifyActive.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) == 0)
+            {
+                using var first = connection.CreateCommand();
+                first.Transaction = transaction;
+                first.CommandText = "SELECT id FROM avatar_profiles ORDER BY id LIMIT 1";
+                activeId = Convert.ToInt64(first.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+
+        using (var saveActive = connection.CreateCommand())
+        {
+            saveActive.Transaction = transaction;
+            saveActive.CommandText = """
+                INSERT INTO product_settings(key,value) VALUES('avatar.activeProfileId',$id)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value;
+                """;
+            saveActive.Parameters.AddWithValue("$id", activeId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            saveActive.ExecuteNonQuery();
+        }
+
+        // Older releases stored expressions as global settings. Preserve them on the default profile.
+        foreach (var state in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" })
+        {
+            string? legacyPath;
+            using (var findLegacy = connection.CreateCommand())
+            {
+                findLegacy.Transaction = transaction;
+                findLegacy.CommandText = "SELECT value FROM product_settings WHERE key=$key";
+                findLegacy.Parameters.AddWithValue("$key", "avatar.expression." + state);
+                legacyPath = findLegacy.ExecuteScalar() as string;
+            }
+
+            if (!string.IsNullOrWhiteSpace(legacyPath))
+            {
+                using var copyLegacy = connection.CreateCommand();
+                copyLegacy.Transaction = transaction;
+                copyLegacy.CommandText = """
+                    INSERT OR IGNORE INTO avatar_profile_expressions(profile_id,state,path)
+                    SELECT 1,$state,$path WHERE EXISTS(SELECT 1 FROM avatar_profiles WHERE id=1);
+                    """;
+                copyLegacy.Parameters.AddWithValue("$state", state);
+                copyLegacy.Parameters.AddWithValue("$path", legacyPath);
+                copyLegacy.ExecuteNonQuery();
+            }
+        }
+
+        using (var syncLegacyPath = connection.CreateCommand())
+        {
+            syncLegacyPath.Transaction = transaction;
+            syncLegacyPath.CommandText = """
+                UPDATE product_settings
+                SET value=COALESCE((SELECT base_path FROM avatar_profiles WHERE id=$id),'')
+                WHERE key='avatar.path';
+                INSERT INTO product_settings(key,value)
+                SELECT 'avatar.path',COALESCE(base_path,'') FROM avatar_profiles WHERE id=$id
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value;
+                """;
+            syncLegacyPath.Parameters.AddWithValue("$id", activeId);
+            syncLegacyPath.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    private static long GetActiveAvatarProfileId(SqliteConnection connection)
+    {
+        using (var active = connection.CreateCommand())
+        {
+            active.CommandText = "SELECT value FROM product_settings WHERE key='avatar.activeProfileId'";
+            if (long.TryParse(active.ExecuteScalar() as string, out var id))
+            {
+                using var exists = connection.CreateCommand();
+                exists.CommandText = "SELECT COUNT(*) FROM avatar_profiles WHERE id=$id";
+                exists.Parameters.AddWithValue("$id", id);
+                if (Convert.ToInt64(exists.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) > 0)
+                    return id;
+            }
+        }
+
+        using var first = connection.CreateCommand();
+        first.CommandText = "SELECT id FROM avatar_profiles ORDER BY id LIMIT 1";
+        return Convert.ToInt64(first.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static AvatarProfile ReadAvatarProfile(SqliteConnection connection, long id)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT id,name,base_path,created_utc FROM avatar_profiles WHERE id=$id";
+        command.Parameters.AddWithValue("$id", id);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read()) throw new KeyNotFoundException($"No existe el perfil de avatar {id}.");
+        return new AvatarProfile(
+            reader.GetInt64(0),
+            reader.GetString(1),
+            reader.IsDBNull(2) ? null : reader.GetString(2),
+            DateTimeOffset.Parse(reader.GetString(3)));
     }
 
     private static void EnsureColumn(SqliteConnection connection, string table, string column, string definition)
@@ -893,13 +1053,326 @@ public sealed class ProductStore
         lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="SELECT name,pattern,enabled,action FROM moderation_rules ORDER BY name"; using var r=cmd.ExecuteReader(); var list=new List<(string,string,bool,string)>(); while(r.Read()) list.Add((r.GetString(0),r.GetString(1),r.GetInt32(2)!=0,r.GetString(3))); return list; }
     }
 
+    public IReadOnlyList<AvatarProfile> GetAvatarProfiles()
+    {
+        lock (gate)
+        {
+            using var connection = Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT id,name,base_path,created_utc FROM avatar_profiles ORDER BY created_utc,id";
+            using var reader = command.ExecuteReader();
+            var profiles = new List<AvatarProfile>();
+            while (reader.Read())
+                profiles.Add(new AvatarProfile(
+                    reader.GetInt64(0),
+                    reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2),
+                    DateTimeOffset.Parse(reader.GetString(3))));
+            return profiles;
+        }
+    }
+
+    public AvatarProfile GetActiveAvatarProfile()
+    {
+        lock (gate)
+        {
+            using var connection = Open();
+            return ReadAvatarProfile(connection, GetActiveAvatarProfileId(connection));
+        }
+    }
+
+    public AvatarProfile CreateAvatarProfile(string name, bool duplicateActiveProfile)
+    {
+        var normalizedName = (name ?? string.Empty).Trim();
+        if (normalizedName.Length is < 1 or > 64)
+            throw new ArgumentException("El nombre del perfil debe tener entre 1 y 64 caracteres.", nameof(name));
+
+        lock (gate)
+        {
+            using var connection = Open();
+            using var transaction = connection.BeginTransaction();
+            var activeId = GetActiveAvatarProfileId(connection);
+            using (var duplicateCheck = connection.CreateCommand())
+            {
+                duplicateCheck.Transaction = transaction;
+                duplicateCheck.CommandText = "SELECT COUNT(*) FROM avatar_profiles WHERE name=$name COLLATE NOCASE";
+                duplicateCheck.Parameters.AddWithValue("$name", normalizedName);
+                if (Convert.ToInt64(duplicateCheck.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) > 0)
+                    throw new ArgumentException("Ya existe un perfil de avatar con ese nombre.", nameof(name));
+            }
+
+            using (var insert = connection.CreateCommand())
+            {
+                insert.Transaction = transaction;
+                insert.CommandText = """
+                    INSERT INTO avatar_profiles(name,base_path,created_utc)
+                    SELECT $name,CASE WHEN $duplicate=1 THEN base_path ELSE NULL END,$created
+                    FROM avatar_profiles WHERE id=$active;
+                    SELECT last_insert_rowid();
+                    """;
+                insert.Parameters.AddWithValue("$name", normalizedName);
+                insert.Parameters.AddWithValue("$duplicate", duplicateActiveProfile ? 1 : 0);
+                insert.Parameters.AddWithValue("$created", DateTimeOffset.UtcNow.ToString("O"));
+                insert.Parameters.AddWithValue("$active", activeId);
+                if (insert.ExecuteScalar() is not long newId)
+                    throw new InvalidOperationException("No se pudo crear el perfil de avatar.");
+
+                if (duplicateActiveProfile)
+                {
+                    using var copyLayers = connection.CreateCommand();
+                    copyLayers.Transaction = transaction;
+                    copyLayers.CommandText = """
+                        INSERT INTO avatar_layers(profile_id,name,path,sort_order,visible,offset_x,offset_y,scale,rotation_degrees)
+                        SELECT $newId,name,path,sort_order,visible,offset_x,offset_y,scale,rotation_degrees
+                        FROM avatar_layers WHERE profile_id=$activeId;
+                        """;
+                    copyLayers.Parameters.AddWithValue("$newId", newId);
+                    copyLayers.Parameters.AddWithValue("$activeId", activeId);
+                    copyLayers.ExecuteNonQuery();
+
+                    using var copyExpressions = connection.CreateCommand();
+                    copyExpressions.Transaction = transaction;
+                    copyExpressions.CommandText = """
+                        INSERT INTO avatar_profile_expressions(profile_id,state,path)
+                        SELECT $newId,state,path FROM avatar_profile_expressions WHERE profile_id=$activeId;
+                        """;
+                    copyExpressions.Parameters.AddWithValue("$newId", newId);
+                    copyExpressions.Parameters.AddWithValue("$activeId", activeId);
+                    copyExpressions.ExecuteNonQuery();
+                }
+
+                transaction.Commit();
+                return ReadAvatarProfile(connection, newId);
+            }
+        }
+    }
+
+    public void SetActiveAvatarProfile(long profileId)
+    {
+        lock (gate)
+        {
+            using var connection = Open();
+            var profile = ReadAvatarProfile(connection, profileId);
+            using var transaction = connection.BeginTransaction();
+            using var settings = connection.CreateCommand();
+            settings.Transaction = transaction;
+            settings.CommandText = """
+                INSERT INTO product_settings(key,value) VALUES('avatar.activeProfileId',$id)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value;
+                INSERT INTO product_settings(key,value) VALUES('avatar.path',$path)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value;
+                """;
+            settings.Parameters.AddWithValue("$id", profile.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            settings.Parameters.AddWithValue("$path", profile.BasePath ?? string.Empty);
+            settings.ExecuteNonQuery();
+            transaction.Commit();
+        }
+    }
+
+    public void SetActiveAvatarProfileBasePath(string? path)
+    {
+        var normalizedPath = string.IsNullOrWhiteSpace(path) ? null : Path.GetFullPath(path.Trim());
+        if (normalizedPath is not null && !File.Exists(normalizedPath))
+            throw new FileNotFoundException("No existe el archivo base del avatar.", normalizedPath);
+
+        lock (gate)
+        {
+            using var connection = Open();
+            var profileId = GetActiveAvatarProfileId(connection);
+            using var transaction = connection.BeginTransaction();
+            using var update = connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = "UPDATE avatar_profiles SET base_path=$path WHERE id=$id";
+            update.Parameters.AddWithValue("$path", (object?)normalizedPath ?? DBNull.Value);
+            update.Parameters.AddWithValue("$id", profileId);
+            if (update.ExecuteNonQuery() == 0) throw new KeyNotFoundException($"No existe el perfil de avatar {profileId}.");
+
+            using var legacy = connection.CreateCommand();
+            legacy.Transaction = transaction;
+            legacy.CommandText = """
+                INSERT INTO product_settings(key,value) VALUES('avatar.path',$path)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value;
+                """;
+            legacy.Parameters.AddWithValue("$path", normalizedPath ?? string.Empty);
+            legacy.ExecuteNonQuery();
+            transaction.Commit();
+        }
+    }
+
+    public AvatarProfile DeleteAvatarProfile(long profileId)
+    {
+        lock (gate)
+        {
+            using var connection = Open();
+            using var transaction = connection.BeginTransaction();
+            long count;
+            using (var total = connection.CreateCommand())
+            {
+                total.Transaction = transaction;
+                total.CommandText = "SELECT COUNT(*) FROM avatar_profiles";
+                count = Convert.ToInt64(total.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+            if (count <= 1) throw new InvalidOperationException("No podés eliminar el último perfil de avatar.");
+
+            var activeId = GetActiveAvatarProfileId(connection);
+            if (!AvatarProfileExists(connection, profileId, transaction))
+                throw new KeyNotFoundException($"No existe el perfil de avatar {profileId}.");
+
+            var nextActiveId = activeId;
+            if (activeId == profileId)
+            {
+                using var next = connection.CreateCommand();
+                next.Transaction = transaction;
+                next.CommandText = "SELECT id FROM avatar_profiles WHERE id<>$id ORDER BY created_utc,id LIMIT 1";
+                next.Parameters.AddWithValue("$id", profileId);
+                nextActiveId = Convert.ToInt64(next.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            using (var removeLayers = connection.CreateCommand())
+            {
+                removeLayers.Transaction = transaction;
+                removeLayers.CommandText = "DELETE FROM avatar_layers WHERE profile_id=$id";
+                removeLayers.Parameters.AddWithValue("$id", profileId);
+                removeLayers.ExecuteNonQuery();
+            }
+            using (var remove = connection.CreateCommand())
+            {
+                remove.Transaction = transaction;
+                remove.CommandText = "DELETE FROM avatar_profiles WHERE id=$id";
+                remove.Parameters.AddWithValue("$id", profileId);
+                remove.ExecuteNonQuery();
+            }
+
+            if (activeId == profileId)
+            {
+                using var setActive = connection.CreateCommand();
+                setActive.Transaction = transaction;
+                setActive.CommandText = """
+                    INSERT INTO product_settings(key,value)
+                    SELECT 'avatar.activeProfileId',CAST(id AS TEXT) FROM avatar_profiles WHERE id=$id
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value;
+                    INSERT INTO product_settings(key,value)
+                    SELECT 'avatar.path',COALESCE(base_path,'') FROM avatar_profiles WHERE id=$id
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value;
+                    """;
+                setActive.Parameters.AddWithValue("$id", nextActiveId);
+                setActive.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+            return ReadAvatarProfile(connection, nextActiveId);
+        }
+    }
+
+    private static bool AvatarProfileExists(SqliteConnection connection, long profileId, SqliteTransaction transaction)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT COUNT(*) FROM avatar_profiles WHERE id=$id";
+        command.Parameters.AddWithValue("$id", profileId);
+        return Convert.ToInt64(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) > 0;
+    }
+
+    private static readonly HashSet<string> AvatarExpressionStates = new(StringComparer.OrdinalIgnoreCase)
+        { "Idle", "Talking", "Blink", "Happy", "Surprised" };
+
+    public IReadOnlyDictionary<string, string> GetAvatarExpressions()
+    {
+        lock (gate)
+        {
+            using var connection = Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT state,path FROM avatar_profile_expressions WHERE profile_id=$id ORDER BY state";
+            command.Parameters.AddWithValue("$id", GetActiveAvatarProfileId(connection));
+            using var reader = command.ExecuteReader();
+            var expressions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            while (reader.Read()) expressions[reader.GetString(0)] = reader.GetString(1);
+            return expressions;
+        }
+    }
+
+    public string? GetAvatarExpression(string state)
+    {
+        ValidateAvatarExpressionState(state);
+        lock (gate)
+        {
+            using var connection = Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT path FROM avatar_profile_expressions WHERE profile_id=$id AND state=$state COLLATE NOCASE";
+            command.Parameters.AddWithValue("$id", GetActiveAvatarProfileId(connection));
+            command.Parameters.AddWithValue("$state", state.Trim());
+            return command.ExecuteScalar() as string;
+        }
+    }
+
+    public void SetAvatarExpression(string state, string? path)
+    {
+        ValidateAvatarExpressionState(state);
+        var normalizedPath = string.IsNullOrWhiteSpace(path) ? null : Path.GetFullPath(path.Trim());
+        if (normalizedPath is not null && !File.Exists(normalizedPath))
+            throw new FileNotFoundException("No existe el archivo del sprite de expresión.", normalizedPath);
+
+        lock (gate)
+        {
+            using var connection = Open();
+            var profileId = GetActiveAvatarProfileId(connection);
+            using var transaction = connection.BeginTransaction();
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            if (normalizedPath is null)
+            {
+                command.CommandText = "DELETE FROM avatar_profile_expressions WHERE profile_id=$id AND state=$state COLLATE NOCASE";
+            }
+            else
+            {
+                command.CommandText = """
+                    INSERT INTO avatar_profile_expressions(profile_id,state,path) VALUES($id,$state,$path)
+                    ON CONFLICT(profile_id,state) DO UPDATE SET path=excluded.path;
+                    """;
+            }
+            command.Parameters.AddWithValue("$id", profileId);
+            command.Parameters.AddWithValue("$state", state.Trim());
+            if (normalizedPath is not null) command.Parameters.AddWithValue("$path", normalizedPath);
+            command.ExecuteNonQuery();
+
+            // Keep legacy settings aligned for the default profile so a subsequent older build does not resurrect a deleted expression.
+            if (profileId == 1)
+            {
+                using var legacy = connection.CreateCommand();
+                legacy.Transaction = transaction;
+                if (normalizedPath is null)
+                {
+                    legacy.CommandText = "DELETE FROM product_settings WHERE key=$key";
+                }
+                else
+                {
+                    legacy.CommandText = """
+                        INSERT INTO product_settings(key,value) VALUES($key,$path)
+                        ON CONFLICT(key) DO UPDATE SET value=excluded.value;
+                        """;
+                    legacy.Parameters.AddWithValue("$path", normalizedPath);
+                }
+                legacy.Parameters.AddWithValue("$key", "avatar.expression." + state.Trim());
+                legacy.ExecuteNonQuery();
+            }
+            transaction.Commit();
+        }
+    }
+
+    private static void ValidateAvatarExpressionState(string state)
+    {
+        if (string.IsNullOrWhiteSpace(state) || !AvatarExpressionStates.Contains(state.Trim()))
+            throw new ArgumentException("Estado de expresión no soportado.", nameof(state));
+    }
+
     public IReadOnlyList<AvatarLayer> GetAvatarLayers()
     {
         lock (gate)
         {
             using var c = Open();
             using var cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT id,name,path,sort_order,visible,offset_x,offset_y,scale,rotation_degrees FROM avatar_layers ORDER BY sort_order,id";
+            cmd.CommandText = "SELECT id,name,path,sort_order,visible,offset_x,offset_y,scale,rotation_degrees FROM avatar_layers WHERE profile_id=$profileId ORDER BY sort_order,id";
+            cmd.Parameters.AddWithValue("$profileId", GetActiveAvatarProfileId(c));
             using var r = cmd.ExecuteReader();
             var list = new List<AvatarLayer>();
             while (r.Read())
@@ -917,7 +1390,9 @@ public sealed class ProductStore
         {
             using var c = Open();
             using var cmd = c.CreateCommand();
-            cmd.CommandText = "INSERT INTO avatar_layers(name,path,sort_order,visible) VALUES($n,$p,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM avatar_layers),1); SELECT last_insert_rowid();";
+            var profileId = GetActiveAvatarProfileId(c);
+            cmd.CommandText = "INSERT INTO avatar_layers(profile_id,name,path,sort_order,visible) VALUES($profileId,$n,$p,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM avatar_layers WHERE profile_id=$profileId),1); SELECT last_insert_rowid();";
+            cmd.Parameters.AddWithValue("$profileId", profileId);
             cmd.Parameters.AddWithValue("$n", name.Trim());
             cmd.Parameters.AddWithValue("$p", Path.GetFullPath(path));
             return (long)cmd.ExecuteScalar()!;
@@ -930,9 +1405,10 @@ public sealed class ProductStore
         {
             using var c = Open();
             using var cmd = c.CreateCommand();
-            cmd.CommandText = "UPDATE avatar_layers SET visible=$v WHERE id=$id";
+            cmd.CommandText = "UPDATE avatar_layers SET visible=$v WHERE id=$id AND profile_id=$profileId";
             cmd.Parameters.AddWithValue("$v", visible ? 1 : 0);
             cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$profileId", GetActiveAvatarProfileId(c));
             if (cmd.ExecuteNonQuery() == 0) throw new KeyNotFoundException($"No existe la capa {id}.");
         }
     }
@@ -948,7 +1424,8 @@ public sealed class ProductStore
         {
             using var c = Open();
             using var cmd = c.CreateCommand();
-            cmd.CommandText = "UPDATE avatar_layers SET offset_x=$x,offset_y=$y,scale=$s,rotation_degrees=$r WHERE id=$id";
+            cmd.CommandText = "UPDATE avatar_layers SET offset_x=$x,offset_y=$y,scale=$s,rotation_degrees=$r WHERE id=$id AND profile_id=$profileId";
+            cmd.Parameters.AddWithValue("$profileId", GetActiveAvatarProfileId(c));
             cmd.Parameters.AddWithValue("$x", offsetX);
             cmd.Parameters.AddWithValue("$y", offsetY);
             cmd.Parameters.AddWithValue("$s", scale);
@@ -966,10 +1443,12 @@ public sealed class ProductStore
         lock (gate)
         {
             using var c = Open();
+            var profileId = GetActiveAvatarProfileId(c);
             var ordered = new List<(long Id, int SortOrder)>();
             using (var query = c.CreateCommand())
             {
-                query.CommandText = "SELECT id,sort_order FROM avatar_layers ORDER BY sort_order,id";
+                query.CommandText = "SELECT id,sort_order FROM avatar_layers WHERE profile_id=$profileId ORDER BY sort_order,id";
+                query.Parameters.AddWithValue("$profileId", profileId);
                 using var reader = query.ExecuteReader();
                 while (reader.Read()) ordered.Add((reader.GetInt64(0), reader.GetInt32(1)));
             }
@@ -990,8 +1469,9 @@ public sealed class ProductStore
                     WHEN $current_id THEN $neighbour_order
                     WHEN $neighbour_id THEN $current_order
                 END
-                WHERE id IN ($current_id, $neighbour_id);
+                WHERE profile_id=$profile_id AND id IN ($current_id, $neighbour_id);
                 """;
+            update.Parameters.AddWithValue("$profile_id", profileId);
             update.Parameters.AddWithValue("$current_id", current.Id);
             update.Parameters.AddWithValue("$neighbour_id", neighbour.Id);
             update.Parameters.AddWithValue("$current_order", current.SortOrder);
@@ -1008,8 +1488,9 @@ public sealed class ProductStore
         {
             using var c = Open();
             using var cmd = c.CreateCommand();
-            cmd.CommandText = "DELETE FROM avatar_layers WHERE id=$id";
+            cmd.CommandText = "DELETE FROM avatar_layers WHERE id=$id AND profile_id=$profileId";
             cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$profileId", GetActiveAvatarProfileId(c));
             cmd.ExecuteNonQuery();
         }
         Log("Avatar", $"Capa ID {id} eliminada del perfil.");

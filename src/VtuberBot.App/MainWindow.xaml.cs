@@ -102,7 +102,7 @@ public partial class MainWindow : Window
         secretDirectory = Path.Combine(dataDirectory, "secrets");
         Directory.CreateDirectory(avatarDirectory);
         Directory.CreateDirectory(secretDirectory);
-        avatarPath = store.GetSetting("avatar.path");
+        avatarPath = store.GetActiveAvatarProfile().BasePath;
         twitch.StatusChanged += status => Dispatcher.Invoke(() => { FooterStatus.Text = status; RuntimeStatus.Text = twitch.IsConnected ? "●  TWITCH CONECTADO" : "●  LOCAL ACTIVO"; });
         twitch.MessageReceived += HandleTwitchMessage;
         eventSub.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
