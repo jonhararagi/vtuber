@@ -27,7 +27,7 @@ Si no coincide la procedencia, **detenete** y marcá la sesión BLOQUEADA.
 
 - Abrí `VtuberBot.App.exe` sin iniciar Twitch ni OBS. La aplicación debe abrir, mostrar el estado real y seguir siendo utilizable con servicios desconectados.
 - Navegá por Inicio, Avatar, Twitch, comandos/comunidad, sorteos/minijuegos, moderación/automatización, Audio, OBS, Telegram, diagnóstico y Ajustes. No debe cerrarse ni congelarse.
-- Ejecutá `help`, `ping` y `status`; esperá ayuda, `pong` y versión/estado coherentes.
+- Confirmá que el estado de Twitch indica desconectado/`LOCAL ACTIVO`, que la navegación permanece funcional y que CPU/RAM reales se actualizan en el Dashboard. No ejecutes `help`, `ping` o `status` en esta pasada: la aplicación de escritorio no expone una consola visible para el `CommandRouter` del núcleo; los comandos que sí tienen superficie de usuario se prueban en las secciones de Comandos y Comunidad.
 - **Resultado:** APROBADO / FALLIDO — notas:
 
 ## 3. Avatar Studio y overlay

@@ -1183,3 +1183,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Windows CI del commit que contiene la lista:** [run #288](https://github.com/jonhararagi/vtuber/actions/runs/38307051295), SHA `bf05011a66a5de6c722d58680067480dba86a9a9` — **SUCCESS**; 376/376 pruebas, 0 warnings/0 errors, publicación autocontenida win-x64 y subida del artefacto completadas.
 - **Artefacto de ese SHA:** [descarga](https://github.com/jonhararagi/vtuber/actions/runs/38307051295/artifacts/11772939102), ID `11772939102`, 77,912,331 bytes, digest `sha256:fc190bd0a79223b7ce9141f573ac55cb46a7d7f043241e35b5a5b562ec1e767f`, expira el 2026-10-26.
 - **Límite:** CI valida compilación, pruebas automatizadas y empaquetado; no autentica cuentas del usuario ni prueba un OBS real, micrófono/SAPI, WebView2 o captura de overlay. La validación global de Windows permanece pendiente y debe registrar áreas externas no disponibles como BLOQUEADAS, nunca APROBADAS.
+
+## Corrección de la lista de validación global — comandos sin consola visible (2026-10-12)
+
+- **Hallazgo:** `docs/PRODUCT-CANDIDATE-MANUAL-VALIDATION.md` pedía al usuario ejecutar `help`, `ping` y `status` durante el paso de inicio. Esos comandos están registrados en el `CommandRouter` de Core, pero el shell WPF no expone una consola visible que permita ejecutarlos; los comandos de Twitch y de comunidad tienen sus superficies separadas.
+- **Corrección:** el paso de inicio ahora comprueba el estado local real, la navegación y el Dashboard. Las pruebas manuales de comandos se hacen desde las páginas Comandos/Comunidad y desde Twitch cuando existe una cuenta de prueba. No se solicita una acción imposible desde la UI.
+- **Límite:** es una corrección del procedimiento de validación, no una función de producto añadida. Windows CI #289 sigue siendo evidencia del SHA anterior `9d0ebfb657d2c4bdddb034a5adb71065c68a10b7`; el nuevo commit debe pasar su propio CI antes de considerarse validado.
+
