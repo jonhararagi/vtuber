@@ -48,7 +48,7 @@ public partial class MainWindow
             };
             var packageWarning = GetPngtuberPackageWarning(pathField.Text);
             if (packageWarning is not null)
-                statusLabel.Text += "\\nADVERTENCIA DE PAQUETE — " + packageWarning;
+                statusLabel.Text += "\nADVERTENCIA DE PAQUETE — " + packageWarning;
             statusLabel.Foreground = Brush(status.State switch
             {
                 ExternalApplicationState.Running => "#8FE6D0",
