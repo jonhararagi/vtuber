@@ -114,11 +114,13 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         lock (gate) pending.Add(id, completion);
         try
         {
+            // The deadline covers both sending and waiting for the response. Starting it
+            // after SendJsonAsync could leave a stalled socket write without any timeout.
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(15));
             await SendJsonAsync(activeSocket,
                 new { op = 6, d = new { requestType, requestId = id, requestData = requestData ?? new { } } },
-                cancellationToken).ConfigureAwait(false);
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(TimeSpan.FromSeconds(10));
+                timeout.Token).ConfigureAwait(false);
             return await completion.Task.WaitAsync(timeout.Token).ConfigureAwait(false);
         }
         finally

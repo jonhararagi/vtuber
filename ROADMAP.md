@@ -128,3 +128,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - Los minijuegos del chat reutilizan las reglas y la liquidación transaccional de SQLite ya existentes. Las apuestas validan el saldo, conservan el ledger/historial y aceptan `0` como práctica gratuita; no se requiere Twitch para probarlos desde la UI.
 - Duplicar un perfil de avatar también copia los ocho prompts de arte por rol, con claves independientes para que editar la copia no altere el original.
 - Evidencia del código: commit `601ec7afa520681c5ed2075b3a94a1bf1a2360fd`; Windows CI #234 SUCCESS (restore, build Release, tests, publish win-x64 y upload). Los flujos con Twitch real siguen sujetos a validación externa.
+
+
+## OBS WebSocket — timeout total por solicitud (2026-10-12)
+
+- La fecha límite de 15 segundos ahora incluye el envío del frame y la espera de respuesta de cada solicitud OBS; antes el contador empezaba después del envío y un socket de escritura atascado podía quedar fuera del timeout.
+- El token enlazado también respeta la cancelación del llamador y el bloque finally elimina la solicitud pendiente.
+- Requiere Windows CI del SHA nuevo; la conexión real y el comportamiento con OBS local siguen pendientes de validación manual.

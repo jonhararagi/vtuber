@@ -917,7 +917,7 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 | Parallax | Activado por defecto; intensidad por defecto 3 px; ajustable 0–5 px en pasos de 0,5 px; «Reducir movimiento» lo desactiva |
 | Reacciones del avatar | Activadas por defecto; follow/suscripción/regalo/redención → Happy; raid → Surprised; 3 segundos y solo con sprite existente |
 | Mensajes TTS de audio local | Se compactan espacios/saltos de línea antes de encolarse |
-| OBS WebSocket | Timeout de conexión de 15 s; límite de mensaje entrante 1 MiB; conexión opcional y autenticada |
+| OBS WebSocket | Timeout de conexión de 15 s; timeout total por solicitud de 15 s (incluye envío y respuesta); límite de mensaje entrante 1 MiB; conexión opcional y autenticada |
 
 ## Bloque integrado más reciente — CI #234
 
@@ -944,3 +944,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 5. Solo pedir una validación manual del usuario cuando haya un candidato global coherente; enumerar entonces pasos concretos que dependan realmente de su Twitch/OBS/micrófono/Telegram.
 6. No modificar `main`, no fusionar PR #9, no declarar terminado el producto por CI verde ni por tener botones.
 7. Actualizar este archivo con el HEAD/CI nuevos y evidencia verificable después de cada bloque integrado.
+
+
+## Bloque funcional — límite total de solicitud OBS
+
+- En ObsWebSocketClient.RequestAsync, el timeout de 15 segundos se inicia antes de enviar el frame y cubre el envío más la espera de respuesta. Esto evita que una escritura de socket atascada quede fuera de la fecha límite.
+- La cancelación del usuario sigue enlazada al token y el bloque finally elimina el ID pendiente incluso ante timeout/error.
+- Estado: corrección de código preparada en este commit; la evidencia automática del SHA exacto se añadirá después de que Windows CI finalice. No equivale a prueba manual con OBS.
