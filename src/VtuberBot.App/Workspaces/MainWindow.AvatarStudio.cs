@@ -29,7 +29,8 @@ public partial class MainWindow
         string Name,
         string? BaseAsset,
         List<AvatarProfilePackageLayer> Layers,
-        Dictionary<string, string> Expressions);
+        Dictionary<string, string> Expressions,
+        Dictionary<string, string>? Prompts = null);
 
     private sealed record AvatarProfilePackageLayer(
         string Name,
@@ -49,6 +50,7 @@ public partial class MainWindow
         profilePanel.Children.Add(Label("Cada perfil conserva su imagen base, capas, transformaciones y sprites de expresión.", 12, "#98A4BE"));
         var profileList = store.GetAvatarProfiles();
         var activeProfile = store.GetActiveAvatarProfile();
+        MigrateLegacyAvatarArtPrompts(activeProfile.Id);
         var profilePicker = new ComboBox
         {
             ItemsSource = profileList,
@@ -130,6 +132,16 @@ public partial class MainWindow
             try
             {
                 var created = store.CreateAvatarProfile(name, duplicate);
+                if (duplicate)
+                {
+                    foreach (var role in AvatarArtPromptCatalog.Roles)
+                    {
+                        var prompt = store.GetSetting(
+                            AvatarArtPromptCatalog.GetSettingKey(activeProfile.Id, role), MissingAvatarArtPromptSetting);
+                        if (prompt != MissingAvatarArtPromptSetting)
+                            store.SetSetting(AvatarArtPromptCatalog.GetSettingKey(created.Id, role), prompt);
+                    }
+                }
                 SwitchToProfile(created);
             }
             catch (Exception exception)
@@ -430,7 +442,7 @@ public partial class MainWindow
         var artPanel = Panel("Consola de arte — assets y prompts");
         artPanel.Margin = new Thickness(0, 12, 0, 0);
         artPanel.Children.Add(Label("Escribí o ajustá un prompt por tipo de asset. Los prompts quedan guardados localmente. La app no llama a un generador externo: importá el resultado de tu herramienta de imágenes y se asignará automáticamente al rol seleccionado.", 12, "#98A4BE"));
-        var artRoles = new[] { "Personaje base", "Fondo", "Objeto / capa", "Idle", "Talking", "Blink", "Happy", "Surprised" };
+        var artRoles = AvatarArtPromptCatalog.Roles;
         var artRole = new ComboBox { ItemsSource = artRoles, SelectedIndex = 0, MinWidth = 220, Margin = new Thickness(0, 6, 0, 8) };
         artPanel.Children.Add(Label("Asignar resultado a", 12, "#98A4BE"));
         artPanel.Children.Add(artRole);
@@ -441,7 +453,7 @@ public partial class MainWindow
             Padding = new Thickness(10), Background = Brush("#101525"),
             Foreground = Brush("#F8FAFC"), BorderBrush = Brush("#34415E")
         };
-        string ArtPromptKey(string role) => "avatar.art_prompt." + Regex.Replace(role.ToLowerInvariant(), "[^a-z0-9]+", "_").Trim('_');
+        string ArtPromptKey(string role) => AvatarArtPromptCatalog.GetSettingKey(store.GetActiveAvatarProfile().Id, role);
         string DefaultArtPrompt(string role) => role switch
         {
             "Personaje base" => "VTuber character sprite, full body, centered, clean silhouette, transparent background, front-facing, consistent proportions, no text, no watermark. Style and design: [describir personaje, ropa, paleta y estilo].",
@@ -526,6 +538,26 @@ public partial class MainWindow
             if (overlay is { IsVisible: true } && !string.IsNullOrWhiteSpace(avatarPath))
                 overlay.SetAvatar(avatarPath, store.GetAvatarLayers(), GetAvatarExpressionPaths());
             Navigate("Avatar Studio");
+        }
+    }
+
+    private const string MissingAvatarArtPromptSetting = "\u001fVTUBERBOT_MISSING_PROMPT\u001f";
+
+    private void MigrateLegacyAvatarArtPrompts(long profileId)
+    {
+        foreach (var role in AvatarArtPromptCatalog.Roles)
+        {
+            var profileKey = AvatarArtPromptCatalog.GetSettingKey(profileId, role);
+            if (store.GetSetting(profileKey, MissingAvatarArtPromptSetting) != MissingAvatarArtPromptSetting)
+                continue;
+
+            var legacyKey = AvatarArtPromptCatalog.GetLegacySettingKey(role);
+            var legacyPrompt = store.GetSetting(legacyKey, MissingAvatarArtPromptSetting);
+            if (legacyPrompt == MissingAvatarArtPromptSetting || string.IsNullOrWhiteSpace(legacyPrompt))
+                continue;
+
+            store.SetSetting(profileKey, legacyPrompt);
+            store.SetSetting(legacyKey, string.Empty);
         }
     }
 
@@ -719,8 +751,20 @@ public partial class MainWindow
                         expression.Value, $"expressions/{expression.Key.ToLowerInvariant()}{extension}");
                 }
 
+                var exportedPrompts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var role in AvatarArtPromptCatalog.Roles)
+                {
+                    var prompt = store.GetSetting(
+                        AvatarArtPromptCatalog.GetSettingKey(profile.Id, role), MissingAvatarArtPromptSetting);
+                    if (prompt == MissingAvatarArtPromptSetting)
+                        continue;
+                    if (prompt.Length > 12000)
+                        throw new InvalidDataException("El prompt de arte supera el límite de 12.000 caracteres: " + role);
+                    exportedPrompts[role] = prompt;
+                }
+
                 var manifest = new AvatarProfilePackageManifest(
-                    1, profile.Name, baseAsset, exportedLayers, exportedExpressions);
+                    1, profile.Name, baseAsset, exportedLayers, exportedExpressions, exportedPrompts);
                 var manifestEntry = archive.CreateEntry("manifest.json", CompressionLevel.Optimal);
                 using var manifestStream = manifestEntry.Open();
                 JsonSerializer.Serialize(manifestStream, manifest, new JsonSerializerOptions { WriteIndented = true });
@@ -731,8 +775,8 @@ public partial class MainWindow
                 throw new InvalidDataException("El paquete supera el límite de 300 MB.");
             File.Move(temporaryPath, dialog.FileName, overwrite: true);
             store.Log("Avatar", "Perfil exportado como paquete portable: " + Path.GetFileName(dialog.FileName) + ".");
-            FooterStatus.Text = "Perfil exportado con base, capas y expresiones.";
-            MessageBox.Show(this, "El paquete incluye los assets usados por este perfil y su composición. No contiene credenciales ni el resto de la base de datos.",
+            FooterStatus.Text = "Perfil exportado con base, capas, expresiones y prompts guardados.";
+            MessageBox.Show(this, "El paquete incluye los assets, la composición y los prompts personalizados de este perfil. No contiene credenciales ni el resto de la base de datos.",
                 "Perfil de avatar exportado", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception exception)
@@ -796,6 +840,19 @@ public partial class MainWindow
                 throw new InvalidDataException("El paquete puede incluir hasta 100 capas.");
             if (manifest.Expressions is null || manifest.Expressions.Count > 5)
                 throw new InvalidDataException("El paquete puede incluir hasta cinco expresiones.");
+
+            if (manifest.Prompts is { Count: > 8 })
+                throw new InvalidDataException("El paquete puede incluir hasta ocho prompts de arte.");
+            if (manifest.Prompts is not null)
+            {
+                foreach (var prompt in manifest.Prompts)
+                {
+                    if (!AvatarArtPromptCatalog.Roles.Contains(prompt.Key, StringComparer.OrdinalIgnoreCase))
+                        throw new InvalidDataException("El paquete contiene un rol de prompt desconocido: " + prompt.Key);
+                    if (prompt.Value is null || prompt.Value.Length > 12000)
+                        throw new InvalidDataException("Cada prompt de arte debe tener como máximo 12.000 caracteres.");
+                }
+            }
 
             Directory.CreateDirectory(packageDirectory);
             string ExtractAsset(string entryName, string requiredPrefix, string destinationFolder, string destinationStem)
@@ -891,6 +948,11 @@ public partial class MainWindow
             }
             foreach (var expression in normalizedExpressions)
                 store.SetAvatarExpression(expression.Key, expression.Value);
+            if (manifest.Prompts is not null)
+            {
+                foreach (var prompt in manifest.Prompts)
+                    store.SetSetting(AvatarArtPromptCatalog.GetSettingKey(createdProfile.Id, prompt.Key), prompt.Value);
+            }
 
             avatarPath = store.GetActiveAvatarProfile().BasePath;
             RefreshActiveAvatarOverlay();

@@ -599,3 +599,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Correction:** creating a raffle now fails clearly if another is OPEN; the UI lets the operator select a raffle and cancel it without a winner; cancellation preserves entries for audit and releases the active slot. `!entrar` refuses ambiguous legacy states with multiple OPEN raffles instead of guessing. Drawing validates the raffle state before selecting a winner.
 - **Tests added:** only one OPEN raffle, cancellation with existing entries, no re-entry/draw after cancellation, and creation of the next raffle after closing/canceling.
 - **Validation:** correction is committed as a batch on `product/complete-vtuber-experience`; Windows CI for the new HEAD must pass before this batch is considered validated. CI #189 and #190 succeeded for the earlier art-console commit/documentation respectively; CI #191 is a confirmed build failure on the background-layer commit.
+
+
+### 2026-10-12 — Prompts propios por perfil y portabilidad
+
+- **Consola de arte:** los prompts personalizados ahora se guardan por ID de perfil y rol, de modo que personajes distintos mantienen su propia dirección artística.
+- **Compatibilidad:** los prompts creados con el primer formato global se migran al perfil que estaba activo; los demás perfiles no heredan automáticamente esos valores.
+- **Duplicación de perfiles:** al duplicar un avatar, se copian los prompts guardados además de la composición ya duplicada. Un perfil vacío mantiene sus plantillas por defecto.
+- **Paquetes `.vtuberavatar`:** la exportación incluye los prompts personalizados; la importación restaura sus valores bajo el nuevo perfil sin modificar los prompts del perfil anterior. Los paquetes v1 existentes siguen siendo compatibles porque el campo nuevo es opcional.
+- **Validación del manifiesto:** se rechazan roles desconocidos y prompts superiores a 12.000 caracteres; la biblioteca y los prompts permanecen fuera de Git y de los binarios.
+- **Estado:** código y pruebas unitarias del catálogo añadidos; Windows CI para este HEAD pendiente. No declarar importación/exportación visual validada hasta que termine CI y se realice la futura validación global en Windows.

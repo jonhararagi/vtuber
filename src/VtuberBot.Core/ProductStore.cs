@@ -1348,6 +1348,15 @@ public sealed class ProductStore
                 removeLayers.Parameters.AddWithValue("$id", profileId);
                 removeLayers.ExecuteNonQuery();
             }
+            using (var removePromptSettings = connection.CreateCommand())
+            {
+                removePromptSettings.Transaction = transaction;
+                removePromptSettings.CommandText = "DELETE FROM product_settings WHERE substr(key,1,length($prefix))=$prefix";
+                removePromptSettings.Parameters.AddWithValue(
+                    "$prefix", "avatar.profile." + profileId.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".art_prompt.");
+                removePromptSettings.ExecuteNonQuery();
+            }
+
             using (var remove = connection.CreateCommand())
             {
                 remove.Transaction = transaction;
