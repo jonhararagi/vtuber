@@ -24,7 +24,7 @@ jobs:
         $ErrorActionPreference = "Stop"
         $publishDir = Join-Path $env:RUNNER_TEMP "vtuberbot-publish"
         $packageDir = Join-Path $env:RUNNER_TEMP "vtuberbot-package"
-        $zipPath = Join-Path $env:RUNNER_TEMP "VTuberBot-V0.2.3-win-x64.zip"
+        $zipPath = Join-Path $env:RUNNER_TEMP "VTuberBot-Product-Candidate-win-x64.zip"
         Remove-Item $publishDir, $packageDir, $zipPath -Recurse -Force -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $publishDir, $packageDir | Out-Null
 
@@ -37,7 +37,7 @@ jobs:
         $builtAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
         @(
           "VTuber Bot validation package"
-          "Milestone: V0.2.3 stabilization candidate (not accepted/released)"
+          "Milestone: Integrated product candidate (not accepted/released)"
           "Source SHA: $sha"
           "Configuration: Release"
           "Runtime: win-x64"
@@ -67,7 +67,7 @@ jobs:
     - name: Upload temporary validation artifact
       uses: actions/upload-artifact@v4
       with:
-        name: VTuberBot-V0.2.3-win-x64-${{ github.sha }}
-        path: ${{ runner.temp }}/VTuberBot-V0.2.3-win-x64.zip
+        name: VTuberBot-Product-Candidate-win-x64-${{ github.sha }}
+        path: ${{ runner.temp }}/VTuberBot-Product-Candidate-win-x64.zip
         if-no-files-found: error
         retention-days: 14
