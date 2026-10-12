@@ -314,3 +314,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Las alertas EventSub usan también la voz/ritmo/volumen guardados, manteniendo prioridad alta y sin interrumpir la frase actual.
 - No se afirma que Windows incluya una voz anime: depende de las voces SAPI instaladas por el usuario.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Trabajo adicional — cooldown global o por usuario
+- Se agregó la columna `cooldown_scope` con migración compatible; comandos existentes conservan el valor predeterminado `global`.
+- Se añadió `product_command_user_cooldowns` para persistir la última ejecución por comando y nombre de usuario, sin reiniciar las marcas al reabrir la app.
+- El editor ofrece Global o Por usuario y muestra el modo en la lista. El router bloquea las ejecuciones según el alcance configurado.
+- Prueba: mismo espectador bloqueado por su propio cooldown, otro espectador puede usar el comando y la marca sigue bloqueando al primero después de abrir otro ProductStore.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.

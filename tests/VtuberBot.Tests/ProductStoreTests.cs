@@ -28,6 +28,30 @@ public sealed class ProductStoreTests
     }
 
     [Fact]
+    public void PerUserCooldownAllowsDifferentViewersAndPersistsAcrossRestart()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SaveCommand(null, "hola", "Hola {user}", 3600, true, "user");
+
+        var aliceFirst = store.RunLocalCommand("hola", "alice");
+        Assert.True(aliceFirst.Success);
+        var aliceSecond = store.RunLocalCommand("hola", "alice");
+        Assert.False(aliceSecond.Success);
+        Assert.Contains("cooldown", aliceSecond.Message, StringComparison.OrdinalIgnoreCase);
+
+        var bobFirst = store.RunLocalCommand("hola", "bob");
+        Assert.True(bobFirst.Success);
+        Assert.Contains("bob", bobFirst.Message);
+
+        var reopened = new ProductStore(temp.DatabasePath);
+        Assert.False(reopened.RunLocalCommand("hola", "alice").Success);
+        Assert.True(reopened.RunLocalCommand("hola", "carol").Success);
+        Assert.Contains(reopened.GetCommands(), command => command.Name == "hola" && command.CooldownScope == "user");
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.SaveCommand(null, "invalid", "x", 5, true, "channel"));
+    }
+
+    [Fact]
     public void PreviewingEditedCommandDoesNotConsumeCooldownOrCreateUser()
     {
         using var temp = new TempDb();

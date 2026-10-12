@@ -2,7 +2,7 @@ using Microsoft.Data.Sqlite;
 
 namespace VtuberBot.Core;
 
-public sealed record ProductCommand(long Id, string Name, string Response, int CooldownSeconds, bool Enabled);
+public sealed record ProductCommand(long Id, string Name, string Response, int CooldownSeconds, bool Enabled, string CooldownScope = "global");
 public sealed record CommunityUser(string Username, long Points, DateTimeOffset LastSeen);
 public sealed record GiveawayRecord(long Id, string Name, string Status, string? Winner, int Entries);
 public sealed record ProductActivity(DateTimeOffset At, string Module, string Message);
@@ -27,7 +27,11 @@ public sealed class ProductStore
             CREATE TABLE IF NOT EXISTS product_commands(
               id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL COLLATE NOCASE UNIQUE,
               response TEXT NOT NULL, cooldown_seconds INTEGER NOT NULL DEFAULT 0,
-              enabled INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, last_used_utc TEXT NULL);
+              enabled INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, last_used_utc TEXT NULL,
+              cooldown_scope TEXT NOT NULL DEFAULT 'global');
+            CREATE TABLE IF NOT EXISTS product_command_user_cooldowns(
+              command_id INTEGER NOT NULL, username TEXT NOT NULL COLLATE NOCASE,
+              last_used_utc TEXT NOT NULL, PRIMARY KEY(command_id,username));
             CREATE TABLE IF NOT EXISTS community_users(
               username TEXT PRIMARY KEY COLLATE NOCASE, points INTEGER NOT NULL DEFAULT 0,
               first_seen_utc TEXT NOT NULL, last_seen_utc TEXT NOT NULL);
@@ -64,6 +68,7 @@ public sealed class ProductStore
             """;
         command.ExecuteNonQuery();
         EnsureColumn(connection, "product_commands", "last_used_utc", "TEXT NULL");
+        EnsureColumn(connection, "product_commands", "cooldown_scope", "TEXT NOT NULL DEFAULT 'global'");
         EnsureColumn(connection, "automation_rules", "last_run_utc", "TEXT NULL");
         EnsureColumn(connection, "avatar_layers", "offset_x", "REAL NOT NULL DEFAULT 0");
         EnsureColumn(connection, "avatar_layers", "offset_y", "REAL NOT NULL DEFAULT 0");
@@ -158,29 +163,51 @@ public sealed class ProductStore
         lock (gate)
         {
             using var c = Open(); using var cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT id,name,response,cooldown_seconds,enabled FROM product_commands ORDER BY name";
+            cmd.CommandText = "SELECT id,name,response,cooldown_seconds,enabled,cooldown_scope FROM product_commands ORDER BY name";
             using var r = cmd.ExecuteReader(); var list = new List<ProductCommand>();
-            while (r.Read()) list.Add(new(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetInt32(4) != 0));
+            while (r.Read()) list.Add(new(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetInt32(4) != 0, r.GetString(5)));
             return list;
         }
     }
 
-    public void SaveCommand(long? id, string name, string response, int cooldown, bool enabled)
+    public void SaveCommand(long? id, string name, string response, int cooldown, bool enabled, string cooldownScope = "global")
     {
-        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(response)) throw new ArgumentException("El nombre y la respuesta son obligatorios.");
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(response))
+            throw new ArgumentException("El nombre y la respuesta son obligatorios.");
         if (cooldown is < 0 or > 86400) throw new ArgumentOutOfRangeException(nameof(cooldown));
+        cooldownScope = cooldownScope.Trim().ToLowerInvariant();
+        if (cooldownScope is not ("global" or "user"))
+            throw new ArgumentOutOfRangeException(nameof(cooldownScope), "Usá 'global' o 'user'.");
+
         lock (gate)
         {
-            using var c = Open(); using var cmd = c.CreateCommand();
-            if (id is null) cmd.CommandText = "INSERT INTO product_commands(name,response,cooldown_seconds,enabled,created_utc) VALUES($name,$response,$cooldown,$enabled,$now)";
-            else { cmd.CommandText = "UPDATE product_commands SET name=$name,response=$response,cooldown_seconds=$cooldown,enabled=$enabled WHERE id=$id"; cmd.Parameters.AddWithValue("$id", id.Value); }
+            using var c = Open();
+            using var cmd = c.CreateCommand();
+            if (id is null)
+            {
+                cmd.CommandText = """
+                    INSERT INTO product_commands(name,response,cooldown_seconds,enabled,created_utc,cooldown_scope)
+                    VALUES($name,$response,$cooldown,$enabled,$now,$scope)
+                    """;
+            }
+            else
+            {
+                cmd.CommandText = """
+                    UPDATE product_commands
+                    SET name=$name,response=$response,cooldown_seconds=$cooldown,enabled=$enabled,cooldown_scope=$scope
+                    WHERE id=$id
+                    """;
+                cmd.Parameters.AddWithValue("$id", id.Value);
+            }
             cmd.Parameters.AddWithValue("$name", name.Trim().TrimStart('!'));
             cmd.Parameters.AddWithValue("$response", response.Trim());
             cmd.Parameters.AddWithValue("$cooldown", cooldown);
             cmd.Parameters.AddWithValue("$enabled", enabled ? 1 : 0);
+            cmd.Parameters.AddWithValue("$scope", cooldownScope);
             cmd.Parameters.AddWithValue("$now", Now());
-            cmd.ExecuteNonQuery();
-            Log("Comandos", $"Comando !{name.Trim().TrimStart('!')} guardado.");
+            if (cmd.ExecuteNonQuery() == 0 && id.HasValue)
+                throw new KeyNotFoundException($"No existe el comando {id.Value}.");
+            Log("Comandos", $"Comando !{name.Trim().TrimStart('!')} guardado (cooldown {cooldownScope}).");
         }
     }
 
@@ -246,17 +273,36 @@ public sealed class ProductStore
 
         lock (gate)
         {
-            using var c = Open(); using var cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT id,response,cooldown_seconds,last_used_utc FROM product_commands WHERE name=$name COLLATE NOCASE AND enabled=1";
+            using var c = Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "SELECT id,response,cooldown_seconds,last_used_utc,cooldown_scope FROM product_commands WHERE name=$name COLLATE NOCASE AND enabled=1";
             cmd.Parameters.AddWithValue("$name", name.Trim().TrimStart('!'));
             using var reader = cmd.ExecuteReader();
             if (!reader.Read()) return CommandResult.Failed("Comando no encontrado o desactivado.");
-            var id = reader.GetInt64(0); var response = reader.GetString(1); var cooldown = reader.GetInt32(2);
-            DateTimeOffset? lastUsed = reader.IsDBNull(3) ? null : DateTimeOffset.Parse(reader.GetString(3));
+            var id = reader.GetInt64(0);
+            var response = reader.GetString(1);
+            var cooldown = reader.GetInt32(2);
+            DateTimeOffset? globalLastUsed = reader.IsDBNull(3) ? null : DateTimeOffset.Parse(reader.GetString(3));
+            var cooldownScope = reader.GetString(4);
             reader.Close();
+
             var now = DateTimeOffset.UtcNow;
-            if (lastUsed is not null && now - lastUsed.Value < TimeSpan.FromSeconds(cooldown))
-                return CommandResult.Failed("Comando en cooldown; esperá " + Math.Ceiling((TimeSpan.FromSeconds(cooldown) - (now - lastUsed.Value)).TotalSeconds).ToString("0") + " s.");
+            DateTimeOffset? lastUsed = globalLastUsed;
+            if (cooldownScope == "user")
+            {
+                using var userCooldown = c.CreateCommand();
+                userCooldown.CommandText = "SELECT last_used_utc FROM product_command_user_cooldowns WHERE command_id=$id AND username=$username COLLATE NOCASE";
+                userCooldown.Parameters.AddWithValue("$id", id);
+                userCooldown.Parameters.AddWithValue("$username", username.Trim());
+                var stored = userCooldown.ExecuteScalar();
+                lastUsed = stored is string timestamp ? DateTimeOffset.Parse(timestamp) : null;
+            }
+
+            if (cooldown > 0 && lastUsed is not null && now - lastUsed.Value < TimeSpan.FromSeconds(cooldown))
+            {
+                var remaining = Math.Ceiling((TimeSpan.FromSeconds(cooldown) - (now - lastUsed.Value)).TotalSeconds).ToString("0");
+                return CommandResult.Failed("Comando en cooldown; esperá " + remaining + " s.");
+            }
 
             var user = GetOrCreateUser(c, username);
             var output = RenderCommandResponse(response, username, user.Points, arguments);
@@ -270,6 +316,21 @@ public sealed class ProductStore
                 update.Parameters.AddWithValue("$id", id);
                 update.ExecuteNonQuery();
             }
+
+            if (cooldownScope == "user")
+            {
+                using var updateUserCooldown = c.CreateCommand();
+                updateUserCooldown.CommandText = """
+                    INSERT INTO product_command_user_cooldowns(command_id,username,last_used_utc)
+                    VALUES($id,$username,$now)
+                    ON CONFLICT(command_id,username) DO UPDATE SET last_used_utc=excluded.last_used_utc
+                    """;
+                updateUserCooldown.Parameters.AddWithValue("$id", id);
+                updateUserCooldown.Parameters.AddWithValue("$username", username.Trim());
+                updateUserCooldown.Parameters.AddWithValue("$now", now.ToString("O"));
+                updateUserCooldown.ExecuteNonQuery();
+            }
+
             Log("Comandos", "Comando !" + name.TrimStart('!') + " ejecutado por " + username + ".");
             return CommandResult.Succeeded(output);
         }
