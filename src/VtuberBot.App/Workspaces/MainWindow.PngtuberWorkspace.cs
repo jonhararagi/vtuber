@@ -375,11 +375,12 @@ No se importa ni se convierte automáticamente un archivo .vtuberavatar. Los dos
 
     private static string? ToPngtuberKeyName(Key key)
     {
-        if (key is >= Key.D0 and <= Key.D9)
-            return ((char)('0' + ((int)key - (int)Key.D0))).ToString();
-        if (key is >= Key.A and <= Key.Z)
+        var value = (int)key;
+        if (value >= (int)Key.D0 && value <= (int)Key.D9)
+            return ((char)('0' + value - (int)Key.D0)).ToString();
+        if (value >= (int)Key.A && value <= (int)Key.Z)
             return key.ToString();
-        if (key is >= Key.F1 and <= Key.F12)
+        if (value >= (int)Key.F1 && value <= (int)Key.F12)
             return key.ToString();
         return null;
     }
