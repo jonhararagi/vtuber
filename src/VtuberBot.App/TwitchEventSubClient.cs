@@ -368,19 +368,8 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
         }
     }
 
-    private static string SummarizeEvent(string type, JsonElement evt)
-    {
-        string Value(string key) => evt.TryGetProperty(key, out var value) ? value.ToString() : "";
-        return type switch
-        {
-            "channel.follow" => "Nuevo follow: " + Value("user_name"),
-            "channel.subscribe" => "Nueva suscripción: " + Value("user_name") + " · " + Value("tier"),
-            "channel.subscription.gift" => "Regalo de suscripción: " + Value("user_name") + " · cantidad " + Value("total"),
-            "channel.channel_points_custom_reward_redemption.add" => "Redención de puntos: " + Value("user_name") + " · " + Value("reward").Replace("\"", ""),
-            "channel.raid" => "Raid de " + Value("from_broadcaster_user_name") + " · espectadores " + Value("viewers"),
-            _ => evt.GetRawText()
-        };
-    }
+    private static string SummarizeEvent(string type, JsonElement evt) =>
+        TwitchEventSummaryFormatter.Summarize(type, evt);
 
     private static async Task<JsonDocument> ReadJsonAsync(ClientWebSocket ws, CancellationToken ct)
     {

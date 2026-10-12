@@ -638,3 +638,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Hallazgo:** el límite anterior de 1.000 mensajes se comprobaba dentro de callbacks ya encolados en el Dispatcher de WPF. En una ráfaga alta, el backlog de callbacks podía crecer antes de que se aplicara el límite.
 - **Corrección:** cada mensaje reserva capacidad en un `SemaphoreSlim` antes de publicar el callback; los mensajes en espera de despacho, los pendientes y el que se procesa cuentan contra la misma capacidad. El cupo se libera al completar el procesamiento o si la ventana se está cerrando. El aviso de saturación queda limitado a un callback mientras persista la sobrecarga.
 - **Estado:** implementación en el nuevo HEAD; CI de Windows pendiente.
+
+
+### 2026-10-12 — Alertas de redención de puntos legibles
+
+- **Hallazgo:** EventSub convertía el objeto completo `reward` a texto JSON y después eliminaba comillas; la alerta de redención podía mostrar una estructura sin formato en lugar del nombre de la recompensa.
+- **Corrección:** se extrajo `TwitchEventSummaryFormatter` al Core. Las redenciones muestran nombre del usuario, título de la recompensa y, cuando existe, el texto ingresado por el espectador. Si faltan campos opcionales, se mantiene una notificación legible.
+- **Pruebas:** formato de redención con/sin texto opcional y regresión del resumen de suscripción.
+- **CI #197:** al registrar este cambio, Build Release y pruebas automatizadas estaban verdes; la generación del paquete Windows x64 continuaba ejecutándose para el commit [9a2e1fb](https://github.com/jonhararagi/vtuber/commit/9a2e1fb379015285dc5d6cbb60b49a3f260e2fe0).
+- **Estado:** este cambio genera un nuevo Windows CI. La recepción de redenciones reales sigue pendiente de validar con una cuenta Twitch configurada.
