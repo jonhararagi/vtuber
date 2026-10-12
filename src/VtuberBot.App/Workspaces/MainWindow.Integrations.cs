@@ -118,7 +118,7 @@ public partial class MainWindow
 
         // Keep the output indicators aligned with the actual WebSocket session. The
         // client can disconnect or reconnect without the user pressing a page button.
-        obsStatusHandler = _ =>
+        obsStatusHandler = status =>
         {
             try
             {
