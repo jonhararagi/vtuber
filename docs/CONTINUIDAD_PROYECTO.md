@@ -391,3 +391,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - En la primera prueba de backup/restauración, Build Release pasó; 142/143 pruebas pasaron. La prueba nueva falló en `File.Move` porque Microsoft.Data.Sqlite conservaba un handle del archivo temporal en el pool tras cerrar la conexión.
 - Las conexiones temporales de escritura, validación y lectura de backup ahora usan `Pooling=false`, para que el handle se libere al salir del `using` antes de renombrar la copia en Windows.
 - No se ha marcado el backup como validado hasta que pase la ejecución CI de este nuevo HEAD.
+
+
+### Protección adicional de moderación automática
+
+- Se centralizó la decisión de ejecución en `AutomaticModerationPolicy` para que los modos flag-only, opt-in global, IDs de mensajes y cooldown se puedan comprobar por pruebas.
+- Las sanciones automáticas ya no apuntan al broadcaster ni a los moderadores según las etiquetas de Twitch; los VIP/suscriptores no se protegen implícitamente salvo que el canal configure otra política.
+- El cooldown por usuario/regla ahora se registra solo cuando la acción fue ejecutada correctamente; un fallo de API no bloquea el siguiente intento durante cinco minutos.
+- Se añadieron pruebas automáticas para opt-in global, usuarios protegidos, ID requerido para delete, cooldown, acciones soportadas y acción desconocida.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.

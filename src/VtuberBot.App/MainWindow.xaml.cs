@@ -559,6 +559,8 @@ public partial class MainWindow : Window
 
             var autoModerationEnabled = store.GetSetting("twitch.auto_moderation.enabled", "false") == "true";
             var messageId = parsed.Tags.TryGetValue("id", out var taggedMessageId) ? taggedMessageId : string.Empty;
+            var channelLogin = store.GetSetting("twitch.channel");
+            var moderationRoles = CommandPermissionPolicy.GetTwitchRoles(parsed, channelLogin);
             foreach (var rule in store.GetModerationRules().Where(rule => rule.Enabled))
             {
                 try
@@ -569,28 +571,46 @@ public partial class MainWindow : Window
                     store.Log("Moderación", "Coincidencia de regla " + rule.Name + " en mensaje de " + username +
                         " (acción " + rule.Action + "; global " + (autoModerationEnabled ? "activa" : "inactiva") + ").");
 
-                    if (rule.Action == "flag" || !autoModerationEnabled)
-                        continue;
-
                     var cooldownKey = rule.Name + ":" + username;
                     var moderationNow = DateTimeOffset.UtcNow;
-                    if (automaticModerationCooldown.TryGetValue(cooldownKey, out var previous) &&
-                        moderationNow - previous < TimeSpan.FromMinutes(5))
+                    automaticModerationCooldown.TryGetValue(cooldownKey, out var previousAction);
+                    var decision = AutomaticModerationPolicy.Evaluate(
+                        rule.Action,
+                        autoModerationEnabled,
+                        moderationRoles,
+                        messageId,
+                        automaticModerationCooldown.ContainsKey(cooldownKey) ? previousAction : null,
+                        moderationNow,
+                        TimeSpan.FromMinutes(5));
+
+                    switch (decision)
                     {
-                        store.Log("Moderación", "Acción automática omitida por límite de 5 minutos para " + username + " / " + rule.Name + ".");
-                        break;
+                        case AutomaticModerationDecision.LogOnly:
+                        case AutomaticModerationDecision.Disabled:
+                            continue;
+                        case AutomaticModerationDecision.UnsupportedAction:
+                            store.Log("Moderación", "Acción no reconocida; no se ejecutó: " + rule.Action);
+                            continue;
+                        case AutomaticModerationDecision.ProtectedUser:
+                            store.Log("Moderación", "Acción automática omitida: se protegen broadcaster y moderadores de sanciones automáticas.");
+                            continue;
+                        case AutomaticModerationDecision.MissingMessageId:
+                            store.Log("Moderación", "No se borró el mensaje porque Twitch no proporcionó un ID IRC válido.");
+                            break;
+                        case AutomaticModerationDecision.Cooldown:
+                            store.Log("Moderación", "Acción automática omitida por límite de 5 minutos para " + username + " / " + rule.Name + ".");
+                            break;
+                        case AutomaticModerationDecision.Execute:
+                            var succeeded = await ApplyAutomaticModerationAsync(rule.Name, rule.Action, username, messageId);
+                            if (succeeded)
+                                automaticModerationCooldown[cooldownKey] = DateTimeOffset.UtcNow;
+                            // Apply at most one non-flag action per incoming message.
+                            break;
                     }
 
-                    if (rule.Action == "delete" && string.IsNullOrWhiteSpace(messageId))
-                    {
-                        store.Log("Moderación", "No se borró el mensaje porque Twitch no proporcionó el ID IRC necesario.");
+                    if (decision is AutomaticModerationDecision.MissingMessageId or
+                        AutomaticModerationDecision.Cooldown or AutomaticModerationDecision.Execute)
                         break;
-                    }
-
-                    automaticModerationCooldown[cooldownKey] = moderationNow;
-                    await ApplyAutomaticModerationAsync(rule.Name, rule.Action, username, messageId);
-                    // Apply at most one non-flag action per incoming message.
-                    break;
                 }
                 catch (RegexMatchTimeoutException)
                 {
@@ -640,7 +660,7 @@ public partial class MainWindow : Window
         }));
     }
 
-    private async Task ApplyAutomaticModerationAsync(string ruleName, string action, string username, string messageId)
+    private async Task<bool> ApplyAutomaticModerationAsync(string ruleName, string action, string username, string messageId)
     {
         var clientId = store.GetSetting("twitch.client_id").Trim();
         var accessToken = LoadTwitchToken();
@@ -649,7 +669,7 @@ public partial class MainWindow : Window
             string.IsNullOrWhiteSpace(channel))
         {
             store.Log("Moderación", "No se ejecutó '" + action + "' para " + username + ": Twitch no está autenticado/configurado.");
-            return;
+            return false;
         }
 
         try
@@ -680,17 +700,19 @@ public partial class MainWindow : Window
                     break;
                 default:
                     store.Log("Moderación", "Acción no ejecutada: '" + action + "' no está soportada.");
-                    return;
+                    return false;
             }
 
-            store.Log("Moderación", "Acción automática confirmada por Twitch/local chat: " +
+            store.Log("Moderación", "Acción automática procesada: " +
                 action + " · regla " + ruleName + " · usuario " + username + " · " + result);
+            return true;
         }
         catch (Exception exception)
         {
             store.Log("Moderación", "Falló la acción automática '" + action + "' de la regla " +
                 ruleName + " para " + username + " (" + exception.GetType().Name + "): " + exception.Message);
             FooterStatus.Text = "Moderación automática falló: " + action + " / " + ruleName;
+            return false;
         }
     }
 
