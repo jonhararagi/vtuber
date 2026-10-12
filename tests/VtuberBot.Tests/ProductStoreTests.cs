@@ -62,4 +62,19 @@ public sealed class ProductStoreTests
         store.SaveModerationRule("URLs", "https?://", true, "flag");
         Assert.Contains(store.GetModerationRules(), r => r.Name == "URLs" && r.Enabled);
     }
+    [Fact]
+    public void AvatarLayersPersistVisibilityAndRemoval()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var asset = Path.Combine(temp.DirectoryPath, "layer.png");
+        File.WriteAllBytes(asset, [1, 2, 3]);
+        var id = store.AddAvatarLayer("Face", asset);
+        Assert.Contains(store.GetAvatarLayers(), layer => layer.Id == id && layer.Visible && layer.Name == "Face");
+        store.SetAvatarLayerVisibility(id, false);
+        Assert.Contains(store.GetAvatarLayers(), layer => layer.Id == id && !layer.Visible);
+        store.DeleteAvatarLayer(id);
+        Assert.DoesNotContain(store.GetAvatarLayers(), layer => layer.Id == id);
+    }
+
 }

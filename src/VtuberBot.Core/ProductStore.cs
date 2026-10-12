@@ -17,7 +17,9 @@ public sealed class ProductStore
 
     public ProductStore(string databasePath)
     {
-        var builder = new SqliteConnectionStringBuilder { DataSource = Path.GetFullPath(databasePath), ForeignKeys = true, DefaultTimeout = 5 };
+        var fullPath = Path.GetFullPath(databasePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        var builder = new SqliteConnectionStringBuilder { DataSource = fullPath, ForeignKeys = true, DefaultTimeout = 5 };
         connectionString = builder.ConnectionString;
         using var connection = Open();
         using var command = connection.CreateCommand();
