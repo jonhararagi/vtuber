@@ -590,3 +590,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Corrección:** se añadió `AvatarLayerOrdering` al Core para clasificar y ordenar capas de fondo por debajo de la imagen base y capas normales/expresiones visuales por encima. Tanto Avatar Studio como la ventana overlay usan el mismo criterio. Los fondos usan `UniformToFill` para cubrir su superficie.
 - **Pruebas nuevas:** clasificación por nombre sin distinguir mayúsculas, normalización de espacios y orden estable por `SortOrder`.
 - **Estado:** corrección implementada; Windows CI pendiente para el nuevo commit. No se ha hecho una comprobación visual manual en Windows/OBS.
+
+
+### 2026-10-12 — CI fix and safer raffle lifecycle
+
+- **Windows CI #191 failed during Build Release** on commit [5f6e5df](https://github.com/jonhararagi/vtuber/commit/5f6e5dfb26226c0382527e1b795ff5102184dfdd): nullable analysis rejected passing the nullable layer argument into `AvatarLayerOrdering.IsBackground`. The helper now explicitly accepts a nullable value and treats null as not-background; a regression assertion covers this case.
+- **Raffle lifecycle issue:** the UI permitted multiple simultaneous OPEN giveaways while chat's `!entrar` command selected only the first result. This could silently register viewers in a different raffle than expected.
+- **Correction:** creating a raffle now fails clearly if another is OPEN; the UI lets the operator select a raffle and cancel it without a winner; cancellation preserves entries for audit and releases the active slot. `!entrar` refuses ambiguous legacy states with multiple OPEN raffles instead of guessing. Drawing validates the raffle state before selecting a winner.
+- **Tests added:** only one OPEN raffle, cancellation with existing entries, no re-entry/draw after cancellation, and creation of the next raffle after closing/canceling.
+- **Validation:** correction is committed as a batch on `product/complete-vtuber-experience`; Windows CI for the new HEAD must pass before this batch is considered validated. CI #189 and #190 succeeded for the earlier art-console commit/documentation respectively; CI #191 is a confirmed build failure on the background-layer commit.

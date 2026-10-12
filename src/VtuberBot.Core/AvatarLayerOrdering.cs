@@ -6,11 +6,9 @@ namespace VtuberBot.Core;
 /// </summary>
 public static class AvatarLayerOrdering
 {
-    public static bool IsBackground(AvatarLayer layer)
-    {
-        ArgumentNullException.ThrowIfNull(layer);
-        return string.Equals(layer.Name.Trim(), "Fondo", StringComparison.OrdinalIgnoreCase);
-    }
+    public static bool IsBackground(AvatarLayer? layer) =>
+        layer is not null &&
+        string.Equals(layer.Name.Trim(), "Fondo", StringComparison.OrdinalIgnoreCase);
 
     public static IReadOnlyList<AvatarLayer> BackgroundLayers(IEnumerable<AvatarLayer> layers)
     {

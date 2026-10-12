@@ -32,6 +32,7 @@ public sealed class AvatarLayerOrderingTests
         Assert.True(AvatarLayerOrdering.IsBackground(Layer(1, "FONDO", 0)));
         Assert.False(AvatarLayerOrdering.IsBackground(Layer(2, "Fondo espacial", 0)));
         Assert.False(AvatarLayerOrdering.IsBackground(Layer(3, "Background", 0)));
+        Assert.False(AvatarLayerOrdering.IsBackground(null));
     }
 
     private static AvatarLayer Layer(long id, string name, int sortOrder) =>

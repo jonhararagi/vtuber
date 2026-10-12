@@ -218,10 +218,28 @@ public partial class MainWindow
         var arguments = separatorIndex < 0 ? string.Empty : text[(separatorIndex + 1)..].Trim();
         if (string.Equals(command, "!entrar", StringComparison.OrdinalIgnoreCase))
         {
-            var active = store.GetGiveaways().FirstOrDefault(giveaway => giveaway.Status == "OPEN");
-            var reply = active is not null && store.EnterGiveaway(active.Id, username)
-                ? username + " ya estás anotado en el sorteo."
-                : "No hay sorteo abierto o ya estabas anotado.";
+            var activeGiveaways = store.GetGiveaways()
+                .Where(giveaway => string.Equals(giveaway.Status, "OPEN", StringComparison.Ordinal))
+                .ToList();
+
+            string reply;
+            if (activeGiveaways.Count == 0)
+            {
+                reply = "No hay ningún sorteo abierto en este momento.";
+            }
+            else if (activeGiveaways.Count > 1)
+            {
+                reply = "Hay varios sorteos abiertos y no se puede determinar en cuál anotarte. Avisá al streamer para resolverlo desde el panel.";
+                store.Log("Sorteos", "Se rechazó !entrar porque hay varios sorteos abiertos en la base de datos.");
+            }
+            else
+            {
+                var active = activeGiveaways[0];
+                reply = store.EnterGiveaway(active.Id, username)
+                    ? username + ", quedaste anotado en el sorteo " + active.Name + "."
+                    : username + ", ya estabas anotado en el sorteo " + active.Name + ".";
+            }
+
             try
             {
                 if (twitch.IsConnected)

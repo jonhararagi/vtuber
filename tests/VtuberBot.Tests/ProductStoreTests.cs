@@ -222,6 +222,46 @@ public sealed class ProductStoreTests
     }
 
     [Fact]
+    public void OnlyOneGiveawayCanBeOpenAtATime()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var firstId = store.CreateGiveaway("First");
+        var exception = Assert.Throws<InvalidOperationException>(() => store.CreateGiveaway("Second"));
+
+        Assert.Contains($"#{firstId}", exception.Message);
+        Assert.True(store.EnterGiveaway(firstId, "alice"));
+        Assert.True(store.EnterGiveaway(firstId, "bob"));
+        var result = store.DrawGiveaway(firstId);
+        Assert.Equal("CLOSED", result.Status);
+
+        var nextId = store.CreateGiveaway("Second");
+        Assert.NotEqual(firstId, nextId);
+        Assert.Equal("OPEN", Assert.Single(store.GetGiveaways(), giveaway => giveaway.Id == nextId).Status);
+    }
+
+    [Fact]
+    public void GiveawayCanBeCancelledWithoutDrawingAndKeepsEntriesForAudit()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var id = store.CreateGiveaway("Cancelled raffle");
+        Assert.True(store.EnterGiveaway(id, "alice"));
+
+        store.CancelGiveaway(id);
+
+        var cancelled = Assert.Single(store.GetGiveaways(), giveaway => giveaway.Id == id);
+        Assert.Equal("CANCELLED", cancelled.Status);
+        Assert.Equal(1, cancelled.Entries);
+        Assert.False(store.EnterGiveaway(id, "bob"));
+        Assert.Throws<InvalidOperationException>(() => store.DrawGiveaway(id));
+        Assert.Throws<InvalidOperationException>(() => store.CancelGiveaway(id));
+
+        var next = store.CreateGiveaway("Replacement");
+        Assert.Equal("OPEN", Assert.Single(store.GetGiveaways(), giveaway => giveaway.Id == next).Status);
+    }
+
+    [Fact]
     public void AutomationAndModerationRulesPersist()
     {
         using var temp = new TempDb();

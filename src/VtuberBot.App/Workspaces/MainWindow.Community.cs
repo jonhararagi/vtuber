@@ -82,12 +82,138 @@ public partial class MainWindow
 
     private UIElement BuildGiveawaysPage()
     {
-        var root=new StackPanel();var panel=Panel("Sorteos");root.Children.Add(panel);
-        var list=new ListBox{Height=250};void Reload(){list.ItemsSource=store.GetGiveaways().Select(g=>$"{g.Id} · {g.Name} · {g.Status} · entradas: {g.Entries} · ganador: {g.Winner??"—"}").ToList();}Reload();panel.Children.Add(list);
-        var name=TextField("Nombre del sorteo");var entrant=TextField("Usuario para registrar como participante");var id=TextField("ID del sorteo");panel.Children.Add(name);panel.Children.Add(ActionButton("Crear sorteo",async (_,_)=>{try{id.Text=store.CreateGiveaway(name.Text).ToString();Reload();FooterStatus.Text=$"Sorteo #{id.Text} abierto.";if(twitch.IsConnected){try{await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),"🎁 Sorteo abierto: "+name.Text.Trim()+". Escribí !entrar para participar.");}catch(Exception sendError){FooterStatus.Text="Sorteo abierto localmente; no se anunció en Twitch: "+sendError.Message;}}}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));panel.Children.Add(Label("ID de sorteo",12,"#98A4BE"));panel.Children.Add(id);panel.Children.Add(entrant);
-        var row=new WrapPanel();row.Children.Add(ActionButton("Registrar participante",(_,_)=>{try{if(!store.EnterGiveaway(long.Parse(id.Text),entrant.Text))FooterStatus.Text="No se registró: el sorteo puede estar cerrado o el usuario ya participaba.";else FooterStatus.Text="Participante registrado.";Reload();}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));
-        row.Children.Add(ActionButton("Elegir ganador y cerrar",async (_,_)=>{try{var g=store.DrawGiveaway(long.Parse(id.Text));Reload();var announcement=$"🎉 Sorteo cerrado. Ganador: {g.Winner}. Participantes: {g.Entries}.";MessageBox.Show(this,$"Ganador: {g.Winner}\nParticipantes: {g.Entries}","Sorteo cerrado");if(twitch.IsConnected){try{await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),announcement);FooterStatus.Text="Ganador anunciado en Twitch.";}catch(Exception sendError){FooterStatus.Text="Sorteo cerrado y ganador guardado; no se pudo anunciar: "+sendError.Message;}}}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));panel.Children.Add(row);
-        root.Children.Add(Label("La selección usa el conjunto de entradas únicas almacenadas; el ganador y el cierre quedan persistidos.",12,"#98A4BE"));return root;
+        var root = new StackPanel();
+        var panel = Panel("Sorteos");
+        root.Children.Add(panel);
+
+        var list = new ListBox { Height = 250 };
+        var name = TextField("Nombre del sorteo (máximo 100 caracteres)");
+        var entrant = TextField("Usuario para registro manual");
+        var id = TextField("ID del sorteo seleccionado");
+
+        void Reload()
+        {
+            list.ItemsSource = store.GetGiveaways()
+                .Select(giveaway => $"{giveaway.Id} · {giveaway.Name} · {giveaway.Status} · entradas: {giveaway.Entries} · ganador: {giveaway.Winner ?? "—"}")
+                .ToList();
+        }
+
+        Reload();
+        list.SelectionChanged += (_, _) =>
+        {
+            if (list.SelectedItem is not string selected)
+                return;
+            if (long.TryParse(selected.Split('·')[0].Trim(), out var selectedId))
+                id.Text = selectedId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        };
+
+        panel.Children.Add(list);
+        panel.Children.Add(name);
+        panel.Children.Add(ActionButton("Crear sorteo", async (_, _) =>
+        {
+            try
+            {
+                id.Text = store.CreateGiveaway(name.Text).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                Reload();
+                FooterStatus.Text = $"Sorteo #{id.Text} abierto.";
+                if (twitch.IsConnected)
+                {
+                    try
+                    {
+                        await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),
+                            "🎁 Sorteo abierto: " + name.Text.Trim() + ". Escribí !entrar para participar.");
+                    }
+                    catch (Exception sendError)
+                    {
+                        FooterStatus.Text = "Sorteo abierto localmente; no se anunció en Twitch: " + sendError.Message;
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Sorteos", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }, true));
+
+        panel.Children.Add(Label("ID del sorteo", 12, "#98A4BE"));
+        panel.Children.Add(id);
+        panel.Children.Add(entrant);
+
+        var actions = new WrapPanel();
+        actions.Children.Add(ActionButton("Registrar participante", (_, _) =>
+        {
+            try
+            {
+                if (!store.EnterGiveaway(long.Parse(id.Text), entrant.Text))
+                    FooterStatus.Text = "No se registró: el sorteo está cerrado o el usuario ya participaba.";
+                else
+                    FooterStatus.Text = "Participante registrado.";
+                Reload();
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Sorteos", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }));
+        actions.Children.Add(ActionButton("Elegir ganador y cerrar", async (_, _) =>
+        {
+            try
+            {
+                var giveaway = store.DrawGiveaway(long.Parse(id.Text));
+                Reload();
+                var announcement = $"🎉 Sorteo cerrado. Ganador: {giveaway.Winner}. Participantes: {giveaway.Entries}.";
+                MessageBox.Show(this,
+                    $"Ganador: {giveaway.Winner}\nParticipantes: {giveaway.Entries}",
+                    "Sorteo cerrado", MessageBoxButton.OK, MessageBoxImage.Information);
+                if (twitch.IsConnected)
+                {
+                    try
+                    {
+                        await twitch.SendMessageAsync(store.GetSetting("twitch.channel"), announcement);
+                        FooterStatus.Text = "Ganador anunciado en Twitch.";
+                    }
+                    catch (Exception sendError)
+                    {
+                        FooterStatus.Text = "Sorteo cerrado y ganador guardado; no se pudo anunciar: " + sendError.Message;
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Sorteos", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }, true));
+        actions.Children.Add(ActionButton("Cancelar sorteo sin ganador", async (_, _) =>
+        {
+            try
+            {
+                var giveawayId = long.Parse(id.Text);
+                store.CancelGiveaway(giveawayId);
+                Reload();
+                FooterStatus.Text = $"Sorteo #{giveawayId} cancelado sin ganador.";
+                if (twitch.IsConnected)
+                {
+                    try
+                    {
+                        await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),
+                            $"El sorteo #{giveawayId} fue cancelado; no se eligió ganador.");
+                    }
+                    catch (Exception sendError)
+                    {
+                        FooterStatus.Text = "Sorteo cancelado localmente; no se pudo anunciar: " + sendError.Message;
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Sorteos", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }));
+        panel.Children.Add(actions);
+        root.Children.Add(Label(
+            "Solo puede haber un sorteo abierto para que !entrar siempre apunte al sorteo correcto. Podés cancelar uno sin participantes y crear otro; las entradas de un sorteo cancelado se conservan en el historial, pero no se pueden modificar ni sortear.",
+            12, "#98A4BE"));
+        return root;
     }
 
     private UIElement BuildMinigamesPage()

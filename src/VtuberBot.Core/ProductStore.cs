@@ -877,8 +877,82 @@ public sealed class ProductStore
 
     public long CreateGiveaway(string name)
     {
-        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Ingresá un nombre para el sorteo.");
-        lock (gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="INSERT INTO giveaways(name,status,created_utc) VALUES($name,'OPEN',$now); SELECT last_insert_rowid();"; cmd.Parameters.AddWithValue("$name",name.Trim()); cmd.Parameters.AddWithValue("$now",Now()); var id=(long)cmd.ExecuteScalar()!; Log("Sorteos",$"Sorteo '{name.Trim()}' creado."); return id; }
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Ingresá un nombre para el sorteo.");
+
+        name = name.Trim();
+        if (name.Length > 100)
+            throw new ArgumentOutOfRangeException(nameof(name), "El nombre del sorteo no puede superar los 100 caracteres.");
+
+        lock (gate)
+        {
+            using var connection = Open();
+            using var transaction = connection.BeginTransaction();
+
+            using (var active = connection.CreateCommand())
+            {
+                active.Transaction = transaction;
+                active.CommandText = "SELECT id,name FROM giveaways WHERE status='OPEN' ORDER BY id DESC LIMIT 1";
+                using var reader = active.ExecuteReader();
+                if (reader.Read())
+                {
+                    var activeId = reader.GetInt64(0);
+                    var activeName = reader.GetString(1);
+                    throw new InvalidOperationException(
+                        $"El sorteo #{activeId} («{activeName}») sigue abierto. Cerralo o cancelalo antes de crear otro.");
+                }
+            }
+
+            long id;
+            using (var insert = connection.CreateCommand())
+            {
+                insert.Transaction = transaction;
+                insert.CommandText = "INSERT INTO giveaways(name,status,created_utc) VALUES($name,'OPEN',$now); SELECT last_insert_rowid();";
+                insert.Parameters.AddWithValue("$name", name);
+                insert.Parameters.AddWithValue("$now", Now());
+                id = Convert.ToInt64(insert.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            transaction.Commit();
+            Log("Sorteos", $"Sorteo '{name}' creado.");
+            return id;
+        }
+    }
+
+    public void CancelGiveaway(long id)
+    {
+        lock (gate)
+        {
+            using var connection = Open();
+            using var transaction = connection.BeginTransaction();
+
+            string? status;
+            using (var query = connection.CreateCommand())
+            {
+                query.Transaction = transaction;
+                query.CommandText = "SELECT status FROM giveaways WHERE id=$id";
+                query.Parameters.AddWithValue("$id", id);
+                status = query.ExecuteScalar() as string;
+            }
+
+            if (status is null)
+                throw new KeyNotFoundException($"No existe el sorteo #{id}.");
+            if (!string.Equals(status, "OPEN", StringComparison.Ordinal))
+                throw new InvalidOperationException($"El sorteo #{id} no está abierto (estado: {status}).");
+
+            using (var update = connection.CreateCommand())
+            {
+                update.Transaction = transaction;
+                update.CommandText = "UPDATE giveaways SET status='CANCELLED',closed_utc=$now WHERE id=$id AND status='OPEN'";
+                update.Parameters.AddWithValue("$now", Now());
+                update.Parameters.AddWithValue("$id", id);
+                if (update.ExecuteNonQuery() != 1)
+                    throw new InvalidOperationException($"El sorteo #{id} dejó de estar abierto.");
+            }
+
+            transaction.Commit();
+            Log("Sorteos", $"Sorteo #{id} cancelado sin elegir ganador.");
+        }
     }
 
     public bool EnterGiveaway(long id, string username)
@@ -891,13 +965,52 @@ public sealed class ProductStore
     {
         lock (gate)
         {
-            using var c=Open(); using var tx=c.BeginTransaction();
-            var entrants=new List<string>();
-            using (var cmd=c.CreateCommand()) { cmd.Transaction=tx; cmd.CommandText="SELECT username FROM giveaway_entries WHERE giveaway_id=$id ORDER BY username"; cmd.Parameters.AddWithValue("$id",id); using var r=cmd.ExecuteReader(); while(r.Read()) entrants.Add(r.GetString(0)); }
-            if(entrants.Count==0) throw new InvalidOperationException("No hay participantes registrados.");
+            using var connection = Open();
+            using var transaction = connection.BeginTransaction();
+
+            string? status;
+            using (var query = connection.CreateCommand())
+            {
+                query.Transaction = transaction;
+                query.CommandText = "SELECT status FROM giveaways WHERE id=$id";
+                query.Parameters.AddWithValue("$id", id);
+                status = query.ExecuteScalar() as string;
+            }
+
+            if (status is null)
+                throw new KeyNotFoundException($"No existe el sorteo #{id}.");
+            if (!string.Equals(status, "OPEN", StringComparison.Ordinal))
+                throw new InvalidOperationException($"El sorteo #{id} no está abierto (estado: {status}).");
+
+            var entrants = new List<string>();
+            using (var query = connection.CreateCommand())
+            {
+                query.Transaction = transaction;
+                query.CommandText = "SELECT username FROM giveaway_entries WHERE giveaway_id=$id ORDER BY username";
+                query.Parameters.AddWithValue("$id", id);
+                using var reader = query.ExecuteReader();
+                while (reader.Read())
+                    entrants.Add(reader.GetString(0));
+            }
+
+            if (entrants.Count == 0)
+                throw new InvalidOperationException("No hay participantes registrados.");
+
             var winner = entrants[System.Security.Cryptography.RandomNumberGenerator.GetInt32(entrants.Count)];
-            using (var cmd=c.CreateCommand()) { cmd.Transaction=tx; cmd.CommandText="UPDATE giveaways SET status='CLOSED',winner=$winner,closed_utc=$now WHERE id=$id AND status='OPEN'"; cmd.Parameters.AddWithValue("$winner",winner); cmd.Parameters.AddWithValue("$now",Now()); cmd.Parameters.AddWithValue("$id",id); if(cmd.ExecuteNonQuery()!=1) throw new InvalidOperationException("El sorteo ya está cerrado."); }
-            tx.Commit(); Log("Sorteos",$"Sorteo #{id}: ganador {winner} de {entrants.Count} participantes."); return new(id,"", "CLOSED",winner,entrants.Count);
+            using (var update = connection.CreateCommand())
+            {
+                update.Transaction = transaction;
+                update.CommandText = "UPDATE giveaways SET status='CLOSED',winner=$winner,closed_utc=$now WHERE id=$id AND status='OPEN'";
+                update.Parameters.AddWithValue("$winner", winner);
+                update.Parameters.AddWithValue("$now", Now());
+                update.Parameters.AddWithValue("$id", id);
+                if (update.ExecuteNonQuery() != 1)
+                    throw new InvalidOperationException($"El sorteo #{id} dejó de estar abierto.");
+            }
+
+            transaction.Commit();
+            Log("Sorteos", $"Sorteo #{id}: ganador {winner} de {entrants.Count} participantes.");
+            return new(id, string.Empty, "CLOSED", winner, entrants.Count);
         }
     }
 
