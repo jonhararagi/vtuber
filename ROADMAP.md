@@ -142,3 +142,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - Se reemplazó el handler async de Window.Closed por OnClosing cancelable y una rutina de cierre que termina las disposiciones asíncronas antes de volver a cerrar la ventana.
 - Los fallos al liberar un recurso se registran sin impedir la liberación de Twitch IRC, EventSub u OBS.
 - Requiere Windows CI del nuevo SHA y validación real de inicio/cierre en Windows; el cierre no se considera manualmente verificado.
+
+
+## Audio — callback de micrófono durante apagado (2026-10-12)
+
+- Se ignoran callbacks PCM con menos de una muestra completa de 16 bits y se protege el posteo a WPF Dispatcher si coincide con su apagado.
+- El cambio evita NaN por divisor cero y una excepción no controlada durante la desconexión/cierre de la captura.
+- Requiere Windows CI y una validación manual con micrófono real para confirmar el cierre bajo captura activa.

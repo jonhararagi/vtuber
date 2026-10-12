@@ -958,3 +958,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Se corrigió el ciclo de vida de WPF: el cierre ahora se aplaza mientras se detienen timers, captura/reproducción de audio, overlay y clientes asíncronos Twitch IRC, EventSub y OBS. Esto evita depender de una continuación async disparada desde Window.Closed después de que la ventana principal ya inició el apagado del dispatcher.
 - Cada disposición de red se intenta de forma independiente; un fallo se registra y no omite la limpieza de los demás recursos. El cierre final solo se reintenta después de completar la rutina.
 - Estado: corrección de código preparada; Windows CI y cierre manual en el equipo objetivo aún deben verificarse para este SHA.
+
+
+## Bloque funcional — tolerancia de callback de audio
+
+- El callback de entrada PCM ahora ignora buffers de menos de 2 bytes (no contienen una muestra PCM16 completa), evitando dividir por cero o propagar NaN al VAD.
+- El envío de actualización visual al Dispatcher queda protegido si el dispositivo dispara un callback mientras WPF está cerrando. La captura conserva la ruta existente que restablece el avatar a Idle al detenerse.
+- Estado: pendiente de Windows CI del SHA resultante y de validación manual de micrófono/cierre; no se declara comprobado con hardware real.

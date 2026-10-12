@@ -126,29 +126,42 @@ public partial class MainWindow
                         short sample = BitConverter.ToInt16(e.Buffer, i);
                         sum += (double)sample * sample;
                     }
-                    var rms = e.BytesRecorded > 0 ? Math.Sqrt(sum / (e.BytesRecorded / 2)) / 32768 : 0;
+                    // A zero/one-byte callback has no complete PCM16 sample; do not divide
+                    // by zero or feed NaN into the VAD during device teardown.
+                    if (e.BytesRecorded < 2)
+                        return;
+
+                    var sampleCount = e.BytesRecorded / 2;
+                    var rms = Math.Sqrt(sum / sampleCount) / 32768;
                     var rawLevel = Math.Clamp(rms * 450, 0, 100);
                     VoiceActivitySnapshot snapshot;
                     try { snapshot = voiceActivity.Process(rawLevel, DateTimeOffset.UtcNow); }
                     catch (ArgumentOutOfRangeException) { return; }
 
-                    Dispatcher.BeginInvoke(new Action(() =>
+                    try
                     {
-                        meter.Value = snapshot.SmoothedLevelPercent;
-                        meterLabel.Text = $"Nivel de entrada: {snapshot.SmoothedLevelPercent:0}% · " +
-                            (snapshot.IsActive ? "actividad acústica detectada" : "silencio / debajo del umbral");
-                        if (!snapshot.StateChanged) return;
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            meter.Value = snapshot.SmoothedLevelPercent;
+                            meterLabel.Text = $"Nivel de entrada: {snapshot.SmoothedLevelPercent:0}% · " +
+                                (snapshot.IsActive ? "actividad acústica detectada" : "silencio / debajo del umbral");
+                            if (!snapshot.StateChanged) return;
 
-                        var state = snapshot.IsActive ? "Talking" : "Idle";
-                        store.SetSetting("avatar.state", state);
-                        overlay?.SetState(state);
-                        FooterStatus.Text = snapshot.IsActive
-                            ? "Actividad acústica detectada; el overlay activa su estado Talking."
-                            : "Actividad acústica finalizada; el overlay vuelve a Idle.";
-                        store.Log("Audio", snapshot.IsActive
-                            ? "Señal de entrada por encima del umbral; cue Talking activado."
-                            : "Señal de entrada por debajo del umbral durante el tiempo de retención; cue Idle activado.");
-                    }));
+                            var state = snapshot.IsActive ? "Talking" : "Idle";
+                            store.SetSetting("avatar.state", state);
+                            overlay?.SetState(state);
+                            FooterStatus.Text = snapshot.IsActive
+                                ? "Actividad acústica detectada; el overlay activa su estado Talking."
+                                : "Actividad acústica finalizada; el overlay vuelve a Idle.";
+                            store.Log("Audio", snapshot.IsActive
+                                ? "Señal de entrada por encima del umbral; cue Talking activado."
+                                : "Señal de entrada por debajo del umbral durante el tiempo de retención; cue Idle activado.");
+                        }));
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // The audio callback may race with dispatcher shutdown; the app is closing.
+                    }
                 };
                 capture.RecordingStopped += (_, args) =>
                 {
