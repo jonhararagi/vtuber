@@ -561,6 +561,7 @@ public partial class MainWindow : Window
             var messageId = parsed.Tags.TryGetValue("id", out var taggedMessageId) ? taggedMessageId : string.Empty;
             var channelLogin = store.GetSetting("twitch.channel");
             var moderationRoles = CommandPermissionPolicy.GetTwitchRoles(parsed, channelLogin);
+            var skipMessageSideEffects = false;
             foreach (var rule in store.GetModerationRules().Where(rule => rule.Enabled))
             {
                 try
@@ -601,6 +602,9 @@ public partial class MainWindow : Window
                             store.Log("Moderación", "Acción automática omitida por límite de 5 minutos para " + username + " / " + rule.Name + ".");
                             break;
                         case AutomaticModerationDecision.Execute:
+                            // A rule-violating message must not also earn points or execute a custom command,
+                            // even if Twitch rejects the remote moderation request.
+                            skipMessageSideEffects = true;
                             var succeeded = await ApplyAutomaticModerationAsync(rule.Name, rule.Action, username, messageId);
                             if (succeeded)
                                 automaticModerationCooldown[cooldownKey] = DateTimeOffset.UtcNow;
@@ -617,6 +621,9 @@ public partial class MainWindow : Window
                     store.Log("Moderación", "La regla " + rule.Name + " agotó el tiempo de análisis.");
                 }
             }
+
+            if (skipMessageSideEffects)
+                return;
 
             var now = DateTimeOffset.UtcNow;
             if (!lastPointAward.TryGetValue(username, out var last) || now - last >= TimeSpan.FromMinutes(5))

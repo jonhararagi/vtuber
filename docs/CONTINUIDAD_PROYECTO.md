@@ -407,3 +407,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Los fallos HTTP al eliminar un mensaje ahora señalan el scope requerido `moderator:manage:chat_messages`; timeout/ban/desbanear señalan `moderator:manage:banned_users`.
 - Los errores al resolver la identidad ya no atribuyen automáticamente el fallo al scope de sanciones: informan validez del token, Client ID y posible revocación.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD de este cambio.
+
+
+### Aislamiento de mensajes sancionables
+
+- Si una regla pasa la política de opt-in y límites para ejecutar una acción automática, el mensaje se excluye de puntos de actividad y del router de comandos personalizado.
+- Este bloqueo también aplica si la llamada remota falla: un error de permisos/red no convierte el mismo mensaje en una ejecución de comando o recompensa normal. Acciones bloqueadas por usuario protegido, falta de ID o cooldown no aplican la sanción y quedan registradas.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
