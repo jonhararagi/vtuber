@@ -1,329 +1,448 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using System.Diagnostics;
+using System.IO;
+using System.Net.Sockets;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
-using System.Windows.Input;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Controls.Primitives;
+using System.Windows.Threading;
+using Microsoft.Win32;
+using Microsoft.Web.WebView2.Wpf;
+using NAudio.Wave;
 using VtuberBot.Core;
-using CoreEventManager = VtuberBot.Core.EventManager;
 
 namespace VtuberBot.App;
 
 public partial class MainWindow : Window
 {
-    private readonly Vm viewModel;
+    private readonly VtuberApplication application;
+    private readonly ProductStore store;
+    private readonly string dataDirectory;
+    private readonly string avatarDirectory;
+    private readonly string secretDirectory;
+    private readonly TwitchChatClient twitch = new();
+    private AvatarOverlayWindow? overlay;
+    private string? avatarPath;
+    private WaveInEvent? microphone;
+    private WebView2? telegramView;
+    private readonly ObservableCollection<string> chatLines = [];
+    private readonly DispatcherTimer automationTimer = new() { Interval = TimeSpan.FromMinutes(1) };
+    private readonly Dictionary<long, DateTimeOffset> automationLastRun = []; 
+    private string currentPage = "Inicio";
+    private bool navigating;
+
+    private static readonly string[] Pages =
+    [
+        "Inicio","Avatar Studio","Twitch y chat","Comandos","Comunidad y puntos","Sorteos",
+        "Minijuegos","Moderación","Voz y audio","OBS","Telegram Web","Actividad y diagnóstico","Ajustes"
+    ];
 
     public MainWindow(VtuberApplication application)
     {
         InitializeComponent();
-        viewModel = new(application);
-        DataContext = viewModel;
-        viewModel.AttachHealthEvents();
-        Closed += (_, _) => viewModel.DetachHealthEvents();
-    }
-
-    private void StartButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            viewModel.Application.Initialize();
-            viewModel.AttachHealthEvents();
-            viewModel.AddActivity("Aplicación iniciada.");
-        }
-        catch (Exception exception)
-        {
-            viewModel.Result = exception.Message;
-            viewModel.AddActivity($"ERROR de inicio: {exception.Message}");
-        }
-
-        viewModel.Refresh();
-    }
-
-    private void StopButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            viewModel.DetachHealthEvents();
-            viewModel.Application.Shutdown();
-            viewModel.Result = "Aplicación detenida.";
-            viewModel.AddActivity("Aplicación detenida.");
-        }
-        catch (Exception exception)
-        {
-            viewModel.Result = exception.Message;
-            viewModel.AddActivity($"ERROR de detención: {exception.Message}");
-        }
-
-        viewModel.Refresh();
-    }
-
-    private void ExecuteButton_Click(object sender, RoutedEventArgs e)
-    {
-        ExecuteCommand();
-    }
-
-    private void CommandInput_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Enter)
-            return;
-
-        ExecuteCommand();
-        e.Handled = true;
-    }
-
-    private void ProfileComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        if (ProfileComboBox.SelectedItem is not PerformanceProfile profile)
-            return;
-
-        try
-        {
-            viewModel.SetPerformanceProfile(profile);
-        }
-        catch (InvalidOperationException)
-        {
-            viewModel.Refresh();
-        }
-    }
-
-    private void ExecuteCommand()
-    {
-        var input = CommandInput.Text;
-
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            viewModel.Result = "Ingrese un comando.";
-            viewModel.AddActivity("ERROR: comando vacío.");
-            return;
-        }
-
-        try
-        {
-            var result = viewModel.Application.ExecuteCommand(input);
-            viewModel.Result = result.Message;
-            viewModel.AddActivity($"{input}: {(result.Success ? "OK" : "ERROR")} — {result.Message}");
-        }
-        catch (Exception exception)
-        {
-            viewModel.Result = exception.Message;
-            viewModel.AddActivity($"ERROR inesperado: {exception.Message}");
-        }
-    }
-}
-
-public sealed class Vm : INotifyPropertyChanged
-{
-    private readonly VtuberApplication application;
-    private string applicationName = "VTuber Bot";
-    private string status = string.Empty;
-    private string result = string.Empty;
-    private string title = "VTuber Bot";
-    private double? cpuPercent;
-    private long? workingSetBytes;
-    private GpuPerformanceSample? gpu;
-    private double? fps;
-    private HealthState health = HealthState.UNAVAILABLE;
-    private DateTimeOffset? lastSample;
-    private PerformanceProfile selectedProfile = PerformanceProfile.Equilibrado;
-
-    public Vm(VtuberApplication application)
-    {
         this.application = application;
-        selectedProfile = application.PerformanceProfile;
-        Refresh();
-    }
-
-    public VtuberApplication Application => application;
-
-    public string ApplicationName
-    {
-        get => applicationName;
-        private set => SetField(ref applicationName, value);
-    }
-
-    public string Version => VtuberApplication.Version;
-
-    public string Status
-    {
-        get => status;
-        private set => SetField(ref status, value);
-    }
-
-    public string Result
-    {
-        get => result;
-        set => SetField(ref result, value);
-    }
-
-    public string Title
-    {
-        get => title;
-        private set => SetField(ref title, value);
-    }
-
-    public bool CanStart =>
-        application.State == AppState.Stopped;
-
-    public bool CanStop =>
-        application.State != AppState.Stopped;
-
-    public bool CanExecute =>
-        application.State == AppState.Running;
-
-    public bool CanSelectProfile =>
-        application.State == AppState.Running;
-
-    public IReadOnlyList<PerformanceProfile> Profiles { get; } =
-        Enum.GetValues<PerformanceProfile>();
-
-    public PerformanceProfile SelectedProfile
-    {
-        get => selectedProfile;
-        private set => SetField(ref selectedProfile, value);
-    }
-
-    public string CpuDisplay =>
-        cpuPercent is null ? "N/D" : $"{cpuPercent.Value:0.0} %";
-
-    public string RamDisplay =>
-        workingSetBytes is null
-            ? "N/D"
-            : $"{workingSetBytes.Value / 1024d / 1024d:0.0} MB";
-
-    public string GpuDisplay =>
-        gpu is null
-            ? "N/D"
-            : $"{gpu.UtilizationPercent:0.0} %";
-
-    public string FpsDisplay =>
-        fps is null ? "N/D" : $"{fps.Value:0.0}";
-
-    public string HealthDisplay => health.ToString();
-
-    public string SamplingIntervalDisplay =>
-        PerformancePolicy.GetSamplingInterval(application.PerformanceProfile).TotalSeconds.ToString("0.#") + " s";
-
-    public string LastSampleDisplay =>
-        lastSample is null
-            ? "N/D"
-            : lastSample.Value.ToLocalTime().ToString("HH:mm:ss");
-
-    public ObservableCollection<string> Activity { get; } = [];
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    public void Refresh()
-    {
-        if (application.State != AppState.Stopped)
-            ApplicationName = application.Config.Name;
-
-        Status = $"Estado: {application.State.ToString().ToUpperInvariant()}";
-        Title = ApplicationName;
-        SelectedProfile = application.PerformanceProfile;
-        ApplySnapshot(application.LatestHealth);
-
-        Raise(nameof(CanStart));
-        Raise(nameof(CanStop));
-        Raise(nameof(CanExecute));
-        Raise(nameof(CanSelectProfile));
-        Raise(nameof(SamplingIntervalDisplay));
-    }
-
-    public void SetPerformanceProfile(PerformanceProfile profile)
-    {
-        application.SetPerformanceProfile(profile);
-        SelectedProfile = profile;
-        Raise(nameof(SamplingIntervalDisplay));
-    }
-
-    public void AttachHealthEvents()
-    {
-        if (application.State == AppState.Stopped)
-            return;
-
-        DetachHealthEvents();
-        subscribedEvents = application.EventManager;
-        healthHandler = OnHealthUpdated;
-        subscribedEvents.Subscribe(VtuberApplication.HealthUpdatedEvent, healthHandler);
-        ApplySnapshot(application.LatestHealth);
-    }
-
-    public void DetachHealthEvents()
-    {
-        if (subscribedEvents is not null && healthHandler is not null)
-            subscribedEvents.Unsubscribe(VtuberApplication.HealthUpdatedEvent, healthHandler);
-
-        subscribedEvents = null;
-        healthHandler = null;
-    }
-
-    public void AddActivity(string message)
-    {
-        Activity.Insert(0, message);
-        while (Activity.Count > 20)
-            Activity.RemoveAt(Activity.Count - 1);
-    }
-
-    private CoreEventManager? subscribedEvents;
-    private Action<AppEvent>? healthHandler;
-
-    private void OnHealthUpdated(AppEvent appEvent)
-    {
-        if (appEvent.Payload is not HealthSnapshot snapshot)
-            return;
-
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
-            ApplySnapshot(snapshot);
-        else
-            dispatcher.BeginInvoke(() => ApplySnapshot(snapshot));
-    }
-
-    private void ApplySnapshot(HealthSnapshot? snapshot)
-    {
-        if (snapshot is null)
+        store = new ProductStore(application.Database.Path);
+        dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VtuberBot");
+        avatarDirectory = Path.Combine(dataDirectory, "avatars");
+        secretDirectory = Path.Combine(dataDirectory, "secrets");
+        Directory.CreateDirectory(avatarDirectory);
+        Directory.CreateDirectory(secretDirectory);
+        avatarPath = store.GetSetting("avatar.path");
+        twitch.StatusChanged += status => Dispatcher.Invoke(() => { FooterStatus.Text = status; RuntimeStatus.Text = twitch.IsConnected ? "●  TWITCH CONECTADO" : "●  LOCAL ACTIVO"; });
+        twitch.MessageReceived += HandleTwitchMessage;
+        Closed += async (_, _) =>
         {
-            cpuPercent = null;
-            workingSetBytes = null;
-            gpu = null;
-            fps = null;
-            health = HealthState.UNAVAILABLE;
-            lastSample = null;
-            Raise(nameof(CpuDisplay));
-            Raise(nameof(RamDisplay));
-            Raise(nameof(GpuDisplay));
-            Raise(nameof(FpsDisplay));
-            Raise(nameof(HealthDisplay));
-            Raise(nameof(LastSampleDisplay));
-            return;
-        }
-
-        cpuPercent = snapshot.CpuPercent;
-        workingSetBytes = snapshot.WorkingSetBytes;
-        gpu = snapshot.Gpu;
-        fps = snapshot.Fps;
-        health = snapshot.Health;
-        lastSample = snapshot.Timestamp;
-        SelectedProfile = snapshot.Profile;
-
-        Raise(nameof(CpuDisplay));
-        Raise(nameof(RamDisplay));
-        Raise(nameof(GpuDisplay));
-        Raise(nameof(FpsDisplay));
-        Raise(nameof(HealthDisplay));
-        Raise(nameof(LastSampleDisplay));
-        Raise(nameof(SelectedProfile));
-        Raise(nameof(SamplingIntervalDisplay));
+            automationTimer.Stop();
+            microphone?.StopRecording(); microphone?.Dispose();
+            if (overlay is not null) overlay.Close();
+            await twitch.DisposeAsync();
+        };
+        automationTimer.Tick += async (_, _) => await ProcessAutomationsAsync();
+        automationTimer.Start();
+        Navigate("Inicio");
     }
 
-    private void SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    private void Navigate_Click(object sender, RoutedEventArgs e)
     {
-        if (EqualityComparer<T>.Default.Equals(field, value))
-            return;
-
-        field = value;
-        Raise(name);
+        if (sender is Button { Tag: string page }) Navigate(page);
     }
 
-    private void Raise([CallerMemberName] string? name = null) =>
-        PropertyChanged?.Invoke(this, new(name));
+    private void Refresh_Click(object sender, RoutedEventArgs e) => Navigate(currentPage);
+
+    private void Navigate(string page)
+    {
+        currentPage = Pages.Contains(page, StringComparer.Ordinal) ? page : "Inicio";
+        navigating = true;
+        PageTitle.Text = currentPage;
+        PageSubtitle.Text = currentPage switch
+        {
+            "Inicio" => "Todo lo importante del stream, en un solo lugar.",
+            "Avatar Studio" => "Importá tu arte, prepará estados y controlá la salida transparente.",
+            "Twitch y chat" => "Conexión oficial por IRC/TLS; la cuenta solo aparece conectada tras autenticación real.",
+            "Comandos" => "Un registro de comandos compartido entre pruebas locales y chat.",
+            "Comunidad y puntos" => "Perfiles, puntos e historial persistidos en SQLite local.",
+            "Sorteos" => "Participantes deduplicados y ganador guardado en el historial.",
+            "Minijuegos" => "Juegos locales con resultados y recompensas registradas.",
+            "Moderación" => "Reglas configurables; el modo actual marca coincidencias sin castigar automáticamente.",
+            "Voz y audio" => "Micrófono real, medidor local y síntesis de voz de Windows.",
+            "OBS" => "Diagnóstico local del puerto de OBS WebSocket; no se afirma control remoto sin autenticar.",
+            "Telegram Web" => "Telegram Web integrado cuando WebView2 está disponible.",
+            "Actividad y diagnóstico" => "Registro local de acciones y exportación sin tokens ni cookies.",
+            "Ajustes" => "Preferencias locales, seguridad y perfil de rendimiento.",
+            _ => ""
+        };
+        Workspace.Content = currentPage switch
+        {
+            "Inicio" => BuildDashboard(),
+            "Avatar Studio" => BuildAvatarStudio(),
+            "Twitch y chat" => BuildTwitchPage(),
+            "Comandos" => BuildCommandsPage(),
+            "Comunidad y puntos" => BuildCommunityPage(),
+            "Sorteos" => BuildGiveawaysPage(),
+            "Minijuegos" => BuildMinigamesPage(),
+            "Moderación" => BuildModerationPage(),
+            "Voz y audio" => BuildAudioPage(),
+            "OBS" => BuildObsPage(),
+            "Telegram Web" => BuildTelegramPage(),
+            "Actividad y diagnóstico" => BuildActivityPage(),
+            "Ajustes" => BuildSettingsPage(),
+            _ => BuildDashboard()
+        };
+        navigating = false;
+    }
+
+    private UIElement BuildDashboard()
+    {
+        var root = new StackPanel();
+        var hero = new Border { Background = Brush("#171D30"), BorderBrush = Brush("#293650"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(18), Padding = new Thickness(24), Margin = new Thickness(0,0,0,18) };
+        var heroGrid = new Grid(); heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.35, GridUnitType.Star) }); heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(Label("Tu stream, bajo control.", 28, "#F8FAFC", true));
+        text.Children.Add(Label("Configurá el avatar y probá la lógica local antes de conectar servicios externos.", 14, "#A8B3CC"));
+        var buttons = new WrapPanel { Margin = new Thickness(0,18,0,0) };
+        buttons.Children.Add(ActionButton("Abrir Avatar Studio", (_,_)=>Navigate("Avatar Studio"), true));
+        buttons.Children.Add(ActionButton("Probar comandos", (_,_)=>Navigate("Comandos")));
+        text.Children.Add(buttons); Grid.SetColumn(text,0); heroGrid.Children.Add(text);
+        var preview = new Border { Background = Brush("#101525"), CornerRadius = new CornerRadius(14), Padding = new Thickness(12), Margin = new Thickness(18,0,0,0), MinHeight = 220 };
+        if (!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath))
+        {
+            try { var image = new Image { Source = LoadImage(avatarPath), Stretch = Stretch.Uniform, MaxHeight = 240 }; preview.Child = image; }
+            catch { preview.Child = Label("No se pudo cargar el avatar. Volvé a importarlo.",13,"#FCA5A5"); }
+        }
+        else
+        {
+            var empty = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
+            empty.Children.Add(Label("✧",48,"#69D8F2",true)); empty.Children.Add(Label("Tu avatar va acá",17,"#F8FAFC",true));
+            empty.Children.Add(Label("Importá un PNG en Avatar Studio",12,"#98A4BE")); preview.Child = empty;
+        }
+        Grid.SetColumn(preview,1); heroGrid.Children.Add(preview); hero.Child=heroGrid; root.Children.Add(hero);
+        var cards = new UniformGrid { Columns = 4, Margin = new Thickness(0,0,0,18) };
+        cards.Children.Add(MetricCard("AVATAR", string.IsNullOrWhiteSpace(avatarPath) ? "Sin importar" : "Configurado", "PNG local"));
+        cards.Children.Add(MetricCard("TWITCH", twitch.IsConnected ? "Conectado" : "Desconectado", "IRC / TLS"));
+        cards.Children.Add(MetricCard("COMANDOS", store.GetCommands().Count.ToString(), "Configurables"));
+        cards.Children.Add(MetricCard("COMUNIDAD", store.GetLeaderboard(500).Count.ToString(), "Usuarios guardados"));
+        root.Children.Add(cards);
+        var lower = new Grid(); lower.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1,GridUnitType.Star) }); lower.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1,GridUnitType.Star) });
+        var quick = Panel("Accesos rápidos"); var quickWrap = new WrapPanel();
+        foreach(var item in new[] {("Sorteos","Sorteos"),("Comunidad","Comunidad y puntos"),("Voz y audio","Voz y audio"),("Diagnósticos","Actividad y diagnóstico")})
+            quickWrap.Children.Add(ActionButton(item.Item1,(_,_)=>Navigate(item.Item2)));
+        quick.Children.Add(quickWrap); Grid.SetColumn(quick,0); lower.Children.Add(quick);
+        var health = Panel("Estado real de módulos");
+        health.Children.Add(StatusRow("Núcleo y SQLite","Disponible",true));
+        health.Children.Add(StatusRow("Avatar","",!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath)));
+        health.Children.Add(StatusRow("Twitch",twitch.IsConnected?"Autenticado":"Requiere configuración",twitch.IsConnected));
+        health.Children.Add(StatusRow("Micrófono",microphone is null?"No iniciado":"Capturando",microphone is not null));
+        health.Children.Add(StatusRow("OBS","Pendiente de comprobación",false));
+        Grid.SetColumn(health,1); lower.Children.Add(health); root.Children.Add(lower);
+        root.Children.Add(Label("Los módulos locales funcionan sin cuentas externas. Una conexión externa nunca se marca como activa solo por guardar sus datos.",12,"#7F8AA5"));
+        return root;
+    }
+
+    private UIElement BuildAvatarStudio()
+    {
+        var root=new StackPanel(); var columns=new Grid(); columns.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1.1,GridUnitType.Star)}); columns.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});
+        var left=Panel("Previsualización"); left.MinHeight=420;
+        var preview = new Border { Background=Brush("#101525"), CornerRadius=new CornerRadius(14), Padding=new Thickness(14), MinHeight=350 };
+        if(!string.IsNullOrWhiteSpace(avatarPath)&&File.Exists(avatarPath))
+        {
+            var img=new Image{Source=LoadImage(avatarPath),Stretch=Stretch.Uniform,MaxHeight=360};
+            preview.Child=img;
+        }
+        else preview.Child=Label("Todavía no hay arte importado.\nUsá un PNG propio para comenzar.",16,"#98A4BE");
+        left.Children.Add(preview);
+        var right=Panel("Avatar y salida"); right.Margin=new Thickness(18,0,0,0);
+        right.Children.Add(Label("Avatar activo",14,"#F8FAFC",true));
+        right.Children.Add(Label(string.IsNullOrWhiteSpace(avatarPath)? "Ningún archivo seleccionado":Path.GetFileName(avatarPath),12,"#98A4BE"));
+        right.Children.Add(ActionButton("＋  Importar PNG / imagen",(_,_)=>ImportAvatar(),true));
+        right.Children.Add(ActionButton("Mostrar overlay transparente",(_,_)=>ShowOverlay()));
+        right.Children.Add(ActionButton("Ocultar overlay",(_,_)=>{overlay?.Hide();store.Log("Avatar","Overlay ocultado.");}));
+        right.Children.Add(Label("Estados disponibles para el runtime",14,"#F8FAFC",true));
+        var states=new WrapPanel();
+        foreach(var s in new[]{"Idle","Talking","Blink","Happy","Surprised"}) states.Children.Add(ActionButton(s,(_,_)=>{store.SetSetting("avatar.state",s);store.Log("Avatar",$"Estado seleccionado: {s}.");FooterStatus.Text=$"Estado de avatar: {s}. La animación avanzada por capas se ampliará en la siguiente integración."; }));
+        right.Children.Add(states);
+        right.Children.Add(Label("La animación actual del overlay aplica movimiento respiratorio leve. El lip-sync requiere señal real de voz; no se finge tracking facial.",12,"#98A4BE"));
+        Grid.SetColumn(left,0);Grid.SetColumn(right,1);columns.Children.Add(left);columns.Children.Add(right);root.Children.Add(columns);return root;
+    }
+
+    private void ImportAvatar()
+    {
+        var dialog=new OpenFileDialog{Title="Importar arte del avatar",Filter="Imágenes|*.png;*.jpg;*.jpeg;*.bmp;*.webp",Multiselect=false};
+        if(dialog.ShowDialog(this)!=true)return;
+        var info=new FileInfo(dialog.FileName);
+        if(info.Length>25*1024*1024){MessageBox.Show(this,"El archivo supera el límite de 25 MB.","VTuberBot",MessageBoxButton.OK,MessageBoxImage.Warning);return;}
+        var extension=Path.GetExtension(dialog.FileName).ToLowerInvariant();
+        if(extension is not (".png" or ".jpg" or ".jpeg" or ".bmp" or ".webp"))return;
+        try
+        {
+            _=LoadImage(dialog.FileName);
+            var destination=Path.Combine(avatarDirectory,$"avatar-{DateTime.UtcNow:yyyyMMdd-HHmmss}{extension}");
+            File.Copy(dialog.FileName,destination,false);avatarPath=destination;store.SetSetting("avatar.path",destination);store.Log("Avatar",$"Asset importado: {Path.GetFileName(destination)}");
+            Navigate("Avatar Studio");
+        }
+        catch(Exception ex){MessageBox.Show(this,$"No se pudo importar la imagen: {ex.Message}","VTuberBot",MessageBoxButton.OK,MessageBoxImage.Error);}
+    }
+
+    private void ShowOverlay()
+    {
+        if(string.IsNullOrWhiteSpace(avatarPath)||!File.Exists(avatarPath)){MessageBox.Show(this,"Primero importá una imagen en Avatar Studio.");return;}
+        try { overlay??=new AvatarOverlayWindow(); overlay.SetImage(avatarPath); if(!overlay.IsVisible)overlay.Show();overlay.Activate();store.Log("Avatar","Overlay mostrado."); }
+        catch(Exception ex){MessageBox.Show(this,$"No se pudo abrir el overlay: {ex.Message}");}
+    }
+
+    private UIElement BuildTwitchPage()
+    {
+        var root=new StackPanel();var panel=Panel("Conexión de Twitch");root.Children.Add(panel);
+        var channel=TextField("Nombre del canal",store.GetSetting("twitch.channel"));
+        var token=new PasswordBox{Password=LoadTwitchToken(),Background=Brush("#101525"),Foreground=Brush("#F8FAFC"),BorderBrush=Brush("#34415E"),Padding=new Thickness(10),Margin=new Thickness(0,0,0,8)};
+        panel.Children.Add(Label("Canal",12,"#98A4BE"));panel.Children.Add(channel);
+        panel.Children.Add(Label("Token OAuth de chat (no se registra en logs)",12,"#98A4BE"));panel.Children.Add(token);
+        panel.Children.Add(Label("Usá un token OAuth de Twitch con permiso de chat. Se cifra con DPAPI para el usuario actual y nunca se escribe en GitHub ni en el registro de actividad.",12,"#98A4BE"));
+        var actions=new WrapPanel();
+        actions.Children.Add(ActionButton("Guardar configuración segura",(_,_)=>{store.SetSetting("twitch.channel",channel.Text.Trim());SaveTwitchToken(token.Password);FooterStatus.Text="Canal y token guardados localmente; aún no conectado.";store.Log("Twitch","Configuración local guardada sin registrar el token.");},true));
+        actions.Children.Add(ActionButton("Conectar",async (_,_)=>{try{store.SetSetting("twitch.channel",channel.Text.Trim());SaveTwitchToken(token.Password);await twitch.ConnectAsync(channel.Text,token.Password); }catch(Exception ex){FooterStatus.Text=$"Twitch: {ex.Message}";store.Log("Twitch",$"Falló conexión: {ex.GetType().Name}; revisá configuración y permisos.");MessageBox.Show(this,$"No se pudo conectar a Twitch. Revisá canal, token OAuth, permisos y conexión a Internet.\n\nDetalle: {ex.Message}");}}));
+        actions.Children.Add(ActionButton("Desconectar",async (_,_)=>await twitch.DisconnectAsync()));
+        panel.Children.Add(actions);
+        var chatPanel=Panel("Chat en directo");chatPanel.Margin=new Thickness(0,16,0,0);
+        var list=new ListBox{ItemsSource=chatLines,Height=260};chatPanel.Children.Add(list);
+        var send=TextField("Escribí un mensaje para el chat…");var sendRow=new DockPanel();DockPanel.SetDock(sendRow, Dock.Left);sendRow.Children.Add(send);
+        sendRow.Children.Add(ActionButton("Enviar",async (_,_)=>{try{await twitch.SendMessageAsync(channel.Text,send.Text);store.Log("Twitch","Mensaje enviado al chat.");send.Clear();}catch(Exception ex){FooterStatus.Text=$"No se pudo enviar: {ex.Message}";}}));chatPanel.Children.Add(sendRow);
+        root.Children.Add(chatPanel);
+        root.Children.Add(Label("La lectura de chat y la respuesta de comandos solo funcionan después de la autenticación real. Los eventos avanzados EventSub todavía requieren scopes/configuración adicional.",12,"#98A4BE"));
+        return root;
+    }
+
+    private void HandleTwitchMessage(string raw)
+    {
+        Dispatcher.BeginInvoke(async () =>
+        {
+            var sep=raw.IndexOf(" :",StringComparison.Ordinal);
+            var text=sep>=0?raw[(sep+2)..]:raw;
+            var prefixEnd=raw.IndexOf('!');
+            var username=raw.StartsWith(':')&&prefixEnd>1?raw[1..prefixEnd]:"viewer";
+            chatLines.Insert(0,$"{username}: {text}");while(chatLines.Count>200)chatLines.RemoveAt(chatLines.Count-1);
+            store.Log("Twitch",$"Mensaje recibido de {username}.");
+            if(text.StartsWith('!'))
+            {
+                var command=text.Split(' ',StringSplitOptions.RemoveEmptyEntries)[0];
+                var result=store.RunLocalCommand(command,username);
+                if(result.Success){try{await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),result.Message);}catch(Exception ex){FooterStatus.Text=$"Comando ejecutado localmente, respuesta no enviada: {ex.Message}";}}
+            }
+        });
+    }
+
+    private UIElement BuildCommandsPage()
+    {
+        var root=new StackPanel();var panel=Panel("Registro de comandos");root.Children.Add(panel);
+        var list=new ListBox{Height=260};void Reload(){list.ItemsSource=null;list.ItemsSource=store.GetCommands().Select(c=>$"{c.Id}  !{c.Name}  ·  {(c.Enabled?"Activo":"Pausado")}  ·  cooldown {c.CooldownSeconds}s\n     {c.Response}").ToList();}
+        Reload();panel.Children.Add(list);
+        var name=TextField("Nombre (sin !, ej. hola)");var response=TextField("Respuesta. Variables: {user}, {points}, {roll}");var cooldown=TextField("Cooldown en segundos");cooldown.Text="5";var enabled=new CheckBox{Content="Comando habilitado",IsChecked=true,Foreground=Brush("#F8FAFC"),Margin=new Thickness(0,0,0,10)};
+        panel.Children.Add(Label("Crear o editar",13,"#F8FAFC",true));panel.Children.Add(name);panel.Children.Add(response);panel.Children.Add(cooldown);panel.Children.Add(enabled);
+        var row=new WrapPanel();
+        row.Children.Add(ActionButton("Guardar nuevo",(_,_)=>{try{store.SaveCommand(null,name.Text,response.Text,int.Parse(cooldown.Text),enabled.IsChecked==true);Reload();name.Clear();response.Clear();FooterStatus.Text="Comando guardado en SQLite.";}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
+        row.Children.Add(ActionButton("Probar localmente",(_,_)=>{var result=store.RunLocalCommand(name.Text);MessageBox.Show(this,result.Message,"Prueba local");}));
+        row.Children.Add(ActionButton("Eliminar seleccionado",(_,_)=>{if(list.SelectedIndex<0)return;var id=long.Parse(list.SelectedItem!.ToString()!.Split(' ')[0]);if(MessageBox.Show(this,"¿Eliminar el comando seleccionado?","Confirmar",MessageBoxButton.YesNo)==MessageBoxResult.Yes){store.DeleteCommand(id);Reload();}}));
+        panel.Children.Add(row);root.Children.Add(Label("Las pruebas locales recorren la misma respuesta persistida que usa el chat. El cooldown se guarda y expone para configuración; enforcement global de cooldown se consolidará en el router de eventos.",12,"#98A4BE"));return root;
+    }
+
+    private UIElement BuildCommunityPage()
+    {
+        var root=new StackPanel();var panel=Panel("Comunidad y puntos");root.Children.Add(panel);
+        var list=new ListBox{Height=310};void Reload(){list.ItemsSource=store.GetLeaderboard().Select((u,i)=>$"{i+1,2}.  {u.Username,-24}  {u.Points,7} pts   · visto {u.LastSeen.ToLocalTime():dd/MM HH:mm}").ToList();}Reload();panel.Children.Add(list);
+        var user=TextField("Usuario (letras/números/_/-)");var amount=TextField("Cantidad de puntos (+/-)");amount.Text="10";var reason=TextField("Motivo de la operación");reason.Text="Ajuste manual";
+        panel.Children.Add(user);panel.Children.Add(amount);panel.Children.Add(reason);
+        var row=new WrapPanel();row.Children.Add(ActionButton("Agregar / quitar puntos",(_,_)=>{try{var result=store.AddPoints(user.Text,long.Parse(amount.Text),reason.Text);Reload();FooterStatus.Text=$"{result.Username}: {result.Points} puntos.";}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
+        row.Children.Add(ActionButton("Crear perfil",(_,_)=>{try{var u=store.TouchUser(user.Text);Reload();FooterStatus.Text=$"Perfil {u.Username} disponible.";}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));
+        row.Children.Add(ActionButton("Exportar ranking CSV",(_,_)=>ExportLeaderboard()));panel.Children.Add(row);
+        return root;
+    }
+
+    private void ExportLeaderboard()
+    {
+        var dialog=new SaveFileDialog{Filter="CSV|*.csv",FileName="vtuberbot-ranking.csv"};if(dialog.ShowDialog(this)!=true)return;
+        var lines=new List<string>{"usuario,puntos,ultima_actividad"};
+        lines.AddRange(store.GetLeaderboard(200).Select(u=>$"\"{u.Username.Replace("\"",""\"\"")}\",{u.Points},\"{u.LastSeen:O}\""));
+        File.WriteAllLines(dialog.FileName,lines,new UTF8Encoding(true));store.Log("Comunidad","Ranking exportado a CSV.");
+    }
+
+    private UIElement BuildGiveawaysPage()
+    {
+        var root=new StackPanel();var panel=Panel("Sorteos");root.Children.Add(panel);
+        var list=new ListBox{Height=250};void Reload(){list.ItemsSource=store.GetGiveaways().Select(g=>$"{g.Id} · {g.Name} · {g.Status} · entradas: {g.Entries} · ganador: {g.Winner??"—"}").ToList();}Reload();panel.Children.Add(list);
+        var name=TextField("Nombre del sorteo");var entrant=TextField("Usuario para registrar como participante");var id=TextField("ID del sorteo");panel.Children.Add(name);panel.Children.Add(ActionButton("Crear sorteo",(_,_)=>{try{id.Text=store.CreateGiveaway(name.Text).ToString();Reload();FooterStatus.Text=$"Sorteo #{id.Text} abierto."; }catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));panel.Children.Add(Label("ID de sorteo",12,"#98A4BE"));panel.Children.Add(id);panel.Children.Add(entrant);
+        var row=new WrapPanel();row.Children.Add(ActionButton("Registrar participante",(_,_)=>{try{if(!store.EnterGiveaway(long.Parse(id.Text),entrant.Text))FooterStatus.Text="No se registró: el sorteo puede estar cerrado o el usuario ya participaba.";else FooterStatus.Text="Participante registrado.";Reload();}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));
+        row.Children.Add(ActionButton("Elegir ganador y cerrar",(_,_)=>{try{var g=store.DrawGiveaway(long.Parse(id.Text));Reload();MessageBox.Show(this,$"Ganador: {g.Winner}\nParticipantes: {g.Entries}","Sorteo cerrado");}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));panel.Children.Add(row);
+        root.Children.Add(Label("La selección usa el conjunto de entradas únicas almacenadas; el ganador y el cierre quedan persistidos.",12,"#98A4BE"));return root;
+    }
+
+    private UIElement BuildMinigamesPage()
+    {
+        var root=new StackPanel();var panel=Panel("Minijuegos locales");root.Children.Add(panel);
+        panel.Children.Add(Label("Duelo de moneda",22,"#F8FAFC",true));panel.Children.Add(Label("Elegí un nombre de usuario y jugá una ronda. Las victorias otorgan 10 puntos; cada sesión queda registrada.",13,"#98A4BE"));
+        var user=TextField("Usuario");user.Text="Streamer";var game=new ComboBox{ItemsSource=new[]{"Duelo de moneda","Ruleta de suerte","Dado"},SelectedIndex=0};panel.Children.Add(user);panel.Children.Add(game);
+        panel.Children.Add(ActionButton("Jugar ronda",(_,_)=>{try{var result=store.PlayGame(game.SelectedItem?.ToString()??"Duelo de moneda",user.Text,10);MessageBox.Show(this,result,"Resultado del minijuego");}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
+        var history=Panel("Historial reciente");history.Margin=new Thickness(0,16,0,0);history.Children.Add(new ListBox{ItemsSource=store.GetActivity(40).Where(a=>a.Module=="Minijuegos").Select(a=>$"{a.At.ToLocalTime():HH:mm:ss} · {a.Message}").ToList(),Height=220});root.Children.Add(history);return root;
+    }
+
+    private UIElement BuildModerationPage()
+    {
+        var root=new StackPanel();var panel=Panel("Reglas de moderación");root.Children.Add(panel);
+        var list=new ListBox{Height=180};void Reload(){list.ItemsSource=store.GetModerationRules().Select(r=>$"{r.Name} | /{r.Pattern}/ | {(r.Enabled?"activa":"pausada")} | {r.Action}").ToList();}Reload();panel.Children.Add(list);
+        var name=TextField("Nombre de la regla");var pattern=TextField("Patrón regex (ej. https?://)");var action=new ComboBox{ItemsSource=new[]{"flag","warn","delete"},SelectedIndex=0};var enabled=new CheckBox{Content="Habilitada",IsChecked=true,Foreground=Brush("#F8FAFC")};panel.Children.Add(name);panel.Children.Add(pattern);panel.Children.Add(action);panel.Children.Add(enabled);
+        panel.Children.Add(ActionButton("Guardar regla",(_,_)=>{try{store.SaveModerationRule(name.Text,pattern.Text,enabled.IsChecked==true,action.SelectedItem?.ToString()??"flag");Reload();}catch(Exception ex){MessageBox.Show(this,$"Regla inválida: {ex.Message}");}},true));
+        var test=TextField("Texto para analizar");panel.Children.Add(Label("Probar un mensaje (solo observación, no borra ni sanciona)",13,"#F8FAFC",true));panel.Children.Add(test);
+        panel.Children.Add(ActionButton("Analizar mensaje",(_,_)=>{var matches=new List<string>();foreach(var r in store.GetModerationRules().Where(x=>x.Enabled)){try{if(Regex.IsMatch(test.Text,r.Pattern,RegexOptions.IgnoreCase,TimeSpan.FromMilliseconds(100)))matches.Add($"{r.Name} ({r.Action})");}catch(RegexMatchTimeoutException){matches.Add($"{r.Name} — tiempo agotado");}}var message=matches.Count==0?"No se detectaron coincidencias.": "Coincidencias: "+string.Join(", ",matches);store.Log("Moderación",message);MessageBox.Show(this,message,"Diagnóstico de moderación");}));
+        root.Children.Add(Label("Las reglas se evalúan en modo observación. No se ejecutan acciones punitivas remotas automáticamente.",12,"#98A4BE"));return root;
+    }
+
+    private async Task ProcessAutomationsAsync()
+    {
+        foreach(var rule in store.GetAutomationRules().Where(r=>r.Enabled))
+        {
+            var now=DateTimeOffset.UtcNow;
+            if(automationLastRun.TryGetValue(rule.Id,out var last)&&now-last<TimeSpan.FromMinutes(rule.IntervalMinutes))continue;
+            automationLastRun[rule.Id]=now;
+            if(!twitch.IsConnected){store.Log("Automatización",$"'{rule.Name}' omitido: Twitch desconectado.");continue;}
+            try{await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),rule.Message);store.Log("Automatización",$"Mensaje '{rule.Name}' enviado.");}
+            catch(Exception ex){store.Log("Automatización",$"'{rule.Name}' falló: {ex.GetType().Name}.");}
+        }
+    }
+
+    private UIElement BuildAudioPage()
+    {
+        var root=new StackPanel();var panel=Panel("Micrófono y voz local");root.Children.Add(panel);
+        var devices=new ComboBox{ItemsSource=Enumerable.Range(0,WaveIn.DeviceCount).Select(i=>{var caps=WaveIn.GetCapabilities(i);return $"{i}: {caps.ProductName}";}).ToList(),SelectedIndex=WaveIn.DeviceCount>0?0:-1};
+        panel.Children.Add(Label("Dispositivo de entrada",12,"#98A4BE"));panel.Children.Add(devices);
+        var meter=new ProgressBar{Minimum=0,Maximum=100,Height=16,Margin=new Thickness(0,8,0,12)};var meterLabel=Label("Nivel de entrada: N/D",12,"#98A4BE");panel.Children.Add(meter);panel.Children.Add(meterLabel);
+        panel.Children.Add(ActionButton("Iniciar medición real",(_,_)=>{try{microphone?.StopRecording();microphone?.Dispose();if(WaveIn.DeviceCount==0){FooterStatus.Text="No hay micrófonos disponibles.";return;}microphone=new WaveInEvent{DeviceNumber=Math.Max(0,devices.SelectedIndex),WaveFormat=new WaveFormat(16000,16,1),BufferMilliseconds=50};microphone.DataAvailable+=(_,e)=>{double sum=0;for(int i=0;i<e.BytesRecorded-1;i+=2){short sample=BitConverter.ToInt16(e.Buffer,i);sum+=(double)sample*sample;}var rms=e.BytesRecorded>0?Math.Sqrt(sum/(e.BytesRecorded/2))/32768:0;var value=Math.Clamp(rms*450,0,100);Dispatcher.BeginInvoke(()=>{meter.Value=value;meterLabel.Text=$"Nivel de entrada: {value:0}% {(value>8?"· voz/sonido detectado":"· silencio/ambiente")}";});};microphone.RecordingStopped+=(_,_)=>Dispatcher.BeginInvoke(()=>{meterLabel.Text="Captura detenida.";});microphone.StartRecording();store.Log("Audio","Medición de micrófono iniciada.");}catch(Exception ex){FooterStatus.Text=$"Micrófono: {ex.Message}";MessageBox.Show(this,ex.Message);}},true));
+        panel.Children.Add(ActionButton("Detener medición",(_,_)=>{microphone?.StopRecording();microphone?.Dispose();microphone=null;}));
+        var speech=TextField("Texto para sintetizar en voz local");speech.Text="Hola, chat. ¡Gracias por acompañarme!";
+        panel.Children.Add(Label("Síntesis de voz Windows (SAPI)",14,"#F8FAFC",true));panel.Children.Add(speech);
+        panel.Children.Add(ActionButton("Hablar",(_,_)=>{try{SpeakLocal(speech.Text);store.Log("Audio","Prueba TTS local solicitada.");}catch(Exception ex){MessageBox.Show(this,$"El motor de voz local no está disponible: {ex.Message}");}},true));
+        root.Children.Add(Label("El medidor lee muestras del dispositivo seleccionado. El indicador es nivel de señal, no reconocimiento semántico de voz. TTS usa las voces instaladas en Windows.",12,"#98A4BE"));return root;
+    }
+
+    private static void SpeakLocal(string text)
+    {
+        if(string.IsNullOrWhiteSpace(text))throw new ArgumentException("Escribí un texto.");
+        var type=Type.GetTypeFromProgID("SAPI.SpVoice")??throw new InvalidOperationException("Windows SAPI no está disponible.");
+        var voice=Activator.CreateInstance(type)??throw new InvalidOperationException("No se pudo crear el motor SAPI.");
+        try{type.InvokeMember("Speak",BindingFlags.InvokeMethod,null,voice,[text,0]);}
+        finally{if(Marshal.IsComObject(voice))Marshal.ReleaseComObject(voice);}
+    }
+
+    private UIElement BuildObsPage()
+    {
+        var root=new StackPanel();var panel=Panel("OBS Studio · diagnóstico local");root.Children.Add(panel);
+        panel.Children.Add(Label("WebSocket de OBS",19,"#F8FAFC",true));panel.Children.Add(Label("Dirección predeterminada: 127.0.0.1:4455. La prueba verifica si el puerto acepta conexiones TCP; no autentica ni ejecuta acciones en OBS.",13,"#98A4BE"));
+        var host=TextField("Host");host.Text=store.GetSetting("obs.host","127.0.0.1");var port=TextField("Puerto");port.Text=store.GetSetting("obs.port","4455");panel.Children.Add(host);panel.Children.Add(port);
+        panel.Children.Add(ActionButton("Probar disponibilidad del puerto",async (_,_)=>{try{var p=int.Parse(port.Text);using var tcp=new TcpClient();using var cts=new CancellationTokenSource(TimeSpan.FromSeconds(2));await tcp.ConnectAsync(host.Text,p,cts.Token);FooterStatus.Text="El puerto TCP responde. La sesión OBS WebSocket aún no está autenticada.";MessageBox.Show(this,"Puerto accesible. Para declarar OBS conectado falta completar el handshake WebSocket v5 y la autenticación configurada en OBS.");store.Log("OBS","Puerto TCP accesible; no se realizó autenticación WebSocket.");}catch(Exception ex){FooterStatus.Text=$"OBS no disponible: {ex.Message}";store.Log("OBS",$"Puerto no disponible ({ex.GetType().Name}).");MessageBox.Show(this,$"No se pudo alcanzar el puerto de OBS: {ex.Message}");}},true));
+        panel.Children.Add(ActionButton("Guardar dirección",(_,_)=>{store.SetSetting("obs.host",host.Text.Trim());store.SetSetting("obs.port",port.Text.Trim());FooterStatus.Text="Dirección OBS guardada."; }));
+        root.Children.Add(Label("La ventana overlay transparente se puede agregar a OBS mediante captura de ventana. La integración de escenas y fuentes no se presenta como implementada en esta compilación.",12,"#98A4BE"));return root;
+    }
+
+    private UIElement BuildTelegramPage()
+    {
+        var root=new DockPanel();var toolbar=new WrapPanel();DockPanel.SetDock(toolbar,Dock.Top);
+        toolbar.Children.Add(ActionButton("Abrir Telegram Web",async (_,_)=>{if(telegramView is null){FooterStatus.Text="Inicializando WebView2…";return;}try{await telegramView.EnsureCoreWebView2Async();telegramView.Source=new Uri("https://web.telegram.org/");FooterStatus.Text="Telegram Web cargando en WebView2.";}catch(Exception ex){FooterStatus.Text=$"WebView2 no disponible: {ex.Message}";OpenTelegramExternal();}},true));
+        toolbar.Children.Add(ActionButton("Abrir en navegador",(_,_)=>OpenTelegramExternal()));
+        root.Children.Add(toolbar);telegramView=new WebView2();root.Children.Add(telegramView);
+        Loaded+=async (_,_)=>{try{await telegramView.EnsureCoreWebView2Async();telegramView.Source=new Uri("https://web.telegram.org/");}catch{FooterStatus.Text="WebView2 no está disponible. Usá el botón para abrir Telegram en el navegador.";}};return root;
+    }
+    private void OpenTelegramExternal(){try{Process.Start(new ProcessStartInfo("https://web.telegram.org/"){UseShellExecute=true});store.Log("Telegram","Telegram Web abierto en navegador externo.");}catch(Exception ex){MessageBox.Show(this,ex.Message);}}
+
+    private UIElement BuildActivityPage()
+    {
+        var root=new StackPanel();var panel=Panel("Actividad reciente");root.Children.Add(panel);
+        var list=new ListBox{Height=470,ItemsSource=store.GetActivity(250).Select(a=>$"{a.At.ToLocalTime():yyyy-MM-dd HH:mm:ss}  [{a.Module}]  {a.Message}").ToList()};panel.Children.Add(list);
+        var row=new WrapPanel();row.Children.Add(ActionButton("Actualizar registro",(_,_)=>Navigate("Actividad y diagnóstico")));
+        row.Children.Add(ActionButton("Exportar diagnóstico",(_,_)=>ExportDiagnostics(),true));panel.Children.Add(row);
+        panel.Children.Add(Label("El diagnóstico exportado incluye eventos de la app y configuración no secreta; excluye tokens OAuth, cookies de WebView2 y datos binarios de usuario.",12,"#98A4BE"));return root;
+    }
+
+    private void ExportDiagnostics()
+    {
+        var dialog=new SaveFileDialog{Filter="Texto|*.txt",FileName="vtuberbot-diagnostic.txt"};if(dialog.ShowDialog(this)!=true)return;
+        var sb=new StringBuilder();sb.AppendLine("VTuberBot — diagnóstico local");sb.AppendLine($"Fecha UTC: {DateTimeOffset.UtcNow:O}");sb.AppendLine($"Versión core: {VtuberApplication.Version}");sb.AppendLine($"Estado core: {application.State}");sb.AppendLine($"SQLite: {application.Database.Path}");sb.AppendLine($"Avatar configurado: {!string.IsNullOrWhiteSpace(avatarPath)&&File.Exists(avatarPath)}");sb.AppendLine($"Twitch conectado: {twitch.IsConnected}");sb.AppendLine($"Dispositivos de entrada: {WaveIn.DeviceCount}");sb.AppendLine("No se exportan tokens, cookies ni contraseñas.");sb.AppendLine();foreach(var a in store.GetActivity(250))sb.AppendLine($"{a.At:O}\t{a.Module}\t{a.Message}");
+        File.WriteAllText(dialog.FileName,sb.ToString(),new UTF8Encoding(true));store.Log("Diagnóstico","Informe de diagnóstico exportado.");
+    }
+
+    private UIElement BuildSettingsPage()
+    {
+        var root=new StackPanel();var panel=Panel("Preferencias locales");root.Children.Add(panel);
+        var profile=new ComboBox{ItemsSource=new[]{"Ahorro","Equilibrado","Calidad"},SelectedItem=store.GetSetting("performance.profile","Equilibrado")};panel.Children.Add(Label("Perfil de rendimiento",12,"#98A4BE"));panel.Children.Add(profile);
+        var reduceMotion=new CheckBox{Content="Reducir movimiento del overlay",IsChecked=store.GetSetting("ui.reduceMotion","false")=="true",Foreground=Brush("#F8FAFC"),Margin=new Thickness(0,8,0,12)};panel.Children.Add(reduceMotion);
+        panel.Children.Add(ActionButton("Guardar preferencias",(_,_)=>{store.SetSetting("performance.profile",profile.SelectedItem?.ToString()??"Equilibrado");store.SetSetting("ui.reduceMotion",reduceMotion.IsChecked==true?"true":"false");FooterStatus.Text="Preferencias guardadas en SQLite.";store.Log("Ajustes","Preferencias locales actualizadas.");},true));
+        var privacy=Panel("Privacidad y almacenamiento");privacy.Margin=new Thickness(0,16,0,0);privacy.Children.Add(Label($"Datos locales: {dataDirectory}",12,"#98A4BE"));privacy.Children.Add(Label("Los assets se copian al directorio local. El token de Twitch se cifra con DPAPI CurrentUser. No se incluyen datos personales en el repositorio ni en los paquetes de CI.",12,"#98A4BE"));privacy.Children.Add(ActionButton("Abrir carpeta de datos",(_,_)=>{try{Process.Start(new ProcessStartInfo(dataDirectory){UseShellExecute=true});}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));root.Children.Add(privacy);
+        return root;
+    }
+
+    private string LoadTwitchToken()
+    {
+        var path=Path.Combine(secretDirectory,"twitch-token.bin");if(!File.Exists(path))return "";
+        try{return Encoding.UTF8.GetString(ProtectedData.Unprotect(File.ReadAllBytes(path),null,DataProtectionScope.CurrentUser));}
+        catch{FooterStatus.Text="No se pudo descifrar el token guardado. Volvé a ingresarlo.";return "";}
+    }
+    private void SaveTwitchToken(string token)
+    {
+        var path=Path.Combine(secretDirectory,"twitch-token.bin");
+        if(string.IsNullOrWhiteSpace(token)){if(File.Exists(path))File.Delete(path);return;}
+        var bytes=ProtectedData.Protect(Encoding.UTF8.GetBytes(token.Trim()),null,DataProtectionScope.CurrentUser);
+        File.WriteAllBytes(path,bytes);
+    }
+
+    private static BitmapImage LoadImage(string path)
+    {
+        var image=new BitmapImage();image.BeginInit();image.CacheOption=BitmapCacheOption.OnLoad;image.DecodePixelWidth=900;image.UriSource=new Uri(Path.GetFullPath(path));image.EndInit();image.Freeze();return image;
+    }
+    private static SolidColorBrush Brush(string color)=>(SolidColorBrush)new BrushConverter().ConvertFromString(color)!;
+    private static TextBlock Label(string text,double size,string color,bool bold=false)=>new(){Text=text,FontSize=size,Foreground=Brush(color),FontWeight=bold?FontWeights.SemiBold:FontWeights.Normal,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,8)};
+    private static TextBox TextField(string placeholder,string initial="")=>new(){Text=initial,ToolTip=placeholder,MinWidth=220};
+    private static Button ActionButton(string text,RoutedEventHandler click,bool primary=false)
+    {
+        var b=new Button{Content=text,Padding=new Thickness(14,9),Margin=new Thickness(0,0,8,8),Background=Brush(primary?"#176B85":"#252E46"),BorderBrush=Brush(primary?"#2886A3":"#34415E"),Foreground=Brush("#F8FAFC"),Cursor=System.Windows.Input.Cursors.Hand};b.Click+=click;return b;
+    }
+    private static StackPanel Panel(string title)
+    {
+        var p=new StackPanel();p.Children.Add(Label(title,17,"#F8FAFC",true));p.Background=Brush("#151A2A");p.Margin=new Thickness(0,0,0,12);p.SetValue(Border.PaddingProperty,new Thickness(18));return p;
+    }
+    private static Border MetricCard(string title,string value,string detail)
+    {
+        var content=new StackPanel();content.Children.Add(Label(title,10,"#98A4BE",true));content.Children.Add(Label(value,21,"#F8FAFC",true));content.Children.Add(Label(detail,11,"#69D8F2"));
+        return new Border{Background=Brush("#151A2A"),BorderBrush=Brush("#293650"),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(12),Padding=new Thickness(16),Margin=new Thickness(0,0,10,0),Child=content};
+    }
+    private static StackPanel StatusRow(string name,string detail,bool ok)
+    {
+        var p=new StackPanel{Orientation=Orientation.Horizontal,Margin=new Thickness(0,5,0,5)};
+        p.Children.Add(Label(ok?"●":"○",12,ok?"#75E0BF":"#E7B56A",true));
+        p.Children.Add(Label(name,13,"#F8FAFC",true));
+        p.Children.Add(Label(string.IsNullOrWhiteSpace(detail)?(ok?"Configurado":"No disponible"):detail,12,"#98A4BE"));
+        return p;
+    }
 }

@@ -1,1 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWPF>true</UseWPF><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup><ItemGroup><ProjectReference Include="..\VtuberBot.Core\VtuberBot.Core.csproj"/></ItemGroup></Project>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWPF>true</UseWPF><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
+  <ItemGroup><ProjectReference Include="..\VtuberBot.Core\VtuberBot.Core.csproj"/></ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1"/>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40"/>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0"/>
+  </ItemGroup>
+</Project>

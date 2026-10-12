@@ -83,16 +83,8 @@ public sealed record AppConfig(
 
     private static string GetDefaultBaseDirectory()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "PROJECT_SPEC.md")))
-                return directory.FullName;
-
-            directory = directory.Parent;
-        }
-
-        return AppContext.BaseDirectory;
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "VtuberBot");
     }
 }

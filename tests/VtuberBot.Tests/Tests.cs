@@ -155,7 +155,9 @@ public sealed class Tests
     {
         var config = AppConfig.Load();
 
-        Assert.True(File.Exists(Path.Combine(config.BaseDirectory, "PROJECT_SPEC.md")));
+        Assert.Equal(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VtuberBot"),
+            config.BaseDirectory);
         Assert.Equal(
             Path.GetFullPath(Path.Combine(config.BaseDirectory, "data", "vtuber.sqlite3")),
             config.DatabasePath);
