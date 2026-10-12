@@ -116,6 +116,19 @@ internal sealed class WindowsPngtuberHotkeySender : IPngtuberHotkeySender
     private struct InputUnion
     {
         [FieldOffset(0)] public KeyboardInput Keyboard;
+        // INPUT contains a union whose size is determined by MOUSEINPUT on x64.
+        [FieldOffset(0)] public MouseInput Mouse;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MouseInput
+    {
+        public int Dx;
+        public int Dy;
+        public uint MouseData;
+        public uint Flags;
+        public uint Time;
+        public UIntPtr ExtraInfo;
     }
 
     [StructLayout(LayoutKind.Sequential)]
