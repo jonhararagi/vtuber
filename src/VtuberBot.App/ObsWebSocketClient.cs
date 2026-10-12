@@ -17,9 +17,6 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
     private readonly SemaphoreSlim sendGate = new(1, 1);
     private readonly Dictionary<string, TaskCompletionSource<JsonElement>> pending = new(StringComparer.Ordinal);
     private readonly object gate = new();
-    private string? configuredHost;
-    private int configuredPort;
-    private string configuredPassword = "";
 
     public bool IsConnected { get; private set; }
     public bool IsActive => cancellation is not null;
@@ -34,9 +31,6 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
 
         var normalizedHost = host.Trim();
         var normalizedPassword = password ?? string.Empty;
-        configuredHost = normalizedHost;
-        configuredPort = port;
-        configuredPassword = normalizedPassword;
         cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cancellation.CancelAfter(TimeSpan.FromSeconds(15));
 
@@ -326,9 +320,6 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         socket = null;
         cancellation = null;
         receiveTask = null;
-        configuredHost = null;
-        configuredPort = 0;
-        configuredPassword = string.Empty;
         IsConnected = false;
         FailPendingRequests(new OperationCanceledException("OBS se desconectó manualmente."));
         StatusChanged?.Invoke("OBS desconectado.");

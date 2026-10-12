@@ -519,3 +519,7 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 ### Corrección CI — semáforo de envío de OBS
 - CI #176 falló al compilar la clase nueva de OBS porque `SemaphoreSlim` se inicializó sin los parámetros requeridos. Se corrigió a `new(1, 1)`, manteniendo un único escritor concurrente.
 - Estado: pendiente del CI completo en el siguiente HEAD.
+
+
+### Pulido estático del cliente OBS
+- Se retiraron tres campos de configuración que ya no se leen porque el supervisor conserva los valores en sus argumentos; así se evita ruido de compilador bajo `TreatWarningsAsErrors`.
