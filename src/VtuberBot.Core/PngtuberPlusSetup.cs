@@ -211,8 +211,8 @@ public static class PngtuberHotkeyKeyPolicy
         if (string.IsNullOrWhiteSpace(key))
             return false;
         var value = key.Trim().ToUpperInvariant();
-        return value.Length == 1 && (value[0] is >= '0' and <= '9' or >= 'A' and <= 'Z') ||
-               value.Length is 2 or 3 && value[0] == 'F' &&
-               int.TryParse(value[1..], out var functionKey) && functionKey is >= 1 and <= 12;
+        return (value.Length == 1 && (value[0] is >= '0' and <= '9' or >= 'A' and <= 'Z')) ||
+               ((value.Length is 2 or 3) && value[0] == 'F' &&
+                int.TryParse(value[1..], out var functionKey) && functionKey is >= 1 and <= 12);
     }
 }
