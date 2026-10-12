@@ -107,7 +107,7 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Shell UX:** dashboard, navegación por áreas, estado de módulos y espacios de trabajo para avatar, Twitch, comandos, comunidad, sorteos, minijuegos, moderación, voz/audio, OBS, Telegram, ajustes y diagnóstico.
 - **Persistencia:** nuevas tablas SQLite para comandos, usuarios, ledger de puntos, sorteos/entradas, sesiones de juego, reglas de moderación, automatizaciones, capas de avatar, actividad y preferencias. Se añadieron migraciones idempotentes para columnas.
 - **Avatar Studio:** importación de imagen base y capas, visibilidad/eliminación de capas, composición de preview y overlay transparente movible/redimensionable. Los cues de estado modifican el movimiento/opacidad del overlay; no son un rig facial.
-- **Twitch:** flujo OAuth authorization-code con PKCE en navegador y callback TCP local (sin URL ACL de administrador); el token se protege con DPAPI CurrentUser. El cliente IRC usa TLS, maneja PING/PONG, recibe chat y envía mensajes. EventSub WebSocket registra follows, suscripciones, regalos, redenciones de puntos y raids hacia el canal; los eventos se muestran en el registro y diagnóstico. El chat comparte comandos, concede un punto de actividad cada cinco minutos por usuario y soporta `!entrar` para el sorteo abierto.
+- **Twitch:** flujo OAuth authorization-code con PKCE en navegador y callback TCP local (sin URL ACL de administrador); el token se protege con DPAPI CurrentUser. El cliente IRC usa TLS, maneja PING/PONG, recibe chat y envía mensajes. EventSub WebSocket registra follows, suscripciones, regalos, redenciones de puntos y raids hacia el canal; los eventos se muestran en el registro/diagnóstico y, si el avatar está disponible, como alerta temporal en el overlay OBS. El chat comparte comandos, concede un punto de actividad cada cinco minutos por usuario y soporta `!entrar` para el sorteo abierto.
 - **Comandos y comunidad:** comandos persistidos con variables y cooldowns aplicados, ranking, ajustes de puntos y exportación CSV.
 - **Sorteos/minijuegos:** entradas únicas, selección y persistencia del ganador, historial de juegos y recompensas.
 - **Moderación/automatización:** reglas regex persistidas que se evalúan sobre chat en modo observación; timers de mensajes con intervalo mínimo de cinco minutos y envío condicionado a Twitch conectado.
@@ -121,15 +121,15 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Último SHA con CI completo verde verificado:** `06183a4fa5685ceac43626138679d8c0c50a9dbf`.
 - **Run:** [Windows CI #38214945910](https://github.com/jonhararagi/vtuber/actions/runs/38214945910) — restore, build Release, tests, publish self-contained Windows x64 y upload de artefacto: **SUCCESS**.
 - **Artefacto:** [VTuberBot-Product-Candidate-win-x64](https://github.com/jonhararagi/vtuber/actions/runs/38214945910/artifacts/11732285947) · ID `11732285947` · 77,780,953 bytes · SHA-256 `1c6cd363b2dc4eef1b9fa4dc0f5778b7ea9904a0f81d01e21066466de1381882` · expira el 2026-10-26 06:56:50 UTC.
-- Después de ese SHA se están afinando textos de interfaz, guía de uso y metadatos del paquete para que describan correctamente LocalAppData, scopes y EventSub. El artefacto anterior no contiene esos cambios y no debe entregarse como el HEAD final; se requiere un nuevo CI/artifact exacto.
+- Después de ese SHA se añadieron una tarjeta de alerta temporal al overlay y edición/pausa de timers, además de corregir textos y metadatos del paquete. El artefacto anterior no contiene esos cambios y no debe entregarse como el HEAD final; se requiere un nuevo CI/artifact exacto.
 
 ### Limitaciones explícitas del candidato
 
-- **PENDIENTE:** reconexión automática de EventSub, recuperación de suscripciones revocadas y overlay visual personalizado para alertas; las notificaciones actuales se registran en el chat/diagnóstico.
+- **PENDIENTE:** reconexión automática de EventSub, recuperación de suscripciones revocadas, estilos/plantillas configurables de alertas y más tipos de eventos.
 - **PENDIENTE:** rig 2.5D avanzado con pivotes/huesos/física, expresiones faciales basadas en assets y lip-sync real por fonemas/visemas.
 - **PENDIENTE:** VAD de habla distinto del medidor de amplitud, cola de voz priorizada y enrutamiento avanzado de audio.
 - **PENDIENTE:** acciones remotas de moderación (borrado/sanción) con permisos y confirmaciones; hoy solo se registran coincidencias en modo observación.
-- **PENDIENTE:** editor completo para reordenar/transformar capas y editar/pausar timers existentes individualmente; actualmente se pueden añadir, ocultar y quitar capas y crear timers.
+- **PENDIENTE:** editor de transformaciones por capa (posición/escala/rotación), orden manual de capas y presets por expresión; los timers ya permiten crear, editar y pausar/reactivar mensajes.
 - **PENDIENTE:** validación manual global en el Windows del usuario. El CI no valida dispositivos de audio, OAuth real con su cuenta, runtime de WebView2 ni su instalación local de OBS/Twitch.
 
 ### Siguiente paso

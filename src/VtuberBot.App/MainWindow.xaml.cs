@@ -60,7 +60,7 @@ public partial class MainWindow : Window
         twitch.StatusChanged += status => Dispatcher.Invoke(() => { FooterStatus.Text = status; RuntimeStatus.Text = twitch.IsConnected ? "●  TWITCH CONECTADO" : "●  LOCAL ACTIVO"; });
         twitch.MessageReceived += HandleTwitchMessage;
         eventSub.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
-        eventSub.EventReceived += (type,summary) => Dispatcher.BeginInvoke(new Action(() => { chatLines.Insert(0,"[EventSub] "+type+": "+summary); while(chatLines.Count>200)chatLines.RemoveAt(chatLines.Count-1); store.Log("Twitch EventSub",type+": "+summary); }));
+        eventSub.EventReceived += (type,summary) => Dispatcher.BeginInvoke(new Action(() => { chatLines.Insert(0,"[EventSub] "+type+": "+summary); while(chatLines.Count>200)chatLines.RemoveAt(chatLines.Count-1); store.Log("Twitch EventSub",type+": "+summary); if(type!="subscription_error"&&type!="revocation"&&!string.IsNullOrWhiteSpace(avatarPath)&&File.Exists(avatarPath)){if(overlay is null||!overlay.IsVisible)ShowOverlay();overlay?.ShowAlert(type+": "+summary);} }));
         obs.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         Closed += async (_, _) =>
         {
@@ -379,13 +379,15 @@ public partial class MainWindow : Window
         panel.Children.Add(ActionButton("Analizar mensaje",(_,_)=>{var matches=new List<string>();foreach(var r in store.GetModerationRules().Where(x=>x.Enabled)){try{if(Regex.IsMatch(test.Text,r.Pattern,RegexOptions.IgnoreCase,TimeSpan.FromMilliseconds(100)))matches.Add($"{r.Name} ({r.Action})");}catch(RegexMatchTimeoutException){matches.Add($"{r.Name} — tiempo agotado");}}var message=matches.Count==0?"No se detectaron coincidencias.": "Coincidencias: "+string.Join(", ",matches);store.Log("Moderación",message);MessageBox.Show(this,message,"Diagnóstico de moderación");}));
         root.Children.Add(Label("Las reglas se evalúan en modo observación. No se ejecutan acciones punitivas remotas automáticamente.",12,"#98A4BE"));
         var auto=Panel("Mensajes automáticos programados");auto.Margin=new Thickness(0,12,0,0);
-        var autoList=new ListBox{Height=130};
+        var autoList=new ListBox{Height=130};long? editingAutomationId=null;
         void ReloadAuto(){autoList.ItemsSource=store.GetAutomationRules().Select(a=>string.Format("{0} · {1} · cada {2} min · {3}",a.Id,a.Name,a.IntervalMinutes,a.Enabled?"activo":"pausado")).ToList();}
         ReloadAuto();auto.Children.Add(autoList);
         var autoName=TextField("Nombre del timer");var autoMessage=TextField("Mensaje programado");var autoInterval=TextField("Intervalo en minutos (mín. 5)");autoInterval.Text="30";
         var autoEnabled=new CheckBox{Content="Activar al guardar",IsChecked=false,Foreground=Brush("#F8FAFC"),Margin=new Thickness(0,0,0,8)};
+        autoList.SelectionChanged+=(_,_)=>{if(autoList.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split('·')[0].Trim());var selected=store.GetAutomationRules().FirstOrDefault(a=>a.Id==selectedId);if(selected is null)return;editingAutomationId=selected.Id;autoName.Text=selected.Name;autoMessage.Text=selected.Message;autoInterval.Text=selected.IntervalMinutes.ToString();autoEnabled.IsChecked=selected.Enabled;}catch{}};
         auto.Children.Add(autoName);auto.Children.Add(autoMessage);auto.Children.Add(autoInterval);auto.Children.Add(autoEnabled);
-        auto.Children.Add(ActionButton("Guardar mensaje automático",(_,_)=>{try{store.SaveAutomationRule(null,autoName.Text,autoMessage.Text,int.Parse(autoInterval.Text),autoEnabled.IsChecked==true);ReloadAuto();}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
+        auto.Children.Add(ActionButton("Guardar mensaje automático",(_,_)=>{try{store.SaveAutomationRule(editingAutomationId,autoName.Text,autoMessage.Text,int.Parse(autoInterval.Text),autoEnabled.IsChecked==true);ReloadAuto();autoList.SelectedItem=null;editingAutomationId=null;autoName.Clear();autoMessage.Clear();autoInterval.Text="30";autoEnabled.IsChecked=false;}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
+        auto.Children.Add(ActionButton("Pausar / reactivar seleccionado",(_,_)=>{if(autoList.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split('·')[0].Trim());var selected=store.GetAutomationRules().FirstOrDefault(a=>a.Id==selectedId);if(selected is null)return;store.SaveAutomationRule(selected.Id,selected.Name,selected.Message,selected.IntervalMinutes,!selected.Enabled);ReloadAuto();}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));
         auto.Children.Add(Label("Los mensajes programados solo se envían cuando Twitch está conectado; sin conexión, el intento se registra como omitido.",11,"#98A4BE"));
         root.Children.Add(auto);return root;
     }
