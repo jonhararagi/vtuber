@@ -9,6 +9,30 @@ namespace VtuberBot.Tests;
 
 public sealed class Tests
 {
+
+    [Fact]
+    public void Pcm16LevelPolicyReturnsZeroForIncompleteSample()
+    {
+        Assert.Equal(0, Pcm16LevelPolicy.CalculatePercent(ReadOnlySpan<byte>.Empty));
+        Assert.Equal(0, Pcm16LevelPolicy.CalculatePercent(new byte[] { 0x7F }));
+    }
+
+    [Fact]
+    public void Pcm16LevelPolicyNormalizesSilenceAndClampsLoudInput()
+    {
+        Assert.Equal(0, Pcm16LevelPolicy.CalculatePercent(new byte[] { 0, 0, 0, 0 }));
+        Assert.Equal(100, Pcm16LevelPolicy.CalculatePercent(new byte[] { 0xFF, 0x7F, 0x00, 0x80 }));
+    }
+
+    [Fact]
+    public void Pcm16LevelPolicyIgnoresTrailingIncompleteByte()
+    {
+        var complete = Pcm16LevelPolicy.CalculatePercent(new byte[] { 0x00, 0x20 });
+        var withTrailingByte = Pcm16LevelPolicy.CalculatePercent(new byte[] { 0x00, 0x20, 0xFF });
+
+        Assert.Equal(complete, withTrailingByte);
+    }
+
     [Fact]
     public void ConfigMissingFileUsesDefaults()
     {

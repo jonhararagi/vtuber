@@ -120,20 +120,8 @@ public partial class MainWindow
                 microphone = capture;
                 capture.DataAvailable += (_, e) =>
                 {
-                    double sum = 0;
-                    for (var i = 0; i < e.BytesRecorded - 1; i += 2)
-                    {
-                        short sample = BitConverter.ToInt16(e.Buffer, i);
-                        sum += (double)sample * sample;
-                    }
-                    // A zero/one-byte callback has no complete PCM16 sample; do not divide
-                    // by zero or feed NaN into the VAD during device teardown.
-                    if (e.BytesRecorded < 2)
-                        return;
-
-                    var sampleCount = e.BytesRecorded / 2;
-                    var rms = Math.Sqrt(sum / sampleCount) / 32768;
-                    var rawLevel = Math.Clamp(rms * 450, 0, 100);
+                    // The tested Core policy handles partial PCM16 frames and normalization.
+                    var rawLevel = Pcm16LevelPolicy.CalculatePercent(e.Buffer.AsSpan(0, e.BytesRecorded));
                     VoiceActivitySnapshot snapshot;
                     try { snapshot = voiceActivity.Process(rawLevel, DateTimeOffset.UtcNow); }
                     catch (ArgumentOutOfRangeException) { return; }

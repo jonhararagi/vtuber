@@ -149,3 +149,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - Se ignoran callbacks PCM con menos de una muestra completa de 16 bits y se protege el posteo a WPF Dispatcher si coincide con su apagado.
 - El cambio evita NaN por divisor cero y una excepción no controlada durante la desconexión/cierre de la captura.
 - Requiere Windows CI y una validación manual con micrófono real para confirmar el cierre bajo captura activa.
+
+
+## Audio — normalización PCM16 comprobable (2026-10-12)
+
+- El cálculo de nivel del micrófono se extrajo a la política pura Pcm16LevelPolicy en Core, sin dependencia de WPF ni NAudio.
+- Las pruebas cubren buffers vacíos/incompletos, silencio, saturación y byte final impar. La UI usa ahora la misma función que se prueba en CI.
+- Windows CI del nuevo SHA debe confirmar build y suite; la prueba con dispositivo físico queda para la validación global.

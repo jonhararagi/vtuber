@@ -965,3 +965,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - El callback de entrada PCM ahora ignora buffers de menos de 2 bytes (no contienen una muestra PCM16 completa), evitando dividir por cero o propagar NaN al VAD.
 - El envío de actualización visual al Dispatcher queda protegido si el dispositivo dispara un callback mientras WPF está cerrando. La captura conserva la ruta existente que restablece el avatar a Idle al detenerse.
 - Estado: pendiente de Windows CI del SHA resultante y de validación manual de micrófono/cierre; no se declara comprobado con hardware real.
+
+
+## Bloque funcional — política de nivel PCM16 y pruebas
+
+- Se centralizó en Core el cálculo de nivel RMS para PCM16 little-endian; la política ignora cualquier byte final incompleto, devuelve cero si no hay una muestra completa y limita la salida al rango 0–100.
+- La UI de micrófono consume esta misma política y la suite agrega tres pruebas para frame incompleto, silencio/saturación y byte final impar.
+- Core permanece independiente de WPF/NAudio. Estado: pendiente de Windows CI del nuevo SHA y de prueba manual con micrófono real.
