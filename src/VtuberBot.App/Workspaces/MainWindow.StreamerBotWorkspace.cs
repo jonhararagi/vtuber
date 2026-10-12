@@ -37,8 +37,13 @@ public partial class MainWindow
         var remoteWarning = Label(IsLoopbackHost(host.Text) ? "Host local. No se abrirán puertos ni se modificará el firewall." : "ADVERTENCIA: host remoto. WebSocket sin TLS no cifra el tráfico; usalo solo en una red confiable.", 12, "#E7B56A");
         config.Children.Add(remoteWarning);
         var configured = store.GetSetting("integrations.streamerBot.ws.configured", "false") == "true";
-        var stateLabel = Label(configured ? "Estado: Configurado, desconectado — conectá para comprobar el servidor." : "Estado: Sin configurar — guardá los ajustes y conectá para comprobar el servidor.", 12, "#E7B56A", true);
-        var infoLabel = Label("Instancia: aún no identificada", 12, "#98A4BE");
+        var currentSnapshot = streamerBot.Snapshot;
+        var stateLabel = Label(currentSnapshot.State == StreamerBotConnectionState.Connected
+            ? "Estado: Conectado — " + currentSnapshot.Message
+            : configured ? "Estado: Configurado, desconectado — conectá para comprobar el servidor." : "Estado: Sin configurar — guardá los ajustes y conectá para comprobar el servidor.", 12, currentSnapshot.State == StreamerBotConnectionState.Connected ? "#8FE6D0" : "#E7B56A", true);
+        var infoLabel = Label(currentSnapshot.Instance is { } savedInstance
+            ? $"Instancia: {savedInstance.Name} · versión {savedInstance.Version} · ID {savedInstance.InstanceId} · {savedInstance.OperatingSystem}"
+            : "Instancia: aún no identificada", 12, "#98A4BE");
         streamerBotStateLabel = stateLabel;
         streamerBotInfoLabel = infoLabel;
         var errorLabel = Label("", 12, "#F2A6A6");
