@@ -291,7 +291,7 @@ public partial class MainWindow : Window
         catch (Exception exception) { LogShutdownFailure("OBS WebSocket", exception); }
 
         shutdownCompleted = true;
-        Dispatcher.BeginInvoke(new Action(Close));
+        _ = Dispatcher.BeginInvoke(new Action(Close));
     }
 
     private void LogShutdownFailure(string resource, Exception exception)
