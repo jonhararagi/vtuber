@@ -5,6 +5,7 @@ Este flujo configura una instalación de PNGTuber Plus que el usuario ya posee. 
 ## Fuentes y límites comprobados
 
 - Portal de información y descarga en español: https://pngtuber.cc/es/
+- Página de distribución del creador (kaiakairos): https://kaiakairos.itch.io/pngtuber-plus
 - El apartado “About” del propio portal se identifica como un sitio independiente de fans, no como el desarrollador: https://pngtuber.cc/about/
 - Código fuente público del autor: https://github.com/kaiakairos/PNGTuber-Plus
 - Archivo revisado para controles/atajos: https://github.com/kaiakairos/PNGTuber-Plus/blob/master/main_scenes/main.gd
