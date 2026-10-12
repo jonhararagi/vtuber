@@ -38,7 +38,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
         cancellation.CancelAfter(TimeSpan.FromSeconds(45));
         try
         {
-            StatusChanged?.Invoke("Conectando a Twitch EventSub…");
+            SafeEventDispatch.Invoke(StatusChanged, "Conectando a Twitch EventSub…");
             var broadcasterId = await GetBroadcasterIdAsync(
                 normalizedClientId, normalizedToken, channel.Trim().TrimStart('#'), cancellation.Token).ConfigureAwait(false);
             var session = await OpenSessionAsync(InitialWebSocketUrl, cancellation.Token).ConfigureAwait(false);
@@ -55,7 +55,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
 
             cancellation.CancelAfter(Timeout.InfiniteTimeSpan);
             IsConnected = true;
-            StatusChanged?.Invoke(registered + " suscripciones EventSub registradas; esperando eventos oficiales.");
+            SafeEventDispatch.Invoke(StatusChanged, registered + " suscripciones EventSub registradas; esperando eventos oficiales.");
         }
         catch
         {
@@ -116,9 +116,9 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                 rejected.Add(subscription.Type + " (HTTP " + (int)response.StatusCode + ")");
         }
 
-        StatusChanged?.Invoke(registered + " suscripciones EventSub registradas; " + rejected.Count + " rechazadas.");
+        SafeEventDispatch.Invoke(StatusChanged, registered + " suscripciones EventSub registradas; " + rejected.Count + " rechazadas.");
         foreach (var failure in rejected)
-            EventReceived?.Invoke("subscription_error", failure);
+            SafeEventDispatch.Invoke(EventReceived, "subscription_error", failure);
         return registered;
     }
 
@@ -180,7 +180,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                         if (string.IsNullOrWhiteSpace(reconnectUrl))
                             throw new InvalidOperationException("EventSub envió session_reconnect sin reconnect_url.");
 
-                        StatusChanged?.Invoke("Twitch solicita migrar EventSub a una nueva sesión…");
+                        SafeEventDispatch.Invoke(StatusChanged, "Twitch solicita migrar EventSub a una nueva sesión…");
                         var migrated = await OpenSessionAsync(reconnectUrl, ct).ConfigureAwait(false);
                         var previous = ws;
                         ws = migrated.Socket;
@@ -190,7 +190,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                         IsConnected = true;
                         retryAttempt = 0;
                         previous.Dispose();
-                        StatusChanged?.Invoke("EventSub reconectado; Twitch migró las suscripciones existentes.");
+                        SafeEventDispatch.Invoke(StatusChanged, "EventSub reconectado; Twitch migró las suscripciones existentes.");
                         continue;
                     }
 
@@ -203,7 +203,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                             : null;
                         if (!notificationDeduplicator.TryAccept(messageId))
                         {
-                            StatusChanged?.Invoke("Mensaje EventSub duplicado ignorado: " + eventType + " (" + messageType + ").");
+                            SafeEventDispatch.Invoke(StatusChanged, "Mensaje EventSub duplicado ignorado: " + eventType + " (" + messageType + ").");
                             continue;
                         }
                     }
@@ -213,8 +213,8 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                         var subscriptionType = metadata.TryGetProperty("subscription_type", out var typeElement)
                             ? typeElement.GetString() ?? "event" : "event";
                         var eventPayload = root.GetProperty("payload").GetProperty("event");
-                        EventReceived?.Invoke(subscriptionType, SummarizeEvent(subscriptionType, eventPayload));
-                        StatusChanged?.Invoke("Evento Twitch recibido: " + subscriptionType);
+                        SafeEventDispatch.Invoke(EventReceived, subscriptionType, SummarizeEvent(subscriptionType, eventPayload));
+                        SafeEventDispatch.Invoke(StatusChanged, "Evento Twitch recibido: " + subscriptionType);
                     }
                     else if (messageType == "revocation")
                     {
@@ -222,11 +222,11 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                             ? typeElement.GetString() ?? "event" : "event";
                         var subscriptionStatus = root.GetProperty("payload").GetProperty("subscription")
                             .TryGetProperty("status", out var statusElement) ? statusElement.GetString() ?? "unknown" : "unknown";
-                        EventReceived?.Invoke("revocation", subscriptionType + " · " + subscriptionStatus);
+                        SafeEventDispatch.Invoke(EventReceived, "revocation", subscriptionType + " · " + subscriptionStatus);
                         var guidance = EventSubRevocationPolicy.Describe(subscriptionStatus);
-                        StatusChanged?.Invoke("Twitch revocó EventSub: " + subscriptionType + " (" + subscriptionStatus + "). " + guidance.Message);
+                        SafeEventDispatch.Invoke(StatusChanged, "Twitch revocó EventSub: " + subscriptionType + " (" + subscriptionStatus + "). " + guidance.Message);
                         if (guidance.RequiresReauthorization)
-                            StatusChanged?.Invoke("Volvé a autorizar la cuenta Twitch y aceptá todos los permisos solicitados antes de reconectar EventSub.");
+                            SafeEventDispatch.Invoke(StatusChanged, "Volvé a autorizar la cuenta Twitch y aceptá todos los permisos solicitados antes de reconectar EventSub.");
                         else if (guidance.CanAttemptAutomaticRecovery)
                             await TryRecoverRevokedSubscriptionAsync(
                                 subscriptionType, guidance, clientId, accessToken, broadcasterId, activeSessionId, ct).ConfigureAwait(false);
@@ -244,7 +244,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                     IsConnected = false;
                     retryAttempt++;
                     var delaySeconds = Math.Min(30, 1 << Math.Min(retryAttempt, 4));
-                    StatusChanged?.Invoke(
+                    SafeEventDispatch.Invoke(StatusChanged, 
                         "EventSub perdió la sesión (" + exception.GetType().Name + "); reintentando en " + delaySeconds + " s.");
 
                     ClientWebSocket? candidate = null;
@@ -267,7 +267,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                         previous.Dispose();
                         IsConnected = true;
                         retryAttempt = 0;
-                        StatusChanged?.Invoke("EventSub reconectado y " + restored + " suscripciones restauradas.");
+                        SafeEventDispatch.Invoke(StatusChanged, "EventSub reconectado y " + restored + " suscripciones restauradas.");
                     }
                     catch (OperationCanceledException) when (ct.IsCancellationRequested)
                     {
@@ -277,7 +277,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                     catch (Exception reconnectException)
                     {
                         candidate?.Dispose();
-                        StatusChanged?.Invoke("Falló la reconexión EventSub (" + reconnectException.GetType().Name + "); se volverá a intentar.");
+                        SafeEventDispatch.Invoke(StatusChanged, "Falló la reconexión EventSub (" + reconnectException.GetType().Name + "); se volverá a intentar.");
                     }
                 }
             }
@@ -285,7 +285,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
         finally
         {
             IsConnected = false;
-            StatusChanged?.Invoke("EventSub desconectado.");
+            SafeEventDispatch.Invoke(StatusChanged, "EventSub desconectado.");
         }
     }
 
@@ -304,7 +304,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
         {
             if (lastRecoveryAttempt.TryGetValue(key, out var last) && now - last < TimeSpan.FromMinutes(10))
             {
-                StatusChanged?.Invoke("La recuperación aislada de " + key + " se omitió por el límite de un intento cada 10 minutos.");
+                SafeEventDispatch.Invoke(StatusChanged, "La recuperación aislada de " + key + " se omitió por el límite de un intento cada 10 minutos.");
                 return;
             }
 
@@ -323,14 +323,14 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
             .FirstOrDefault(item => string.Equals(item.Type, key, StringComparison.OrdinalIgnoreCase));
         if (definition is null)
         {
-            StatusChanged?.Invoke("No existe una definición local para recuperar la suscripción " + key + ".");
+            SafeEventDispatch.Invoke(StatusChanged, "No existe una definición local para recuperar la suscripción " + key + ".");
             return;
         }
 
         if (!guidance.CanAttemptAutomaticRecovery || string.IsNullOrWhiteSpace(sessionId) ||
             socket is null || socket.State != WebSocketState.Open)
         {
-            StatusChanged?.Invoke("No se recuperó " + key + " aisladamente: la sesión WebSocket no está activa. La reconexión completa restaurará las suscripciones.");
+            SafeEventDispatch.Invoke(StatusChanged, "No se recuperó " + key + " aisladamente: la sesión WebSocket no está activa. La reconexión completa restaurará las suscripciones.");
             return;
         }
 
@@ -350,11 +350,11 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
             using var response = await http.SendAsync(request, ct).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
-                StatusChanged?.Invoke("Se recuperó automáticamente la suscripción " + key + " tras " + guidance.Status + ".");
+                SafeEventDispatch.Invoke(StatusChanged, "Se recuperó automáticamente la suscripción " + key + " tras " + guidance.Status + ".");
                 return;
             }
 
-            StatusChanged?.Invoke("No se pudo recuperar " + key + " automáticamente (HTTP " + (int)response.StatusCode +
+            SafeEventDispatch.Invoke(StatusChanged, "No se pudo recuperar " + key + " automáticamente (HTTP " + (int)response.StatusCode +
                 "). No se marcará como activa; revisá el diagnóstico de EventSub.");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -363,7 +363,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
         }
         catch (Exception exception)
         {
-            StatusChanged?.Invoke("Falló el intento limitado de recuperar " + key + " (" + exception.GetType().Name +
+            SafeEventDispatch.Invoke(StatusChanged, "Falló el intento limitado de recuperar " + key + " (" + exception.GetType().Name +
                 "). Si la sesión se perdió, se usará la reconexión completa.");
         }
     }
@@ -409,7 +409,7 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
         cancellation = null;
         receiveTask = null;
         IsConnected = false;
-        StatusChanged?.Invoke("EventSub desconectado.");
+        SafeEventDispatch.Invoke(StatusChanged, "EventSub desconectado.");
     }
 
     public async ValueTask DisposeAsync()

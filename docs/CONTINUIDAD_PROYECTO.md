@@ -711,3 +711,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Sin efectos persistentes:** la simulación sigue usando `PreviewCommandResponse`; no crea usuarios ni consume cooldown, a diferencia de ejecutar un comando real. La UI lo indica expresamente para evitar confundir la simulación con una ejecución del chat.
 - **Pruebas:** rol insuficiente rechazado, rol suficiente aprobado sin crear usuario, el comando sigue disponible para la primera ejecución real y scopes inválidos rechazados.
 - **Estado:** código y pruebas añadidos en el nuevo HEAD; Windows CI pendiente.
+
+
+### 2026-10-12 — Aislamiento de suscriptores en adaptadores de red
+
+- **Hallazgo:** IRC, EventSub y OBS invocaban eventos multicast directamente dentro de sus supervisores. Un callback de UI que fallara durante cierre/transición podía salir al flujo de red, disparar una reconexión falsa o impedir que suscriptores posteriores recibieran el estado.
+- **Corrección:** se añadió `SafeEventDispatch` al Core para ejecutar cada suscriptor de un evento por separado. Las excepciones se registran en `Trace` por tipo, sin incluir contenido/token del evento; no se propagan al supervisor de transporte y no bloquean el resto de los suscriptores.
+- **Cobertura:** pruebas para eventos con uno y dos argumentos, fallo del primer suscriptor y eventos sin listeners.
+- **CI #206:** la prueba del simulador de permisos de comandos estaba pendiente de compilación/ejecución al registrar este trabajo. El cambio dispara una ejecución nueva; no declarar CI verde hasta que finalice.

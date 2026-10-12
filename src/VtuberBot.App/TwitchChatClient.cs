@@ -100,7 +100,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
                 var sessionConnectedAt = (DateTimeOffset?)null;
                 try
                 {
-                    StatusChanged?.Invoke(retryAttempt == 0
+                    SafeEventDispatch.Invoke(StatusChanged, retryAttempt == 0
                         ? "Conectando a Twitch IRC sobre TLS…"
                         : $"Reconectando a Twitch IRC (intento {retryAttempt})…");
 
@@ -163,7 +163,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
                         {
                             // RPL_WELCOME means IRC registration succeeded, not that JOIN did.
                             // Keep the connection unavailable until Twitch confirms channel entry.
-                            StatusChanged?.Invoke($"Twitch IRC registrado; esperando confirmación de ingreso a #{channel}.");
+                            SafeEventDispatch.Invoke(StatusChanged, $"Twitch IRC registrado; esperando confirmación de ingreso a #{channel}.");
                         }
                         else if (line.Contains(" 366 ", StringComparison.Ordinal))
                         {
@@ -171,7 +171,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
                             sessionConnectedAt ??= DateTimeOffset.UtcNow;
                             firstConnection.TrySetResult(true);
                             initialSignalled = true;
-                            StatusChanged?.Invoke($"Chat unido: #{channel}.");
+                            SafeEventDispatch.Invoke(StatusChanged, $"Chat unido: #{channel}.");
                         }
 
                         if (line.Contains(" PRIVMSG ", StringComparison.Ordinal))
@@ -188,7 +188,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
                 }
                 catch (TwitchChatAuthenticationException exception)
                 {
-                    StatusChanged?.Invoke(exception.Message);
+                    SafeEventDispatch.Invoke(StatusChanged, exception.Message);
                     firstConnection.TrySetException(exception);
                     fatalAuthenticationFailure = true;
                 }
@@ -199,7 +199,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
                         retryAttempt = 0;
                     retryAttempt++;
                     var delaySeconds = Math.Min(30, 1 << Math.Min(retryAttempt - 1, 5));
-                    StatusChanged?.Invoke("Chat Twitch perdido (" + exception.GetType().Name +
+                    SafeEventDispatch.Invoke(StatusChanged, "Chat Twitch perdido (" + exception.GetType().Name +
                         "); reintento automático en " + delaySeconds + " s.");
                 }
                 finally
@@ -246,7 +246,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
                 initialSignalled
                     ? "La conexión inicial se perdió antes de completarse."
                     : "No se pudo establecer la primera conexión IRC."));
-            StatusChanged?.Invoke("Twitch chat desconectado.");
+            SafeEventDispatch.Invoke(StatusChanged, "Twitch chat desconectado.");
         }
     }
 
@@ -292,7 +292,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
         writer = null;
         client = null;
         IsConnected = false;
-        StatusChanged?.Invoke("Twitch desconectado.");
+        SafeEventDispatch.Invoke(StatusChanged, "Twitch desconectado.");
     }
 
     public async ValueTask DisposeAsync()

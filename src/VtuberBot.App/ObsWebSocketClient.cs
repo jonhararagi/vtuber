@@ -36,13 +36,13 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
 
         try
         {
-            StatusChanged?.Invoke("Conectando a OBS WebSocket…");
+            SafeEventDispatch.Invoke(StatusChanged, "Conectando a OBS WebSocket…");
             var establishedSocket = await OpenAndIdentifyAsync(
                 normalizedHost, port, normalizedPassword, cancellation.Token).ConfigureAwait(false);
             socket = establishedSocket;
             cancellation.CancelAfter(Timeout.InfiniteTimeSpan);
             IsConnected = true;
-            StatusChanged?.Invoke("OBS WebSocket autenticado.");
+            SafeEventDispatch.Invoke(StatusChanged, "OBS WebSocket autenticado.");
             receiveTask = SuperviseConnectionAsync(
                 establishedSocket, normalizedHost, port, normalizedPassword, cancellation.Token);
         }
@@ -170,7 +170,7 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
                 if (activeSocket is null)
                 {
                     var delay = ReconnectBackoff.GetDelay(Math.Max(1, failedAttempts));
-                    StatusChanged?.Invoke($"OBS perdió conexión; nuevo intento en {delay.TotalSeconds:0} s.");
+                    SafeEventDispatch.Invoke(StatusChanged, $"OBS perdió conexión; nuevo intento en {delay.TotalSeconds:0} s.");
                     try
                     {
                         await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
@@ -186,7 +186,7 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
                         socket = activeSocket;
                         connectedAt = DateTimeOffset.UtcNow;
                         IsConnected = true;
-                        StatusChanged?.Invoke("OBS reconectado y autenticado.");
+                        SafeEventDispatch.Invoke(StatusChanged, "OBS reconectado y autenticado.");
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
@@ -196,7 +196,7 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
                     {
                         failedAttempts++;
                         IsConnected = false;
-                        StatusChanged?.Invoke("Falló la reconexión de OBS (" + exception.GetType().Name + "); se reintentará.");
+                        SafeEventDispatch.Invoke(StatusChanged, "Falló la reconexión de OBS (" + exception.GetType().Name + "); se reintentará.");
                         continue;
                     }
                 }
@@ -230,7 +230,7 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
                     if (DateTimeOffset.UtcNow - connectedAt >= TimeSpan.FromSeconds(30))
                         failedAttempts = 0;
                     failedAttempts++;
-                    StatusChanged?.Invoke("OBS WebSocket interrumpido (" + exception.GetType().Name + "). Se intentará reconectar.");
+                    SafeEventDispatch.Invoke(StatusChanged, "OBS WebSocket interrumpido (" + exception.GetType().Name + "). Se intentará reconectar.");
                     if (ReferenceEquals(socket, activeSocket))
                         socket = null;
                     activeSocket.Dispose();
@@ -242,7 +242,7 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         {
             IsConnected = false;
             FailPendingRequests(new OperationCanceledException("La sesión OBS se desconectó antes de responder."));
-            StatusChanged?.Invoke("OBS WebSocket desconectado.");
+            SafeEventDispatch.Invoke(StatusChanged, "OBS WebSocket desconectado.");
         }
     }
 
@@ -322,7 +322,7 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         receiveTask = null;
         IsConnected = false;
         FailPendingRequests(new OperationCanceledException("OBS se desconectó manualmente."));
-        StatusChanged?.Invoke("OBS desconectado.");
+        SafeEventDispatch.Invoke(StatusChanged, "OBS desconectado.");
     }
 
     public async ValueTask DisposeAsync()
