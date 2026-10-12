@@ -12,12 +12,13 @@ Esta guía corresponde a la rama `product/complete-vtuber-experience`. Las funci
 ## Avatar Studio y OBS overlay
 
 1. Abrí **Avatar Studio** e importá tu imagen base.
-2. Importá capas PNG/JPG adicionales transparentes. El orden de la lista determina la composición; podés ocultar o eliminar una capa sin borrar el archivo del disco.
+2. Importá capas PNG/JPG adicionales transparentes. Podés ocultar o eliminar una capa sin borrar el archivo original, cambiar su orden visual y ajustar X/Y, escala y rotación.
+3. En **Sprites por expresión**, asigná imágenes con el mismo tamaño para Idle, Talking, Blink, Happy o Surprised. La imagen base se usa como fallback cuando un estado no tiene sprite propio.
 3. Abrí **Mostrar overlay transparente**.
 4. En OBS agregá una fuente **Captura de ventana** y seleccioná `VTuberBot Avatar Overlay`.
 5. Arrastrá la ventana para ubicarla y redimensionala con el borde. Doble clic alterna la prioridad Topmost.
 
-El render actual compone sprites alineados y añade un movimiento respiratorio sutil. Todavía no es un rig facial avanzado: las capas no tienen pivotes/parentado por huesos, y no se declara lip-sync real solo por tener micrófono.
+El overlay compone la imagen base con capas transformables, reproduce el sprite asignado al estado activo y aplica movimiento respiratorio sutil. El micrófono activa Talking con un detector acústico configurable. Esto no equivale a un rig con huesos/física ni a lip-sync por fonemas; usá sprites de expresión con el mismo lienzo para evitar desalineaciones.
 
 ## Twitch: OAuth y chat real
 

@@ -17,6 +17,10 @@ public sealed class AvatarOverlayWindow : Window
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(80) };
     private double phase;
     private string state = "Idle";
+    private string? transientState;
+    private string? baseImagePath;
+    private IReadOnlyList<AvatarLayer> avatarLayers = Array.Empty<AvatarLayer>();
+    private IReadOnlyDictionary<string, string> expressionImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     private DateTimeOffset blinkUntil;
     private DateTimeOffset alertUntil;
     public bool ReduceMotion { get; set; }
@@ -35,9 +39,18 @@ public sealed class AvatarOverlayWindow : Window
         MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) Topmost = !Topmost; else if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed) DragMove(); };
         timer.Tick += (_, _) =>
         {
-            if (DateTimeOffset.UtcNow < blinkUntil) layerCanvas.Opacity = .25;
-            else layerCanvas.Opacity = 1;
-            alertCard.Visibility = DateTimeOffset.UtcNow < alertUntil ? Visibility.Visible : Visibility.Collapsed;
+            var now = DateTimeOffset.UtcNow;
+            if (now < blinkUntil) layerCanvas.Opacity = .25;
+            else
+            {
+                layerCanvas.Opacity = 1;
+                if (transientState == "Blink")
+                {
+                    transientState = null;
+                    RenderAvatar();
+                }
+            }
+            alertCard.Visibility = now < alertUntil ? Visibility.Visible : Visibility.Collapsed;
             if (ReduceMotion) { breathing.ScaleX = 1; breathing.ScaleY = 1; return; }
             phase += state == "Talking" ? .12 : .035;
             breathing.ScaleY = state switch { "Talking" => 1 + Math.Sin(phase) * .012, "Happy" => 1.008, "Surprised" => 1.025, _ => 1 + Math.Sin(phase) * .008 };
@@ -51,23 +64,59 @@ public sealed class AvatarOverlayWindow : Window
 
     public void SetState(string nextState)
     {
-        if (string.Equals(nextState, "Blink", StringComparison.OrdinalIgnoreCase)) { blinkUntil = DateTimeOffset.UtcNow.AddMilliseconds(160); return; }
+        if (string.Equals(nextState, "Blink", StringComparison.OrdinalIgnoreCase))
+        {
+            transientState = "Blink";
+            blinkUntil = DateTimeOffset.UtcNow.AddMilliseconds(160);
+            RenderAvatar();
+            return;
+        }
+
         state = nextState is "Talking" or "Happy" or "Surprised" ? nextState : "Idle";
+        transientState = null;
+        blinkUntil = DateTimeOffset.MinValue;
+        RenderAvatar();
     }
 
     public void SetLayers(IEnumerable<string> paths)
     {
-        layerCanvas.Children.Clear();
-        foreach (var path in paths.Where(File.Exists)) AddLayerImage(path, null);
-        layerCanvas.Children.Add(alertCard);
+        var list = paths.Where(File.Exists).ToList();
+        baseImagePath = list.FirstOrDefault();
+        avatarLayers = Array.Empty<AvatarLayer>();
+        expressionImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        RenderAvatar(list.Skip(1));
     }
 
-    public void SetAvatar(string basePath, IEnumerable<AvatarLayer> layers)
+    public void SetAvatar(string basePath, IEnumerable<AvatarLayer> layers) =>
+        SetAvatar(basePath, layers, null);
+
+    public void SetAvatar(
+        string basePath,
+        IEnumerable<AvatarLayer> layers,
+        IReadOnlyDictionary<string, string>? expressions)
+    {
+        baseImagePath = basePath;
+        avatarLayers = layers.ToArray();
+        expressionImages = expressions is null
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(expressions, StringComparer.OrdinalIgnoreCase);
+        RenderAvatar();
+    }
+
+    private void RenderAvatar(IEnumerable<string>? additionalPaths = null)
     {
         layerCanvas.Children.Clear();
-        if (File.Exists(basePath)) AddLayerImage(basePath, null);
-        foreach (var layer in layers.Where(layer => layer.Visible && File.Exists(layer.Path)).OrderBy(layer => layer.SortOrder))
+        var visualState = transientState ?? state;
+        var activeBasePath = expressionImages.TryGetValue(visualState, out var expressionPath) && File.Exists(expressionPath)
+            ? expressionPath
+            : baseImagePath;
+        if (!string.IsNullOrWhiteSpace(activeBasePath) && File.Exists(activeBasePath))
+            AddLayerImage(activeBasePath, null);
+        foreach (var layer in avatarLayers.Where(layer => layer.Visible && File.Exists(layer.Path)).OrderBy(layer => layer.SortOrder))
             AddLayerImage(layer.Path, layer);
+        if (additionalPaths is not null)
+            foreach (var path in additionalPaths.Where(File.Exists))
+                AddLayerImage(path, null);
         layerCanvas.Children.Add(alertCard);
     }
 

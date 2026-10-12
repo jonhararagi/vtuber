@@ -179,13 +179,19 @@ public partial class MainWindow : Window
         columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         var layerImages = new Dictionary<long, Image>();
+        Image? basePreviewImage = null;
+        var previewState = store.GetSetting("avatar.state", "Idle");
+        if (previewState == "Blink") previewState = "Idle";
         var left = Panel("Previsualización del avatar");
         left.MinHeight = 420;
         var preview = new Border { Background = Brush("#101525"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14), MinHeight = 350 };
         if (!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath))
         {
             var previewCanvas = new Grid();
-            previewCanvas.Children.Add(new Image { Source = LoadImage(avatarPath), Stretch = Stretch.Uniform, MaxHeight = 360 });
+            var savedExpression = store.GetSetting("avatar.expression." + previewState);
+            var initialImagePath = !string.IsNullOrWhiteSpace(savedExpression) && File.Exists(savedExpression) ? savedExpression : avatarPath;
+            basePreviewImage = new Image { Source = LoadImage(initialImagePath), Stretch = Stretch.Uniform, MaxHeight = 360 };
+            previewCanvas.Children.Add(basePreviewImage);
             foreach (var layer in store.GetAvatarLayers().Where(l => l.Visible && File.Exists(l.Path)).OrderBy(l => l.SortOrder))
             {
                 var image = new Image { Source = LoadImage(layer.Path), Stretch = Stretch.Uniform, MaxHeight = 360 };
@@ -301,7 +307,7 @@ public partial class MainWindow : Window
             {
                 store.UpdateAvatarLayerTransform(id.Value, xSlider.Value, ySlider.Value, scaleSlider.Value, rotationSlider.Value);
                 if (overlay is { IsVisible: true } && !string.IsNullOrWhiteSpace(avatarPath))
-                    overlay.SetAvatar(avatarPath, store.GetAvatarLayers());
+                    overlay.SetAvatar(avatarPath, store.GetAvatarLayers(), GetAvatarExpressionPaths());
                 FooterStatus.Text = "Transformación de capa guardada en SQLite.";
             }
             catch (Exception ex) { MessageBox.Show(this, "No se pudo guardar la transformación: " + ex.Message); }
@@ -315,13 +321,43 @@ public partial class MainWindow : Window
         foreach (var state in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" })
             states.Children.Add(ActionButton(state, (_, _) =>
             {
-                store.SetSetting("avatar.state", state);
+                store.SetSetting("avatar.state", state == "Blink" ? "Idle" : state);
+                UpdatePreviewState(state);
                 overlay?.SetState(state);
                 store.Log("Avatar", $"Estado seleccionado: {state}.");
-                FooterStatus.Text = $"Cue visual del avatar: {state}. Las expresiones basadas en assets requieren un rig ampliado.";
+                FooterStatus.Text = $"Cue visual del avatar: {state}. Si existe un sprite asignado, se muestra ese estado.";
             }));
         right.Children.Add(states);
-        right.Children.Add(Label("X/Y, escala, rotación y orden se guardan localmente. La animación de respiración es sutil; todavía faltan pivotes/huesos, física articulada y lip-sync real.", 12, "#98A4BE"));
+
+        void UpdatePreviewState(string selectedState)
+        {
+            if (basePreviewImage is null || string.IsNullOrWhiteSpace(avatarPath) || !File.Exists(avatarPath)) return;
+            var expressionPath = store.GetSetting("avatar.expression." + selectedState);
+            basePreviewImage.Source = !string.IsNullOrWhiteSpace(expressionPath) && File.Exists(expressionPath)
+                ? LoadImage(expressionPath)
+                : LoadImage(avatarPath);
+        }
+
+        var expressionPanel = Panel("Sprites por expresión");
+        expressionPanel.Margin = new Thickness(0, 12, 0, 0);
+        expressionPanel.Children.Add(Label("Asigná imágenes del mismo tamaño para cambiar la cara cuando el micrófono activa Talking o al elegir una expresión. Si no asignás una imagen, se usa la base.", 12, "#98A4BE"));
+        foreach (var expressionName in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" })
+        {
+            var savedPath = store.GetSetting("avatar.expression." + expressionName);
+            var row = new WrapPanel { Margin = new Thickness(0, 4, 0, 4) };
+            row.Children.Add(Label(expressionName + ": " + (!string.IsNullOrWhiteSpace(savedPath) && File.Exists(savedPath) ? Path.GetFileName(savedPath) : "usa imagen base"), 12, "#F8FAFC"));
+            row.Children.Add(ActionButton("Importar / cambiar", (_, _) => ImportAvatarExpression(expressionName)));
+            row.Children.Add(ActionButton("Quitar", (_, _) =>
+            {
+                store.SetSetting("avatar.expression." + expressionName, "");
+                store.Log("Avatar", "Sprite de expresión quitado: " + expressionName);
+                Navigate("Avatar Studio");
+            }));
+            expressionPanel.Children.Add(row);
+        }
+        right.Children.Add(expressionPanel);
+
+        right.Children.Add(Label("X/Y, escala, rotación y orden se guardan localmente. El runtime admite sprites por estado; la física por huesos y el lip-sync por fonemas/visemas todavía requieren un rig más avanzado.", 12, "#98A4BE"));
 
         Grid.SetColumn(left, 0);
         Grid.SetColumn(right, 1);
@@ -341,7 +377,7 @@ public partial class MainWindow : Window
         void RefreshAvatarPresentation()
         {
             if (overlay is { IsVisible: true } && !string.IsNullOrWhiteSpace(avatarPath))
-                overlay.SetAvatar(avatarPath, store.GetAvatarLayers());
+                overlay.SetAvatar(avatarPath, store.GetAvatarLayers(), GetAvatarExpressionPaths());
             Navigate("Avatar Studio");
         }
     }
@@ -379,10 +415,48 @@ public partial class MainWindow : Window
         catch(Exception ex){MessageBox.Show(this,"No se pudo importar la capa: "+ex.Message);}
     }
 
+    private void ImportAvatarExpression(string expressionName)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Importar sprite para " + expressionName,
+            Filter = "Imágenes|*.png;*.jpg;*.jpeg;*.bmp;*.webp",
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            var info = new FileInfo(dialog.FileName);
+            if (info.Length > 25 * 1024 * 1024)
+                throw new InvalidOperationException("El archivo supera el límite de 25 MB.");
+            _ = LoadImage(dialog.FileName);
+            var extension = Path.GetExtension(dialog.FileName).ToLowerInvariant();
+            var destination = Path.Combine(avatarDirectory,
+                "expression-" + expressionName.ToLowerInvariant() + "-" + Guid.NewGuid().ToString("N") + extension);
+            File.Copy(dialog.FileName, destination, false);
+            store.SetSetting("avatar.expression." + expressionName, destination);
+            store.Log("Avatar", "Sprite de expresión importado: " + expressionName);
+            Navigate("Avatar Studio");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "No se pudo importar el sprite de expresión: " + ex.Message);
+        }
+    }
+
+    private IReadOnlyDictionary<string, string> GetAvatarExpressionPaths()
+    {
+        var states = new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" };
+        return states
+            .Select(state => new { State = state, Path = store.GetSetting("avatar.expression." + state) })
+            .Where(item => !string.IsNullOrWhiteSpace(item.Path) && File.Exists(item.Path))
+            .ToDictionary(item => item.State, item => item.Path, StringComparer.OrdinalIgnoreCase);
+    }
+
     private void ShowOverlay()
     {
         if(string.IsNullOrWhiteSpace(avatarPath)||!File.Exists(avatarPath)){MessageBox.Show(this,"Primero importá una imagen en Avatar Studio.");return;}
-        try { overlay??=new AvatarOverlayWindow(); overlay.SetAvatar(avatarPath, store.GetAvatarLayers()); overlay.ReduceMotion=store.GetSetting("ui.reduceMotion","false")=="true"; overlay.SetState(store.GetSetting("avatar.state","Idle")); if(!overlay.IsVisible)overlay.Show();overlay.Activate();store.Log("Avatar","Overlay mostrado."); }
+        try { overlay??=new AvatarOverlayWindow(); overlay.SetAvatar(avatarPath, store.GetAvatarLayers(), GetAvatarExpressionPaths()); overlay.ReduceMotion=store.GetSetting("ui.reduceMotion","false")=="true"; overlay.SetState(store.GetSetting("avatar.state","Idle")); if(!overlay.IsVisible)overlay.Show();overlay.Activate();store.Log("Avatar","Overlay mostrado."); }
         catch(Exception ex){MessageBox.Show(this,$"No se pudo abrir el overlay: {ex.Message}");}
     }
 

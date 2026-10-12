@@ -118,7 +118,7 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 
 ### Evidencia de CI
 
-- **Último SHA con CI completo verde verificado:** `06183a4fa5685ceac43626138679d8c0c50a9dbf`.
+- **Último SHA con CI completo verde verificado antes de las nuevas mejoras de producto:** `0f5f4f177ed0e9861fde449c7ef584c5b907e88d` (corregido umbral/tests del detector).
 - **Run:** [Windows CI #38214945910](https://github.com/jonhararagi/vtuber/actions/runs/38214945910) — restore, build Release, tests, publish self-contained Windows x64 y upload de artefacto: **SUCCESS**.
 - **Artefacto:** [VTuberBot-Product-Candidate-win-x64](https://github.com/jonhararagi/vtuber/actions/runs/38214945910/artifacts/11732285947) · ID `11732285947` · 77,780,953 bytes · SHA-256 `1c6cd363b2dc4eef1b9fa4dc0f5778b7ea9904a0f81d01e21066466de1381882` · expira el 2026-10-26 06:56:50 UTC.
 - Después de ese SHA se añadieron una tarjeta de alerta temporal al overlay y edición/pausa de timers, además de corregir textos y metadatos del paquete. El artefacto anterior no contiene esos cambios y no debe entregarse como el HEAD final; se requiere un nuevo CI/artifact exacto.
@@ -130,7 +130,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **IMPLEMENTADO EN CÓDIGO:** detector local de actividad acústica con suavizado, umbral y retención configurable; alimenta el estado Talking/Idle del overlay. No es reconocimiento de habla.
 - **PENDIENTE:** cola de voz priorizada, enrutamiento avanzado de audio y lip-sync por fonemas/visemas.
 - **PENDIENTE:** acciones remotas de moderación (borrado/sanción) con permisos y confirmaciones; hoy solo se registran coincidencias en modo observación.
-- **PENDIENTE:** editor de transformaciones por capa (posición/escala/rotación), orden manual de capas y presets por expresión; los timers ya permiten crear, editar y pausar/reactivar mensajes.
+- **IMPLEMENTADO EN CÓDIGO:** editor de capas con posición X/Y, escala, rotación y orden persistidos; preview y overlay comparten la configuración.
+- **IMPLEMENTADO EN CÓDIGO:** sprites opcionales por estado (Idle, Talking, Blink, Happy, Surprised), persistidos bajo LocalAppData y utilizados por preview/overlay. Si no existe sprite para un estado, usa la imagen base.
+- **PENDIENTE:** pivotes/parentado por huesos, física articulada, presets por expresión y lip-sync real por fonemas/visemas; los timers permiten crear, editar y pausar/reactivar mensajes.
 - **PENDIENTE:** validación manual global en el Windows del usuario. El CI no valida dispositivos de audio, OAuth real con su cuenta, runtime de WebView2 ni su instalación local de OBS/Twitch.
 
 ### Siguiente paso
@@ -146,3 +148,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La página Voz y audio aplica el detector a muestras reales del micrófono y actualiza el cue Talking/Idle del overlay. Se distingue explícitamente de reconocimiento de voz y del lip-sync por fonemas.
 - Se añadieron pruebas automáticas de activación, retención, liberación, suavizado y validación de parámetros.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD de esta actualización.
+
+
+### Trabajo adicional — sprites por expresión del avatar
+
+- Se añadieron ajustes locales para asignar sprites Idle/Talking/Blink/Happy/Surprised usando archivos del usuario guardados en LocalAppData.
+- El preview y el overlay usan el sprite del estado activo cuando existe, con fallback a la imagen base; las capas mantienen sus transformaciones.
+- El estado Talking generado por el micrófono activa el sprite correspondiente si fue configurado.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el HEAD que incluye esta actualización.
