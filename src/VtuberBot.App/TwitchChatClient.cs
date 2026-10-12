@@ -26,7 +26,15 @@ public sealed class TwitchChatClient : IAsyncDisposable
     public async Task ConnectAsync(string channel, string oauthToken, CancellationToken external = default)
     {
         if (cancellation is not null)
-            throw new InvalidOperationException("Twitch ya está conectado o intentando reconectarse.");
+        {
+            // A fatal post-connect failure (for example, revoked OAuth) ends the supervisor.
+            // Reclaim that completed session here so the user can reconnect without first
+            // pressing Disconnect; an active supervisor still prevents duplicate sessions.
+            if (supervisorTask?.IsCompleted == true)
+                await DisconnectAsync().ConfigureAwait(false);
+            else
+                throw new InvalidOperationException("Twitch ya está conectado o intentando reconectarse.");
+        }
 
         channel = channel.Trim().TrimStart('#').ToLowerInvariant();
         var token = oauthToken.Trim();
