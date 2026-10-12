@@ -115,9 +115,11 @@ public partial class MainWindow
 
         var nativePanel = Panel("Dos modos de avatar, sin mezclar perfiles");
         nativePanel.Children.Add(Label(
-            "• Avatar nativo VTuberBot: se configura en Avatar Studio con perfiles, imagen base, capas y expresiones propias.
-• Avatar avanzado PNGTuber Plus: se edita y guarda dentro de PNGTuber Plus; esta página solo conserva la ruta, el progreso de instalación y el registro de atajos.
-No se importa ni se convierte automáticamente un archivo .vtuberavatar. Los dos modos pueden coexistir y usan claves de configuración separadas.",
+            """
+            • Avatar nativo VTuberBot: se configura en Avatar Studio con perfiles, imagen base, capas y expresiones propias.
+            • Avatar avanzado PNGTuber Plus: se edita y guarda dentro de PNGTuber Plus; esta página solo conserva la ruta, el progreso de instalación y el registro de atajos.
+            No se importa ni se convierte automáticamente un archivo .vtuberavatar. Los dos modos pueden coexistir y usan claves de configuración separadas.
+            """,
             12, "#98A4BE"));
         nativePanel.Children.Add(ActionButton("Abrir Avatar Studio nativo", (_, _) => Navigate("Avatar Studio")));
         root.Children.Add(nativePanel);
