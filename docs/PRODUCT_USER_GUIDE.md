@@ -18,7 +18,7 @@ Esta guía corresponde a la rama `product/complete-vtuber-experience`. Las funci
 4. En OBS agregá una fuente **Captura de ventana** y seleccioná `VTuberBot Avatar Overlay`.
 5. Arrastrá la ventana para ubicarla y redimensionala con el borde. Doble clic alterna la prioridad Topmost.
 
-El overlay compone la imagen base con capas transformables, reproduce el sprite asignado al estado activo y aplica movimiento respiratorio sutil. El micrófono activa Talking con un detector acústico configurable. Esto no equivale a un rig con huesos/física ni a lip-sync por fonemas; usá sprites de expresión con el mismo lienzo para evitar desalineaciones.
+El overlay compone la imagen base con capas transformables, reproduce el sprite asignado al estado activo, aplica movimiento respiratorio sutil y parpadeo automático variable (desactivado junto con la animación cuando activás “Reducir movimiento”). El micrófono activa Talking con un detector acústico configurable. Esto no equivale a un rig con huesos/física ni a lip-sync por fonemas; usá sprites de expresión con el mismo lienzo para evitar desalineaciones.
 
 ## Twitch: OAuth y chat real
 

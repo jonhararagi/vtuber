@@ -22,6 +22,7 @@ public sealed class AvatarOverlayWindow : Window
     private IReadOnlyList<AvatarLayer> avatarLayers = Array.Empty<AvatarLayer>();
     private IReadOnlyDictionary<string, string> expressionImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     private DateTimeOffset blinkUntil;
+    private DateTimeOffset nextAutomaticBlinkAt = DateTimeOffset.UtcNow.AddSeconds(Random.Shared.NextDouble() * 3 + 3);
     private DateTimeOffset alertUntil;
     public bool ReduceMotion { get; set; }
 
@@ -40,16 +41,22 @@ public sealed class AvatarOverlayWindow : Window
         timer.Tick += (_, _) =>
         {
             var now = DateTimeOffset.UtcNow;
-            if (now < blinkUntil) layerCanvas.Opacity = .25;
-            else
+            if (transientState == "Blink" && now >= blinkUntil)
             {
-                layerCanvas.Opacity = 1;
-                if (transientState == "Blink")
-                {
-                    transientState = null;
-                    RenderAvatar();
-                }
+                transientState = null;
+                RenderAvatar();
             }
+
+            if (!ReduceMotion && IsVisible && transientState is null && now >= nextAutomaticBlinkAt)
+            {
+                transientState = "Blink";
+                blinkUntil = now.AddMilliseconds(150);
+                nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
+                RenderAvatar();
+            }
+
+            if (now < blinkUntil) layerCanvas.Opacity = .25;
+            else layerCanvas.Opacity = 1;
             alertCard.Visibility = now < alertUntil ? Visibility.Visible : Visibility.Collapsed;
             if (ReduceMotion) { breathing.ScaleX = 1; breathing.ScaleY = 1; return; }
             phase += state == "Talking" ? .12 : .035;
@@ -66,8 +73,10 @@ public sealed class AvatarOverlayWindow : Window
     {
         if (string.Equals(nextState, "Blink", StringComparison.OrdinalIgnoreCase))
         {
+            var now = DateTimeOffset.UtcNow;
             transientState = "Blink";
-            blinkUntil = DateTimeOffset.UtcNow.AddMilliseconds(160);
+            blinkUntil = now.AddMilliseconds(160);
+            nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
             RenderAvatar();
             return;
         }

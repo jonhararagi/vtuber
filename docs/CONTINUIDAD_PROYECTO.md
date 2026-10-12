@@ -328,3 +328,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La enumeración de voces ahora completa un `TaskCompletionSource` desde su hilo STA y espera con un límite de cinco segundos. Si se vence, la UI recibe un timeout sin cerrar un wait handle que el hilo COM pudiera intentar señalar después.
 - La guía de comandos ahora diferencia cooldown global y por usuario, variables `{args}`/`{message}` y previsualización sin efectos laterales. README enumera con más precisión las funciones de la rama y aclara que el CI no valida una cuenta Twitch real.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este nuevo HEAD.
+
+
+### Trabajo adicional — parpadeo automático del overlay
+- El avatar ahora parpadea automáticamente con intervalos variables aproximados de 3,5 a 7,5 segundos mientras el overlay está visible.
+- Usa el sprite Blink configurado si existe y conserva la fallback visual si no existe uno.
+- La opción de reducir movimiento suspende el parpadeo automático junto con la respiración/escala; el estado Blink manual continúa disponible en Avatar Studio.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD. No es tracking facial ni lip-sync por fonemas.
