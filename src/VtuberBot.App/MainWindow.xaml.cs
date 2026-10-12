@@ -464,7 +464,7 @@ public partial class MainWindow : Window
     }
     private static StackPanel Panel(string title)
     {
-        var p=new StackPanel();p.Children.Add(Label(title,17,"#F8FAFC",true));p.Background=Brush("#151A2A");p.Margin=new Thickness(0,0,0,12);p.SetValue(Border.PaddingProperty,new Thickness(18));return p;
+        var p=new StackPanel();p.Children.Add(Label(title,17,"#F8FAFC",true));p.Background=Brush("#151A2A");p.Margin=new Thickness(0,0,0,12);return p;
     }
     private static Border MetricCard(string title,string value,string detail)
     {

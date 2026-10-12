@@ -32,7 +32,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
         {
             await client.ConnectAsync("irc.chat.twitch.tv", 6697, cancellation.Token).ConfigureAwait(false);
             var ssl = new SslStream(client.GetStream(), false);
-            await ssl.AuthenticateAsClientAsync("irc.chat.twitch.tv", cancellation.Token).ConfigureAwait(false);
+            await ssl.AuthenticateAsClientAsync(new System.Net.Security.SslClientAuthenticationOptions { TargetHost = "irc.chat.twitch.tv" }, cancellation.Token).ConfigureAwait(false);
             reader = new StreamReader(ssl, Encoding.UTF8);
             writer = new StreamWriter(ssl, new UTF8Encoding(false)) { NewLine = "\r\n", AutoFlush = true };
             await writer.WriteLineAsync($"PASS oauth:{token}".AsMemory(), cancellation.Token).ConfigureAwait(false);
