@@ -91,3 +91,7 @@ En **Voz y audio**, importá archivos WAV o MP3 propios. VTuberBot los copia a l
 ## Validación global de un candidato
 
 Cuando se solicite la validación integrada, seguí una sola vez la lista [Validación global del candidato de producto](PRODUCT-CANDIDATE-MANUAL-VALIDATION.md). Descargá únicamente el artefacto de la ejecución Windows CI cuyo **Head SHA coincida exactamente** con el HEAD de la rama; no uses una descarga histórica como sustituto. Marcá los servicios que no puedas probar por falta de cuenta o dispositivo como **BLOQUEADOS**, no como aprobados. No hace falta ejecutar comandos Git ni compilar localmente.
+
+## Aplicaciones externas
+
+Configuración de rutas, apertura y estados de PNGTuber Plus y Streamer.bot: [Centro de integraciones externas](EXTERNAL-INTEGRATIONS.md).
