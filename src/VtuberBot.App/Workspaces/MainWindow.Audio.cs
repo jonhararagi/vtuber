@@ -231,6 +231,7 @@ public partial class MainWindow
         var savedVoiceId = store.GetSetting("audio.tts.voiceId");
         var savedOutputId = store.GetSetting("audio.tts.outputId");
         var outputListLoaded = false;
+        var voiceListLoaded = false;
         var voicePicker = new ComboBox
         {
             ItemsSource = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") },
@@ -287,6 +288,7 @@ public partial class MainWindow
                 var voices = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") };
                 voices.AddRange(installed);
                 voicePicker.ItemsSource = voices;
+                voiceListLoaded = true;
                 voicePicker.SelectedItem = voices.FirstOrDefault(voice => string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
                     ?? voices[0];
                 FooterStatus.Text = $"Voces SAPI encontradas: {installed.Count}.";
@@ -303,8 +305,10 @@ public partial class MainWindow
         panel.Children.Add(volumeSlider);
         panel.Children.Add(ActionButton("Guardar voz y ajustes", (_, _) =>
         {
-            savedVoiceId = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? string.Empty;
-            savedOutputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty;
+            if (voiceListLoaded)
+                savedVoiceId = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? string.Empty;
+            if (outputListLoaded)
+                savedOutputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty;
             store.SetSetting("audio.tts.voiceId", savedVoiceId);
             store.SetSetting("audio.tts.outputId", savedOutputId);
             store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -318,7 +322,7 @@ public partial class MainWindow
         panel.Children.Add(ActionButton("＋ Encolar voz", (_, _) =>
         {
             var selectedPriority = priority.SelectedItem is SpeechPriority selected ? selected : SpeechPriority.Normal;
-            var voiceId = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? savedVoiceId;
+            var voiceId = voiceListLoaded ? (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? string.Empty : savedVoiceId;
             var outputId = outputListLoaded ? (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty : savedOutputId;
             if (speechQueue.Enqueue(speech.Text, selectedPriority, voiceId, (int)rateSlider.Value, (int)volumeSlider.Value, outputId))
                 store.Log("Audio", "Frase agregada a la cola TTS local con prioridad " + selectedPriority + ".");
