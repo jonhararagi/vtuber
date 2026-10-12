@@ -252,3 +252,6 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - Página WPF dedicada; credencial protegida con DPAPI; recepción de eventos sin ejecutar acciones automáticamente.
 - Prueba de protocolo con servidor WebSocket simulado añadida. La prueba simulada no equivale a validación contra una instancia real.
 - **Pendiente de aceptación:** Windows CI sobre el SHA final exacto y validación manual con Streamer.bot, OBS y PNGTuber Plus. La reconexión automática queda fuera de la implementación actual; la reconexión y suscripciones son manuales.
+
+
+- **Corrección de compilación detectada por CI:** se arregló el literal multilínea de texto en `MainWindow.PngtuberWorkspace.cs` que impedía compilar el workspace PNGTuber Plus. La corrección es mínima y conserva el contenido y las funciones del panel. Falta confirmar el nuevo run de Windows CI para el SHA final.
