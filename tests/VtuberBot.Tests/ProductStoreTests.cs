@@ -587,6 +587,54 @@ public sealed class ProductStoreTests
     }
 
     [Fact]
+    public void BuiltInCommunityCommandsExposePersistedPointsAndLeaderboard()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var router = new CommunityCommandRouter(store);
+
+        var initial = router.TryExecute("!puntos", "alice");
+        Assert.NotNull(initial);
+        Assert.True(initial.Success);
+        Assert.Contains("0 puntos", initial.Message);
+
+        store.AddPoints("alice", 25, "test");
+        store.AddPoints("bob", 40, "test");
+        var balance = router.TryExecute("puntos", "alice");
+        Assert.Contains("25 puntos", balance!.Message);
+
+        var top = router.TryExecute("!top", "alice");
+        Assert.True(top!.Success);
+        Assert.Contains("bob (40)", top.Message);
+        Assert.True(top.Message.IndexOf("bob", StringComparison.Ordinal) < top.Message.IndexOf("alice", StringComparison.Ordinal));
+        Assert.Null(router.TryExecute("unknown", "alice"));
+    }
+
+    [Fact]
+    public void BuiltInCommunityGameCommandSettlesPracticeAndRejectsInsufficientBalance()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var router = new CommunityCommandRouter(store);
+
+        var practice = router.TryExecute("!jugar", "alice", "dado alto 0");
+        Assert.NotNull(practice);
+        Assert.True(practice.Success);
+        Assert.Contains("Práctica gratuita", practice.Message);
+        Assert.Equal(0, store.TouchUser("alice").Points);
+
+        store.AddPoints("alice", 5, "test balance");
+        var rejected = router.TryExecute("jugar", "alice", "moneda cara 10");
+        Assert.NotNull(rejected);
+        Assert.False(rejected.Success);
+        Assert.Contains("Saldo insuficiente", rejected.Message);
+        Assert.Equal(5, store.TouchUser("alice").Points);
+
+        var invalid = router.TryExecute("jugar", "alice", "ruleta azul 0");
+        Assert.False(invalid!.Success);
+    }
+
+    [Fact]
     public void ProductSchemaVersionIsRecordedAndFutureVersionsAreRejected()
     {
         using var temp = new TempDb();

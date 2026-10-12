@@ -25,6 +25,7 @@ public partial class MainWindow : Window
 {
     private readonly VtuberApplication application;
     private readonly ProductStore store;
+    private CommunityCommandRouter communityCommandRouter = null!;
     private readonly string dataDirectory;
     private readonly string avatarDirectory;
     private readonly string secretDirectory;
@@ -200,6 +201,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         this.application = application;
         store = new ProductStore(application.Database.Path);
+        communityCommandRouter = new CommunityCommandRouter(store);
 
         var savedVadThreshold = double.TryParse(
             store.GetSetting("audio.vad.threshold", "8"),

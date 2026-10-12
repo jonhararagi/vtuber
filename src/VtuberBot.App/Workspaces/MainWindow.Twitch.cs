@@ -325,6 +325,23 @@ public partial class MainWindow
             return;
         }
 
+        var communityResult = communityCommandRouter.TryExecute(command, username, arguments);
+        if (communityResult is not null)
+        {
+            try
+            {
+                if (twitch.IsConnected)
+                    await twitch.SendMessageAsync(store.GetSetting("twitch.channel"), communityResult.Message);
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "Comando de comunidad procesado localmente, pero no se pudo responder en Twitch: " + exception.Message;
+            }
+            store.Log("Comunidad", "Comando integrado !" + command + " ejecutado por " + username +
+                (communityResult.Success ? "." : " · " + communityResult.Message));
+            return;
+        }
+
         var twitchRoles = CommandPermissionPolicy.GetTwitchRoles(parsed, store.GetSetting("twitch.channel"));
         var result = store.RunLocalCommand(command, username, arguments, twitchRoles);
         if (result.Success)

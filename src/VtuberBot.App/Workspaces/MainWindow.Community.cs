@@ -108,7 +108,33 @@ public partial class MainWindow
                 : "Comando local rechazado; revisá permiso, estado y cooldown.";
         }));
         row.Children.Add(ActionButton("Eliminar seleccionado",(_,_)=>{if(list.SelectedIndex<0)return;var id=long.Parse(list.SelectedItem!.ToString()!.Split(' ')[0]);if(MessageBox.Show(this,"¿Eliminar el comando seleccionado?","Confirmar",MessageBoxButton.YesNo)==MessageBoxResult.Yes){store.DeleteCommand(id);Reload();}}));
-        panel.Children.Add(row);root.Children.Add(Label("El cooldown puede ser global o por usuario. El permiso mínimo se comprueba con etiquetas autenticadas de Twitch: Todos, Suscriptores, VIP, Moderadores o solo Broadcaster. Moderadores pueden usar los niveles de suscriptor/VIP; solo el broadcaster puede usar los comandos exclusivos del broadcaster. Un uso denegado se registra y no consume cooldown.",12,"#98A4BE"));return root;
+        panel.Children.Add(row);
+
+        var builtIns = Panel("Comandos de comunidad integrados");
+        builtIns.Margin = new Thickness(0, 14, 0, 0);
+        builtIns.Children.Add(Label("Estos comandos funcionan localmente y en Twitch sin crear comandos personalizados. !puntos muestra tu saldo; !top muestra los cinco primeros; !jugar moneda cara 10, !jugar ruleta rojo 10 o !jugar dado alto 10 juega una ronda persistida. Usá apuesta 0 para practicar gratis. Los nombres puntos, top y jugar quedan reservados para estas funciones.",12,"#98A4BE"));
+        var builtInInput = TextField("Comando de prueba (ej.: !jugar dado alto 0)");
+        builtIns.Children.Add(builtInInput);
+        builtIns.Children.Add(ActionButton("Ejecutar localmente",(_,_) =>
+        {
+            var input = builtInInput.Text.Trim();
+            var separator = input.IndexOf(' ');
+            var commandName = separator < 0 ? input : input[..separator];
+            var arguments = separator < 0 ? string.Empty : input[(separator + 1)..].Trim();
+            var result = communityCommandRouter.TryExecute(commandName, testUsername.Text, arguments);
+            if (result is null)
+            {
+                MessageBox.Show(this,"Usá !puntos, !top o !jugar desde esta prueba local.","Comandos de comunidad",MessageBoxButton.OK,MessageBoxImage.Information);
+                return;
+            }
+            store.Log("Comunidad","Prueba local de !" + commandName.TrimStart('!') + (result.Success ? " completada." : " rechazada: " + result.Message));
+            MessageBox.Show(this,result.Message,"Prueba local · sin enviar a Twitch",MessageBoxButton.OK,
+                result.Success?MessageBoxImage.Information:MessageBoxImage.Warning);
+            FooterStatus.Text = result.Success ? "Comando de comunidad ejecutado localmente." : "Comando de comunidad rechazado; revisá el mensaje.";
+        },true));
+        root.Children.Add(builtIns);
+        root.Children.Add(Label("El cooldown puede ser global o por usuario. El permiso mínimo se comprueba con etiquetas autenticadas de Twitch: Todos, Suscriptores, VIP, Moderadores o solo Broadcaster. Moderadores pueden usar los niveles de suscriptor/VIP; solo el broadcaster puede usar los comandos exclusivos del broadcaster. Un uso denegado se registra y no consume cooldown.",12,"#98A4BE"));
+        return root;
     }
 
     private UIElement BuildCommunityPage()
