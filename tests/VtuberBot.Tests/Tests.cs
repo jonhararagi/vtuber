@@ -2906,7 +2906,7 @@ public sealed class Tests
     private static IReadOnlyList<ProcessWindow> GetProcessWindows(int processId)
     {
         var windows = new List<ProcessWindow>();
-        EnumWindows((windowHandle, _) =>
+        EnumWindows((windowHandle, lParam) =>
         {
             _ = GetWindowThreadProcessId(windowHandle, out var ownerProcessId);
             if (ownerProcessId != (uint)processId)
