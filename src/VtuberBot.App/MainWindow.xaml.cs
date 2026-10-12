@@ -42,6 +42,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer twitchCredentialTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly Dictionary<long, DateTimeOffset> automationLastRun = [];
     private readonly Dictionary<long, DateTimeOffset> automationOfflineLog = [];
+    private readonly Dictionary<long, DateTimeOffset> automationFirstObserved = [];
     private int automationProcessing;
     private const int MaxPendingEventSubEvents = 200;
     private const int MaxPendingCriticalEventSubEvents = 20;

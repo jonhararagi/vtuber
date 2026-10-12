@@ -83,6 +83,30 @@ public partial class MainWindow
                 ?"Simulación completada; no se ejecutó el comando ni se consumió cooldown."
                 :"Simulación rechazada; el comando no se ejecutó.";
         }));
+        row.Children.Add(ActionButton("Ejecutar guardado localmente",(_,_) =>
+        {
+            if (list.SelectedItem is not string selectedText)
+            {
+                MessageBox.Show(this, "Seleccioná primero un comando guardado.", "Comandos", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (!long.TryParse(selectedText.Split((char)32)[0], out var selectedId))
+                return;
+            var selected = store.GetCommands().FirstOrDefault(command => command.Id == selectedId);
+            if (selected is null)
+            {
+                Reload();
+                FooterStatus.Text = "El comando seleccionado ya no existe.";
+                return;
+            }
+            var result = store.RunLocalCommand(selected.Name, testUsername.Text, testArguments.Text, SelectedTestRoles());
+            store.Log("Comandos", "Ejecución local de !" + selected.Name + (result.Success ? " completada." : " rechazada: " + result.Message));
+            MessageBox.Show(this, result.Message, "Ejecución local · sin enviar a Twitch", MessageBoxButton.OK,
+                result.Success ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            FooterStatus.Text = result.Success
+                ? "Comando ejecutado localmente; se aplicaron sus efectos locales y cooldown."
+                : "Comando local rechazado; revisá permiso, estado y cooldown.";
+        }));
         row.Children.Add(ActionButton("Eliminar seleccionado",(_,_)=>{if(list.SelectedIndex<0)return;var id=long.Parse(list.SelectedItem!.ToString()!.Split(' ')[0]);if(MessageBox.Show(this,"¿Eliminar el comando seleccionado?","Confirmar",MessageBoxButton.YesNo)==MessageBoxResult.Yes){store.DeleteCommand(id);Reload();}}));
         panel.Children.Add(row);root.Children.Add(Label("El cooldown puede ser global o por usuario. El permiso mínimo se comprueba con etiquetas autenticadas de Twitch: Todos, Suscriptores, VIP, Moderadores o solo Broadcaster. Moderadores pueden usar los niveles de suscriptor/VIP; solo el broadcaster puede usar los comandos exclusivos del broadcaster. Un uso denegado se registra y no consume cooldown.",12,"#98A4BE"));return root;
     }

@@ -85,3 +85,11 @@ Los directorios, contratos y diagrama de flujo concretos están definidos en doc
 - VTube Studio: referencia para aislar integraciones de modelos detrás de adaptadores — https://github.com/DenchiSoft/VTubeStudio
 
 Se estudian las ideas de arquitectura y los flujos; no se copia código, diseño exacto ni assets.
+
+
+## Avance integrado de cierre — 2026-10-12
+
+- La pantalla Comandos ofrece una ejecución local real del comando guardado, separada de la simulación sin efectos y sin envío de mensajes externos.
+- Los mensajes automáticos no se emiten inmediatamente al primer encuentro con un timer nuevo: se respeta el intervalo configurado y se registran pruebas unitarias de la política de agenda.
+- La captura de micrófono limpia recursos y restablece el avatar si el inicio del dispositivo falla.
+- Este bloque queda sujeto a la ejecución de Windows CI del SHA que lo contiene. Los flujos que necesitan Twitch, OBS, micrófono y Telegram reales continúan pendientes de validación manual global.

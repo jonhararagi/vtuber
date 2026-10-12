@@ -824,6 +824,15 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Estado:** implementado en el nuevo HEAD; Windows CI pendiente. Los eventos reales requieren OBS WebSocket v5 configurado y conectado.
 
 
+
+### Bloque integrado de cierre — ejecución local de comandos, timers y recuperación de audio (2026-10-12)
+
+- **Comandos:** la pantalla permite ejecutar un comando guardado en modo local real, aplicando la lógica de negocio persistida (permisos, cooldown, usuario/resultado) sin enviar nada a Twitch. La simulación previa sigue siendo explícitamente sin efectos.
+- **Automatizaciones:** se corrigió el envío inmediato de mensajes nunca ejecutados. La primera emisión ahora espera el intervalo configurado desde que el timer habilitado se observa por primera vez; el tiempo solo se consume tras el envío correcto. La política temporal es pura y tiene pruebas de intervalo inicial, siguiente emisión, retroceso del reloj y límites inválidos. Al editar/reactivar o borrar un timer se reinicia su referencia temporal en memoria.
+- **Audio:** si StartRecording() falla sincrónicamente, se libera la captura recién creada, se restablece VAD/medidor y se devuelve el avatar a Idle antes de presentar el error.
+- **Pruebas añadidas:** AutomationSchedulePolicyTests valida los límites temporales sin requerir Twitch ni micrófono real.
+- **Estado de verificación:** los cambios se agrupan en el commit candidato de esta rama; Windows CI del nuevo HEAD debe completar restore, build, tests y paquete antes de considerar verificado este bloque.
+
 ---
 
 # Corte consolidado de continuidad — 2026-10-12

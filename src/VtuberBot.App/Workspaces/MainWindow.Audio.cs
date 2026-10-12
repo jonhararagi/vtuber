@@ -183,7 +183,22 @@ public partial class MainWindow
                         // The Dispatcher is already shutting down; MainWindow.Close handles cleanup.
                     }
                 };
-                capture.StartRecording();
+                try
+                {
+                    capture.StartRecording();
+                }
+                catch
+                {
+                    if (ReferenceEquals(microphone, capture))
+                        microphone = null;
+                    try { capture.Dispose(); } catch (InvalidOperationException) { }
+                    voiceActivity.Reset();
+                    store.SetSetting("avatar.state", "Idle");
+                    overlay?.SetState("Idle");
+                    meter.Value = 0;
+                    meterLabel.Text = "No se pudo iniciar la captura.";
+                    throw;
+                }
                 store.Log("Audio", "Micrófono real y detección acústica iniciados.");
                 FooterStatus.Text = "Micrófono activo. Ajustá umbral y retención para tu ambiente.";
             }

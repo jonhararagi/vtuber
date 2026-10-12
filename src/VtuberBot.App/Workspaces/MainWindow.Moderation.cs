@@ -147,8 +147,8 @@ public partial class MainWindow
         var autoEnabled=new CheckBox{Content="Activar al guardar",IsChecked=false,Foreground=Brush("#F8FAFC"),Margin=new Thickness(0,0,0,8)};
         autoList.SelectionChanged+=(_,_)=>{if(autoList.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split('·')[0].Trim());var selected=store.GetAutomationRules().FirstOrDefault(a=>a.Id==selectedId);if(selected is null)return;editingAutomationId=selected.Id;autoName.Text=selected.Name;autoMessage.Text=selected.Message;autoInterval.Text=selected.IntervalMinutes.ToString();autoEnabled.IsChecked=selected.Enabled;}catch{}};
         auto.Children.Add(autoName);auto.Children.Add(autoMessage);auto.Children.Add(autoInterval);auto.Children.Add(autoEnabled);
-        auto.Children.Add(ActionButton("Guardar mensaje automático",(_,_)=>{try{store.SaveAutomationRule(editingAutomationId,autoName.Text,autoMessage.Text,int.Parse(autoInterval.Text),autoEnabled.IsChecked==true);ReloadAuto();autoList.SelectedItem=null;editingAutomationId=null;autoName.Clear();autoMessage.Clear();autoInterval.Text="30";autoEnabled.IsChecked=false;}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
-        auto.Children.Add(ActionButton("Pausar / reactivar seleccionado",(_,_)=>{if(autoList.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split('·')[0].Trim());var selected=store.GetAutomationRules().FirstOrDefault(a=>a.Id==selectedId);if(selected is null)return;store.SaveAutomationRule(selected.Id,selected.Name,selected.Message,selected.IntervalMinutes,!selected.Enabled);ReloadAuto();autoList.SelectedItem=null;}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));
+        auto.Children.Add(ActionButton("Guardar mensaje automático",(_,_)=>{try{if(editingAutomationId.HasValue)automationFirstObserved.Remove(editingAutomationId.Value);store.SaveAutomationRule(editingAutomationId,autoName.Text,autoMessage.Text,int.Parse(autoInterval.Text),autoEnabled.IsChecked==true);ReloadAuto();autoList.SelectedItem=null;editingAutomationId=null;autoName.Clear();autoMessage.Clear();autoInterval.Text="30";autoEnabled.IsChecked=false;}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
+        auto.Children.Add(ActionButton("Pausar / reactivar seleccionado",(_,_)=>{if(autoList.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split('·')[0].Trim());var selected=store.GetAutomationRules().FirstOrDefault(a=>a.Id==selectedId);if(selected is null)return;store.SaveAutomationRule(selected.Id,selected.Name,selected.Message,selected.IntervalMinutes,!selected.Enabled);automationFirstObserved.Remove(selected.Id);ReloadAuto();autoList.SelectedItem=null;}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));
         auto.Children.Add(ActionButton("Eliminar seleccionado",(_,_)=>
         {
             if(autoList.SelectedItem is not string selectedText)return;
@@ -159,6 +159,7 @@ public partial class MainWindow
                 store.DeleteAutomationRule(selectedId);
                 automationLastRun.Remove(selectedId);
                 automationOfflineLog.Remove(selectedId);
+                automationFirstObserved.Remove(selectedId);
                 ReloadAuto();
                 autoList.SelectedItem=null;
                 editingAutomationId=null;
@@ -188,7 +189,15 @@ public partial class MainWindow
                 var lastRun = rule.LastRunUtc;
                 if (!lastRun.HasValue && automationLastRun.TryGetValue(rule.Id, out var inMemoryLastRun))
                     lastRun = inMemoryLastRun;
-                if (lastRun.HasValue && now - lastRun.Value < TimeSpan.FromMinutes(rule.IntervalMinutes))
+                var firstObserved = now;
+                if (!lastRun.HasValue && !automationFirstObserved.TryGetValue(rule.Id, out firstObserved))
+                {
+                    // A newly enabled timer must wait its configured interval before its first
+                    // broadcast; startup must not send every never-used timer immediately.
+                    automationFirstObserved[rule.Id] = now;
+                    continue;
+                }
+                if (!AutomationSchedulePolicy.IsDue(now, lastRun, firstObserved, rule.IntervalMinutes))
                     continue;
 
                 if (!twitch.IsConnected)
@@ -216,6 +225,7 @@ public partial class MainWindow
                     var sentAt = DateTimeOffset.UtcNow;
                     store.MarkAutomationRun(rule.Id, sentAt);
                     automationLastRun[rule.Id] = sentAt;
+                    automationFirstObserved.Remove(rule.Id);
                     automationOfflineLog.Remove(rule.Id);
                     store.Log("Automatización", $"Mensaje '{rule.Name}' enviado.");
                     // At most one scheduled message per minute, even if several rules are overdue.
