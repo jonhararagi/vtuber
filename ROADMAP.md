@@ -156,3 +156,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - El cálculo de nivel del micrófono se extrajo a la política pura Pcm16LevelPolicy en Core, sin dependencia de WPF ni NAudio.
 - Las pruebas cubren buffers vacíos/incompletos, silencio, saturación y byte final impar. La UI usa ahora la misma función que se prueba en CI.
 - Windows CI del nuevo SHA debe confirmar build y suite; la prueba con dispositivo físico queda para la validación global.
+
+
+## Comunidad — ledger de puntos consistente con el saldo aplicado (2026-10-12)
+
+- La deducción manual que excedía el saldo se limitaba a cero en el balance, pero el ledger registraba el débito solicitado completo; eso hacía que el historial contable no reconciliara con el saldo.
+- AddPoints ahora registra la diferencia realmente aplicada dentro de la misma transacción y no crea un movimiento ficticio cuando el saldo ya es cero.
+- Se añadieron pruebas SQLite para débito parcial y débito sin saldo. Pendiente Windows CI del SHA resultante.

@@ -945,18 +945,43 @@ public sealed class ProductStore
                 cmd.Transaction = tx; cmd.CommandText = "INSERT INTO community_users(username,points,first_seen_utc,last_seen_utc) VALUES($u,0,$n,$n) ON CONFLICT(username) DO NOTHING";
                 cmd.Parameters.AddWithValue("$u", username.Trim()); cmd.Parameters.AddWithValue("$n", Now()); cmd.ExecuteNonQuery();
             }
+            long previousBalance;
+            using (var readBalance = c.CreateCommand())
+            {
+                readBalance.Transaction = tx;
+                readBalance.CommandText = "SELECT points FROM community_users WHERE username=$u";
+                readBalance.Parameters.AddWithValue("$u", username.Trim());
+                previousBalance = Convert.ToInt64(readBalance.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+
             using (var cmd = c.CreateCommand())
             {
                 cmd.Transaction = tx; cmd.CommandText = "UPDATE community_users SET points=MAX(0,points+$d),last_seen_utc=$n WHERE username=$u";
                 cmd.Parameters.AddWithValue("$d", delta); cmd.Parameters.AddWithValue("$n", Now()); cmd.Parameters.AddWithValue("$u", username.Trim()); cmd.ExecuteNonQuery();
             }
-            using (var cmd = c.CreateCommand())
+
+            long updatedBalance;
+            using (var readBalance = c.CreateCommand())
             {
+                readBalance.Transaction = tx;
+                readBalance.CommandText = "SELECT points FROM community_users WHERE username=$u";
+                readBalance.Parameters.AddWithValue("$u", username.Trim());
+                updatedBalance = Convert.ToInt64(readBalance.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            // The ledger must record the amount actually applied, not a requested debit
+            // that was partially clamped at zero by SQLite.
+            var appliedDelta = updatedBalance - previousBalance;
+            if (appliedDelta != 0)
+            {
+                using var cmd = c.CreateCommand();
                 cmd.Transaction = tx; cmd.CommandText = "INSERT INTO point_ledger(username,delta,reason,created_utc) VALUES($u,$d,$r,$n)";
-                cmd.Parameters.AddWithValue("$u", username.Trim()); cmd.Parameters.AddWithValue("$d", delta); cmd.Parameters.AddWithValue("$r", reason); cmd.Parameters.AddWithValue("$n", Now()); cmd.ExecuteNonQuery();
+                cmd.Parameters.AddWithValue("$u", username.Trim()); cmd.Parameters.AddWithValue("$d", appliedDelta); cmd.Parameters.AddWithValue("$r", reason); cmd.Parameters.AddWithValue("$n", Now()); cmd.ExecuteNonQuery();
             }
             tx.Commit();
-            var result = GetOrCreateUser(c, username.Trim()); Log("Comunidad", $"{username}: {delta:+#;-#;0} puntos ({reason})."); return result;
+            var result = GetOrCreateUser(c, username.Trim());
+            Log("Comunidad", $"{username}: {appliedDelta:+#;-#;0} puntos aplicados (solicitado {delta:+#;-#;0}; {reason}).");
+            return result;
         }
     }
 

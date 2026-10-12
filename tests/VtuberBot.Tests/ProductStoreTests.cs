@@ -251,14 +251,46 @@ public sealed class ProductStoreTests
     }
 
     [Fact]
-    public void PointsNeverBecomeNegativeAndLeaderboardPersists()
+    public void PointsNeverBecomeNegativeAndLedgerRecordsOnlyTheAppliedDebit()
     {
         using var temp = new TempDb();
         var store = new ProductStore(temp.DatabasePath);
-        store.AddPoints("viewer_1", 20, "test");
+        store.AddPoints("viewer_1", 20, "test credit");
         var user = store.AddPoints("viewer_1", -100, "test debit");
         Assert.Equal(0, user.Points);
         Assert.Contains(store.GetLeaderboard(), u => u.Username == "viewer_1" && u.Points == 0);
+
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = temp.DatabasePath
+        }.ConnectionString);
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT delta FROM point_ledger WHERE username='viewer_1' ORDER BY id";
+        using var reader = command.ExecuteReader();
+        Assert.True(reader.Read());
+        Assert.Equal(20L, reader.GetInt64(0));
+        Assert.True(reader.Read());
+        Assert.Equal(-20L, reader.GetInt64(0));
+        Assert.False(reader.Read());
+    }
+
+    [Fact]
+    public void DebitAtZeroDoesNotCreateAFictitiousLedgerEntry()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var user = store.AddPoints("viewer_1", -100, "empty balance debit");
+        Assert.Equal(0, user.Points);
+
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = temp.DatabasePath
+        }.ConnectionString);
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM point_ledger WHERE username='viewer_1'";
+        Assert.Equal(0L, Convert.ToInt64(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture));
     }
 
     [Fact]

@@ -972,3 +972,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Se centralizó en Core el cálculo de nivel RMS para PCM16 little-endian; la política ignora cualquier byte final incompleto, devuelve cero si no hay una muestra completa y limita la salida al rango 0–100.
 - La UI de micrófono consume esta misma política y la suite agrega tres pruebas para frame incompleto, silencio/saturación y byte final impar.
 - Core permanece independiente de WPF/NAudio. Estado: pendiente de Windows CI del nuevo SHA y de prueba manual con micrófono real.
+
+
+## Bloque funcional — integridad del ledger de puntos (2026-10-12)
+
+- Auditoría de ProductStore.AddPoints: al solicitar un débito mayor que el saldo, SQLite protegía el balance con MAX(0, points + delta), pero point_ledger registraba el delta solicitado completo. El balance quedaba correcto y el ledger mentía.
+- La transacción ahora lee el balance previo y posterior, calcula el delta aplicado real y registra solo ese importe; si el saldo ya es cero, no añade una entrada contable ficticia. El registro de actividad distingue el importe aplicado del solicitado.
+- Se sustituyó la prueba previa por una que verifica los deltas reales directamente en SQLite y se añadió una prueba de débito sin saldo.
+- Estado: cambio preparado en ProductStore y pruebas; pendiente Windows CI del SHA exacto. No se ha marcado el bloque como validado antes del CI.
