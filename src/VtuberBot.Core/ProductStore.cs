@@ -92,6 +92,46 @@ public sealed class ProductStore
     private void SeedDefaults(SqliteConnection connection)
     {
         using var transaction = connection.BeginTransaction();
+
+        // Apply defaults only once. Re-seeding on every startup made a user-deleted
+        // built-in timer reappear, and could recreate defaults in an existing database.
+        using (var marker = connection.CreateCommand())
+        {
+            marker.Transaction = transaction;
+            marker.CommandText = "SELECT value FROM product_settings WHERE key='seed.defaults.v1'";
+            if (marker.ExecuteScalar() is not null)
+            {
+                transaction.Commit();
+                return;
+            }
+        }
+
+        // Existing user data implies that this database has already been used by an older
+        // version which did not have a seed marker. Mark it as migrated without recreating
+        // defaults that the user may intentionally have removed.
+        using (var dataCheck = connection.CreateCommand())
+        {
+            dataCheck.Transaction = transaction;
+            dataCheck.CommandText = """
+                SELECT
+                    (SELECT COUNT(*) FROM product_commands) +
+                    (SELECT COUNT(*) FROM automation_rules) +
+                    (SELECT COUNT(*) FROM moderation_rules) +
+                    (SELECT COUNT(*) FROM community_users) +
+                    (SELECT COUNT(*) FROM giveaways) +
+                    (SELECT COUNT(*) FROM product_activity)
+                """;
+            if (Convert.ToInt64(dataCheck.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) > 0)
+            {
+                using var markExisting = connection.CreateCommand();
+                markExisting.Transaction = transaction;
+                markExisting.CommandText = "INSERT INTO product_settings(key,value) VALUES('seed.defaults.v1','existing-db')";
+                markExisting.ExecuteNonQuery();
+                transaction.Commit();
+                return;
+            }
+        }
+
         using (var command = connection.CreateCommand())
         {
             command.Transaction = transaction;
@@ -104,6 +144,8 @@ public sealed class ProductStore
                 VALUES('Enlaces','https?://',1,'flag');
                 INSERT OR IGNORE INTO automation_rules(name,message,interval_minutes,enabled)
                 VALUES('Bienvenida','¡Gracias por acompañar el stream!',30,0);
+                INSERT INTO product_settings(key,value) VALUES('seed.defaults.v1','1')
+                ON CONFLICT(key) DO NOTHING;
                 """;
             command.Parameters.AddWithValue("$now", Now());
             command.ExecuteNonQuery();

@@ -104,6 +104,18 @@ public sealed class ProductStoreTests
         Assert.Contains(store.GetModerationRules(), r => r.Name == "URLs" && r.Enabled);
     }
     [Fact]
+    public void DeletingBuiltInAutomationIsPersistentAcrossRestart()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var builtIn = Assert.Single(store.GetAutomationRules(), rule => rule.Name == "Bienvenida");
+        store.DeleteAutomationRule(builtIn.Id);
+
+        var reopened = new ProductStore(temp.DatabasePath);
+        Assert.DoesNotContain(reopened.GetAutomationRules(), rule => rule.Name == "Bienvenida");
+    }
+
+    [Fact]
     public void AvatarLayerTransformsAndStackingOrderPersist()
     {
         using var temp = new TempDb();

@@ -760,7 +760,7 @@ public partial class MainWindow : Window
         root.Children.Add(remotePanel);
         var auto=Panel("Mensajes automáticos programados");auto.Margin=new Thickness(0,12,0,0);
         var autoList=new ListBox{Height=130};long? editingAutomationId=null;
-        void ReloadAuto(){autoList.ItemsSource=store.GetAutomationRules().Select(a=>string.Format("{0} · {1} · cada {2} min · {3}",a.Id,a.Name,a.IntervalMinutes,a.Enabled?"activo":"pausado")).ToList();}
+        void ReloadAuto(){autoList.ItemsSource=store.GetAutomationRules().Select(a=>string.Format("{0} · {1} · cada {2} min · {3} · último envío: {4}",a.Id,a.Name,a.IntervalMinutes,a.Enabled?"activo":"pausado",a.LastRunUtc.HasValue?a.LastRunUtc.Value.ToLocalTime().ToString("dd/MM HH:mm:ss"):"nunca")).ToList();}
         ReloadAuto();auto.Children.Add(autoList);
         var autoName=TextField("Nombre del timer");var autoMessage=TextField("Mensaje programado");var autoInterval=TextField("Intervalo en minutos (mín. 5)");autoInterval.Text="30";
         var autoEnabled=new CheckBox{Content="Activar al guardar",IsChecked=false,Foreground=Brush("#F8FAFC"),Margin=new Thickness(0,0,0,8)};

@@ -266,3 +266,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - El editor de comandos incluye un campo de argumentos de prueba y muestra `{args}`/`{message}`; el botón de preview ya no ejecuta un comando real ni consume su cooldown.
 - Prueba de regresión: una previsualización de la respuesta editada no crea el usuario de prueba y no bloquea ejecuciones reales siguientes.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el nuevo HEAD.
+
+
+### Corrección de persistencia — defaults y timers eliminados
+
+- Los defaults se aplican ahora una sola vez con el marcador SQLite `seed.defaults.v1`. En bases existentes sin marcador, la migración detecta datos anteriores y registra la versión sin volver a crear defaults que el usuario quizá eliminó.
+- Esto hace persistente eliminar el timer predeterminado `Bienvenida`; el botón ya no dará la impresión de borrarlo solo para que reaparezca al reiniciar.
+- La lista de timers muestra también el último envío persistido.
+- Se añadió prueba de reinicio del `ProductStore` tras borrar el timer incorporado.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI**.
