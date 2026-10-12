@@ -212,3 +212,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Crear un sorteo anuncia la apertura y el comando `!entrar`; elegir ganador anuncia el resultado si Twitch IRC está conectado.
 - Los minijuegos publican el resultado en el chat cuando la conexión está activa; la sesión y recompensa quedan guardadas en SQLite aunque falle el envío de chat.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Trabajo adicional — argumentos de comandos de Twitch
+
+- Los comandos personalizados ahora reciben lo escrito después del nombre y admiten las variables `{args}` y `{message}`, además de `{user}`, `{points}` y `{roll}`.
+- Las respuestas que superarían el límite de 500 caracteres se rechazan antes de aplicar el cooldown, para no simular envío y no castigar el comando con cooldown si la salida es demasiado larga.
+- Añadida prueba de persistencia/ejecución que valida el reemplazo de los argumentos; estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.

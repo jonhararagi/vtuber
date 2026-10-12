@@ -567,7 +567,9 @@ public partial class MainWindow : Window
             if (!text.StartsWith('!'))
                 return;
 
-            var command = text.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+            var separatorIndex = text.IndexOf(' ');
+            var command = separatorIndex < 0 ? text : text[..separatorIndex];
+            var arguments = separatorIndex < 0 ? string.Empty : text[(separatorIndex + 1)..].Trim();
             if (string.Equals(command, "!entrar", StringComparison.OrdinalIgnoreCase))
             {
                 var active = store.GetGiveaways().FirstOrDefault(giveaway => giveaway.Status == "OPEN");
@@ -586,7 +588,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var result = store.RunLocalCommand(command, username);
+            var result = store.RunLocalCommand(command, username, arguments);
             if (result.Success)
             {
                 try { await twitch.SendMessageAsync(store.GetSetting("twitch.channel"), result.Message); }

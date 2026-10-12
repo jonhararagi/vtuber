@@ -146,8 +146,14 @@ public sealed class ProductStore
         Log("Comandos", $"Comando ID {id} eliminado.");
     }
 
-    public CommandResult RunLocalCommand(string name, string username = "Streamer")
+    public CommandResult RunLocalCommand(string name, string username = "Streamer", string arguments = "")
     {
+        if (string.IsNullOrWhiteSpace(name))
+            return CommandResult.Failed("Nombre de comando vacío.");
+        arguments = (arguments ?? string.Empty).Trim();
+        if (arguments.Length > 500)
+            return CommandResult.Failed("Los argumentos superan el límite de 500 caracteres.");
+
         lock (gate)
         {
             using var c = Open(); using var cmd = c.CreateCommand();
@@ -161,11 +167,24 @@ public sealed class ProductStore
             var now = DateTimeOffset.UtcNow;
             if (lastUsed is not null && now - lastUsed.Value < TimeSpan.FromSeconds(cooldown))
                 return CommandResult.Failed("Comando en cooldown; esperá " + Math.Ceiling((TimeSpan.FromSeconds(cooldown) - (now - lastUsed.Value)).TotalSeconds).ToString("0") + " s.");
-            using (var update = c.CreateCommand()) { update.CommandText = "UPDATE product_commands SET last_used_utc=$now WHERE id=$id"; update.Parameters.AddWithValue("$now", now.ToString("O")); update.Parameters.AddWithValue("$id", id); update.ExecuteNonQuery(); }
+
             var user = GetOrCreateUser(c, username);
+            var roll = Random.Shared.Next(1, 7).ToString(System.Globalization.CultureInfo.InvariantCulture);
             var output = response.Replace("{user}", username, StringComparison.OrdinalIgnoreCase)
-                .Replace("{points}", user.Points.ToString(), StringComparison.OrdinalIgnoreCase)
-                .Replace("{roll}", Random.Shared.Next(1, 7).ToString(), StringComparison.OrdinalIgnoreCase);
+                .Replace("{points}", user.Points.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
+                .Replace("{roll}", roll, StringComparison.OrdinalIgnoreCase)
+                .Replace("{args}", arguments, StringComparison.OrdinalIgnoreCase)
+                .Replace("{message}", arguments, StringComparison.OrdinalIgnoreCase);
+            if (output.Length > 500)
+                return CommandResult.Failed("La respuesta supera el límite de 500 caracteres de Twitch; reducila en la configuración del comando.");
+
+            using (var update = c.CreateCommand())
+            {
+                update.CommandText = "UPDATE product_commands SET last_used_utc=$now WHERE id=$id";
+                update.Parameters.AddWithValue("$now", now.ToString("O"));
+                update.Parameters.AddWithValue("$id", id);
+                update.ExecuteNonQuery();
+            }
             Log("Comandos", "Comando !" + name.TrimStart('!') + " ejecutado por " + username + ".");
             return CommandResult.Succeeded(output);
         }
