@@ -34,7 +34,7 @@ El producto final NO debe depender de APIs de inteligencia artificial.
 
 GPT y Gemini son herramientas utilizadas durante el desarrollo y no dependencias necesarias para ejecutar el programa final.
 
-La implementación de Twitch debe respetar la restricción del proyecto de no utilizar APIs externas. Antes de implementar cualquier mecanismo que pueda entrar en conflicto con esta restricción, explicar la limitación y proponer alternativas.
+No se permiten APIs de IA pagas u obligatorias. Para que Twitch tenga chat/eventos reales se permiten los protocolos e interfaces oficiales gratuitos de Twitch, con OAuth y los permisos necesarios; esta conexión debe ser optativa, segura y explicitar sus requisitos. Nunca se debe simular que hay conexión si no está autenticada.
 
 ## FUNCIONES
 
@@ -338,8 +338,8 @@ PC:
 - OBS Studio
 
 Restricciones:
-- no APIs de IA en el producto final
-- funcionamiento local
+- no APIs de IA pagas u obligatorias en el producto final
+- funcionamiento local como modo predeterminado
 - bajo consumo
 - arquitectura modular
 - VTuber PNG/2.5D
@@ -489,3 +489,89 @@ Para decisiones arquitectónicas importantes, obtener segunda opinión de Gemini
 Ningún agente debe borrar o reescribir masivamente el proyecto sin autorización.
 
 El objetivo es mantener siempre un proyecto funcional y recuperable.
+
+
+---
+
+# 9. GPT OBRERO — IMPLEMENTACIÓN INTEGRAL DEL PRODUCTO VTUBER
+
+Repositorio: https://github.com/jonhararagi/vtuber
+
+Rama de trabajo ya creada: product/complete-vtuber-experience.
+Especificación obligatoria: docs/PRODUCT_BLUEPRINT.md, PROJECT_SPEC.md y ROADMAP.md.
+Registro único de continuidad: docs/CONTINUIDAD_PROYECTO.md.
+
+## MISIÓN
+
+Implementar el programa VTuber que describen los documentos anteriores. El producto no puede quedarse en la ventana técnica actual con controles de iniciar/detener, comandos de diagnóstico, métricas y un listado de actividad. La meta es una aplicación de escritorio coherente con un diseño moderno y funciones reales de VTuber.
+
+El usuario autorizó completar el diseño y el conjunto del producto antes de solicitar otra ronda global de pruebas. No solicites validación manual tras cada pequeño commit o paquete incompleto. Continúa de forma autónoma por grandes bloques integrados y presenta un único candidato integral al final. Esto no elimina la obligación de ejecutar compilación y pruebas internas durante el desarrollo ni de corregir errores antes de seguir.
+
+## REGLAS DE REPOSITORIO
+
+1. Inspecciona la estructura y el código de la rama antes de cambiar nada. Reutiliza el trabajo que funcione; no supongas que la documentación histórica describe el código actual.
+2. Trabaja únicamente en product/complete-vtuber-experience. No modifiques main, no fusiones PR #9, no reescribas el historial ni cambies de rama por conveniencia.
+3. No hagas cambios masivos a ciegas. La misión es amplia, pero cada bloque debe conservar funcionalidades útiles e integrar correctamente el resultado.
+4. Utiliza GitHub como fuente de verdad; realiza los cambios, commits y registro de continuidad allí.
+5. Evita reportes intermedios innecesarios. Actualiza docs/CONTINUIDAD_PROYECTO.md con los cambios y sus evidencias y solo emite el informe completo cuando haya alcanzado el candidato integral o exista un bloqueo real ajeno a tu control.
+6. No declares que algo está implementado porque exista una página o un botón. Debe tener un flujo funcional, persistencia/efecto real donde corresponda y estado de error correcto.
+7. No copies código, assets, interfaz exacta ni nombres internos de otros proyectos. Úsalos solo para aprender conceptos y flujos generales.
+8. No agregues dependencias de pago ni APIs de IA obligatorias. Usa interfaces oficiales gratuitas para Twitch con OAuth cuando sea necesario; no ocultes que requieren configuración/credenciales del dueño del canal. OBS/Telegram son optativos y no deben bloquear el resto de la aplicación.
+
+## PRODUCTO QUE DEBES ENTREGAR
+
+Lee docs/PRODUCT_BLUEPRINT.md íntegramente y úsalo como criterio de alcance. Como mínimo, la experiencia integrada final debe tener:
+
+- Una UI WPF moderna, oscura, coherente y redimensionable con navegación funcional, Dashboard útil, Avatar Studio y espacios de trabajo para Twitch, comandos, comunidad, sorteos, minijuegos, moderación/automatización, voz/audio, OBS, Telegram, actividad/diagnósticos y ajustes.
+- Avatar PNG por capas: importar assets propios, configurar capas/estados, preview, idle/talking/blink/expresiones, boca y movimiento ligero 2.5D, persistencia de perfiles y overlay transparente separada para OBS.
+- Audio: enumeración/selección de dispositivos, medidor, VAD local configurable, cola de audio, sonidos y TTS local con fallback; boca conectada al estado de voz real.
+- Twitch real una vez autorizado/configurado: autenticación segura, chat con lectura/envío, eventos oficialmente soportados, reconexión, scopes, diagnósticos y CommandRouter compartido.
+- Comandos editables, usuarios/perfiles, puntos, rankings, sorteos trazables, minijuegos funcionales, reglas de moderación, timers y mensajes automáticos anti-spam.
+- Integración optativa de OBS y Telegram Web con fallbacks claros.
+- SQLite versionada, logs/diagnóstico, configuración segura, import/export donde corresponda y paquete portable limpio.
+- Documentación de configuración para el usuario, dependencias y limitaciones conocidas. Los secrets/tokens/cookies/DB/logs nunca se empaquetan ni se comitean.
+
+## ORDEN DE IMPLEMENTACIÓN
+
+Sigue estos bloques dentro de la misma rama. No detengas el trabajo para pedir aprobación entre bloques:
+
+A. Shell de UI, tema visual, navegación funcional, componentes compartidos y contratos/capas.
+B. Avatar Studio, gestor de assets, renderizador de sprites/capas, estados, animaciones, preview y overlay.
+C. Audio local, detección de voz, cola, TTS, reacciones y sincronización básica con el avatar.
+D. Conexión/auth/chat/eventos de Twitch y pipeline común de comandos con pruebas locales.
+E. Persistencia, usuarios, puntos, ranking, sorteos, minijuegos, moderación y automatizaciones.
+F. OBS, Telegram Web, ajustes, métricas, historial, diagnóstico, seguridad y distribución.
+G. Integración total, migraciones, recuperación, limpieza de UX, corrección de los fallos internos encontrados, CI y candidato global.
+
+Adapta el orden si el código real impone dependencias distintas, pero documenta la causa y no abandones funciones planificadas sin registrarlo.
+
+## DEPENDENCIAS Y SERVICIOS EXTERNOS
+
+- Antes de añadir un paquete, comprueba mantenimiento, compatibilidad con .NET 10/Windows, licencia y consumo; minimiza dependencias.
+- Twitch requiere credenciales/permisos/configuración del propietario del canal. Implementa el flujo de configuración sin incrustar secretos.
+- Telegram Web puede requerir WebView2 Runtime; si no está, la página debe explicar el requisito y permitir abrir Telegram en el navegador.
+- Si la entrada de audio, el motor de TTS o la GPU no están disponibles, el resto de la app debe seguir funcionando y la UI debe mostrar el motivo.
+- Si alguna característica no se puede completar sin cuentas, assets o permisos del usuario, termina todo el trabajo posible, agrega un onboarding claro y enumera exactamente qué configuración falta. No uses mocks para declarar éxito real.
+
+## REFERENCIAS DE INVESTIGACIÓN
+
+Lee y compara las referencias incluidas en docs/PRODUCT_BLUEPRINT.md:
+- Firebot para comandos/eventos/timers/acciones configurables.
+- PixelLab Studio y PNGTuber para separar editor, rig, audio y salida del avatar.
+- PNGTuber Plus para conceptos de escenas/capas.
+- VTube Studio para el concepto de adaptadores aislados de integración.
+
+Aprende de sus responsabilidades, carpetas y flujos; no copies su implementación.
+
+## EVIDENCIA Y CIERRE
+
+Puedes compilar y ejecutar tests a lo largo del desarrollo para corregir errores pronto. No pidas al usuario que pruebe una build intermedia solo para confirmar el mismo panel incompleto. Al alcanzar el candidato integral:
+
+1. Revisa todas las páginas y los flujos principales de extremo a extremo.
+2. Ejecuta CI del HEAD exacto y corrige fallos antes de detenerte.
+3. Revisa que no queden botones muertos, pantallas falsas o estados de conexión inventados.
+4. Registra funciones realmente implementadas y probadas, limitaciones y cualquier configuración externa necesaria.
+5. Actualiza docs/CONTINUIDAD_PROYECTO.md con rama, HEAD, commits, CI, archivos, módulos listos, pruebas ejecutadas y cualquier bloqueo real.
+6. Entrega un informe final conciso y un único enlace al candidato integral.
+
+No fusiones ningún PR sin autorización expresa. No declares terminado el producto solo porque la compilación funciona.
