@@ -531,3 +531,8 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Se añadió `EventSubRevocationPolicy` para distinguir autorización revocada, usuario eliminado, versión retirada, rol de moderador eliminado y problemas de transporte, con pruebas para los estados y para códigos futuros/desconocidos.
 - Solo `authorization_revoked` exige una nueva autorización OAuth explícita; los demás motivos no se presentan como reparados ni se reintentan silenciosamente cuando falta información para hacerlo de forma segura.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
+
+
+### Corrección preventiva — campos de guía de revocación
+- Cada guía de revocación ahora declara explícitamente si exige reautorización; motivos que requieren actualización/rol o desconocidos no se equiparan a un fallo de OAuth.
+- Se comprobarán los overloads de este modelo con el siguiente CI; el cambio no altera la decisión de no reintentar silenciosamente.
