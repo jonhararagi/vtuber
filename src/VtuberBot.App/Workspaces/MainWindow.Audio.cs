@@ -228,6 +228,7 @@ public partial class MainWindow
         };
         var savedVoiceId = store.GetSetting("audio.tts.voiceId");
         var savedOutputId = store.GetSetting("audio.tts.outputId");
+        var outputListLoaded = false;
         var voicePicker = new ComboBox
         {
             ItemsSource = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") },
@@ -266,6 +267,7 @@ public partial class MainWindow
                 var outputs = new List<LocalSpeechOutput> { new(string.Empty, "Salida predeterminada de Windows") };
                 outputs.AddRange(installed);
                 outputPicker.ItemsSource = outputs;
+                outputListLoaded = true;
                 outputPicker.SelectedItem = outputs.FirstOrDefault(output => string.Equals(output.Id, savedOutputId, StringComparison.OrdinalIgnoreCase)) ?? outputs[0];
                 FooterStatus.Text = "Salidas SAPI encontradas: " + installed.Count + ".";
             }
@@ -315,7 +317,7 @@ public partial class MainWindow
         {
             var selectedPriority = priority.SelectedItem is SpeechPriority selected ? selected : SpeechPriority.Normal;
             var voiceId = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? savedVoiceId;
-            var outputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? savedOutputId;
+            var outputId = outputListLoaded ? (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty : savedOutputId;
             if (speechQueue.Enqueue(speech.Text, selectedPriority, voiceId, (int)rateSlider.Value, (int)volumeSlider.Value, outputId))
                 store.Log("Audio", "Frase agregada a la cola TTS local con prioridad " + selectedPriority + ".");
             else

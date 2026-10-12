@@ -45,30 +45,41 @@ public sealed class LocalSpeechQueue : IDisposable
             {
                 session.defaultVoiceToken = type.InvokeMember("Voice", BindingFlags.GetProperty, null, voice, null);
                 session.defaultVoiceId = ReadTokenId(session.defaultVoiceToken);
-                session.defaultOutputToken = type.InvokeMember("AudioOutput", BindingFlags.GetProperty, null, voice, null);
-                var outputCollection = type.InvokeMember(
-                    "GetAudioOutputs",
-                    BindingFlags.InvokeMethod | BindingFlags.OptionalParamBinding,
-                    null, voice, new object[] { Type.Missing, Type.Missing })
-                    ?? throw new InvalidOperationException("SAPI no devolvió la lista de salidas de audio.");
                 try
                 {
-                    var outputCollectionType = outputCollection.GetType();
-                    var outputCount = Convert.ToInt32(outputCollectionType.InvokeMember("Count", BindingFlags.GetProperty, null, outputCollection, null), System.Globalization.CultureInfo.InvariantCulture);
-                    for (var index = 0; index < outputCount; index++)
+                    session.defaultOutputToken = type.InvokeMember("AudioOutput", BindingFlags.GetProperty, null, voice, null);
+                    var outputCollection = type.InvokeMember(
+                        "GetAudioOutputs",
+                        BindingFlags.InvokeMethod | BindingFlags.OptionalParamBinding,
+                        null, voice, new object[] { Type.Missing, Type.Missing })
+                        ?? throw new InvalidOperationException("SAPI no devolvió la lista de salidas de audio.");
+                    try
                     {
-                        object? token = null;
-                        try
+                        var outputCollectionType = outputCollection.GetType();
+                        var outputCount = Convert.ToInt32(outputCollectionType.InvokeMember("Count", BindingFlags.GetProperty, null, outputCollection, null), System.Globalization.CultureInfo.InvariantCulture);
+                        for (var index = 0; index < outputCount; index++)
                         {
-                            token = outputCollectionType.InvokeMember("Item", BindingFlags.InvokeMethod, null, outputCollection, new object[] { index });
-                            var id = ReadTokenId(token);
-                            if (!string.IsNullOrWhiteSpace(id) && token is not null) session.outputTokens[id] = token;
-                            else ReleaseVoice(token);
+                            object? token = null;
+                            try
+                            {
+                                token = outputCollectionType.InvokeMember("Item", BindingFlags.InvokeMethod, null, outputCollection, new object[] { index });
+                                var id = ReadTokenId(token);
+                                if (!string.IsNullOrWhiteSpace(id) && token is not null) session.outputTokens[id] = token;
+                                else ReleaseVoice(token);
+                            }
+                            catch { ReleaseVoice(token); throw; }
                         }
-                        catch { ReleaseVoice(token); throw; }
                     }
+                    finally { ReleaseVoice(outputCollection); }
+    
                 }
-                finally { ReleaseVoice(outputCollection); }
+                catch
+                {
+                    // Output enumeration is optional: retain SAPI's default device if it fails.
+                    foreach (var outputToken in session.outputTokens.Values)
+                        if (!ReferenceEquals(outputToken, session.defaultOutputToken)) ReleaseVoice(outputToken);
+                    session.outputTokens.Clear();
+                }
                 var collection = type.InvokeMember(
                     "GetVoices",
                     BindingFlags.InvokeMethod | BindingFlags.OptionalParamBinding,
