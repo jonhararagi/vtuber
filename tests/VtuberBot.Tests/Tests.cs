@@ -2952,6 +2952,36 @@ public sealed class Tests
         }
     }
 
+    [Theory]
+    [InlineData("Naofumi753", "naofumi753")]
+    [InlineData("Iwatani_753", "iwatani_753")]
+    [InlineData("ABC123", "abc123")]
+    public void TwitchLoginPolicyNormalizesValidLogins(string login, string expected)
+    {
+        Assert.True(TwitchLoginPolicy.TryNormalize(login, out var normalized));
+        Assert.Equal(expected, normalized);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("bad user")]
+    [InlineData("bad;user")]
+    [InlineData("bad!user")]
+    [InlineData("abcdefghijklmnopqrstuvwxyz")]
+    [InlineData("bad\r\nPRIVMSG")]
+    public void TwitchLoginPolicyRejectsInvalidLogins(string login)
+    {
+        Assert.False(TwitchLoginPolicy.TryNormalize(login, out var normalized));
+        Assert.Equal(string.Empty, normalized);
+    }
+
+    [Fact]
+    public void TwitchLoginPolicyRejectsMissingLogin()
+    {
+        Assert.False(TwitchLoginPolicy.TryNormalize(null, out var normalized));
+        Assert.Equal(string.Empty, normalized);
+    }
+
     private sealed class TestLogger : ILogger
     {
         public void Info(string message, params object?[] args)
