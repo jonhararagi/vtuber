@@ -207,6 +207,10 @@ public partial class MainWindow
                         FooterStatus.Text = "Sorteo abierto localmente; no se anunció en Twitch: " + sendError.Message;
                     }
                 }
+                else
+                {
+                    FooterStatus.Text = $"Sorteo #{id.Text} abierto localmente; no se anunció en Twitch porque el chat no está conectado.";
+                }
             }
             catch (Exception exception)
             {
@@ -256,6 +260,10 @@ public partial class MainWindow
                         FooterStatus.Text = "Sorteo cerrado y ganador guardado; no se pudo anunciar: " + sendError.Message;
                     }
                 }
+                else
+                {
+                    FooterStatus.Text = "Sorteo cerrado y ganador guardado localmente; no se anunció en Twitch porque el chat no está conectado.";
+                }
             }
             catch (Exception exception)
             {
@@ -281,6 +289,10 @@ public partial class MainWindow
                     {
                         FooterStatus.Text = "Sorteo cancelado localmente; no se pudo anunciar: " + sendError.Message;
                     }
+                }
+                else
+                {
+                    FooterStatus.Text = $"Sorteo #{giveawayId} cancelado localmente; no se anunció en Twitch porque el chat no está conectado.";
                 }
             }
             catch (Exception exception)
