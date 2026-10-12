@@ -523,3 +523,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 
 ### Pulido estático del cliente OBS
 - Se retiraron tres campos de configuración que ya no se leen porque el supervisor conserva los valores en sus argumentos; así se evita ruido de compilador bajo `TreatWarningsAsErrors`.
+
+
+### Trabajo adicional — deduplicación de revocaciones y diagnóstico por causa
+
+- La caché de IDs EventSub ahora se aplica tanto a `notification` como a `revocation`, para evitar que una revocación duplicada produzca avisos repetidos en la actividad.
+- Se añadió `EventSubRevocationPolicy` para distinguir autorización revocada, usuario eliminado, versión retirada, rol de moderador eliminado y problemas de transporte, con pruebas para los estados y para códigos futuros/desconocidos.
+- Solo `authorization_revoked` exige una nueva autorización OAuth explícita; los demás motivos no se presentan como reparados ni se reintentan silenciosamente cuando falta información para hacerlo de forma segura.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.

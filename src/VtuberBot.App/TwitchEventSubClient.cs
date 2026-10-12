@@ -186,19 +186,24 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                         continue;
                     }
 
-                    if (messageType == "notification")
+                    if (messageType is "notification" or "revocation")
                     {
-                        var subscriptionType = metadata.TryGetProperty("subscription_type", out var typeElement)
+                        var eventType = metadata.TryGetProperty("subscription_type", out var typeElement)
                             ? typeElement.GetString() ?? "event" : "event";
                         var messageId = metadata.TryGetProperty("message_id", out var messageIdElement)
                             ? messageIdElement.GetString()
                             : null;
                         if (!notificationDeduplicator.TryAccept(messageId))
                         {
-                            StatusChanged?.Invoke("Notificación EventSub duplicada ignorada: " + subscriptionType + ".");
+                            StatusChanged?.Invoke("Mensaje EventSub duplicado ignorado: " + eventType + " (" + messageType + ").");
                             continue;
                         }
+                    }
 
+                    if (messageType == "notification")
+                    {
+                        var subscriptionType = metadata.TryGetProperty("subscription_type", out var typeElement)
+                            ? typeElement.GetString() ?? "event" : "event";
                         var eventPayload = root.GetProperty("payload").GetProperty("event");
                         EventReceived?.Invoke(subscriptionType, SummarizeEvent(subscriptionType, eventPayload));
                         StatusChanged?.Invoke("Evento Twitch recibido: " + subscriptionType);
@@ -210,10 +215,10 @@ public sealed class TwitchEventSubClient : IAsyncDisposable
                         var subscriptionStatus = root.GetProperty("payload").GetProperty("subscription")
                             .TryGetProperty("status", out var statusElement) ? statusElement.GetString() ?? "unknown" : "unknown";
                         EventReceived?.Invoke("revocation", subscriptionType + " · " + subscriptionStatus);
-                        StatusChanged?.Invoke("Twitch revocó EventSub: " + subscriptionType + " (" + subscriptionStatus + ").");
-                        if (subscriptionStatus.Contains("authorization", StringComparison.OrdinalIgnoreCase) ||
-                            subscriptionStatus.Contains("user_removed", StringComparison.OrdinalIgnoreCase))
-                            StatusChanged?.Invoke("La suscripción requiere revisar autorización/permisos en Twitch; no se simulará su recuperación.");
+                        var guidance = EventSubRevocationPolicy.Describe(subscriptionStatus);
+                        StatusChanged?.Invoke("Twitch revocó EventSub: " + subscriptionType + " (" + subscriptionStatus + "). " + guidance.Message);
+                        if (guidance.RequiresReauthorization)
+                            StatusChanged?.Invoke("Volvé a autorizar la cuenta Twitch y aceptá todos los permisos solicitados antes de reconectar EventSub.");
                     }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
