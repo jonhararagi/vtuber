@@ -6,6 +6,8 @@ using CoreTaskScheduler = VtuberBot.Core.TaskScheduler;
 using Microsoft.Data.Sqlite;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text;
 using VtuberBot.Core;
 
 namespace VtuberBot.Tests;
@@ -1487,7 +1489,7 @@ public sealed class Tests
                     break;
 
                 process.Refresh();
-                if (process.MainWindowHandle != IntPtr.Zero)
+                if (FindVisibleMainWindowHandle(process) != IntPtr.Zero)
                     break;
 
                 await Task.Delay(TimeSpan.FromMilliseconds(100), token);
@@ -1496,18 +1498,19 @@ public sealed class Tests
             Assert.False(
                 process.HasExited,
                 "WPF executable exited before presenting its main window." +
-                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError));
+                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError, process.Id));
 
             process.Refresh();
+            var mainWindowHandle = FindVisibleMainWindowHandle(process);
             Assert.True(
-                process.MainWindowHandle != IntPtr.Zero,
-                "WPF executable remained alive but did not expose its main window within 30 seconds." +
-                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError));
+                mainWindowHandle != IntPtr.Zero,
+                "WPF executable remained alive but did not expose a visible VTuberBot window within 30 seconds." +
+                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError, process.Id));
 
             Assert.True(
-                process.CloseMainWindow(),
+                PostMessage(mainWindowHandle, WmClose, IntPtr.Zero, IntPtr.Zero),
                 "WPF executable did not accept the main-window close request." +
-                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError));
+                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError, process.Id));
 
             await process.WaitForExitAsync(token).WaitAsync(
                 TimeSpan.FromSeconds(10),
@@ -1517,7 +1520,7 @@ public sealed class Tests
             Assert.True(
                 process.ExitCode == 0,
                 $"WPF executable exited with code {process.ExitCode}." +
-                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError));
+                BuildWpfStartupDiagnostics(dataDirectory.Path, standardOutput, standardError, process.Id));
         }
         finally
         {
@@ -2879,10 +2882,56 @@ public sealed class Tests
         }
     }
 
+    private const uint WmClose = 0x0010;
+
+    private delegate bool EnumWindowsCallback(IntPtr windowHandle, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsCallback callback, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint GetWindowThreadProcessId(IntPtr windowHandle, out uint processId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr windowHandle, StringBuilder text, int maxCount);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr windowHandle);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool PostMessage(IntPtr windowHandle, uint message, IntPtr wParam, IntPtr lParam);
+
+    private sealed record ProcessWindow(IntPtr Handle, string Title, bool IsVisible);
+
+    private static IReadOnlyList<ProcessWindow> GetProcessWindows(int processId)
+    {
+        var windows = new List<ProcessWindow>();
+        EnumWindows((windowHandle, _) =>
+        {
+            _ = GetWindowThreadProcessId(windowHandle, out var ownerProcessId);
+            if (ownerProcessId != (uint)processId)
+                return true;
+
+            var title = new StringBuilder(512);
+            _ = GetWindowText(windowHandle, title, title.Capacity);
+            windows.Add(new ProcessWindow(windowHandle, title.ToString(), IsWindowVisible(windowHandle)));
+            return true;
+        }, IntPtr.Zero);
+        return windows;
+    }
+
+    private static IntPtr FindVisibleMainWindowHandle(Process process)
+    {
+        var window = GetProcessWindows(process.Id)
+            .FirstOrDefault(candidate => candidate.IsVisible && candidate.Title == "VTuberBot");
+        return window?.Handle ?? IntPtr.Zero;
+    }
+
     private static string BuildWpfStartupDiagnostics(
         string dataDirectory,
         IEnumerable<string> standardOutput,
-        IEnumerable<string> standardError)
+        IEnumerable<string> standardError,
+        int processId)
     {
         var logFiles = Directory.Exists(dataDirectory)
             ? Directory.GetFiles(dataDirectory, "*.log", SearchOption.AllDirectories)
@@ -2903,8 +2952,13 @@ public sealed class Tests
 
                 return $"--- {Path.GetRelativePath(dataDirectory, logPath)} ---{Environment.NewLine}{content}";
             }));
+        var windowSummary = string.Join(
+            Environment.NewLine,
+            GetProcessWindows(processId).Select(window =>
+                $"Handle={window.Handle}, Visible={window.IsVisible}, Title='{window.Title}'"));
 
         return Environment.NewLine +
+            $"PROCESS WINDOWS:{Environment.NewLine}{windowSummary}{Environment.NewLine}" +
             $"STDOUT:{Environment.NewLine}{string.Join(Environment.NewLine, standardOutput)}{Environment.NewLine}" +
             $"STDERR:{Environment.NewLine}{string.Join(Environment.NewLine, standardError)}{Environment.NewLine}" +
             $"APPLICATION LOGS:{Environment.NewLine}{logSummary}";
