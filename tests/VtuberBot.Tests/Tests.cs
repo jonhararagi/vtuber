@@ -2892,6 +2892,63 @@ public sealed class Tests
                 ["cmd.exe", "/c", "timeout", "/t", "5", "/nobreak", ">nul"]),
             new TestLogger());
 
+    [Fact]
+    public async Task LocalSpeechQueueCanCancelTheActivePhrase()
+    {
+        var session = new BlockingSpeechSession();
+        using var queue = new LocalSpeechQueue(() => session);
+
+        Assert.True(queue.Enqueue("Frase de prueba que debe poder detenerse."));
+        await session.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.True(queue.StopCurrentSpeech());
+        await session.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public async Task LocalSpeechQueueDisposalCancelsTheActivePhrase()
+    {
+        var session = new BlockingSpeechSession();
+        var queue = new LocalSpeechQueue(() => session);
+
+        Assert.True(queue.Enqueue("Frase de prueba durante el cierre."));
+        await session.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        queue.Dispose();
+        await session.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    private sealed class BlockingSpeechSession : ILocalSpeechSession
+    {
+        public TaskCompletionSource<bool> Started { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> Cancelled { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public SpeechPlaybackResult Speak(
+            string text,
+            string requestedVoiceId,
+            string requestedOutputId,
+            int rate,
+            int volume,
+            Func<bool> cancellationRequested)
+        {
+            Started.TrySetResult(true);
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+            while (!cancellationRequested() && DateTime.UtcNow < deadline)
+                Thread.Sleep(10);
+
+            var cancelled = cancellationRequested();
+            if (cancelled)
+                Cancelled.TrySetResult(true);
+            return new SpeechPlaybackResult(UsedFallback: false, Cancelled: cancelled);
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
     private sealed class TestLogger : ILogger
     {
         public void Info(string message, params object?[] args)
