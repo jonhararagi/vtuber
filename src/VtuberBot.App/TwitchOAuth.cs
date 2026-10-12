@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net.Http;
 using System.Diagnostics;
 using System.Net;
@@ -42,7 +43,7 @@ public static class TwitchOAuth
             var requestParts = requestLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (requestParts.Length < 2) throw new InvalidOperationException("La solicitud de callback está mal formada.");
             while (!string.IsNullOrEmpty(await reader.ReadLineAsync(timeout.Token).ConfigureAwait(false))) { }
-            var callback = new Uri(new Uri(RedirectUri), requestParts[1]);
+            var callback = new Uri("http://localhost:17563" + requestParts[1]);
             if (!callback.AbsolutePath.Equals("/callback/", StringComparison.Ordinal))
                 throw new InvalidOperationException("La ruta de callback OAuth no coincide.");
             var query = ParseQuery(callback.Query);
