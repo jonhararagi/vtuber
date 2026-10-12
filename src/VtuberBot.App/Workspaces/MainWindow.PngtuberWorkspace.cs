@@ -240,9 +240,7 @@ No se importa ni se convierte automáticamente un archivo .vtuberavatar. Los dos
     };
 
     private static bool IsPngtuberStepComplete(int step, PngtuberSetupProgress progress, ExternalApplicationStatus status) =>
-        step == 0
-            ? status.State is ExternalApplicationState.Configured or ExternalApplicationState.Running
-            : IsPngtuberManualStepConfirmed(step, progress);
+        PngtuberSetupStepCompletion.IsComplete(step, progress, status);
 
     private UIElement BuildPngtuberHotkeyPanel(TextBox pathField)
     {
