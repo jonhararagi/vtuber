@@ -35,7 +35,8 @@ public partial class MainWindow : Window
     private WebView2? telegramView;
     private readonly ObservableCollection<string> chatLines = [];
     private readonly DispatcherTimer automationTimer = new() { Interval = TimeSpan.FromMinutes(1) };
-    private readonly Dictionary<long, DateTimeOffset> automationLastRun = []; 
+    private readonly Dictionary<long, DateTimeOffset> automationLastRun = [];
+    private readonly Dictionary<string, DateTimeOffset> lastPointAward = new(StringComparer.OrdinalIgnoreCase);
     private string currentPage = "Inicio";
 
     private static readonly string[] Pages =
@@ -275,17 +276,32 @@ public partial class MainWindow : Window
             var text=sep>=0?raw[(sep+2)..]:raw;
             var prefixEnd=raw.IndexOf('!');
             var username=raw.StartsWith(':')&&prefixEnd>1?raw[1..prefixEnd]:"viewer";
-            chatLines.Insert(0,$"{username}: {text}");while(chatLines.Count>200)chatLines.RemoveAt(chatLines.Count-1);
-            store.Log("Twitch",$"Mensaje recibido de {username}.");
+            chatLines.Insert(0,username+": "+text);while(chatLines.Count>200)chatLines.RemoveAt(chatLines.Count-1);
+            store.Log("Twitch","Mensaje recibido de "+username+".");
+            if(Regex.IsMatch(username,"^[a-zA-Z0-9_]{1,25}$"))
+            {
+                var now=DateTimeOffset.UtcNow;
+                if(!lastPointAward.TryGetValue(username,out var last)||now-last>=TimeSpan.FromMinutes(5))
+                {
+                    lastPointAward[username]=now;
+                    try{store.AddPoints(username,1,"Actividad de chat");}catch(Exception ex){store.Log("Comunidad","No se pudieron asignar puntos de actividad: "+ex.GetType().Name);}
+                }
+            }
             if(text.StartsWith('!'))
             {
                 var command=text.Split(' ',StringSplitOptions.RemoveEmptyEntries)[0];
+                if(string.Equals(command,"!entrar",StringComparison.OrdinalIgnoreCase))
+                {
+                    var active=store.GetGiveaways().FirstOrDefault(g=>g.Status=="OPEN");
+                    var reply=active is not null&&store.EnterGiveaway(active.Id,username)?username+" ya estás anotado en el sorteo.":"No hay sorteo abierto o ya estabas anotado.";
+                    try{if(twitch.IsConnected)await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),reply);}catch(Exception ex){FooterStatus.Text="No se pudo responder al chat: "+ex.Message;}
+                    return;
+                }
                 var result=store.RunLocalCommand(command,username);
-                if(result.Success){try{await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),result.Message);}catch(Exception ex){FooterStatus.Text=$"Comando ejecutado localmente, respuesta no enviada: {ex.Message}";}}
+                if(result.Success){try{await twitch.SendMessageAsync(store.GetSetting("twitch.channel"),result.Message);}catch(Exception ex){FooterStatus.Text="Comando ejecutado localmente, respuesta no enviada: "+ex.Message;}}
             }
         }));
     }
-
     private UIElement BuildCommandsPage()
     {
         var root=new StackPanel();var panel=Panel("Registro de comandos");root.Children.Add(panel);
