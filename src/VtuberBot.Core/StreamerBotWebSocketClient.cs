@@ -18,8 +18,8 @@ public sealed record StreamerBotEndpoint(string Host = "127.0.0.1", int Port = 8
     public Uri ToUri()
     {
         if (string.IsNullOrWhiteSpace(Host) || Host.Contains("://", StringComparison.Ordinal) ||
-            Host.Contains('/', StringComparison.Ordinal) || Host.Contains('?', StringComparison.Ordinal) ||
-            Host.Contains('#', StringComparison.Ordinal))
+            Host.Contains('/') || Host.Contains('?') ||
+            Host.Contains('#'))
             throw new ArgumentException("El host debe ser un nombre o una dirección IP, sin esquema ni ruta.");
         if (Port is < 1 or > 65535)
             throw new ArgumentOutOfRangeException(nameof(Port), "El puerto debe estar entre 1 y 65535.");
@@ -236,7 +236,7 @@ public sealed class StreamerBotWebSocketClient : IStreamerBotClient
             var names = category.Value.Where(x => !string.IsNullOrWhiteSpace(x))
                 .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             if (names.Length > 0)
-                selection[CanonicalCategory(category.Key)] = new JsonArray(names.Select(JsonValue.Create).ToArray());
+                selection[CanonicalCategory(category.Key)] = new JsonArray(names.Select(name => (JsonNode?)JsonValue.Create(name)).ToArray());
         }
         if (selection.Count == 0)
             throw new ArgumentException("Seleccioná al menos un evento admitido por GetEvents.", nameof(events));
@@ -301,7 +301,7 @@ public sealed class StreamerBotWebSocketClient : IStreamerBotClient
                 WebSocketReceiveResult result;
                 do
                 {
-                    result = await ws.ReceiveAsync(buffer, cancellationToken).ConfigureAwait(false);
+                    result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken).ConfigureAwait(false);
                     if (result.MessageType == WebSocketMessageType.Close)
                         throw new WebSocketException("Streamer.bot cerró la conexión WebSocket.");
                     if (result.MessageType != WebSocketMessageType.Text)
