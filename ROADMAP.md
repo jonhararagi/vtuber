@@ -1,77 +1,87 @@
-# ROADMAP — VTuber Bot
+# ROADMAP — VTuberBot producto completo
 
-Este roadmap distingue el núcleo confirmado de las funciones que aún necesitan una decisión de alcance. Las fases son una secuencia de trabajo orientativa, no una autorización para implementar automáticamente cada función.
+Este roadmap prioriza terminar una aplicación coherente y útil, no detener al usuario en cada etapa técnica. El CI y los tests se ejecutan internamente durante el desarrollo, pero la validación manual del usuario se concentra en un candidato global integrado.
 
-## Alcance confirmado para V1.0
+Especificación canónica de producto, UI, arquitectura, carpetas, referencias y flujos: [docs/PRODUCT_BLUEPRINT.md](docs/PRODUCT_BLUEPRINT.md).
 
-- Aplicación de escritorio para Windows.
-- Núcleo estable, controles funcionales, configuración y registros adecuados.
-- Ciclo de vida robusto, manejo de errores y recuperación.
-- Arquitectura modular que permita integrar un avatar sin acoplar la presentación a la lógica central.
-- Pruebas automatizadas, documentación útil y validación en Windows antes de aceptar una versión.
+## Objetivo final
 
-## V0.1 — Fundación
+Aplicación Windows local-first para uso real como VTuber Bot, con una interfaz moderna, avatar visible y configurable, voz/audio local, Twitch, comandos, comunidad, sorteos, minijuegos, moderación, automatizaciones, OBS, Telegram Web, persistencia y diagnósticos.
 
-- Estructura modular, configuración y logging.
-- Event Manager, Task Scheduler y Resource Manager.
-- Persistencia SQLite y pruebas de humo.
+## Estado de la base
 
-**Salida:** la aplicación inicia, abre la base local y procesa un evento interno de prueba.
+- C# / .NET 10 / WPF / SQLite: base tecnológica vigente.
+- V0.2.3 stabilization PR #9: trabajo técnico que sigue abierto y no fusionado. Su CI verde solo prueba compilación y tests automatizados del commit exacto; no demuestra que el producto final esté listo.
+- Nueva línea de producto: rama product/complete-vtuber-experience, basada en el candidato de PR #9, para materializar el alcance completo y evitar seguir consumiendo rondas manuales en la interfaz mínima.
+- No fusionar PR #9 de forma automática ni borrar el historial existente.
 
-## V0.2.0 — Control y comandos
+## Bloques de producto
 
-- CommandRouter local y comandos `help`, `status`, `ping`.
-- Interfaz WPF con controles básicos y resultados visibles.
-- Integración de comandos con el ciclo de vida y pruebas automatizadas.
+### Bloque A — Diseño UX y shell completo
+- Tema visual consistente, navegación, sistema de páginas, layout redimensionable y componentes reutilizables.
+- Dashboard útil con avatar/estado/actividad/conexiones/rendimiento.
+- Espacios de trabajo completos: Avatar, Twitch, comandos, comunidad, sorteos, minijuegos, moderación/automatización, voz/audio, OBS, Telegram, actividad y ajustes.
+- Eliminar la sensación de programa técnico formado por un botón de iniciar y otro de detener. Ninguna navegación ni acción visible queda inerte.
 
-**Salida:** la app se abre, ejecuta los comandos y permite controlar el ciclo de vida sin proveedores externos.
+### Bloque B — Avatar Studio y salida visual
+- Importación de sprites/capas con validación, perfiles configurables y assets en el directorio de datos del usuario.
+- Renderizador PNG por capas con idle/talking/blink/expresiones, parpadeo, boca, respiración y movimiento 2.5D ligero.
+- Previsualización integrada y overlay transparente, independiente del panel, para OBS.
+- Controles claros para ubicar/mostrar/ocultar el overlay; estado vacío honesto si el usuario aún no importó assets.
 
-## V0.2.1 — Rendimiento y salud
+### Bloque C — Audio y voz local
+- Enumerar/seleccionar micrófono y salida, medidor de audio, umbral/smoothing/hold, VAD local, cola de audio, sonidos y TTS local.
+- La boca sigue al estado real de voz; no simular lip-sync ni dispositivos inexistentes.
+- La aplicación sigue funcionando si el dispositivo de audio no está disponible.
 
-- Observación de CPU/RAM y métricas viables.
-- Perfiles de rendimiento si están respaldados por la implementación y pruebas.
+### Bloque D — Twitch, chat y comandos
+- Adaptador oficial con OAuth, IRC sobre TLS para chat y EventSub para eventos soportados, reconexión, permisos/scopes y mensajes de diagnóstico.
+- Un único router y pipeline de comandos para pruebas locales y para eventos del chat.
+- El usuario puede abrir la app y probar la lógica local sin conectarse a Twitch.
+- Ningún token o secreto aparece en fuente, logs, documentos o paquetes.
 
-## V0.2.2 — Concurrencia SQLite
+### Bloque E — Comunidad y herramientas de stream
+- Usuarios, perfiles, puntos, rankings e historial SQLite.
+- Sorteos reales con participantes/ganador registrados.
+- Minijuegos locales utilizables, reglas/recompensas e historial.
+- Moderación por reglas, timers, mensajes automáticos y límites anti-spam; acciones remotas punitivas requieren configuración explícita.
+- Logs y registro de auditoría para cada efecto relevante.
 
-- Acceso serializado y pruebas de concurrencia/recuperación.
+### Bloque F — OBS, Telegram, ajustes y distribución
+- Overlay/captura transparente y conexión opcional al protocolo local de OBS.
+- Telegram Web en WebView2, con apertura externa si WebView2 no está disponible.
+- Configuración segura, perfiles de rendimiento, diagnóstico, exportación de logs filtrados y paquete portable reproducible.
+- Datos locales y assets separados de los binarios de la aplicación.
 
-## V0.2.3 — Puerta de estabilización
+### Bloque G — Integración y aceptación global
+- Integrar todos los bloques sin ciclos de dependencias; consolidar configuración, eventos, almacenamiento y errores.
+- Ejecutar la batería completa de CI/tests a medida que se construye; solucionar internamente las regresiones.
+- No pedir al usuario pruebas manuales tras cada commit, nueva build o corrección pequeña.
+- Una vez que todos los bloques del producto estén presentes, entregar un solo candidato global para validar los flujos end-to-end en Windows.
+- Las funciones que dependen de credenciales/permisos/cuentas externas se declaran con honestidad y se validan tras configurar esas cuentas; no se simulan como conectadas.
 
-- Regresión automatizada, ciclos repetidos, revisión de recursos, smoke de Windows y documentación.
-- La prueba prolongada y la interacción manual de Windows deben quedar documentadas antes de aceptar esta versión.
+## Arquitectura objetivo
 
-**Salida:** evidencia automatizada y humana suficiente; defectos críticos y altos resueltos. La aprobación no se infiere únicamente de CI.
+Mantener Core independiente de WPF. Separar en módulos claros: App/UI, Core/contratos/casos de uso, Infrastructure (SQLite, configuración, logging y seguridad), Avatar, Audio, Twitch, Community, Interaction (comandos, sorteos, minijuegos, moderación y automation), OBS y tests. No crear proyectos separados para cada clase; preservar la simplicidad.
 
-## Funciones planificadas que requieren definición antes de comprometer alcance
+Los directorios, contratos y diagrama de flujo concretos están definidos en docs/PRODUCT_BLUEPRINT.md.
 
-### Avatar animado
-Definir formato y pipeline del avatar, expresiones, animación mínima, integración con ventana transparente y/o OBS, y separación estricta entre presentación y lógica. No integrar recursos concretos en runtime hasta aprobar el alcance y revisar licencias.
+## Reglas de trabajo
 
-### Twitch
-Definir capacidades necesarias, autenticación, eventos, permisos, límites y estrategia de reconexión. Documentar las restricciones de APIs y evitar prometer funciones no verificadas.
+1. Reutilizar el código que ya funciona y revisar todo el repo antes de reestructurar.
+2. Implementar por conjuntos grandes integrados, con autonomía para corregir errores de compilación y tests sin pedir aprobación por cada decisión rutinaria.
+3. Mantener una única bitácora en docs/CONTINUIDAD_PROYECTO.md, incluyendo rama, HEAD, commits, CI, features terminadas, dependencias externas y próximos pasos.
+4. No confundir compila con está listo; tampoco pedir al usuario que pruebe repetidamente un producto que aún carece de las funciones solicitadas.
+5. No añadir dependencias pagas ni APIs de IA obligatorias. Los servicios de terceros deben tener adaptadores, opt-in y fallbacks.
+6. No afirmar que se implementó o probó una función sin evidencia.
+7. Al terminar la integración completa, ejecutar auditoría general, corregir los problemas encontrados y recién entonces solicitar la validación global del usuario.
 
-### Voz local
-Definir motor local, idiomas, latencia, calidad, consumo y sincronización con el avatar. No depender de APIs de IA de pago obligatorias durante la ejecución.
+## Referencias de investigación
 
-### Persistencia, comunidad, juegos y moderación
-Aprobar los casos de uso y el alcance mínimo de cada sistema antes de estimar o implementar. No se consideran automáticamente requisitos de V1.0 por existir en versiones históricas del roadmap.
+- Firebot: comandos, eventos, timers, acciones/efectos, variables e integraciones — https://github.com/crowbartools/Firebot
+- PixelLab Studio: editor de rig 2D, capas, movimiento, persistencia y salida a OBS — https://github.com/WeebLabs/PixelLabStudio
+- PNGTuber: selección idle/talk, audio/sensibilidad, configuración persistente y overlay — https://github.com/Aadi3003/PNGTuber
+- PNGTuber Plus: escenas UI, sprites/capas y rig — https://github.com/kaiakairos/PNGTuber-Plus
+- VTube Studio: referencia para aislar integraciones de modelos detrás de adaptadores — https://github.com/DenchiSoft/VTubeStudio
 
-## Funciones opcionales pendientes de aprobación
-
-- Integración con Telegram.
-- Panel avanzado adicional a la interfaz WPF actual.
-- Otras integraciones externas sin caso de uso confirmado.
-
-No se planifican como trabajo obligatorio de V1.0 hasta que exista una decisión explícita.
-
-## Orden recomendado, sujeto a aprobación
-
-1. Completar y aceptar V0.2.3.
-2. Definir requisitos y criterios de aceptación del Avatar MVP.
-3. Implementar el Avatar MVP en una rama de trabajo aprobada, conservando el núcleo independiente de la presentación.
-4. Definir y priorizar Twitch, voz local, persistencia, juegos y moderación según el producto deseado.
-5. Endurecimiento, validación de extremo a extremo y preparación de V1.0.
-
-## Regla de salida
-
-No avanzar solo porque una función parece funcionar manualmente. Debe estar probada, documentada y libre de regresiones críticas conocidas. Prioridad: estabilidad, recuperación, mantenibilidad, funciones aprobadas y, después, pulido visual.
+Se estudian las ideas de arquitectura y los flujos; no se copia código, diseño exacto ni assets.
