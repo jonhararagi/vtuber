@@ -227,9 +227,22 @@ public partial class MainWindow
         var now = DateTimeOffset.UtcNow;
         if (!lastPointAward.TryGetValue(username, out var last) || now - last >= TimeSpan.FromMinutes(5))
         {
-            lastPointAward[username] = now;
-            try { store.AddPoints(username, 1, "Actividad de chat"); }
-            catch (Exception exception) { store.Log("Comunidad", "No se pudieron asignar puntos de actividad: " + exception.GetType().Name); }
+            try
+            {
+                store.AddPoints(username, 1, "Actividad de chat");
+                // Consume the cooldown only after SQLite confirms the award.
+                lastPointAward[username] = now;
+            }
+            catch (Exception exception)
+            {
+                // Avoid one activity-log entry per message during a storage outage.
+                if (now - lastPointAwardStorageWarning >= TimeSpan.FromMinutes(1))
+                {
+                    lastPointAwardStorageWarning = now;
+                    store.Log("Comunidad", "No se pudieron asignar puntos de actividad; el cooldown no se consumió (" +
+                        exception.GetType().Name + ").");
+                }
+            }
         }
 
         if (!text.StartsWith('!'))

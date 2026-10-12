@@ -670,3 +670,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Hallazgo:** aunque Core respetaba `VTUBERBOT_HOME` y `AppConfig.BaseDirectory` para SQLite y logs, `MainWindow` volvía a construir la raíz de datos desde LocalAppData. Eso podía separar los assets del avatar y los secretos cifrados del resto de los datos, y la prueba aislada no controlaba esas rutas.
 - **Corrección:** la UI toma ahora `application.Config.BaseDirectory` como raíz única; avatares y secretos usan subcarpetas de esa raíz. En una instalación normal sigue siendo `%LocalAppData%\\VtuberBot`; en validación/entorno portable respeta la raíz configurada.
 - **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.
+
+
+### 2026-10-12 — Cooldown de puntos consumido tras escritura correcta
+
+- **Hallazgo:** el timestamp de cooldown para puntos de actividad se actualizaba antes de llamar a SQLite. Si la persistencia fallaba, el usuario quedaba sin puntos durante cinco minutos aunque no se registró ninguna recompensa.
+- **Corrección:** el timestamp se actualiza solo después de que `AddPoints` termina correctamente. Los errores de almacenamiento no consumen el cooldown y el aviso de fallo se limita a uno por minuto para evitar inundar el log durante una interrupción prolongada.
+- **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.

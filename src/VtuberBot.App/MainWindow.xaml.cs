@@ -44,6 +44,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<long, DateTimeOffset> automationOfflineLog = [];
     private int automationProcessing;
     private readonly Dictionary<string, DateTimeOffset> lastPointAward = new(StringComparer.OrdinalIgnoreCase);
+    private DateTimeOffset lastPointAwardStorageWarning = DateTimeOffset.MinValue;
     private readonly Dictionary<string, DateTimeOffset> automaticModerationCooldown = new(StringComparer.OrdinalIgnoreCase);
     private string currentPage = "Inicio";
 
