@@ -14,7 +14,13 @@ public sealed class AvatarOverlayWindow : Window
     private readonly Border alertCard = new() { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(12), Padding = new Thickness(12), Background = new SolidColorBrush(Color.FromArgb(230, 16, 21, 37)), CornerRadius = new CornerRadius(12), MaxWidth = 390 };
     private readonly TextBlock alertText = new() { Foreground = Brushes.White, FontSize = 18, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly ScaleTransform breathing = new(1,1);
+    private readonly List<(TranslateTransform Transform, double Factor)> parallaxTransforms = [];
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(80) };
+    private bool parallaxEnabled = true;
+    private double targetParallaxX;
+    private double targetParallaxY;
+    private double currentParallaxX;
+    private double currentParallaxY;
     private double phase;
     private string state = "Idle";
     private string? transientState;
@@ -38,6 +44,20 @@ public sealed class AvatarOverlayWindow : Window
         layerCanvas.Children.Add(alertCard);
         Content = layerCanvas;
         MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) Topmost = !Topmost; else if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed) DragMove(); };
+        MouseMove += (_, e) =>
+        {
+            if (!parallaxEnabled || ReduceMotion)
+                return;
+
+            var position = e.GetPosition(this);
+            targetParallaxX = AvatarParallaxPolicy.NormalizePointer(position.X, ActualWidth);
+            targetParallaxY = AvatarParallaxPolicy.NormalizePointer(position.Y, ActualHeight);
+        };
+        MouseLeave += (_, _) =>
+        {
+            targetParallaxX = 0;
+            targetParallaxY = 0;
+        };
         timer.Tick += (_, _) =>
         {
             var now = DateTimeOffset.UtcNow;
@@ -66,6 +86,7 @@ public sealed class AvatarOverlayWindow : Window
 
             layerCanvas.Opacity = 1;
             alertCard.Visibility = now < alertUntil ? Visibility.Visible : Visibility.Collapsed;
+            UpdateParallax();
             if (ReduceMotion) { breathing.ScaleX = 1; breathing.ScaleY = 1; return; }
             phase += state == "Talking" ? .12 : .035;
             breathing.ScaleY = state switch { "Talking" => 1 + Math.Sin(phase) * .012, "Happy" => 1.008, "Surprised" => 1.025, _ => 1 + Math.Sin(phase) * .008 };
@@ -73,6 +94,16 @@ public sealed class AvatarOverlayWindow : Window
         };
         timer.Start();
         Closed += (_, _) => timer.Stop();
+    }
+
+    public void SetParallaxEnabled(bool enabled)
+    {
+        parallaxEnabled = enabled;
+        if (!enabled)
+        {
+            targetParallaxX = 0;
+            targetParallaxY = 0;
+        }
     }
 
     public void SetImage(string path) => SetLayers([path]);
@@ -152,6 +183,7 @@ public sealed class AvatarOverlayWindow : Window
     private void RenderAvatar(IEnumerable<string>? additionalPaths = null)
     {
         layerCanvas.Children.Clear();
+        parallaxTransforms.Clear();
         var visualState = transientState ?? state;
         var activeBasePath = expressionImages.TryGetValue(visualState, out var expressionPath) && File.Exists(expressionPath)
             ? expressionPath
@@ -186,9 +218,36 @@ public sealed class AvatarOverlayWindow : Window
             transform.Children.Add(new ScaleTransform(layer.Scale, layer.Scale));
             transform.Children.Add(new RotateTransform(layer.RotationDegrees));
             transform.Children.Add(new TranslateTransform(layer.OffsetX, layer.OffsetY));
+            var parallax = new TranslateTransform();
+            transform.Children.Add(parallax);
+            parallaxTransforms.Add((parallax, AvatarParallaxPolicy.GetLayerFactor(layer)));
             image.RenderTransform = transform;
         }
         layerCanvas.Children.Add(image);
+    }
+
+    private void UpdateParallax()
+    {
+        if (ReduceMotion || !parallaxEnabled || !IsVisible)
+        {
+            targetParallaxX = 0;
+            targetParallaxY = 0;
+        }
+
+        currentParallaxX += (targetParallaxX - currentParallaxX) * 0.18;
+        currentParallaxY += (targetParallaxY - currentParallaxY) * 0.18;
+
+        if (ReduceMotion)
+        {
+            currentParallaxX = 0;
+            currentParallaxY = 0;
+        }
+
+        foreach (var (transform, factor) in parallaxTransforms)
+        {
+            transform.X = AvatarParallaxPolicy.GetOffset(currentParallaxX, factor);
+            transform.Y = AvatarParallaxPolicy.GetOffset(currentParallaxY, factor);
+        }
     }
 
     public void ShowAlert(string text)

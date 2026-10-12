@@ -761,3 +761,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Ambas colas conservan FIFO internamente y comparten el procesamiento de lotes de hasta 50 eventos por turno del Dispatcher. La saturación de una cola no consume la capacidad de la otra.
 - Pruebas de clasificación de eventos críticos/no críticos, incluyendo valores desconocidos y comparación sin distinguir mayúsculas.
 - Estado: implementado en el nuevo HEAD; Windows CI pendiente.
+
+
+### 2026-10-12 — Parallax 2.5D ligero entre capas propias
+
+- **Avatar Overlay:** se implementó un desplazamiento parallax suave basado en la posición del cursor dentro de la ventana transparente. Las capas etiquetadas `Fondo` se mueven en sentido contrario y con menor amplitud que capas de primer plano; la imagen base permanece como referencia. El desplazamiento máximo queda acotado a cinco píxeles.
+- **Configuración:** nuevo ajuste persistente `avatar.parallax.enabled`, activado por defecto y aplicado al overlay actual. «Reducir movimiento» domina sobre el parallax y lo devuelve al centro. No se usa cámara ni se afirma rastreo facial.
+- **Pruebas:** normalización del puntero, dimensiones inválidas, fondo/primer plano en direcciones opuestas y límite máximo de desplazamiento.
+- **Estado:** implementado; Windows CI pendiente.
