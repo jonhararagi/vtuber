@@ -150,6 +150,7 @@
             <Button Content="⛨  Moderación" Tag="Moderación" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="♫  Voz y audio" Tag="Voz y audio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="▣  OBS" Tag="OBS" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+            <Button Content="⇄  Integraciones" Tag="Integraciones" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="▤  Telegram Web" Tag="Telegram Web" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="≋  Actividad y diagnóstico" Tag="Actividad y diagnóstico" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
           </StackPanel>
