@@ -109,22 +109,22 @@ public sealed class ProductStoreTests
     {
         using var temp = new TempDb();
         var store = new ProductStore(temp.DatabasePath);
-        store.SaveCommand(null, "hola", "Hola {user}", 3600, true, "user");
+        store.SaveCommand(null, "cooldown-demo", "Hola {user}", 3600, true, "user");
 
-        var aliceFirst = store.RunLocalCommand("hola", "alice");
+        var aliceFirst = store.RunLocalCommand("cooldown-demo", "alice");
         Assert.True(aliceFirst.Success);
-        var aliceSecond = store.RunLocalCommand("hola", "alice");
+        var aliceSecond = store.RunLocalCommand("cooldown-demo", "alice");
         Assert.False(aliceSecond.Success);
         Assert.Contains("cooldown", aliceSecond.Message, StringComparison.OrdinalIgnoreCase);
 
-        var bobFirst = store.RunLocalCommand("hola", "bob");
+        var bobFirst = store.RunLocalCommand("cooldown-demo", "bob");
         Assert.True(bobFirst.Success);
         Assert.Contains("bob", bobFirst.Message);
 
         var reopened = new ProductStore(temp.DatabasePath);
-        Assert.False(reopened.RunLocalCommand("hola", "alice").Success);
-        Assert.True(reopened.RunLocalCommand("hola", "carol").Success);
-        Assert.Contains(reopened.GetCommands(), command => command.Name == "hola" && command.CooldownScope == "user");
+        Assert.False(reopened.RunLocalCommand("cooldown-demo", "alice").Success);
+        Assert.True(reopened.RunLocalCommand("cooldown-demo", "carol").Success);
+        Assert.Contains(reopened.GetCommands(), command => command.Name == "cooldown-demo" && command.CooldownScope == "user");
         Assert.Throws<ArgumentOutOfRangeException>(() => store.SaveCommand(null, "invalid", "x", 5, true, "channel"));
     }
 

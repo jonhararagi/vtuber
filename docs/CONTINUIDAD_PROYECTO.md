@@ -350,3 +350,9 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Los alias vacíos tras una coma final o con espacios se ignoran, para que ese formato de edición no bloquee el guardado.
 - Se añadió una prueba con una base SQLite creada en el esquema antiguo que contiene tanto `hola` personalizado como `!hola` preinstalado; la migración debe preservar el personalizado y dejar ejecutable `!hola`.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI**.
+
+
+### Corrección de prueba — nombre canónico del comando preinstalado
+- El CI #152 compiló correctamente y 137/138 pruebas pasaron. La prueba de cooldown por usuario intentaba crear un segundo comando `hola`, ahora reservado por el seed preinstalado corregido; por eso fallaba la preparación del fixture, no la lógica de cooldown.
+- La prueba usa ahora el nombre único `cooldown-demo` para seguir comprobando el cooldown global por usuario, persistencia tras reabrir SQLite y rechazo del scope inválido.
+- La corrección de migración y alias del HEAD #153 también queda cubierta por el nuevo CI que se dispara con este commit.
