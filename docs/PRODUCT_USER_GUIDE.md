@@ -48,6 +48,7 @@ Los mensajes del chat comparten el registro local de comandos; la actividad otor
 - Ajustá el umbral acústico y el tiempo de retención para que el estado Talking no parpadee por pequeñas pausas.
 - El detector local suaviza el nivel de señal y activa el cue Talking del overlay; no reconoce palabras ni equivale a lip-sync por fonemas.
 - La cola TTS procesa frases una por una en un hilo STA de fondo para no congelar el panel. Las prioridades Alta/Normal/Baja afectan las frases que todavía esperan; limpiar pendientes no interrumpe la frase en curso.
+- **Actualizar lista de voces** muestra los motores SAPI instalados en Windows. Podés elegir una voz, ajustar velocidad (-10 a 10) y volumen (0–100); las alertas habladas respetan las preferencias guardadas. No descarga ni incluye un modelo de voz anime por sí sola.
 - **Encolar voz** usa las voces locales instaladas mediante Windows SAPI; no necesita una API de IA remota.
 - El lip-sync facial por fonemas/visemas y el enrutamiento avanzado de audio todavía están pendientes.
 

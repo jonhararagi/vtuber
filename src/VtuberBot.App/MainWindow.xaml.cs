@@ -83,7 +83,7 @@ public partial class MainWindow : Window
             {
                 if (store.GetSetting("twitch.speak_alerts", "false") == "true")
                 {
-                    if (!speechQueue.Enqueue("Alerta de Twitch. " + summary, SpeechPriority.High))
+                    if (!EnqueueLocalSpeech("Alerta de Twitch. " + summary, SpeechPriority.High))
                         store.Log("Audio", "Alerta EventSub no encolada: la cola de voz está llena o cerrada.");
                 }
                 if (!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath))
@@ -1082,25 +1082,85 @@ public partial class MainWindow : Window
             SelectedItem = SpeechPriority.Normal,
             Width = 180
         };
+        var savedVoiceId = store.GetSetting("audio.tts.voiceId");
+        var voicePicker = new ComboBox
+        {
+            ItemsSource = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") },
+            SelectedIndex = 0,
+            DisplayMemberPath = nameof(LocalSpeechVoice.Name),
+            MinWidth = 280,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        var initialRate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var rateSetting) ? Math.Clamp(rateSetting, -10, 10) : 0;
+        var initialVolume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var volumeSetting) ? Math.Clamp(volumeSetting, 0, 100) : 100;
+        var rateSlider = new Slider { Minimum = -10, Maximum = 10, Value = initialRate, TickFrequency = 1 };
+        var volumeSlider = new Slider { Minimum = 0, Maximum = 100, Value = initialVolume, TickFrequency = 5 };
+        var rateLabel = Label($"Velocidad SAPI: {initialRate}", 12, "#98A4BE");
+        var volumeLabel = Label($"Volumen SAPI: {initialVolume}%", 12, "#98A4BE");
+        rateSlider.ValueChanged += (_, _) => rateLabel.Text = $"Velocidad SAPI: {rateSlider.Value:0}";
+        volumeSlider.ValueChanged += (_, _) => volumeLabel.Text = $"Volumen SAPI: {volumeSlider.Value:0}%";
+
         panel.Children.Add(Label("Síntesis de voz de Windows (SAPI)", 14, "#F8FAFC", true));
+        panel.Children.Add(Label("Voces que ya están instaladas en Windows", 12, "#98A4BE"));
+        panel.Children.Add(voicePicker);
+        panel.Children.Add(ActionButton("Actualizar lista de voces", async (_, _) =>
+        {
+            try
+            {
+                var installed = await Task.Run(LocalSpeechQueue.GetInstalledVoices);
+                var voices = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") };
+                voices.AddRange(installed);
+                voicePicker.ItemsSource = voices;
+                voicePicker.SelectedItem = voices.FirstOrDefault(voice => string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
+                    ?? voices[0];
+                FooterStatus.Text = $"Voces SAPI encontradas: {installed.Count}.";
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudieron leer las voces SAPI: " + exception.Message;
+                MessageBox.Show(this, "No se pudo enumerar las voces instaladas. Se mantiene la voz predeterminada de Windows.\n\n" + exception.Message);
+            }
+        }));
+        panel.Children.Add(rateLabel);
+        panel.Children.Add(rateSlider);
+        panel.Children.Add(volumeLabel);
+        panel.Children.Add(volumeSlider);
+        panel.Children.Add(ActionButton("Guardar voz y ajustes", (_, _) =>
+        {
+            savedVoiceId = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? string.Empty;
+            store.SetSetting("audio.tts.voiceId", savedVoiceId);
+            store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.tts.volume", ((int)volumeSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            FooterStatus.Text = "Voz, velocidad y volumen guardados en SQLite.";
+            store.Log("Audio", "Preferencias TTS locales guardadas.");
+        }));
         panel.Children.Add(speech);
         panel.Children.Add(Label("Prioridad de reproducción", 12, "#98A4BE"));
         panel.Children.Add(priority);
         panel.Children.Add(ActionButton("＋ Encolar voz", (_, _) =>
         {
             var selectedPriority = priority.SelectedItem is SpeechPriority selected ? selected : SpeechPriority.Normal;
-            if (speechQueue.Enqueue(speech.Text, selectedPriority))
+            var voiceId = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? savedVoiceId;
+            if (speechQueue.Enqueue(speech.Text, selectedPriority, voiceId, (int)rateSlider.Value, (int)volumeSlider.Value))
                 store.Log("Audio", "Frase agregada a la cola TTS local con prioridad " + selectedPriority + ".");
             else
-                FooterStatus.Text = "No se pudo encolar: revisá el texto o el límite de la cola.";
+                FooterStatus.Text = "No se pudo encolar: revisá el texto, velocidad, volumen o el límite de la cola.";
         }, true));
         panel.Children.Add(ActionButton("Vaciar frases pendientes", (_, _) =>
         {
             speechQueue.ClearPending();
             store.Log("Audio", "Cola de voz pendiente vaciada.");
         }));
-        root.Children.Add(Label("La cola procesa una frase por vez en un hilo STA separado para que la ventana siga respondiendo. Prioridad Alta se reproduce antes que las frases normales/bajas que aún esperan; no interrumpe la frase que ya está sonando. La detección de micrófono usa amplitud suavizada/retención, no reconocimiento semántico ni lip-sync por fonemas.", 12, "#98A4BE"));
+        root.Children.Add(Label("La cola procesa una frase por vez en un hilo STA separado. Podés elegir una voz SAPI instalada, ajustar velocidad (-10 a 10) y volumen (0 a 100). Las alertas usan las preferencias guardadas. No se descarga ni se promete una voz anime: el resultado depende de las voces que tenga Windows. La detección de micrófono usa amplitud suavizada/retención, no reconocimiento semántico ni lip-sync por fonemas.", 12, "#98A4BE"));
         return root;
+    }
+
+    private bool EnqueueLocalSpeech(string text, SpeechPriority priority)
+    {
+        var voiceId = store.GetSetting("audio.tts.voiceId");
+        var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var savedRate) ? Math.Clamp(savedRate, -10, 10) : 0;
+        var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var savedVolume) ? Math.Clamp(savedVolume, 0, 100) : 100;
+        return speechQueue.Enqueue(text, priority, voiceId, rate, volume);
     }
 
     private void StopMicrophone()

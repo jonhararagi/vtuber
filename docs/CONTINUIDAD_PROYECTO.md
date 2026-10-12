@@ -305,3 +305,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La selección del ganador utiliza `RandomNumberGenerator.GetInt32` sobre las entradas almacenadas, en lugar de `Random.Shared`.
 - La prueba del sorteo comprueba que el ganador pertenecía al conjunto de entradas y que un segundo intento de sortear el mismo sorteo cerrado se rechaza.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en el nuevo HEAD.
+
+
+### Trabajo adicional — selección de voz SAPI, ritmo y volumen
+
+- `LocalSpeechQueue` enumera voces SAPI instaladas y guarda el token de voz, velocidad y volumen por frase encolada.
+- La página Voz y audio puede actualizar la lista de voces de Windows, elegir voz predeterminada o instalada, ajustar velocidad de -10 a 10 y volumen de 0 a 100 y guardar preferencias en SQLite.
+- Las alertas EventSub usan también la voz/ritmo/volumen guardados, manteniendo prioridad alta y sin interrumpir la frase actual.
+- No se afirma que Windows incluya una voz anime: depende de las voces SAPI instaladas por el usuario.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD.
