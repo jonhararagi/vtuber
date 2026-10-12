@@ -35,7 +35,7 @@ Los mensajes del chat comparten el registro local de comandos; la actividad otor
 
 - **Comandos:** creá respuestas con variables `{user}`, `{points}` y `{roll}`. Los cooldowns se guardan en SQLite y se aplican al ejecutar el comando.
 - **Comunidad y puntos:** los perfiles, el ranking, los ajustes manuales y el ledger de puntos se conservan en la base local. La actividad del chat puede otorgar puntos automáticamente.
-- **Sorteos:** creá un sorteo, registrá participantes manualmente o mediante `!entrar` en el chat y cerralo con una selección aleatoria trazable. Las entradas duplicadas se descartan.
+- **Sorteos:** creá un sorteo, registrá participantes manualmente o mediante `!entrar` en el chat y cerralo con selección uniforme usando el generador criptográfico del sistema. Las entradas duplicadas se descartan y un sorteo cerrado no puede volver a sortearse.
 - **Minijuegos:** las rondas locales guardan resultados y recompensas. No requieren Twitch conectado.
 - **Moderación:** las reglas regex se prueban localmente. La moderación automática queda desactivada por defecto y solo se habilita tras confirmación. Cada regla puede ser `flag` (registro), `warn` (aviso en chat), `delete` (elimina el mensaje exacto), `timeout` (10 minutos) o `ban` (permanente). Si se habilita la opción global, se limita a una acción no informativa por mensaje y una acción por usuario/regla cada cinco minutos.
 - Las acciones manuales permiten timeout de duración elegida, ban permanente y retirar un ban/timeout, con confirmación visible antes de afectar el chat real. Si agregaste scopes después de autorizar, volvé a completar OAuth. Los errores de permiso se muestran como fallos; nunca se simula el éxito.

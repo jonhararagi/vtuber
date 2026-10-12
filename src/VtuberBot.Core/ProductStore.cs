@@ -347,7 +347,7 @@ public sealed class ProductStore
             var entrants=new List<string>();
             using (var cmd=c.CreateCommand()) { cmd.Transaction=tx; cmd.CommandText="SELECT username FROM giveaway_entries WHERE giveaway_id=$id ORDER BY username"; cmd.Parameters.AddWithValue("$id",id); using var r=cmd.ExecuteReader(); while(r.Read()) entrants.Add(r.GetString(0)); }
             if(entrants.Count==0) throw new InvalidOperationException("No hay participantes registrados.");
-            var winner=entrants[Random.Shared.Next(entrants.Count)];
+            var winner = entrants[System.Security.Cryptography.RandomNumberGenerator.GetInt32(entrants.Count)];
             using (var cmd=c.CreateCommand()) { cmd.Transaction=tx; cmd.CommandText="UPDATE giveaways SET status='CLOSED',winner=$winner,closed_utc=$now WHERE id=$id AND status='OPEN'"; cmd.Parameters.AddWithValue("$winner",winner); cmd.Parameters.AddWithValue("$now",Now()); cmd.Parameters.AddWithValue("$id",id); if(cmd.ExecuteNonQuery()!=1) throw new InvalidOperationException("El sorteo ya está cerrado."); }
             tx.Commit(); Log("Sorteos",$"Sorteo #{id}: ganador {winner} de {entrants.Count} participantes."); return new(id,"", "CLOSED",winner,entrants.Count);
         }

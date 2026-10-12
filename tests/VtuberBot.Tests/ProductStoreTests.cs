@@ -75,6 +75,7 @@ public sealed class ProductStoreTests
         Assert.Equal("CLOSED", result.Status);
         Assert.Contains(result.Winner, new string?[] { "alice", "bob" });
         Assert.Equal(2, result.Entries);
+        Assert.Throws<InvalidOperationException>(() => store.DrawGiveaway(id));
     }
 
     [Fact]
