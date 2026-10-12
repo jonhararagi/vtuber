@@ -1392,6 +1392,7 @@ public sealed class Tests
     [Fact]
     public async Task WpfExecutableSmokeStartsAndClosesCleanly()
     {
+        using var dataDirectory = new TempDirectory();
         var executablePath = GetWpfExecutablePath();
         Assert.True(File.Exists(executablePath), $"WPF executable was not found: {executablePath}");
 
@@ -1402,7 +1403,8 @@ public sealed class Tests
                 FileName = executablePath,
                 WorkingDirectory = Path.GetDirectoryName(executablePath)!,
                 UseShellExecute = false,
-                CreateNoWindow = false
+                CreateNoWindow = false,
+                Environment = { ["VTUBERBOT_HOME"] = dataDirectory.Path }
             }
         };
 

@@ -83,8 +83,11 @@ public sealed record AppConfig(
 
     private static string GetDefaultBaseDirectory()
     {
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "VtuberBot");
+        var overridePath = Environment.GetEnvironmentVariable("VTUBERBOT_HOME");
+        var directory = !string.IsNullOrWhiteSpace(overridePath)
+            ? Path.GetFullPath(overridePath)
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VtuberBot");
+        Directory.CreateDirectory(directory);
+        return directory;
     }
 }
