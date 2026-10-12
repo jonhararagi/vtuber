@@ -853,7 +853,7 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 ### Corrección del workflow de distribución — 2026-10-12
 
 - La primera edición del filtro de archivos sensibles dejó una expresión PowerShell incompleta; el run #226 falló antes de crear un job, por lo que no llegó a compilar ni empaquetar.
-- El segundo intento (run #227) también terminó antes de crear un job; se simplificó el filtro en el nuevo SHA para evitar una expresión compleja. No se considera verificada hasta que el workflow completo termine en SUCCESS.
+- El segundo y tercer intentos (runs #227 y #228) también terminaron antes de crear un job: la edición incremental dejó líneas sobrantes en el workflow. Se reconstruyó la sección desde el último archivo conocido bueno y se reemplazaron solo las dos líneas de validación. El nuevo SHA debe confirmar un job real y un SUCCESS completo.
 
 ---
 

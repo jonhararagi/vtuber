@@ -58,20 +58,6 @@ jobs:
           if (-not ($names -contains "BUILD-INFO.txt")) { throw "ZIP does not contain BUILD-INFO.txt" }
           $forbidden = @($names | Where-Object { $_ -match '\.(db|sqlite|sqlite3|bak|backup|log)$' -or $_ -match '(^|/)(config\.toml|cookies?|credentials|secrets?|access[_-]?token|refresh[_-]?token|oauth|token)(\.[^/]*)?$' -or $_ -match '(^|/)\.env(\..*)?$' })
           if ($forbidden.Count -gt 0) { throw "Package unexpectedly contains local data or credential files: $($forbidden -join ', ')" }
-          "ZIP size bytes: $((Get-Item $zipPath).Length)"
-        }
-        finally { $archive.Dispose() }
-
-        "PACKAGE_ZIP=$zipPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-    - name: Upload temporary validation artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: VTuberBot-Product-Candidate-win-x64-${{ github.sha }}
-        path: ${{ runner.temp }}/VTuberBot-Product-Candidate-win-x64.zip
-        if-no-files-found: error
-        retention-days: 14
- })
-          if ($forbidden.Count -gt 0) { throw "Package unexpectedly contains local data or credential files: $($forbidden -join ', ')" }
           "Validated ZIP entries: $($names.Count)"
           "ZIP size bytes: $((Get-Item $zipPath).Length)"
         }
