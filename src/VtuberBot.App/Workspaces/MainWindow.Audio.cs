@@ -23,6 +23,7 @@ namespace VtuberBot.App;
 
 public partial class MainWindow
 {
+    private sealed record LocalSoundAsset(string Id, string Name, string Path);
     private UIElement BuildAudioPage()
     {
         var root = new StackPanel();
@@ -328,10 +329,140 @@ public partial class MainWindow
             speechQueue.ClearPending();
             store.Log("Audio", "Cola de voz pendiente vaciada.");
         }));
+        var soundPanel = Panel("Biblioteca de sonidos locales");
+        soundPanel.Margin = new Thickness(0, 14, 0, 0);
+        soundPanel.Children.Add(Label("Importá efectos WAV o MP3 propios. Se copian a la carpeta local del usuario; reproducir y detener no requiere Twitch ni una API externa.", 12, "#98A4BE"));
+        var soundDirectory = Path.Combine(dataDirectory, "sounds");
+        Directory.CreateDirectory(soundDirectory);
+        List<LocalSoundAsset> soundAssets;
+        try
+        {
+            soundAssets = JsonSerializer.Deserialize<List<LocalSoundAsset>>(store.GetSetting("audio.sound.library", "[]")) ?? [];
+            soundAssets = soundAssets.Where(asset => TryResolveSoundPath(asset.Path, out _)).ToList();
+        }
+        catch (Exception exception)
+        {
+            soundAssets = [];
+            store.Log("Audio", "No se pudo leer la biblioteca de sonidos (" + exception.GetType().Name + ").");
+        }
+        var soundList = new ListBox { Height = 130, ItemsSource = soundAssets, DisplayMemberPath = nameof(LocalSoundAsset.Name) };
+        soundPanel.Children.Add(soundList);
+        void SaveSoundLibrary() => store.SetSetting("audio.sound.library", JsonSerializer.Serialize(soundAssets));
+        soundPanel.Children.Add(ActionButton("Importar sonido WAV/MP3", (_, _) =>
+        {
+            var dialog = new OpenFileDialog { Title = "Importar efecto de sonido", Filter = "Audio WAV o MP3|*.wav;*.mp3", CheckFileExists = true, Multiselect = true };
+            if (dialog.ShowDialog(this) != true) return;
+            try
+            {
+                foreach (var source in dialog.FileNames)
+                {
+                    if (!LocalSoundFormatPolicy.IsSupported(source))
+                        throw new InvalidDataException("Solo se admiten archivos WAV y MP3.");
+                    var id = Guid.NewGuid().ToString("N");
+                    var destination = Path.Combine(soundDirectory, id + Path.GetExtension(source).ToLowerInvariant());
+                    File.Copy(source, destination, false);
+                    soundAssets.Add(new LocalSoundAsset(id, Path.GetFileNameWithoutExtension(source), destination));
+                }
+                SaveSoundLibrary();
+                soundList.ItemsSource = null;
+                soundList.ItemsSource = soundAssets;
+                FooterStatus.Text = "Sonidos importados a la biblioteca local.";
+                store.Log("Audio", "Se importaron efectos de sonido locales.");
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudieron importar los sonidos: " + exception.Message;
+                MessageBox.Show(this, exception.Message, "Biblioteca de sonidos", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }, true));
+        var soundActions = new WrapPanel();
+        soundActions.Children.Add(ActionButton("Reproducir seleccionado", (_, _) =>
+        {
+            if (soundList.SelectedItem is not LocalSoundAsset selected || !TryResolveSoundPath(selected.Path, out var path))
+            {
+                MessageBox.Show(this, "Seleccioná un sonido local válido.", "Biblioteca de sonidos", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            try
+            {
+                StopSoundPlayback();
+                var reader = new AudioFileReader(path);
+                var output = new WaveOutEvent();
+                output.PlaybackStopped += (_, _) =>
+                {
+                    try
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            if (!ReferenceEquals(soundOutput, output)) return;
+                            soundOutput = null;
+                            soundReader = null;
+                            output.Dispose();
+                            reader.Dispose();
+                        }));
+                    }
+                    catch (InvalidOperationException) { }
+                };
+                output.Init(reader);
+                soundReader = reader;
+                soundOutput = output;
+                output.Play();
+                FooterStatus.Text = "Reproduciendo sonido local: " + selected.Name;
+                store.Log("Audio", "Reproducción local iniciada: " + selected.Name);
+            }
+            catch (Exception exception)
+            {
+                StopSoundPlayback();
+                FooterStatus.Text = "No se pudo reproducir el sonido: " + exception.Message;
+                MessageBox.Show(this, exception.Message, "Reproducción de audio", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }, true));
+        soundActions.Children.Add(ActionButton("Detener sonido", (_, _) => { StopSoundPlayback(); FooterStatus.Text = "Reproducción de sonido detenida."; }));
+        soundActions.Children.Add(ActionButton("Quitar de biblioteca", (_, _) =>
+        {
+            if (soundList.SelectedItem is not LocalSoundAsset selected) return;
+            if (MessageBox.Show(this, "Se quitará de la lista, pero el archivo local no se borrará. ¿Continuar?", "Biblioteca de sonidos", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            soundAssets.RemoveAll(asset => asset.Id == selected.Id);
+            SaveSoundLibrary();
+            soundList.ItemsSource = null;
+            soundList.ItemsSource = soundAssets;
+            FooterStatus.Text = "Sonido quitado de la biblioteca; el archivo original se conservó.";
+        }));
+        soundPanel.Children.Add(soundActions);
+        root.Children.Add(soundPanel);
+        
         root.Children.Add(Label("El dispositivo de micrófono, el umbral acústico y la retención se guardan automáticamente y se recuperan al reiniciar. La cola procesa una frase por vez en un hilo STA separado. Podés elegir una voz SAPI instalada, ajustar velocidad (-10 a 10) y volumen (0 a 100). Las alertas usan las preferencias guardadas. No se descarga ni se promete una voz anime: el resultado depende de las voces que tenga Windows. La salida SAPI se puede seleccionar entre los dispositivos que Windows exponga; si no está disponible, se usa la salida predeterminada. La detección de micrófono usa amplitud suavizada/retención, no reconocimiento semántico ni lip-sync por fonemas.", 12, "#98A4BE"));
         return root;
     }
 
+    private bool TryResolveSoundPath(string candidate, out string fullPath)
+    {
+        fullPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(candidate) || !LocalSoundFormatPolicy.IsSupported(candidate)) return false;
+        try
+        {
+            var root = Path.GetFullPath(Path.Combine(dataDirectory, "sounds")) + Path.DirectorySeparatorChar;
+            var resolved = Path.GetFullPath(candidate);
+            if (!resolved.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !File.Exists(resolved)) return false;
+            fullPath = resolved;
+            return true;
+        }
+        catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private void StopSoundPlayback()
+    {
+        var output = soundOutput;
+        var reader = soundReader;
+        soundOutput = null;
+        soundReader = null;
+        try { output?.Stop(); } catch (InvalidOperationException) { }
+        output?.Dispose();
+        reader?.Dispose();
+    }
     private bool EnqueueLocalSpeech(string text, SpeechPriority priority)
     {
         var voiceId = store.GetSetting("audio.tts.voiceId");

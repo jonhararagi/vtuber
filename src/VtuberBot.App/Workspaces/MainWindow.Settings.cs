@@ -44,7 +44,7 @@ public partial class MainWindow
         var privacy=Panel("Privacidad y almacenamiento");privacy.Margin=new Thickness(0,16,0,0);privacy.Children.Add(Label($"Datos locales: {dataDirectory}",12,"#98A4BE"));privacy.Children.Add(Label("Los assets se copian al directorio local. El token de Twitch se cifra con DPAPI CurrentUser. No se incluyen datos personales en el repositorio ni en los paquetes de CI.",12,"#98A4BE"));privacy.Children.Add(ActionButton("Abrir carpeta de datos",(_,_)=>{try{Process.Start(new ProcessStartInfo(dataDirectory){UseShellExecute=true});}catch(Exception ex){MessageBox.Show(this,ex.Message);}}));root.Children.Add(privacy);
 
         var backupPanel=Panel("Copia de seguridad y restauración de SQLite");backupPanel.Margin=new Thickness(0,16,0,0);
-        backupPanel.Children.Add(Label("La copia guarda comandos/alias/permisos, usuarios/puntos, sorteos, minijuegos, reglas, timers, capas del avatar y preferencias. No incluye los archivos de imagen del avatar, cookies de Telegram ni credenciales OAuth cifradas; esos elementos están fuera de SQLite.",12,"#98A4BE"));
+        backupPanel.Children.Add(Label("La copia guarda comandos/alias/permisos, usuarios/puntos, sorteos, minijuegos, reglas, timers, capas del avatar y preferencias. No incluye imágenes del avatar, archivos de sonido, cookies de Telegram ni credenciales OAuth cifradas; esos elementos están fuera de SQLite.",12,"#98A4BE"));
         backupPanel.Children.Add(ActionButton("Crear copia de seguridad…",(_,_) =>
         {
             var dialog=new SaveFileDialog

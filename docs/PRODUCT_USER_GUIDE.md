@@ -81,3 +81,8 @@ La página **Actividad y diagnóstico** muestra el registro local y permite expo
 - **Integraciones externas:** CI prueba compilación, pruebas y publicación del paquete Windows x64, pero no autentica Twitch, OBS ni Telegram del usuario ni demuestra el comportamiento de una sesión de streaming real.
 
 Estas limitaciones se mantienen explícitas: no se marca el producto como definitivo solo por compilar o por tener una página de interfaz.
+
+
+### Biblioteca de sonidos
+
+En **Voz y audio**, importá archivos WAV o MP3 propios. VTuberBot los copia a la carpeta local `sounds`, guarda la biblioteca en SQLite y permite reproducir/detener un efecto o quitarlo de la lista sin borrar el archivo. Los sonidos usan la salida de audio predeterminada de Windows; la selección de salida SAPI es independiente y se aplica a la voz sintetizada. Las copias de seguridad SQLite no incluyen los archivos de audio.

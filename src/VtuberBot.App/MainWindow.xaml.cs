@@ -35,6 +35,8 @@ public partial class MainWindow : Window
     private AvatarOverlayWindow? overlay;
     private string? avatarPath;
     private WaveInEvent? microphone;
+    private WaveOutEvent? soundOutput;
+    private AudioFileReader? soundReader;
     private readonly VoiceActivityDetector voiceActivity;
     private WebView2? telegramView;
     private readonly ObservableCollection<string> chatLines = [];
@@ -239,6 +241,7 @@ public partial class MainWindow : Window
             automationTimer.Stop();
             twitchCredentialTimer.Stop();
             StopMicrophone();
+            StopSoundPlayback();
             speechQueue.Dispose();
             if (overlay is not null) overlay.Close();
             await twitch.DisposeAsync();
@@ -281,7 +284,7 @@ public partial class MainWindow : Window
             "Sorteos" => "Participantes deduplicados y ganador guardado en el historial.",
             "Minijuegos" => "Juegos locales con resultados y recompensas registradas.",
             "Moderación" => "Reglas configurables; el modo actual marca coincidencias sin castigar automáticamente.",
-            "Voz y audio" => "Micrófono real, medidor local y síntesis de voz de Windows.",
+            "Voz y audio" => "Micrófono, VAD, TTS local y biblioteca de efectos de sonido.",
             "OBS" => "Diagnóstico local del puerto de OBS WebSocket; no se afirma control remoto sin autenticar.",
             "Telegram Web" => "Telegram Web integrado cuando WebView2 está disponible.",
             "Actividad y diagnóstico" => "Registro local de acciones y exportación sin tokens ni cookies.",

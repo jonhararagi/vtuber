@@ -863,6 +863,14 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Prueba añadida para verificar el marcador, rechazar versiones futuras y conservar el marcador de la base sin cambios después del rechazo. Los respaldos anteriores siguen siendo compatibles: la tabla de metadatos se crea al abrir una base restaurada/antigua.
 - **Estado:** pendiente del Windows CI del SHA que contiene este cambio.
 
+
+### Bloque integrado de audio — biblioteca de efectos locales (2026-10-12)
+
+- La página Voz y audio incorpora una biblioteca persistente de efectos WAV/MP3: importación a `%LocalAppData%\\VtuberBot\\sounds` (o al directorio de datos configurado), reproducción/detención local y retirada de la lista sin borrar archivos.
+- El catálogo se guarda como preferencia local SQLite. Al cargarlo se validan extensión, ruta dentro de la carpeta de sonidos y existencia del archivo; rutas externas o formatos no admitidos no se reproducen.
+- La reproducción usa NAudio ya presente en la aplicación; no necesita Twitch, OBS ni APIs remotas. El cierre detiene y libera el reproductor. Las copias SQLite no incluyen los binarios de audio.
+- Pruebas añadidas para los formatos WAV/MP3 permitidos y extensiones rechazadas. Windows CI debe verificar el nuevo SHA; el sonido real requiere dispositivo de salida disponible.
+
 ---
 
 # Corte consolidado de continuidad — 2026-10-12
