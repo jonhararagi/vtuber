@@ -25,7 +25,7 @@ El overlay compone la imagen base con capas transformables, reproduce el sprite 
 1. Creá una aplicación en la [consola de desarrolladores de Twitch](https://dev.twitch.tv/console/apps).
 2. Registrá exactamente esta URL de redirección: `http://localhost:17563/callback/`.
 3. Copiá el **Client ID** de la aplicación en **Twitch y chat**.
-4. Escribí el nombre de la cuenta/canal que corresponde al usuario autorizado y elegí **Autorizar con Twitch**. Se abre el navegador; aceptá los permisos `chat:read`, `chat:edit`, `moderator:read:followers`, `channel:read:subscriptions` y `channel:read:redemptions`.
+4. Escribí el nombre de la cuenta/canal que corresponde al usuario autorizado y elegí **Autorizar con Twitch**. Se abre el navegador; aceptá los permisos `chat:read`, `chat:edit`, `moderator:read:followers`, `moderator:manage:banned_users`, `channel:read:subscriptions` y `channel:read:redemptions`. Para timeout/ban, la cuenta autorizada debe ser el broadcaster o un moderador del canal.
 5. Volvé a la app y elegí **Conectar**. El token queda cifrado con DPAPI. El estado conectado solo se informa después del registro IRC por TLS.
 6. Probá enviar un mensaje o usar comandos como `!hola`, `!puntos`, `!dado` y `!entrar`.
 
@@ -37,7 +37,8 @@ Los mensajes del chat comparten el registro local de comandos; la actividad otor
 - **Comunidad y puntos:** los perfiles, el ranking, los ajustes manuales y el ledger de puntos se conservan en la base local. La actividad del chat puede otorgar puntos automáticamente.
 - **Sorteos:** creá un sorteo, registrá participantes manualmente o mediante `!entrar` en el chat y cerralo con una selección aleatoria trazable. Las entradas duplicadas se descartan.
 - **Minijuegos:** las rondas locales guardan resultados y recompensas. No requieren Twitch conectado.
-- **Moderación:** las reglas regex se prueban localmente y se evalúan sobre el chat en modo observación. No se ejecutan borrados ni sanciones remotas automáticas.
+- **Moderación:** las reglas regex se prueban localmente y se evalúan sobre el chat en modo observación. No se ejecutan sanciones remotas automáticas.
+- Las acciones manuales permiten timeout de duración elegida, ban permanente y retirar un ban/timeout, con confirmación visible antes de afectar el chat real. Si agregaste el scope `moderator:manage:banned_users` después de autorizar, volvé a completar OAuth. Los errores de permiso se muestran como fallos; nunca se simula el éxito.
 - **Automatizaciones:** los mensajes programados respetan un intervalo mínimo de cinco minutos y solo se envían cuando Twitch está conectado. Si está desconectado, la omisión queda registrada.
 
 ## Voz y audio

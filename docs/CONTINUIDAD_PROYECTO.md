@@ -166,3 +166,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Añadido `LocalSpeechQueue`: voz Windows SAPI secuencial en un hilo STA, con prioridad Alta/Normal/Baja, límite de 32 elementos, contador de pendientes y limpieza de pendientes.
 - El panel encola voz sin bloquear la ventana y muestra su estado en el pie; la voz activa termina antes de reproducir la siguiente frase.
 - Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD. El motor necesita Windows SAPI y voces instaladas para emitir audio real.
+
+
+### Trabajo adicional — moderación manual autenticada de Twitch
+
+- Añadido `TwitchModerationClient` para resolver IDs por login y ejecutar los endpoints oficiales de ban/timeout y retirar ban/timeout.
+- La página Moderación tiene controles explícitos para timeout con duración seleccionable, ban permanente y desbanear; cada operación requiere confirmación del usuario. Las reglas regex siguen en modo observación y no ejecutan sanciones remotas automáticamente.
+- El flujo OAuth solicita `moderator:manage:banned_users`. Las llamadas explican errores de token/scope, permisos del canal y límites; no registran secretos.
+- Estado: **IMPLEMENTADO EN CÓDIGO; PENDIENTE DE CI** en este HEAD. No se prueba contra una cuenta real sin credenciales/permisos del dueño.

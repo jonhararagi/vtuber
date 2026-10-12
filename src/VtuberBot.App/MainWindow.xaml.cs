@@ -595,6 +595,85 @@ public partial class MainWindow : Window
         var test=TextField("Texto para analizar");panel.Children.Add(Label("Probar un mensaje (solo observación, no borra ni sanciona)",13,"#F8FAFC",true));panel.Children.Add(test);
         panel.Children.Add(ActionButton("Analizar mensaje",(_,_)=>{var matches=new List<string>();foreach(var r in store.GetModerationRules().Where(x=>x.Enabled)){try{if(Regex.IsMatch(test.Text,r.Pattern,RegexOptions.IgnoreCase,TimeSpan.FromMilliseconds(100)))matches.Add($"{r.Name} ({r.Action})");}catch(RegexMatchTimeoutException){matches.Add($"{r.Name} — tiempo agotado");}}var message=matches.Count==0?"No se detectaron coincidencias.": "Coincidencias: "+string.Join(", ",matches);store.Log("Moderación",message);MessageBox.Show(this,message,"Diagnóstico de moderación");}));
         root.Children.Add(Label("Las reglas se evalúan en modo observación. No se ejecutan acciones punitivas remotas automáticamente.",12,"#98A4BE"));
+        var remotePanel = Panel("Acciones de Twitch — manuales y con confirmación");
+        remotePanel.Margin = new Thickness(0, 12, 0, 0);
+        remotePanel.Children.Add(Label("Estas acciones solo se ejecutan al pulsar un botón y confirmar. Las reglas automáticas siguen en modo observación.", 12, "#98A4BE"));
+        var moderationChannel = TextField("Canal Twitch", store.GetSetting("twitch.channel"));
+        var moderationTarget = TextField("Usuario de Twitch (login, sin @)");
+        var moderationReason = TextField("Motivo (opcional, máximo 500 caracteres)");
+        var durationValues = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["30 segundos"] = 30, ["1 minuto"] = 60, ["5 minutos"] = 300,
+            ["10 minutos"] = 600, ["1 hora"] = 3600, ["1 día"] = 86400
+        };
+        var durationBox = new ComboBox { ItemsSource = durationValues.Keys.ToList(), SelectedItem = "10 minutos", MinWidth = 180, Margin = new Thickness(0, 0, 0, 8) };
+        remotePanel.Children.Add(Label("Canal", 12, "#98A4BE"));
+        remotePanel.Children.Add(moderationChannel);
+        remotePanel.Children.Add(Label("Usuario objetivo", 12, "#98A4BE"));
+        remotePanel.Children.Add(moderationTarget);
+        remotePanel.Children.Add(Label("Motivo", 12, "#98A4BE"));
+        remotePanel.Children.Add(moderationReason);
+        remotePanel.Children.Add(Label("Duración del timeout", 12, "#98A4BE"));
+        remotePanel.Children.Add(durationBox);
+
+        async Task ExecuteManualModerationAction(string actionName, int? durationSeconds, bool unban)
+        {
+            var channelName = moderationChannel.Text.Trim().TrimStart('#');
+            var targetLogin = moderationTarget.Text.Trim().TrimStart('@');
+            var reason = moderationReason.Text.Trim();
+            var clientId = store.GetSetting("twitch.client_id").Trim();
+            var accessToken = LoadTwitchToken();
+            if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(accessToken))
+            {
+                MessageBox.Show(this, "Primero configurá Twitch y autorizá la cuenta. El token se lee del almacenamiento cifrado local.", "Twitch no configurado", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var details = unban
+                ? $"Vas a retirar un ban/timeout a {targetLogin} en {channelName}."
+                : durationSeconds.HasValue
+                    ? $"Vas a aplicar un timeout de {durationSeconds.Value} segundos a {targetLogin} en {channelName}."
+                    : $"Vas a BANEAR PERMANENTEMENTE a {targetLogin} en {channelName}.";
+            if (!string.IsNullOrWhiteSpace(reason)) details += "\nMotivo: " + reason;
+            details += "\n\nEsta acción afecta al chat real de Twitch. ¿Confirmás?";
+            if (MessageBox.Show(this, details, "Confirmar acción de moderación", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                using var moderator = new TwitchModerationClient();
+                var result = unban
+                    ? await moderator.UnbanAsync(clientId, accessToken, channelName, targetLogin)
+                    : await moderator.BanOrTimeoutAsync(clientId, accessToken, channelName, targetLogin, durationSeconds, reason);
+                store.Log("Moderación", "Acción manual '" + actionName + "' ejecutada para " + targetLogin + " en " + channelName + ".");
+                FooterStatus.Text = result;
+                MessageBox.Show(this, result, "Moderación de Twitch", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                var safeMessage = "No se pudo ejecutar la acción. Verificá conexión Twitch, cuenta moderadora y el scope moderator:manage:banned_users. Si acabás de añadir permisos, volvé a autorizar la cuenta.\n\n" + ex.Message;
+                FooterStatus.Text = "Moderación no ejecutada: " + ex.GetType().Name;
+                store.Log("Moderación", "Falló una acción manual (" + ex.GetType().Name + ").");
+                MessageBox.Show(this, safeMessage, "Acción de moderación fallida", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        var remoteActions = new WrapPanel();
+        remoteActions.Children.Add(ActionButton("Aplicar timeout", async (_, _) =>
+        {
+            var label = durationBox.SelectedItem as string;
+            if (label is null || !durationValues.TryGetValue(label, out var duration))
+            {
+                MessageBox.Show(this, "Elegí una duración de timeout válida.");
+                return;
+            }
+            await ExecuteManualModerationAction("timeout", duration, false);
+        }, true));
+        remoteActions.Children.Add(ActionButton("Ban permanente", async (_, _) => await ExecuteManualModerationAction("ban permanente", null, false)));
+        remoteActions.Children.Add(ActionButton("Quitar ban / timeout", async (_, _) => await ExecuteManualModerationAction("desbanear", null, true)));
+        remotePanel.Children.Add(remoteActions);
+        remotePanel.Children.Add(Label("Si Twitch rechaza la solicitud, la aplicación registra el tipo de error pero nunca presenta la sanción como exitosa. No se ejecutan sanciones por coincidencias regex.", 12, "#98A4BE"));
+        root.Children.Add(remotePanel);
         var auto=Panel("Mensajes automáticos programados");auto.Margin=new Thickness(0,12,0,0);
         var autoList=new ListBox{Height=130};long? editingAutomationId=null;
         void ReloadAuto(){autoList.ItemsSource=store.GetAutomationRules().Select(a=>string.Format("{0} · {1} · cada {2} min · {3}",a.Id,a.Name,a.IntervalMinutes,a.Enabled?"activo":"pausado")).ToList();}
