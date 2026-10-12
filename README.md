@@ -1,45 +1,38 @@
-# VTuber Bot
+# VTuberBot — escritorio VTuber local para Windows
 
-Local-first Windows VTuber Bot foundation.
+VTuberBot está pensado para ser un programa de escritorio completo para gestionar avatar, audio, Twitch, comandos, comunidad, sorteos, minijuegos, moderación, automatizaciones, OBS, Telegram Web y diagnóstico desde una experiencia visual coherente.
 
-## V0.1 C# migration
+**Objetivo de diseño:** una aplicación moderna con Dashboard y espacios de trabajo reales. No se considera terminado por mostrar estado RUNNING o por compilar.
 
-The approved migration target is **C# / .NET 10 / WPF / SQLite / Windows-first**.
+## Especificación del producto
 
-The Python/PySide6 V0.1 remains temporarily as the functional reference. It has not been removed and is not used as a second runtime.
+- [Especificación funcional, interfaz, carpetas y arquitectura objetivo](docs/PRODUCT_BLUEPRINT.md)
+- [Especificación central](PROJECT_SPEC.md)
+- [Roadmap de integración completa](ROADMAP.md)
+- [Prompt oficial para GPT Obrero — implementación integral](PROMPTS.md)
+- [Registro central de continuidad](docs/CONTINUIDAD_PROYECTO.md)
 
-The C# foundation contains configuration, logging, SQLite, lifecycle, EventManager, one-shot TaskScheduler, ResourceManager, owned process management, provider-neutral Voice/Avatar/Twitch/OBS contracts and a minimal WPF control panel. V0.2.0 adds the local Command Core with `help`, `status` and `ping`, plus command execution and lifecycle controls in WPF.
+## Tecnología y restricciones
 
-V0.2.0 is limited to the local Control Plane + Command Core. Twitch, STT, TTS, VAD, LLM, avatar runtime, OBS integration, Telegram and V0.3 functionality are not activated. V0.2.1 adds local performance and health monitoring.
+- C# / .NET 10 / WPF / SQLite.
+- Windows como plataforma objetivo; equipo de referencia Ryzen 5 5600G y 16 GB RAM.
+- Sin dependencia obligatoria de APIs de IA pagas.
+- Integraciones Twitch y OBS opcionales, con autenticación y configuración explícitas.
+- Los datos de usuario se guardan fuera del repositorio y del paquete de distribución.
 
-## V0.2.0 status
+## Estructura actual
 
-V0.1   = CLOSED / MERGED
-V0.2.0 = CLOSED / MERGED
-V0.2.1 = CLOSED / MERGED
-V0.2.2 = CLOSED / MERGED
-V0.2.3 = IN REVIEW (PR #9; stabilization gate not yet accepted)
+La rama product/complete-vtuber-experience contiene la especificación integral del producto y será la rama de trabajo para implementar el alcance completo. El PR #9 de estabilización se conserva abierto y no se fusiona automáticamente.
 
-## Build
+## Compilar y ejecutar en Windows
 
 ```text
 dotnet restore VtuberBot.sln
 dotnet build VtuberBot.sln --configuration Release
 dotnet test VtuberBot.sln --configuration Release
-```
-
-Run the WPF application:
-
-```text
 dotnet run --project src/VtuberBot.App --configuration Release
 ```
 
-Windows CI performs restore, Release build and tests on `windows-latest`.
+## Criterio de finalización
 
-## Configuration
-
-`config.toml` remains optional. Without it, safe defaults are used. Relative database paths are resolved from the configuration file directory when a configuration file is supplied.
-
-## Python reference
-
-Python remains until a separate validation/cleanup task removes the legacy implementation.
+El CI verde certifica únicamente la ejecución automatizada para el commit correspondiente. La aceptación del producto requiere además la integración real de las funciones descritas en PRODUCT_BLUEPRINT.md, sin botones muertos ni conexiones simuladas, seguida de una validación global en Windows.
