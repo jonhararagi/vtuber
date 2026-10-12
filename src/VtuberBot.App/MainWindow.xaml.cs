@@ -98,7 +98,9 @@ public partial class MainWindow : Window
             releaseHold: TimeSpan.FromMilliseconds(savedVadHoldMilliseconds),
             smoothingFactor: 0.35);
 
-        dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VtuberBot");
+        // Keep database, logs, avatar assets and encrypted secrets under the same
+        // configured data root. This also honors VTUBERBOT_HOME for isolated validation.
+        dataDirectory = application.Config.BaseDirectory;
         avatarDirectory = Path.Combine(dataDirectory, "avatars");
         secretDirectory = Path.Combine(dataDirectory, "secrets");
         Directory.CreateDirectory(avatarDirectory);

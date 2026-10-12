@@ -663,3 +663,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Corrección:** se añade `AvatarImageLimits` en Core (máximo 16.384 píxeles por dimensión y 80 millones de píxeles totales). `AvatarImageLoader` inspecciona los metadatos del primer fotograma y valida esos límites antes de cargar el bitmap. Avatar Studio y el overlay comparten el mismo cargador.
 - **Pruebas:** resoluciones Full HD, 4K, 8K y límite exacto aceptadas; dimensiones negativas/cero, eje superior al máximo y exceso de píxeles rechazados.
 - **Estado:** código y pruebas añadidos; Windows CI pendiente.
+
+
+### 2026-10-12 — Raíz de datos coherente con la configuración
+
+- **Hallazgo:** aunque Core respetaba `VTUBERBOT_HOME` y `AppConfig.BaseDirectory` para SQLite y logs, `MainWindow` volvía a construir la raíz de datos desde LocalAppData. Eso podía separar los assets del avatar y los secretos cifrados del resto de los datos, y la prueba aislada no controlaba esas rutas.
+- **Corrección:** la UI toma ahora `application.Config.BaseDirectory` como raíz única; avatares y secretos usan subcarpetas de esa raíz. En una instalación normal sigue siendo `%LocalAppData%\\VtuberBot`; en validación/entorno portable respeta la raíz configurada.
+- **Estado:** implementado en el nuevo HEAD; Windows CI pendiente.
