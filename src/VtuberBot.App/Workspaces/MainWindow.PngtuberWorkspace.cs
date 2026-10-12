@@ -101,6 +101,7 @@ public partial class MainWindow
         var links = new WrapPanel();
         links.Children.Add(ActionButton("Portal de descarga y guía (independiente)", (_, _) => OpenExternalUrl("https://pngtuber.cc/es/")));
         links.Children.Add(ActionButton("Página del proyecto en GitHub", (_, _) => OpenExternalUrl("https://github.com/kaiakairos/PNGTuber-Plus")));
+        links.Children.Add(ActionButton("Descarga del creador (itch.io)", (_, _) => OpenExternalUrl("https://kaiakairos.itch.io/pngtuber-plus")));
         
         appPanel.Children.Add(links);
         appPanel.Children.Add(Label(
