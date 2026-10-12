@@ -130,19 +130,19 @@ public partial class MainWindow
             }
         };
         obs.StatusChanged += obsStatusHandler;
+        var pageStatusHandler = obsStatusHandler;
+        var pageEventHandler = obsEventHandler;
         root.Unloaded += (_, _) =>
         {
-            if (obsStatusHandler is not null)
-            {
-                obs.StatusChanged -= obsStatusHandler;
-                obsStatusHandler = null;
-            }
+            if (pageStatusHandler is not null)
+                obs.StatusChanged -= pageStatusHandler;
+            if (pageEventHandler is not null)
+                obs.EventReceived -= pageEventHandler;
 
-            if (obsEventHandler is not null)
-            {
-                obs.EventReceived -= obsEventHandler;
+            if (ReferenceEquals(obsStatusHandler, pageStatusHandler))
+                obsStatusHandler = null;
+            if (ReferenceEquals(obsEventHandler, pageEventHandler))
                 obsEventHandler = null;
-            }
         };
 
         // Refresh on entry as well as on subsequent connection/reconnection events.
