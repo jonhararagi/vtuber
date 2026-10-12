@@ -184,9 +184,13 @@ public partial class MainWindow
 
         var prefix = parsed.Prefix ?? string.Empty;
         var bang = prefix.IndexOf('!');
-        var username = (bang > 0 ? prefix[..bang] : prefix).ToLowerInvariant();
-        if (!Regex.IsMatch(username, "^[a-zA-Z0-9_]{1,25}$"))
-            username = "viewer";
+        var rawUsername = bang > 0 ? prefix[..bang] : prefix;
+        if (!TwitchLoginPolicy.TryNormalize(rawUsername, out var username))
+        {
+            // Never award points or run commands under a synthetic "viewer" identity.
+            store.Log("Twitch", "Se ignoró un PRIVMSG con nombre de usuario inválido.");
+            return;
+        }
         var text = parsed.Trailing;
         PruneExpiredTwitchCooldowns(DateTimeOffset.UtcNow);
 
