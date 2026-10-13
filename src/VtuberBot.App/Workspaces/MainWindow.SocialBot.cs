@@ -23,6 +23,17 @@ public partial class MainWindow
         var interval = TextField("Intervalo mínimo entre frases (ms)", store.GetSetting("social.tts.intervalMs", "900"));
         var queueLimit = TextField("Máximo de frases de chat pendientes", store.GetSetting("social.tts.queueLimit", "30"));
         var ignoredUsers = TextField("Usuarios ignorados separados por coma", store.GetSetting("social.tts.ignoredUsers", ""));
+        var speechTest = TextField("Frase para probar la voz local", "Hola, esta es una prueba de voz local.");
+        speechPanel.Children.Add(Label("Prueba manual de voz", 12, "#98A4BE")); speechPanel.Children.Add(speechTest);
+        speechPanel.Children.Add(ActionButton("Encolar frase de prueba", (_, _) =>
+        {
+            var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var r) ? Math.Clamp(r, -10, 10) : 0;
+            var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var v) ? Math.Clamp(v, 0, 100) : 100;
+            if (speechTest.Text.Length is > 0 and <= 500 &&
+                speechQueue.Enqueue(speechTest.Text, SpeechPriority.Normal, store.GetSetting("audio.tts.voiceId"), rate, volume, store.GetSetting("audio.tts.outputId")))
+                FooterStatus.Text = "Frase de prueba encolada; esto solo confirma la cola, no que el audio ya se haya oído.";
+            else FooterStatus.Text = "No se pudo encolar la prueba: revisá la longitud y el estado de la cola.";
+        }));
         speechPanel.Children.Add(readEnabled); speechPanel.Children.Add(readAll); speechPanel.Children.Add(ignoreCommands); speechPanel.Children.Add(ignoreLinks);
         speechPanel.Children.Add(Label("Máximo de caracteres (20–500)", 12, "#98A4BE")); speechPanel.Children.Add(maxChars);
         speechPanel.Children.Add(Label("Intervalo entre frases (0–10000 ms)", 12, "#98A4BE")); speechPanel.Children.Add(interval);
@@ -34,7 +45,8 @@ public partial class MainWindow
         root.Children.Add(speechPanel);
 
         var aiPanel = Panel("2. Personalidad y proveedor local de IA");
-        var botName = TextField("Nombre del bot", store.GetSetting("social.bot.name", "VTuberBot"));
+        var botName = TextField("Nombre/personaje del bot", store.GetSetting("social.bot.name", "VTuberBot"));
+        var botLogin = TextField("Login real de la cuenta bot (evita responder a su propio eco)", store.GetSetting("twitch.bot.login", store.GetSetting("twitch.channel")));
         var language = TextField("Idioma de respuesta", store.GetSetting("social.bot.language", "español"));
         var tone = TextField("Tono", store.GetSetting("social.bot.tone", "cercano"));
         var personality = new TextBox { Text = store.GetSetting("social.bot.personality", "Simpático, bromista y respetuoso."), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, MinWidth = 280, Margin = new Thickness(0, 0, 0, 8), ToolTip = "Describe la personalidad; no habilita código ni acciones." };
@@ -50,7 +62,8 @@ public partial class MainWindow
         var autoReply = new CheckBox { Content = "Habilitar respuestas automáticas (por mención o comando)", IsChecked = store.GetSetting("social.chat.enabled", "false") == "true", Foreground = Brush("#F0C674"), Margin = new Thickness(0, 5, 0, 8) };
         var publish = new CheckBox { Content = "Publicar las respuestas generadas en el chat de Twitch", IsChecked = store.GetSetting("social.chat.publishToTwitch", "false") == "true", Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 3, 0, 8) };
         var speakReplies = new CheckBox { Content = "Encolar también las respuestas del bot en la voz local", IsChecked = store.GetSetting("social.chat.speakReplies", "false") == "true", Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 3, 0, 8) };
-        aiPanel.Children.Add(Label("Nombre", 12, "#98A4BE")); aiPanel.Children.Add(botName);
+        aiPanel.Children.Add(Label("Nombre/personaje", 12, "#98A4BE")); aiPanel.Children.Add(botName);
+        aiPanel.Children.Add(Label("Login real de Twitch de la cuenta bot", 12, "#98A4BE")); aiPanel.Children.Add(botLogin);
         aiPanel.Children.Add(Label("Idioma", 12, "#98A4BE")); aiPanel.Children.Add(language);
         aiPanel.Children.Add(Label("Tono", 12, "#98A4BE")); aiPanel.Children.Add(tone);
         aiPanel.Children.Add(Label("Personalidad", 12, "#98A4BE")); aiPanel.Children.Add(personality);
@@ -75,7 +88,9 @@ public partial class MainWindow
                 !int.TryParse(globalCooldown.Text, out var globalValue) || globalValue is < 1 or > 300 ||
                 !int.TryParse(userCooldown.Text, out var userValue) || userValue is < 1 or > 600 ||
                 !int.TryParse(perMinute.Text, out var minuteValue) || minuteValue is < 1 or > 20 ||
-                string.IsNullOrWhiteSpace(botName.Text) || botName.Text.Length > 40 || string.IsNullOrWhiteSpace(language.Text) || language.Text.Length > 40 ||
+                string.IsNullOrWhiteSpace(botName.Text) || botName.Text.Length > 40 || botLogin.Text.Length > 25 ||
+                (botLogin.Text.Length > 0 && botLogin.Text.Any(ch => !(char.IsLetterOrDigit(ch) || ch is '_' or '-'))) ||
+                string.IsNullOrWhiteSpace(language.Text) || language.Text.Length > 40 ||
                 string.IsNullOrWhiteSpace(tone.Text) || tone.Text.Length > 80 || personality.Text.Length > 1000 ||
                 command.Text.Trim().Length is < 2 or > 24 || !command.Text.Trim().StartsWith('!') || ignoredUsers.Text.Length > 2000)
             { MessageBox.Show(this, "Revisá los campos: hay valores fuera de rango o texto inválido.", "Configuración no guardada", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
@@ -86,7 +101,7 @@ public partial class MainWindow
             store.SetSetting("social.tts.ignoreLinks", ignoreLinks.IsChecked == true ? "true" : "false");
             store.SetSetting("social.tts.maxChars", maxCharsValue.ToString()); store.SetSetting("social.tts.intervalMs", intervalValue.ToString());
             store.SetSetting("social.tts.queueLimit", queueValue.ToString()); store.SetSetting("social.tts.ignoredUsers", ignoredUsers.Text.Trim());
-            store.SetSetting("social.bot.name", botName.Text.Trim()); store.SetSetting("social.bot.language", language.Text.Trim());
+            store.SetSetting("social.bot.name", botName.Text.Trim()); store.SetSetting("twitch.bot.login", botLogin.Text.Trim()); store.SetSetting("social.bot.language", language.Text.Trim());
             store.SetSetting("social.bot.tone", tone.Text.Trim()); store.SetSetting("social.bot.personality", personality.Text.Trim());
             store.SetSetting("social.ai.baseUrl", baseUrl.Text.Trim()); store.SetSetting("social.ai.model", model.Text.Trim());
             store.SetSetting("social.ai.timeoutSeconds", timeoutValue.ToString()); store.SetSetting("social.ai.maxInputChars", "4000");
