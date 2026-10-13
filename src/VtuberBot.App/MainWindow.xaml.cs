@@ -434,7 +434,7 @@ public partial class MainWindow : Window
         {
             "Inicio" => "Todo lo importante del stream, en un solo lugar.",
             "Centro de directo" => "Salida pública del avatar y controles privados del creador, separados.",
-            "Avatar Studio" => "Importá tu arte, prepará estados y controlá la salida transparente.",
+            "Avatar Studio" => "Probá un ejemplo PNGTuber o 2D por capas, o importá tu propio arte.",
             "Avatar externo" => "Configura PNGTuber Plus, verifica los pasos de avatar y administra atajos locales.",
             "Streamer.bot" => "Conexión WebSocket, catálogo de acciones y suscripciones de eventos confirmadas por el servidor.",
             "Twitch y chat" => "Conexión oficial por IRC/TLS; la cuenta solo aparece conectada tras autenticación real.",
