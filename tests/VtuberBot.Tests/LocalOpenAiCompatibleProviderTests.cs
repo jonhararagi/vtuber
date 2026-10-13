@@ -32,8 +32,10 @@ public sealed class LocalOpenAiCompatibleProviderTests
         using var provider = new LocalOpenAiCompatibleProvider(http);
         var ok = await provider.CheckAsync(new ChatIntelligenceOptions(Model: "available"), TestContext.Current.CancellationToken);
         var missing = await provider.CheckAsync(new ChatIntelligenceOptions(Model: "missing"), TestContext.Current.CancellationToken);
+        var unconfigured = await provider.CheckAsync(new ChatIntelligenceOptions(Model: ""), TestContext.Current.CancellationToken);
         Assert.True(ok.Success);
         Assert.Equal("ModelMissing", missing.Status);
+        Assert.Equal("ModelMissing", unconfigured.Status);
     }
 
     [Fact]
