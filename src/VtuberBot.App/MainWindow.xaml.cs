@@ -224,6 +224,16 @@ public partial class MainWindow : Window
         InitializeComponent();
         this.application = application;
         store = new ProductStore(application.Database.Path);
+        const string previousDefaultVoiceInstruction = "Habla en español con una voz femenina adulta joven, cálida, expresiva y de estilo anime original. Buena dicción, energía y emoción natural; no imites a un personaje o actriz específica.";
+        const string highPitchVoiceInstruction = "Habla en español con una voz femenina adulta joven MUY aguda y chillona, tipo personaje anime enérgico: timbre brillante, ligeramente nasal y juguetón, tono alto, reacciones exageradas y ritmo vivaz. Debe sonar intencionalmente aguda y caricaturesca, pero mantener dicción clara sin gritar ni distorsionar; no imites a un personaje, actriz ni persona real específica.";
+        var savedVoice = store.GetSetting("social.tts.remoteVoice", "Leda");
+        var savedVoiceInstructions = store.GetSetting("social.tts.remoteInstructions", previousDefaultVoiceInstruction);
+        if (string.Equals(savedVoice, "Leda", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(savedVoiceInstructions, previousDefaultVoiceInstruction, StringComparison.Ordinal))
+        {
+            store.SetSetting("social.tts.remoteVoice", "Zephyr");
+            store.SetSetting("social.tts.remoteInstructions", highPitchVoiceInstruction);
+        }
         secretStore = new UserSecretStore(Path.Combine(application.Config.BaseDirectory, "secrets"));
         remoteAiProvider = new RemoteOpenAiCompatibleProvider(() => secretStore.Read("remote-ai-api-key"));
         configuredAiProvider = new ConfiguredChatIntelligenceProvider(localAiProvider, remoteAiProvider,
@@ -235,9 +245,9 @@ public partial class MainWindow : Window
                 secretStore,
                 () => store.GetSetting("social.tts.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta"),
                 () => store.GetSetting("social.tts.remoteModel", "gemini-3.8-flash-tts"),
-                () => store.GetSetting("social.tts.remoteVoice", "Leda"),
+                () => store.GetSetting("social.tts.remoteVoice", "Zephyr"),
                 () => store.GetSetting("social.tts.remoteInstructions",
-                    "Habla en español con una voz femenina adulta joven, cálida, expresiva y de estilo anime original. Buena dicción, energía y emoción natural; no imites a un personaje o actriz específica."),
+                    "Habla en español con una voz femenina adulta joven MUY aguda y chillona, tipo personaje anime enérgico: timbre brillante, ligeramente nasal y juguetón, tono alto, reacciones exageradas y ritmo vivaz. Debe sonar intencionalmente aguda y caricaturesca, pero mantener dicción clara sin gritar ni distorsionar; no imites a un personaje, actriz ni persona real específica."),
                 () => store.GetSetting("social.ai.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta/openai/"))));
         communityCommandRouter = new CommunityCommandRouter(store);
         socialBot = new SocialBotService(store, speechQueue, twitch, configuredAiProvider, SetChatReactionExpression);
