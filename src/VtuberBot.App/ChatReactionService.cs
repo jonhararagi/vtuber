@@ -419,7 +419,7 @@ public sealed class ChatReactionService : IAsyncDisposable
         var id = string.IsNullOrWhiteSpace(rule.Id) ? Guid.NewGuid().ToString("N") : rule.Id;
         if (id.Length > 64) { error = "ID de regla inválido."; return false; }
         clean = rule with { Id = id, Name = rule.Name.Trim(), Trigger = rule.Trigger.Trim(),
-            Responses = rule.Responses.Select(x => x.Trim()).ToArray(), Expression = rule.Expression.Trim() };
+            Responses = rule.Responses.Select(x => x.Trim()).ToArray(), Expression = rule.Expression?.Trim() ?? "" };
         return true;
     }
 
