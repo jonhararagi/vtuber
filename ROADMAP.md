@@ -295,3 +295,14 @@ El run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040) so
 - [ ] Pendiente: comprobar el SHA final exacto con Windows CI, leer el resumen de pruebas y confirmar el artefacto de ese mismo SHA.
 - [ ] Pendiente: pruebas manuales en Windows con Twitch autenticado, desconexión real durante inferencia, SAPI y un servidor llama.cpp con modelo GGUF real.
 - Límite conocido: un mensaje que Twitch ya aceptó antes de la solicitud de pausa no puede retirarse automáticamente de forma fiable.
+
+## Orden 2/4 — Reacciones configurables del chat y Centro de directo (2026-10-13)
+
+- [x] Crear un servicio de reglas especializado y acotado, sin IA, con coincidencias exactas, palabra completa y frase contenida; normalización de mayúsculas/acentos; alternativas `{user}`; cooldowns, límite/minuto y prioridad por orden.
+- [x] Integrar el servicio en el único flujo de mensajes IRC validado; deduplicar ID, ignorar la identidad del bot/canal y cancelar/inutilizar trabajos al pausar, desconectar o cerrar.
+- [x] Persistir reglas en SQLite y validar límites; reglas nuevas desactivadas; prueba local de solo lectura/efectos sin Twitch.
+- [x] Añadir Centro de directo con controles privados y salida pública en `AvatarOverlayWindow`; expresiones dependientes de recursos PNG existentes; mantener TTS independiente.
+- [x] Documentar límites de envío IRC y prueba manual.
+- [ ] Validar Windows CI en el SHA final exacto, incluidos restore, build Release, suite completa y artefacto.
+- [ ] Validación manual real en Windows con Twitch, OBS, SAPI y sprites de avatar.
+- No se prioriza ni se implementa agente autónomo de videojuegos; los minijuegos de Twitch existentes se mantienen.
