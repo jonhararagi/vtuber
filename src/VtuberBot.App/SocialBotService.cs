@@ -29,7 +29,7 @@ public sealed class SocialBotService : IAsyncDisposable
     private DateTimeOffset lastSpeechAt = DateTimeOffset.MinValue;
     private int disposed;
     private readonly object generationGate = new();
-    private CancellationTokenSource? activeGeneration;
+    private readonly HashSet<CancellationTokenSource> activeGenerations = [];
 
     public event Action<SocialBotStatus>? StatusChanged;
     public SocialBotService(ProductStore store, LocalSpeechQueue speech, TwitchChatClient twitch, IChatIntelligenceProvider provider)
@@ -130,7 +130,7 @@ public sealed class SocialBotService : IAsyncDisposable
 
     public void CancelGeneration()
     {
-        lock (generationGate) activeGeneration?.Cancel();
+        lock (generationGate) foreach (var generation in activeGenerations) generation.Cancel();
         Publish("IA", "Se solicitó cancelar la generación activa.", PendingConversations);
     }
 
@@ -146,9 +146,9 @@ public sealed class SocialBotService : IAsyncDisposable
         ChatIntelligenceOptions options, IReadOnlyList<ChatConversationMessage> messages, CancellationToken cancellationToken)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stop.Token);
-        lock (generationGate) activeGeneration = linked;
+        lock (generationGate) activeGenerations.Add(linked);
         try { return await provider.GenerateAsync(options, messages, linked.Token).ConfigureAwait(false); }
-        finally { lock (generationGate) if (ReferenceEquals(activeGeneration, linked)) activeGeneration = null; }
+        finally { lock (generationGate) activeGenerations.Remove(linked); }
     }
     private bool ShouldRead(string username, string text)
     {
