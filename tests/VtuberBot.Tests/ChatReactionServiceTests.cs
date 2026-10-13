@@ -164,7 +164,7 @@ public sealed class ChatReactionServiceTests
         Assert.Equal("¡Hola alice!", effects.LastMessage);
         Assert.Equal("Happy", effects.LastExpression);
         await WaitForOutcomeAsync(service, "Respuesta enviada");
-        Assert.Equal("primera", Assert.Single(service.GetRecentActivity().Where(x => x.Outcome == "Respuesta enviada")).RuleName);
+        Assert.Equal("primera", Assert.Single(service.GetRecentActivity(), x => x.Outcome == "Respuesta enviada").RuleName);
     }
 
     [Fact]
