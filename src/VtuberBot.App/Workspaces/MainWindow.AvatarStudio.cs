@@ -72,8 +72,8 @@ public partial class MainWindow
         var beginnerActions = new WrapPanel();
         beginnerActions.Children.Add(ActionButton("1 · PNGTuber de ejemplo", (_, _) =>
             LoadDemoProfile("Ejemplo PNGTuber", layered: false), true));
-        beginnerActions.Children.Add(ActionButton("PNGTuber con mis imágenes", async (_, _) =>
-            await CreateSimplePngTuberAsync()));
+        beginnerActions.Children.Add(ActionButton("PNGTuber con mis imágenes", (_, _) =>
+            CreateSimplePngTuber()));
         startLocalSegmentation = ActionButton("2 · 2.5D con IA local", async (_, _) =>
             await StartLocalAvatarSegmentationAsync());
         beginnerActions.Children.Add(startLocalSegmentation);
@@ -289,7 +289,7 @@ public partial class MainWindow
             Margin = new Thickness(0, 0, 0, 14)
         });
 
-        async Task CreateSimplePngTuberAsync()
+        void CreateSimplePngTuber()
         {
             var idleDialog = new OpenFileDialog
             {
