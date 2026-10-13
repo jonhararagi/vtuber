@@ -1270,3 +1270,18 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Publicación self-contained win-x64: correcta. El workflow validó el ejecutable `VtuberBot.App.exe`, `BUILD-INFO.txt` y los patrones de archivos prohibidos antes de subir el ZIP.
 - Artefacto exacto: `VTuberBot-Product-Candidate-win-x64-0609de270aa045912f487c5117c429bce8a25b30`, 77,992,115 bytes, SHA-256 `107075a6f97ae93bdb7e068382225c82fffcfa2bb3e808f29457ea20713a4c11`, expiración 2026-10-27 10:36:30 UTC.
 - Esta evidencia valida compilación, suite automatizada y paquete para el SHA citado; no equivale a prueba manual con Twitch, OBS, Streamer.bot, Telegram/WebView2, micrófono ni PNGTuber Plus real. Los commits documentales posteriores deben validarse mediante el run correspondiente a su propio SHA.
+
+
+## Continuidad — Bot social, TTS local e IA conversacional (2026-10-13)
+
+**Implementación añadida, aceptación pendiente de CI y pruebas manuales.**
+
+- SHA base inspeccionado antes de esta orden: `04cd8ca0bb07ff9ab3261ee0d1eb55f483abead4`.
+- Core: `LocalOpenAiCompatibleProvider` implementa una abstracción `IChatIntelligenceProvider`, comprobación de `/v1/models` y generación mediante `/v1/chat/completions`. Rechaza hosts fuera de loopback; timeout, JSON inválido, modelo ausente, respuesta vacía y errores HTTP se representan como estados, no como texto ficticio.
+- App: `SocialBotService` consume mensajes ya validados desde el flujo IRC/TLS existente; usa `LocalSpeechQueue` y `TwitchChatClient`, no crea clientes duplicados. La generación corre en un worker con canal acotado. Se ignoran mensajes de la identidad bot configurada y del canal como fallback. Se aplican filtros TTS, repetición limitada, cooldowns y límite de respuestas/minuto.
+- UI: nuevo workspace `Bot social` para lectura de chat, filtros, límites, voz de prueba, parar/vaciar cola, personalidad, endpoint/modelo local, prueba privada, estado del proveedor y cancelación. Publicación a Twitch y voz de respuestas son interruptores separados.
+- Seguridad por defecto: TTS desactivado; leer todos los mensajes desactivado; conversación automática desactivada; publicar en Twitch desactivado; voz de respuestas desactivada. El proveedor solo acepta localhost/loopback y no descarga modelos. Activar respuestas automáticas solicita confirmación.
+- Pruebas añadidas: `LocalOpenAiCompatibleProviderTests.cs` cubre el protocolo simulado, verificación del modelo, rechazo de URL remota, respuesta vacía/JSON inválido y validación de entradas. Aún no se afirma que la suite completa compile o pase en Windows hasta observar el run correspondiente al SHA final.
+- Archivos creados: `src/VtuberBot.Core/LocalOpenAiCompatibleProvider.cs`, `src/VtuberBot.App/SocialBotService.cs`, `src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs`, `tests/VtuberBot.Tests/LocalOpenAiCompatibleProviderTests.cs`.
+- Archivos modificados: `src/VtuberBot.App/MainWindow.xaml.cs`, `src/VtuberBot.App/Workspaces/MainWindow.Twitch.cs`, `docs/EXTERNAL-INTEGRATIONS.md`, `docs/PRODUCT_USER_GUIDE.md`, `ROADMAP.md`.
+- Pendiente: inspeccionar CI del SHA final y corregir fallos reales; comprobar artefacto asociado a ese mismo SHA; prueba manual con SAPI/Windows, Twitch OAuth y cuenta bot separada, llama.cpp y un modelo instalado. El estado «generado» no implica «publicado», y el envío aceptado por Twitch no demuestra que el espectador haya oído el audio.
