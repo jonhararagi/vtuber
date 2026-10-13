@@ -271,7 +271,7 @@ public sealed class EventActionCoordinatorTests
                     await Task.Delay(10, TestContext.Current.CancellationToken);
                 }
                 return false;
-            });
+            }, TestContext.Current.CancellationToken);
         }
 
         public Task<EventActionExecutionResult> DispatchAsync(EventActionRule rule, NormalizedBotEvent evt, CancellationToken cancellationToken)
