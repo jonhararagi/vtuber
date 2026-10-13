@@ -333,7 +333,7 @@ public sealed class ChatReactionService : IAsyncDisposable
 
                     lock (gate)
                         if (paused || item.Epoch != connectionEpoch || !twitchConnected || !isConnected())
-                            throw new OperationCanceledException("sesión invalidada antes del envío", operation.Token);
+                            throw new OperationCanceledException("sesión invalidada antes del envío", activeOperation.Token);
                     var sent = await sendChat(response, operation.Token).ConfigureAwait(false);
                     if (!sent)
                     {
