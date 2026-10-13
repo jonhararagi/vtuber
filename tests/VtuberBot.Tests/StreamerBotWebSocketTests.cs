@@ -79,6 +79,10 @@ public sealed class StreamerBotWebSocketTests
                         await SendTextAsync(socket, response);
                         await SendTextAsync(socket, """{"timeStamp":"2026-10-12T00:00:00Z","event":{"source":"Twitch","type":"Follow"},"data":{"userName":"viewer"}}""");
                         continue;
+                    case "UnSubscribe":
+                        var unselected = root.GetProperty("events").Clone();
+                        response = JsonSerializer.Serialize(new { status = "ok", id, events = unselected });
+                        break;
                     case "DoAction":
                         var requestedAction = root.GetProperty("action").GetProperty("id").GetString();
                         response = JsonSerializer.Serialize(new
@@ -107,6 +111,8 @@ public sealed class StreamerBotWebSocketTests
         Assert.Contains("Follow", subscribed["Twitch"]);
         var received = await eventReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal("Twitch.Follow", received.Key);
+        var unsubscribed = await client.UnsubscribeAsync(new Dictionary<string, string[]> { ["Twitch"] = ["Follow"] });
+        Assert.Contains("Follow", unsubscribed["Twitch"]);
         var action = await client.DoActionAsync("a0ff6f91-a51e-4b7d-948b-5e03ff4a82f0");
         Assert.True(action.Success);
         var rejected = await client.DoActionAsync("00000000-0000-0000-0000-000000000001");
