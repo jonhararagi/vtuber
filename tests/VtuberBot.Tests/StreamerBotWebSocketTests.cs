@@ -52,7 +52,7 @@ public sealed class StreamerBotWebSocketTests
             var hello = """{"request":"Hello","info":{"instanceId":"test-instance","name":"Test","version":"1.0","os":"windows"},"authentication":{"salt":"salt","challenge":"challenge"}}""";
             var helloBytes = Encoding.UTF8.GetBytes(hello);
             await socket.SendAsync(new ArraySegment<byte>(helloBytes, 0, helloBytes.Length / 2), WebSocketMessageType.Text, false, TestContext.Current.CancellationToken);
-            await socket.SendAsync(new ArraySegment<byte>(helloBytes, helloBytes.Length / 2, helloBytes.Length - helloBytes.Length / 2), WebSocketMessageType.Text, true, CancellationToken.None);
+            await socket.SendAsync(new ArraySegment<byte>(helloBytes, helloBytes.Length / 2, helloBytes.Length - helloBytes.Length / 2), WebSocketMessageType.Text, true, TestContext.Current.CancellationToken);
 
             while (socket.State == WebSocketState.Open)
             {
@@ -101,7 +101,7 @@ public sealed class StreamerBotWebSocketTests
             }
         });
 
-        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port, "/"), "pw");
+        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port, "/"), "pw", TestContext.Current.CancellationToken);
         Assert.Equal(StreamerBotConnectionState.Connected, client.Snapshot.State);
         Assert.Equal("test-instance", client.Snapshot.Instance?.InstanceId);
         Assert.Empty(await client.GetActionsAsync(TestContext.Current.CancellationToken));
@@ -128,7 +128,7 @@ public sealed class StreamerBotWebSocketTests
         var port = ReservePort();
         using var listener = new HttpListener();
         listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
-        var server = Task.Run(async () =>
+        var server = RunServer(async () =>
         {
             var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
             using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
@@ -138,7 +138,7 @@ public sealed class StreamerBotWebSocketTests
         await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
         await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), null, TestContext.Current.CancellationToken);
         Assert.Equal(StreamerBotConnectionState.Connected, client.Snapshot.State);
-        await client.DisconnectAsync();
+        await client.DisconnectAsync(TestContext.Current.CancellationToken);
         await server.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
@@ -148,7 +148,7 @@ public sealed class StreamerBotWebSocketTests
         var port = ReservePort();
         using var listener = new HttpListener();
         listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
-        var server = Task.Run(async () =>
+        var server = RunServer(async () =>
         {
             var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
             using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
@@ -161,7 +161,7 @@ public sealed class StreamerBotWebSocketTests
         });
         await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
         await Assert.ThrowsAsync<StreamerBotAuthenticationException>(() =>
-            client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), "wrong-password"));
+            client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), "wrong-password", TestContext.Current.CancellationToken));
         Assert.Equal(StreamerBotConnectionState.AuthenticationError, client.Snapshot.State);
         await server.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
@@ -172,7 +172,7 @@ public sealed class StreamerBotWebSocketTests
         var port = ReservePort();
         using var listener = new HttpListener();
         listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
-        var server = Task.Run(async () =>
+        var server = RunServer(async () =>
         {
             var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
             using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
@@ -193,8 +193,8 @@ public sealed class StreamerBotWebSocketTests
         });
         await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
         await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), cancellationToken: TestContext.Current.CancellationToken);
-        var actionsTask = client.GetActionsAsync();
-        var eventsTask = client.GetEventsAsync();
+        var actionsTask = client.GetActionsAsync(TestContext.Current.CancellationToken);
+        var eventsTask = client.GetEventsAsync(TestContext.Current.CancellationToken);
         await Task.WhenAll(actionsTask, eventsTask);
         Assert.Equal("Raid Action", Assert.Single(await actionsTask).Name);
         Assert.Contains("Raid", (await eventsTask)["Twitch"]);
@@ -207,7 +207,7 @@ public sealed class StreamerBotWebSocketTests
         var port = ReservePort();
         using var listener = new HttpListener();
         listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
-        var server = Task.Run(async () =>
+        var server = RunServer(async () =>
         {
             var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
             using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
@@ -217,10 +217,10 @@ public sealed class StreamerBotWebSocketTests
             await Task.Delay(500, TestContext.Current.CancellationToken);
         });
         await using var client = new StreamerBotWebSocketClient(TimeSpan.FromMilliseconds(150));
-        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port));
+        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), cancellationToken: TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<TimeoutException>(() => client.GetActionsAsync());
         Assert.Equal(StreamerBotConnectionState.Connected, client.Snapshot.State);
-        await client.DisconnectAsync();
+        await client.DisconnectAsync(TestContext.Current.CancellationToken);
         await server.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
@@ -231,7 +231,7 @@ public sealed class StreamerBotWebSocketTests
         using var listener = new HttpListener();
         listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
         var requestSeen = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var server = Task.Run(async () =>
+        var server = RunServer(async () =>
         {
             var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
             using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
@@ -241,13 +241,13 @@ public sealed class StreamerBotWebSocketTests
             await Task.Delay(500, TestContext.Current.CancellationToken);
         });
         await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
-        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port));
+        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), cancellationToken: TestContext.Current.CancellationToken);
         using var cts = new CancellationTokenSource();
         var operation = client.GetActionsAsync(cts.Token);
         await requestSeen.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         cts.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation);
-        await client.DisconnectAsync();
+        await client.DisconnectAsync(TestContext.Current.CancellationToken);
         await server.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
@@ -257,7 +257,7 @@ public sealed class StreamerBotWebSocketTests
         var port = ReservePort();
         using var listener = new HttpListener();
         listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
-        var server = Task.Run(async () =>
+        var server = RunServer(async () =>
         {
             var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
             using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
@@ -267,7 +267,7 @@ public sealed class StreamerBotWebSocketTests
             await Task.Delay(200, TestContext.Current.CancellationToken);
         });
         await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
-        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port));
+        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), cancellationToken: TestContext.Current.CancellationToken);
         await WaitForStateAsync(client, StreamerBotConnectionState.ProtocolError);
         Assert.Equal(StreamerBotConnectionState.ProtocolError, client.Snapshot.State);
         await server.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
@@ -279,18 +279,18 @@ public sealed class StreamerBotWebSocketTests
         var port = ReservePort();
         using var listener = new HttpListener();
         listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
-        var server = Task.Run(async () =>
+        var server = RunServer(async () =>
         {
             var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
             using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
             await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"disconnect","name":"Test","version":"1","os":"windows"}}""");
             await Task.Delay(100, TestContext.Current.CancellationToken);
-            await socket.CloseOutputAsync(WebSocketCloseStatus.EndpointUnavailable, "test disconnect", CancellationToken.None);
+            await socket.CloseOutputAsync(WebSocketCloseStatus.EndpointUnavailable, "test disconnect", TestContext.Current.CancellationToken);
         });
         await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
         var stateChanged = new TaskCompletionSource<StreamerBotConnectionState>(TaskCreationOptions.RunContinuationsAsynchronously);
         client.StateChanged += state => { if (state.State == StreamerBotConnectionState.UnexpectedDisconnect) stateChanged.TrySetResult(state.State); };
-        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port));
+        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(StreamerBotConnectionState.UnexpectedDisconnect, await stateChanged.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
         await server.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
@@ -321,7 +321,7 @@ public sealed class StreamerBotWebSocketTests
         WebSocketReceiveResult result;
         do
         {
-            result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+            result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), TestContext.Current.CancellationToken);
             if (result.MessageType == WebSocketMessageType.Close) throw new IOException("Client closed.");
             stream.Write(buffer, 0, result.Count);
         } while (!result.EndOfMessage);
@@ -329,5 +329,5 @@ public sealed class StreamerBotWebSocketTests
     }
 
     private static Task SendTextAsync(WebSocket socket, string message) =>
-        socket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(message)), WebSocketMessageType.Text, true, CancellationToken.None);
+        socket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(message)), WebSocketMessageType.Text, true, TestContext.Current.CancellationToken);
 }
