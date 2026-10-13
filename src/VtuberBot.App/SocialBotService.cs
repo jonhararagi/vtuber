@@ -13,7 +13,7 @@ public sealed record SocialBotStatus(string State, string Detail, int Pending);
 /// </summary>
 public sealed class SocialBotService : IAsyncDisposable
 {
-    private sealed record ChatWork(string Username, string Text, string Channel, DateTimeOffset ReceivedAt);
+    private sealed record ChatWork(string Username, string Text, string Channel, DateTimeOffset ReceivedAt, long Epoch);
     private readonly ProductStore store;
     private readonly LocalSpeechQueue speech;
     private readonly TwitchChatClient twitch;
@@ -30,6 +30,11 @@ public sealed class SocialBotService : IAsyncDisposable
     private int disposed;
     private readonly object generationGate = new();
     private readonly HashSet<CancellationTokenSource> activeGenerations = [];
+    private readonly HashSet<CancellationTokenSource> activeAutomaticGenerations = [];
+    private readonly object automationGate = new();
+    private long automationEpoch;
+    private bool automaticRepliesEnabled;
+    private bool twitchConnected;
 
     public event Action<SocialBotStatus>? StatusChanged;
     public SocialBotService(ProductStore store, LocalSpeechQueue speech, TwitchChatClient twitch, IChatIntelligenceProvider provider)
@@ -38,6 +43,9 @@ public sealed class SocialBotService : IAsyncDisposable
         this.speech = speech;
         this.twitch = twitch;
         this.provider = provider;
+        automaticRepliesEnabled = store.GetSetting("social.chat.enabled", "false") == "true";
+        twitchConnected = twitch.IsConnected;
+        twitch.ConnectionStateChanged += OnTwitchConnectionStateChanged;
         conversations = Channel.CreateBounded<ChatWork>(new BoundedChannelOptions(64)
         {
             FullMode = BoundedChannelFullMode.Wait,
@@ -90,7 +98,7 @@ public sealed class SocialBotService : IAsyncDisposable
             }
         }
 
-        if (store.GetSetting("social.chat.enabled", "false") != "true")
+        if (!IsAutomaticRepliesEnabled())
             return;
         var command = store.GetSetting("social.chat.command", "!bot").Trim();
         if (command.Length is < 2 or > 24 || !command.StartsWith('!'))
@@ -104,7 +112,12 @@ public sealed class SocialBotService : IAsyncDisposable
         var prompt = isCommand ? text[command.Length..].Trim() : Regex.Replace(
             text, @"(?<![\w])@" + Regex.Escape(string.IsNullOrWhiteSpace(botName) ? "VTuberBot" : botName) + @"(?![\w])", "", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(50)).Trim();
         if (prompt.Length == 0) prompt = "Saludá al chat brevemente."; 
-        var work = new ChatWork(username, prompt, channel, DateTimeOffset.UtcNow);
+        ChatWork work;
+        lock (automationGate)
+        {
+            if (!automaticRepliesEnabled || !twitchConnected) return;
+            work = new ChatWork(username, prompt, channel, DateTimeOffset.UtcNow, automationEpoch);
+        }
         if (!conversations.Writer.TryWrite(work))
         {
             Publish("IA", "Cola de conversaciones llena; se descartó una mención.", PendingConversations);
@@ -132,8 +145,66 @@ public sealed class SocialBotService : IAsyncDisposable
 
     public void CancelGeneration()
     {
-        lock (generationGate) foreach (var generation in activeGenerations) generation.Cancel();
+        lock (generationGate) foreach (var generation in activeGenerations.ToArray()) generation.Cancel();
         Publish("IA", "Se solicitó cancelar la generación activa.", PendingConversations);
+    }
+
+    /// <summary>Coordinates pause/resume with queued and active automatic conversations.</summary>
+    public void SetAutomaticRepliesEnabled(bool enabled)
+    {
+        lock (automationGate)
+        {
+            if (automaticRepliesEnabled == enabled && (store.GetSetting("social.chat.enabled", "false") == "true") == enabled)
+                return;
+            automaticRepliesEnabled = enabled;
+            automationEpoch++;
+            store.SetSetting("social.chat.enabled", enabled ? "true" : "false");
+        }
+        if (!enabled)
+        {
+            while (conversations.Reader.TryRead(out _)) { }
+            CancelAutomaticGenerations();
+            Publish("IA", "Respuestas automáticas desactivadas; se cancelaron trabajos activos y pendientes.", PendingConversations);
+        }
+        else
+            Publish("IA", "Respuestas automáticas habilitadas para mensajes nuevos.", PendingConversations);
+    }
+
+    private bool IsAutomaticRepliesEnabled()
+    {
+        lock (automationGate)
+            return automaticRepliesEnabled && twitchConnected &&
+                   store.GetSetting("social.chat.enabled", "false") == "true";
+    }
+
+    private bool IsWorkCurrent(ChatWork work)
+    {
+        lock (automationGate)
+            return automaticRepliesEnabled && twitchConnected && work.Epoch == automationEpoch &&
+                   store.GetSetting("social.chat.enabled", "false") == "true";
+    }
+
+    private void CancelAutomaticGenerations()
+    {
+        lock (generationGate)
+            foreach (var generation in activeAutomaticGenerations.ToArray()) generation.Cancel();
+    }
+
+    private void OnTwitchConnectionStateChanged(bool connected)
+    {
+        lock (automationGate)
+        {
+            twitchConnected = connected;
+            automationEpoch++;
+        }
+        if (!connected)
+        {
+            while (conversations.Reader.TryRead(out _)) { }
+            CancelAutomaticGenerations();
+            Publish("IA", "Twitch desconectado; se cancelaron conversaciones automáticas de la sesión.", PendingConversations);
+        }
+        else
+            Publish("IA", "Twitch conectado; se aceptarán menciones nuevas si la automatización está habilitada.", PendingConversations);
     }
 
     private ChatIntelligenceOptions BuildOptions() => new(
@@ -145,12 +216,24 @@ public sealed class SocialBotService : IAsyncDisposable
         ParseDouble("social.ai.temperature", 0.7));
 
     private async Task<ChatIntelligenceResult> GenerateCancellableAsync(
-        ChatIntelligenceOptions options, IReadOnlyList<ChatConversationMessage> messages, CancellationToken cancellationToken)
+        ChatIntelligenceOptions options, IReadOnlyList<ChatConversationMessage> messages, CancellationToken cancellationToken,
+        bool automatic = false)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stop.Token);
-        lock (generationGate) activeGenerations.Add(linked);
+        lock (generationGate)
+        {
+            activeGenerations.Add(linked);
+            if (automatic) activeAutomaticGenerations.Add(linked);
+        }
         try { return await provider.GenerateAsync(options, messages, linked.Token).ConfigureAwait(false); }
-        finally { lock (generationGate) activeGenerations.Remove(linked); }
+        finally
+        {
+            lock (generationGate)
+            {
+                activeGenerations.Remove(linked);
+                activeAutomaticGenerations.Remove(linked);
+            }
+        }
     }
     private bool ShouldRead(string username, string text)
     {
@@ -183,6 +266,7 @@ public sealed class SocialBotService : IAsyncDisposable
         {
             await foreach (var work in conversations.Reader.ReadAllAsync(stop.Token).ConfigureAwait(false))
             {
+                if (!IsWorkCurrent(work)) continue;
                 try { await ProcessConversationAsync(work, stop.Token).ConfigureAwait(false); }
                 catch (OperationCanceledException) when (stop.IsCancellationRequested) { break; }
                 catch (Exception ex) { store.Log("Bot social", "Error aislado al procesar conversación local (" + ex.GetType().Name + ")."); Publish("Error", "Falló una conversación; el chat continúa funcionando.", PendingConversations); }
@@ -193,6 +277,7 @@ public sealed class SocialBotService : IAsyncDisposable
 
     private async Task ProcessConversationAsync(ChatWork work, CancellationToken cancellationToken)
     {
+        if (!IsWorkCurrent(work)) return;
         var now = DateTimeOffset.UtcNow;
         var globalCooldown = TimeSpan.FromSeconds(Math.Clamp(ParseInt("social.chat.globalCooldownSeconds", 12), 1, 300));
         var userCooldown = TimeSpan.FromSeconds(Math.Clamp(ParseInt("social.chat.userCooldownSeconds", 30), 1, 600));
@@ -226,7 +311,12 @@ public sealed class SocialBotService : IAsyncDisposable
             messages.AddRange(context.TakeLast(8));
             messages.Add(new("user", $"{work.Username}: {work.Text}"));
         }
-        var generated = await GenerateCancellableAsync(options, messages, cancellationToken).ConfigureAwait(false);
+        var generated = await GenerateCancellableAsync(options, messages, cancellationToken, automatic: true).ConfigureAwait(false);
+        if (!IsWorkCurrent(work))
+        {
+            Publish("IA", "Generación automática cancelada: la automatización o la sesión Twitch cambió.", PendingConversations);
+            return;
+        }
         if (!generated.Success)
         {
             Publish("IA", generated.Status + ": " + generated.Error, PendingConversations);
@@ -246,17 +336,22 @@ public sealed class SocialBotService : IAsyncDisposable
         }
         if (store.GetSetting("social.chat.publishToTwitch", "false") == "true")
         {
-            if (!twitch.IsConnected)
+            if (!IsWorkCurrent(work) || !twitch.IsConnected)
             {
                 Publish("IA", "Respuesta generada, pero Twitch está desconectado; no se publicó.", PendingConversations);
                 return;
             }
             await twitch.SendMessageAsync(work.Channel, reply, cancellationToken).ConfigureAwait(false);
+            if (!IsWorkCurrent(work))
+            {
+                Publish("IA", "El envío comenzó antes de cambiar el estado; no se puede retirar un mensaje ya aceptado por Twitch.", PendingConversations);
+                return;
+            }
             Publish("IA", "Respuesta enviada a Twitch (sin confirmación de lectura por espectadores).", PendingConversations);
         }
         else Publish("IA", "Respuesta generada localmente; publicación en Twitch desactivada.", PendingConversations);
 
-        if (store.GetSetting("social.chat.speakReplies", "false") == "true")
+        if (IsWorkCurrent(work) && store.GetSetting("social.chat.speakReplies", "false") == "true")
         {
             var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var r) ? Math.Clamp(r, -10, 10) : 0;
             var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var v) ? Math.Clamp(v, 0, 100) : 100;
@@ -289,6 +384,7 @@ public sealed class SocialBotService : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref disposed, 1) != 0) return;
+        twitch.ConnectionStateChanged -= OnTwitchConnectionStateChanged;
         conversations.Writer.TryComplete();
         stop.Cancel();
         try { await worker.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
