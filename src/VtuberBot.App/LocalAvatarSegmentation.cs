@@ -102,7 +102,7 @@ internal static class LocalAvatarSegmentationWorker
         Report("Separando piel, ropa y cabello a 512 × 512...");
         var inputTensor = BuildInputTensor(bitmap);
         var inputName = session.InputMetadata.Keys.First();
-        using var modelInput = NamedOnnxValue.CreateFromTensor(inputName,
+        var modelInput = NamedOnnxValue.CreateFromTensor(inputName,
             new DenseTensor<float>(inputTensor, new[] { 1, 3, ModelSize, ModelSize }));
         using var outputs = session.Run(new[] { modelInput });
         var output = outputs.FirstOrDefault()
