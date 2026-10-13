@@ -182,22 +182,39 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel x:Name="NavigationPanel">
             <Button Content="◈  Inicio" Tag="Inicio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="◉  Centro de directo" Tag="Centro de directo" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="✧  Avatar Studio" Tag="Avatar Studio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="◈  Avatar externo" Tag="Avatar externo" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="⇄  Streamer.bot" Tag="Streamer.bot" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="◉  Twitch y chat" Tag="Twitch y chat" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="⌘  Comandos" Tag="Comandos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="♧  Comunidad y puntos" Tag="Comunidad y puntos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="⚡  Automatizaciones" Tag="Automatizaciones" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="✦  Sorteos" Tag="Sorteos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="♜  Minijuegos" Tag="Minijuegos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="⛨  Moderación" Tag="Moderación" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="♫  Voz y audio" Tag="Voz y audio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="▣  OBS" Tag="OBS" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="⇄  Integraciones" Tag="Integraciones" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="▤  Telegram Web" Tag="Telegram Web" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-            <Button Content="≋  Actividad y diagnóstico" Tag="Actividad y diagnóstico" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+            <Expander Header="EN DIRECTO" IsExpanded="True" Foreground="#98A4BE" Background="Transparent" BorderThickness="0" Padding="4,2" Margin="0,2,0,0">
+              <StackPanel>
+                <Button Content="◉  Centro de directo" Tag="Centro de directo" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="◉  Twitch y chat" Tag="Twitch y chat" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="✦  Bot social / IA" Tag="Bot social" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="▣  OBS y transmisiones" Tag="OBS" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+              </StackPanel>
+            </Expander>
+            <Expander Header="AVATAR Y VOZ" IsExpanded="False" Foreground="#98A4BE" Background="Transparent" BorderThickness="0" Padding="4,2" Margin="0,2,0,0">
+              <StackPanel>
+                <Button Content="✧  Avatar Studio" Tag="Avatar Studio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="◈  Avatar externo" Tag="Avatar externo" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="♫  Voz y audio" Tag="Voz y audio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+              </StackPanel>
+            </Expander>
+            <Expander Header="CHAT Y COMUNIDAD" IsExpanded="False" Foreground="#98A4BE" Background="Transparent" BorderThickness="0" Padding="4,2" Margin="0,2,0,0">
+              <StackPanel>
+                <Button Content="⌘  Comandos" Tag="Comandos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="♧  Comunidad y puntos" Tag="Comunidad y puntos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="✦  Sorteos" Tag="Sorteos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="♜  Minijuegos" Tag="Minijuegos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="⛨  Moderación" Tag="Moderación" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="⚡  Automatizaciones" Tag="Automatizaciones" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+              </StackPanel>
+            </Expander>
+            <Expander Header="INTEGRACIONES Y REGISTRO" IsExpanded="False" Foreground="#98A4BE" Background="Transparent" BorderThickness="0" Padding="4,2" Margin="0,2,0,0">
+              <StackPanel>
+                <Button Content="⇄  Streamer.bot" Tag="Streamer.bot" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="⇄  Integraciones" Tag="Integraciones" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="▤  Telegram Web" Tag="Telegram Web" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="≋  Actividad y diagnóstico" Tag="Actividad y diagnóstico" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+              </StackPanel>
+            </Expander>
           </StackPanel>
         </ScrollViewer>
       </DockPanel>
