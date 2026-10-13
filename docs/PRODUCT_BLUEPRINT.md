@@ -320,3 +320,13 @@ El candidato solo se considera listo para una validación global cuando:
 - La solución compila y pasa las pruebas; las funcionalidades probadas y no probadas están declaradas con honestidad.
 
 No se equipara “todos los proyectos compilan” con “producto completo”.
+
+## Orden 2/4 — Reacciones configurables y Centro de directo (2026-10-13)
+
+- El chat de Twitch alimenta el motor de reglas desde el único consumidor IRC existente. No se crea una segunda suscripción ni un segundo cliente.
+- Las reglas guardadas en SQLite soportan coincidencia exacta, palabra completa o frase contenida; normalización ordinal sin distinguir mayúsculas/minúsculas y normalización de acentos; respuestas alternativas con `{user}`; voz local opcional; expresiones del avatar existentes; cooldown global/por usuario y límite por minuto.
+- Las reglas nuevas están desactivadas. La prioridad es el orden de la lista; el primer match autorizado gana. Cola acotada, deduplicación por ID IRC, pausas, cancelación al desconectar/cerrar y registro de resultados sin almacenar el texto del chat en logs.
+- Las respuestas de reglas son independientes de la IA local y no llaman al proveedor conversacional. El botón de prueba es una simulación local que muestra el match/respuesta prevista sin enviar mensajes, voz ni expresiones.
+- El Centro de directo es privado. La ventana transparente `AvatarOverlayWindow` sigue siendo la única salida visual para OBS; no contiene navegación ni botones privados. Las expresiones solo se habilitan con los sprites del perfil disponibles.
+- No se desarrollará un agente autónomo que juegue videojuegos. Los minijuegos de Twitch existentes se conservan.
+- Limitaciones explícitas: un envío IRC completado no confirma que espectadores hayan visto el mensaje; los efectos reales de Twitch/OBS/SAPI requieren pruebas manuales en Windows con cuentas y recursos reales.
