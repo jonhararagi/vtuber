@@ -236,7 +236,7 @@ public partial class MainWindow
                     confirmedTargetId = targetId;
                 }
                 var conditions = new List<EventActionCondition>();
-                foreach (var line in conditionsEditor.Text.Split(new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                foreach (var line in conditionsEditor.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
                     var fields = line.Split('|', 3, StringSplitOptions.None);
                     if (fields.Length < 2 || fields.Length == 2 && fields[1] != "present")
