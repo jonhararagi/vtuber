@@ -164,9 +164,11 @@ public partial class MainWindow
             try
             {
                 await SetManualStreamerBotSubscriptionsAsync(selected);
-                eventsStatus.Text = selected.Count == 0
-                    ? "Selección manual vacía. Las reglas habilitadas conservan solo sus suscripciones necesarias."
-                    : "Selección manual guardada; suscripciones reconciliadas con las reglas habilitadas.";
+                eventsStatus.Text = streamerBot.Snapshot.State != StreamerBotConnectionState.Connected
+                    ? "Selección manual guardada; se aplicará al conectar Streamer.bot."
+                    : selected.Count == 0
+                        ? "Selección manual vacía. Las reglas habilitadas conservan solo sus suscripciones necesarias."
+                        : "Selección manual guardada; suscripciones reconciliadas con las reglas habilitadas.";
             }
             catch (Exception ex) { eventsStatus.Text = "Suscripciones no confirmadas: " + ex.Message; }
         }, true));
