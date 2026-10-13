@@ -59,6 +59,7 @@ public sealed record EventActionRule(
     int CooldownSeconds = 0,
     int MaxExecutionsPerMinute = 10,
     bool ExternalActionConfirmed = false,
+    string? ConfirmedTargetId = null,
     int SchemaVersion = 1);
 
 public sealed record EventActionExecutionResult(
@@ -327,7 +328,8 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
                     "Atajo automático bloqueado: el envío de teclas no está autorizado globalmente.");
                 continue;
             }
-            if (rule.Destination == EventActionDestination.StreamerBot && !rule.ExternalActionConfirmed)
+            if (rule.Destination == EventActionDestination.StreamerBot &&
+                (!rule.ExternalActionConfirmed || !string.Equals(rule.ConfirmedTargetId, rule.TargetId, StringComparison.OrdinalIgnoreCase)))
             {
                 RecordActivity(rule, evt, EventActionOutcome.InvalidDestination,
                     "Acción externa bloqueada: falta la confirmación explícita del destino.");
