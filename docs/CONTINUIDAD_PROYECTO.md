@@ -1402,3 +1402,14 @@ Esta tabla es un análisis de ramas, no una afirmación de que las ramas enumera
 - Este asistente es un acceso de flujo de trabajo a herramientas externas, no una implementación integrada del modelo ni un importador PSD dentro del overlay VTuberBot. No afirmar que procesa una imagen dentro de la aplicación hasta implementar y validar ese pipeline completo.
 - Pendiente verificar CI de Windows del nuevo botón y documentación; revisión visual manual en el PC del usuario aún pendiente.
 
+## Simplificación de Avatar Studio para principiantes (13/10/2026)
+
+- Reorganizado `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs`: tarjeta principal «Empezá por acá — elegí tu tipo de VTuber», con tres rutas claras.
+  - **PNGTuber recomendado:** activar el ejemplo incluido o crear un perfil desde imagen propia. Permite elegir sprite de reposo y opcionalmente una segunda imagen con la boca abierta; si solo se aporta una imagen, se aclara que será estática al hablar.
+  - **2.5D con IA local:** utiliza el separador experimental de piel/ropa/cabello creado en commits anteriores; CPU, un hilo de ONNX, prioridad baja, proceso hijo, límite de memoria de 2 GiB aplicado por Windows Job Object, límite de ejecución de 10 minutos, cancelación y salida PNG por capas. Si Windows no permite imponer el límite, no se inicia el trabajo.
+  - **3D con VRoid:** botón abre VRoid Studio externo; el modelo VRM aún no se importa al overlay de VTuberBot. La interfaz lo explica para no prometer compatibilidad todavía.
+- Los controles de administración de perfiles ahora están plegados bajo «Opciones avanzadas de perfil». La biblioteca de ropa/colores y las herramientas online están bajo «Personalización avanzada». La tarjeta de inicio mantiene visibles el progreso y la cancelación del procesamiento local.
+- Guía para principiantes actualizada en `docs/PRODUCT_USER_GUIDE.md`. El objetivo de producto elegido es **PNGTuber primero** para una primera experiencia sencilla y de bajo consumo; 2.5D es modo experimental opcional; 3D requiere una fase posterior de runtime VRM/rig.
+- Validación previa: la compilación de Windows de la versión del worker sin la nueva interfaz pasó CI #602, pero los commits de UX deben confirmarse por la nueva ejecución de CI antes de distribuir el ZIP. El proceso de IA no se ha medido todavía en el PC del usuario; el límite de 2 GiB es la restricción del proceso hijo, no de VTuberBot + OBS + Windows en conjunto. La precisión semántica en arte anime es baja/experimental según el autor del modelo.
+- Modelo tercero: ONNX de Skin-Clothes-Hair-Segmentation-using-SMP con licencia MIT y verificación SHA/tamaño, descrito en `docs/THIRD_PARTY_NOTICES.md`.
+
