@@ -323,4 +323,50 @@ public sealed class SocialBotServiceTests
             ?? throw new InvalidOperationException("Connection state seam was not found.");
         setter.Invoke(client, [connected]);
     }
+
+    [Fact]
+    public async Task GlobalAndPerUserCooldownsSuppressImmediateRepeatResponses()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SetSetting("social.chat.enabled", "true");
+        store.SetSetting("social.chat.globalCooldownSeconds", "300");
+        store.SetSetting("social.chat.userCooldownSeconds", "600");
+        store.SetSetting("social.chat.maxPerMinute", "1");
+        var speech = new LocalSpeechQueue();
+        await using var twitch = new TwitchChatClient();
+        var provider = new FakeProvider();
+        await using var service = new SocialBotService(store, speech, twitch, provider);
+        var firstReply = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.StatusChanged += status =>
+        {
+            if (status.State == "IA" && status.Detail.Contains("Respuesta generada localmente", StringComparison.Ordinal))
+                firstReply.TrySetResult(true);
+        };
+
+        service.OnChatMessage("alice", "!bot primera", "channel");
+        await firstReply.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        service.OnChatMessage("alice", "!bot repetida", "channel");
+        service.OnChatMessage("bob", "!bot global", "channel");
+
+        Assert.Equal(1, Volatile.Read(ref provider.Calls));
+        speech.Dispose();
+    }
+
+    [Fact]
+    public async Task ProviderConnectivityCheckDoesNotStartConversationGeneration()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var speech = new LocalSpeechQueue();
+        await using var twitch = new TwitchChatClient();
+        var provider = new FakeProvider();
+        await using var service = new SocialBotService(store, speech, twitch, provider);
+
+        var result = await service.CheckProviderAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success);
+        Assert.Equal(0, Volatile.Read(ref provider.Calls));
+        speech.Dispose();
+    }
 }
