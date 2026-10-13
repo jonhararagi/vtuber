@@ -219,9 +219,11 @@ public partial class MainWindow
             IsIndeterminate = false
         };
         var localSegmentationActions = new WrapPanel();
-        var startLocalSegmentation = ActionButton("Elegir imagen y separar localmente", async (_, _) =>
+        Button startLocalSegmentation = null!;
+        Button cancelLocalSegmentation = null!;
+        startLocalSegmentation = ActionButton("Elegir imagen y separar localmente", async (_, _) =>
             await StartLocalAvatarSegmentationAsync(), true);
-        var cancelLocalSegmentation = ActionButton("Cancelar procesamiento", (_, _) =>
+        cancelLocalSegmentation = ActionButton("Cancelar procesamiento", (_, _) =>
             activeLocalAvatarSegmentation?.Cancel());
         cancelLocalSegmentation.IsEnabled = false;
         localSegmentationActions.Children.Add(startLocalSegmentation);
