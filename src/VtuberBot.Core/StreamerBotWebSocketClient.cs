@@ -319,7 +319,7 @@ public sealed class StreamerBotWebSocketClient : IStreamerBotClient
         }
         catch (TimeoutException)
         {
-            throw new TimeoutException("Streamer.bot no respondió dentro de 10 segundos; el resultado de la solicitud puede ser desconocido.");
+            throw new TimeoutException($"Streamer.bot no respondió dentro de {requestTimeout.TotalSeconds:0.###} segundos; el resultado de la solicitud puede ser desconocido.");
         }
         finally { pending.TryRemove(id, out _); }
     }
