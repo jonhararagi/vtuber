@@ -10,6 +10,8 @@ public partial class MainWindow
     private EventActionCoordinator? eventActionCoordinator;
     private PngtuberHotkeyRegistry? eventActionHotkeys;
     private readonly List<StreamerBotAction> eventActionStreamerBotActions = [];
+    private readonly SemaphoreSlim eventActionSubscriptionGate = new(1, 1);
+    private IReadOnlyDictionary<string, string[]> appliedStreamerBotSubscriptions = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
     private void InitializeEventActionCoordination()
     {
@@ -189,7 +191,7 @@ public partial class MainWindow
         editor.Children.Add(Label("Reglas guardadas", 12, "#98A4BE")); editor.Children.Add(rulesList);
         var ruleButtons = new WrapPanel();
         ruleButtons.Children.Add(ActionButton("Nueva regla", (_, _) => { rulesList.SelectedItem = null; ResetEditor(); }));
-        ruleButtons.Children.Add(ActionButton("Guardar regla", (_, _) =>
+        ruleButtons.Children.Add(ActionButton("Guardar regla", async (_, _) =>
         {
             try
             {
@@ -211,20 +213,32 @@ public partial class MainWindow
                 }
                 var conditions = string.IsNullOrWhiteSpace(conditionPath.Text) ? Array.Empty<EventActionCondition>() :
                     [new EventActionCondition(conditionPath.Text.Trim(), conditionOperator.SelectedItem?.ToString() ?? "eq", conditionValue.Text)];
+                var selectedSource = source.SelectedItem?.ToString() ?? "";
+                if (selectedSource == "Streamer.bot")
+                {
+                    var available = await streamerBot.GetEventsAsync();
+                    if (!available.TryGetValue(category.Text.Trim(), out var names) || !names.Contains(eventType.Text.Trim(), StringComparer.OrdinalIgnoreCase))
+                        throw new InvalidOperationException("La categoría/tipo no aparece en GetEvents. Actualizá el catálogo y elegí un evento real.");
+                }
+                else if (!coordinator.GetRecentActivity().Any(a => a.Source == "VTuberBot.EventSub" &&
+                    a.EventType.Equals(category.Text.Trim() + "." + eventType.Text.Trim(), StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("Este tipo interno todavía no se ha observado en un evento EventSub real; no se puede validar todavía.");
                 var saved = coordinator.SaveRule(new EventActionRule(editingId ?? Guid.NewGuid(), name.Text,
-                    shouldEnable, source.SelectedItem?.ToString() ?? "", category.Text, eventType.Text, conditions,
+                    shouldEnable, selectedSource, category.Text, eventType.Text, conditions,
                     dest, targetId, cooldownSeconds, maxPerMinute, confirmed));
                 selectedRule = saved; editingId = saved.Id;
                 ReloadRules(); status.Text = "Regla guardada en SQLite. No se envió ninguna tecla ni se ejecutó una acción al guardar.";
+                await ReconcileStreamerBotSubscriptionsAsync();
                 FooterStatus.Text = "Regla guardada: " + saved.Name;
             }
             catch (Exception ex) { status.Text = "No se guardó la regla: " + ex.Message; }
         }, true));
-        ruleButtons.Children.Add(ActionButton("Eliminar regla seleccionada", (_, _) =>
+        ruleButtons.Children.Add(ActionButton("Eliminar regla seleccionada", async (_, _) =>
         {
             if (rulesList.SelectedItem is not ListBoxItem { Tag: EventActionRule rule }) return;
             if (MessageBox.Show($"¿Eliminar la regla «{rule.Name}»?", "Eliminar regla", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             coordinator.RemoveRule(rule.Id); ResetEditor(); ReloadRules(); status.Text = "Regla eliminada.";
+            await ReconcileStreamerBotSubscriptionsAsync();
         }));
         editor.Children.Add(ruleButtons);
         root.Children.Add(editor);
@@ -242,6 +256,86 @@ public partial class MainWindow
         root.Children.Add(activityPanel);
         ReloadRules(); FillActivity();
         return root;
+    }
+
+    private async Task SetManualStreamerBotSubscriptionsAsync(IReadOnlyDictionary<string, string[]> selected)
+    {
+        store.SetSetting("integrations.streamerBot.ws.manualSubscriptions", System.Text.Json.JsonSerializer.Serialize(selected));
+        await ReconcileStreamerBotSubscriptionsAsync();
+    }
+
+    private async Task ReconcileStreamerBotSubscriptionsAsync()
+    {
+        if (eventActionCoordinator is null) return;
+        await eventActionSubscriptionGate.WaitAsync();
+        try
+        {
+            if (streamerBot.Snapshot.State != StreamerBotConnectionState.Connected)
+            {
+                appliedStreamerBotSubscriptions = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+                return;
+            }
+
+            var available = await streamerBot.GetEventsAsync();
+            var requested = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            void Add(string category, string eventType)
+            {
+                if (!available.TryGetValue(category, out var validNames) ||
+                    !validNames.Contains(eventType, StringComparer.OrdinalIgnoreCase))
+                {
+                    store.Log("Automatizaciones", $"Suscripción omitida: el evento {category}.{eventType} no existe en el catálogo actual.");
+                    return;
+                }
+                if (!requested.TryGetValue(category, out var names)) requested[category] = names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                names.Add(validNames.First(x => x.Equals(eventType, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            try
+            {
+                var manualJson = store.GetSetting("integrations.streamerBot.ws.manualSubscriptions", "");
+                if (!string.IsNullOrWhiteSpace(manualJson))
+                {
+                    var manual = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string[]>>(manualJson) ?? [];
+                    foreach (var item in manual)
+                        foreach (var eventType in item.Value ?? []) Add(item.Key, eventType);
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                store.Log("Automatizaciones", "La selección manual de suscripciones está dañada; se ignoró sin detener el coordinador.");
+            }
+
+            foreach (var rule in eventActionCoordinator.GetRules().Where(r => r.Enabled &&
+                r.Source.Equals("Streamer.bot", StringComparison.OrdinalIgnoreCase)))
+                Add(rule.Category, rule.EventType);
+
+            var desired = requested.ToDictionary(x => x.Key, x => x.Value.OrderBy(v => v, StringComparer.OrdinalIgnoreCase).ToArray(), StringComparer.OrdinalIgnoreCase);
+            bool Same(IReadOnlyDictionary<string, string[]> left, IReadOnlyDictionary<string, string[]> right) =>
+                left.Count == right.Count && left.All(pair => right.TryGetValue(pair.Key, out var values) &&
+                    pair.Value.OrderBy(v => v, StringComparer.OrdinalIgnoreCase).SequenceEqual(values.OrderBy(v => v, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase));
+            if (Same(appliedStreamerBotSubscriptions, desired)) return;
+
+            if (appliedStreamerBotSubscriptions.Count > 0)
+            {
+                await streamerBot.UnsubscribeAsync(appliedStreamerBotSubscriptions);
+                appliedStreamerBotSubscriptions = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+            }
+            if (desired.Count > 0)
+            {
+                var confirmed = await streamerBot.SubscribeAsync(desired);
+                appliedStreamerBotSubscriptions = confirmed.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
+                store.Log("Automatizaciones", "Suscripciones reconciliadas con confirmación del servidor: " +
+                    string.Join("; ", confirmed.Select(x => x.Key + ": " + string.Join(", ", x.Value))));
+            }
+            else
+                store.Log("Automatizaciones", "No hay suscripciones manuales ni reglas habilitadas que requieran eventos de Streamer.bot.");
+        }
+        catch (Exception ex)
+        {
+            store.Log("Automatizaciones", "No se pudieron reconciliar las suscripciones (" + ex.GetType().Name + ").");
+            FooterStatus.Text = "Suscripciones de automatización no confirmadas; revisá Streamer.bot.";
+        }
+        finally { eventActionSubscriptionGate.Release(); }
     }
 
     private void RefreshEventActionActivity()
