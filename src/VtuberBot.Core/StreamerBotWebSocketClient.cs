@@ -72,7 +72,7 @@ public sealed class StreamerBotProtocolException(string message) : Exception(mes
 public sealed class StreamerBotWebSocketClient : IStreamerBotClient
 {
     private const int MaxMessageBytes = 1_048_576;
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
+    private readonly TimeSpan requestTimeout;
     private readonly ConcurrentDictionary<string, TaskCompletionSource<StreamerBotResponse>> pending = new();
     private readonly SemaphoreSlim sendLock = new(1, 1);
     private readonly object stateGate = new();
@@ -82,6 +82,13 @@ public sealed class StreamerBotWebSocketClient : IStreamerBotClient
     private TaskCompletionSource<JsonElement>? helloReceived;
     private StreamerBotConnectionSnapshot snapshot = new(StreamerBotConnectionState.ConfiguredDisconnected, "Desconectado.");
     private int disposed;
+
+    public StreamerBotWebSocketClient(TimeSpan? requestTimeout = null)
+    {
+        this.requestTimeout = requestTimeout ?? TimeSpan.FromSeconds(10);
+        if (this.requestTimeout <= TimeSpan.Zero || this.requestTimeout > TimeSpan.FromMinutes(2))
+            throw new ArgumentOutOfRangeException(nameof(requestTimeout), "El timeout debe ser mayor que cero y no superar dos minutos.");
+    }
 
     public StreamerBotConnectionSnapshot Snapshot { get { lock (stateGate) return snapshot; } }
     public event Action<StreamerBotConnectionSnapshot>? StateChanged;
@@ -103,7 +110,7 @@ public sealed class StreamerBotWebSocketClient : IStreamerBotClient
         {
             await ws.ConnectAsync(uri, cts.Token).ConfigureAwait(false);
             receiveTask = ReceiveLoopAsync(ws, cts.Token);
-            var hello = await helloReceived.Task.WaitAsync(RequestTimeout, cts.Token).ConfigureAwait(false);
+            var hello = await helloReceived.Task.WaitAsync(requestTimeout, cts.Token).ConfigureAwait(false);
             if (!hello.TryGetProperty("info", out var info) || info.ValueKind != JsonValueKind.Object)
                 throw new StreamerBotProtocolException("El mensaje Hello no contiene el objeto info documentado.");
 
@@ -308,7 +315,7 @@ public sealed class StreamerBotWebSocketClient : IStreamerBotClient
             await sendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try { await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken).ConfigureAwait(false); }
             finally { sendLock.Release(); }
-            return await completion.Task.WaitAsync(RequestTimeout, cancellationToken).ConfigureAwait(false);
+            return await completion.Task.WaitAsync(requestTimeout, cancellationToken).ConfigureAwait(false);
         }
         catch (TimeoutException)
         {
