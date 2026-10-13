@@ -8,12 +8,13 @@ namespace VtuberBot.App;
 
 public partial class MainWindow
 {
-    private bool SetChatReactionExpression(string expression)
+    private bool SetChatReactionExpression(string expression, CancellationToken cancellationToken)
     {
         try
         {
             return Dispatcher.Invoke(() =>
             {
+                if (cancellationToken.IsCancellationRequested) return false;
                 if (string.IsNullOrWhiteSpace(avatarPath) || !File.Exists(avatarPath))
                     return false;
                 var path = expression == "Idle" ? avatarPath : store.GetAvatarExpression(expression);
