@@ -208,6 +208,140 @@ public partial class MainWindow
         outputPanel.Children.Add(Label("Las acciones solo se envían tras la autenticación WebSocket. El estado se lee desde OBS; guardar la configuración no simula una salida activa.", 12, "#98A4BE"));
         root.Children.Add(outputPanel);
 
+        var destinationsPanel = Panel("Transmitir a Twitch o YouTube");
+        destinationsPanel.Margin = new Thickness(0, 14, 0, 0);
+        destinationsPanel.Children.Add(Label("Elegí la plataforma, guardá su clave una sola vez y usa «Configurar destino». La clave se cifra con Windows y nunca se muestra en pantalla ni se registra en logs.", 12, "#98A4BE"));
+
+        var destinationChoice = new ComboBox
+        {
+            ItemsSource = new[] { "Twitch", "YouTube" },
+            SelectedItem = store.GetSetting("obs.stream.platform", "Twitch") == "YouTube" ? "YouTube" : "Twitch",
+            MinWidth = 240,
+            Margin = new Thickness(0, 4, 8, 8)
+        };
+        var destinationServer = new TextBox
+        {
+            IsReadOnly = true,
+            Text = destinationChoice.SelectedItem?.ToString() == "YouTube"
+                ? "rtmps://a.rtmp.youtube.com:443/live2"
+                : "rtmps://live.twitch.tv:443/app",
+            ToolTip = "Servidor seguro RTMPS",
+            MinWidth = 320,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        var destinationKey = new PasswordBox
+        {
+            MaxLength = 8192,
+            MinWidth = 320,
+            Background = Brush("#101525"),
+            Foreground = Brush("#F8FAFC"),
+            BorderBrush = Brush("#34415E"),
+            Padding = new Thickness(10),
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        var destinationKeyStatus = Label("", 12, "#98A4BE");
+
+        string DestinationSecretName() =>
+            destinationChoice.SelectedItem?.ToString() == "YouTube"
+                ? "obs-youtube-stream-key"
+                : "obs-twitch-stream-key";
+
+        void RefreshDestinationChoice()
+        {
+            var isYouTube = destinationChoice.SelectedItem?.ToString() == "YouTube";
+            destinationServer.Text = isYouTube
+                ? "rtmps://a.rtmp.youtube.com:443/live2"
+                : "rtmps://live.twitch.tv:443/app";
+            destinationKey.Clear();
+            destinationKeyStatus.Text = secretStore.HasSecret(DestinationSecretName())
+                ? "Clave guardada de forma cifrada para " + (isYouTube ? "YouTube." : "Twitch.") + " Dejá la caja vacía para reutilizarla."
+                : "Todavía no hay una clave guardada para esta plataforma.";
+            store.SetSetting("obs.stream.platform", isYouTube ? "YouTube" : "Twitch");
+        }
+
+        destinationChoice.SelectionChanged += (_, _) => RefreshDestinationChoice();
+        destinationsPanel.Children.Add(Label("Plataforma", 12, "#98A4BE"));
+        destinationsPanel.Children.Add(destinationChoice);
+        destinationsPanel.Children.Add(Label("Servidor RTMPS", 12, "#98A4BE"));
+        destinationsPanel.Children.Add(destinationServer);
+        destinationsPanel.Children.Add(Label("Clave de transmisión (no la compartas con nadie)", 12, "#98A4BE"));
+        destinationsPanel.Children.Add(destinationKey);
+        destinationsPanel.Children.Add(destinationKeyStatus);
+
+        var destinationButtons = new WrapPanel();
+        destinationButtons.Children.Add(ActionButton("Abrir panel de la plataforma", (_, _) =>
+        {
+            var url = destinationChoice.SelectedItem?.ToString() == "YouTube"
+                ? "https://studio.youtube.com/"
+                : "https://dashboard.twitch.tv/settings/stream";
+            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+            catch (Exception exception) { MessageBox.Show(this, "No se pudo abrir el panel web: " + exception.Message, "Transmisión", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        }, true));
+        destinationButtons.Children.Add(ActionButton("Guardar clave cifrada", (_, _) =>
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(destinationKey.Password))
+                {
+                    destinationKeyStatus.Text = secretStore.HasSecret(DestinationSecretName())
+                        ? "Ya existe una clave cifrada. Dejá el campo vacío para conservarla."
+                        : "Pegá primero la clave de la plataforma.";
+                    return;
+                }
+                secretStore.Save(DestinationSecretName(), destinationKey.Password);
+                destinationKey.Clear();
+                destinationKeyStatus.Text = "Clave guardada de forma cifrada. No se guardó en SQLite.";
+                store.Log("OBS", "Se guardó una clave de transmisión cifrada para " + destinationChoice.SelectedItem + ".");
+            }
+            catch (Exception exception)
+            {
+                destinationKeyStatus.Text = "No se pudo guardar la clave: " + exception.GetType().Name;
+            }
+        }));
+        destinationButtons.Children.Add(ActionButton("Configurar destino en OBS", async (_, _) =>
+        {
+            try
+            {
+                if (!obs.IsConnected)
+                    throw new InvalidOperationException("Primero conectá y autenticá OBS WebSocket en el panel de arriba.");
+                var platform = destinationChoice.SelectedItem?.ToString() == "YouTube" ? "YouTube" : "Twitch";
+                if (!string.IsNullOrWhiteSpace(destinationKey.Password))
+                {
+                    secretStore.Save(DestinationSecretName(), destinationKey.Password);
+                    destinationKey.Clear();
+                }
+                var key = secretStore.Read(DestinationSecretName());
+                if (string.IsNullOrWhiteSpace(key))
+                    throw new InvalidOperationException("Todavía no hay una clave guardada. Pegá la clave y pulsa «Guardar clave cifrada».");
+                await obs.ConfigureStreamDestinationAsync(platform, key);
+                store.SetSetting("obs.stream.platform", platform);
+                destinationKeyStatus.Text = "OBS quedó configurado para " + platform + ". La transmisión todavía no se inició.";
+                FooterStatus.Text = "Destino de OBS configurado para " + platform + "; falta iniciar la transmisión.";
+                store.Log("OBS", "Destino de streaming configurado en OBS para " + platform + "; no se registró la clave.");
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo configurar el destino: " + exception.Message;
+                MessageBox.Show(this, "No se pudo configurar la plataforma. La clave no se mostrará en el mensaje.\n\n" + exception.Message,
+                    "Configurar transmisión", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }, true));
+        destinationsPanel.Children.Add(destinationButtons);
+        destinationsPanel.Children.Add(Label("Para iniciar: conectá OBS, configurá una plataforma aquí y pulsa «Iniciar transmisión» en el panel de arriba. Cambiar de destino exige detener la emisión actual.", 12, "#98A4BE"));
+
+        var multistreamPanel = Panel("Emitir en Twitch y YouTube al mismo tiempo");
+        multistreamPanel.Margin = new Thickness(0, 14, 0, 0);
+        multistreamPanel.Children.Add(Label("OBS normal envía la salida principal a un destino. Para salir en los dos al mismo tiempo necesitás un complemento multi-RTMP de OBS. Es opcional, gratuito y externo; VTuberBot no lo instala ni lo incluye.", 12, "#98A4BE"));
+        multistreamPanel.Children.Add(ActionButton("Abrir página del complemento multi-RTMP", (_, _) =>
+        {
+            try { Process.Start(new ProcessStartInfo("https://obsproject.com/forum/resources/multiple-rtmp-outputs-plugin.964/") { UseShellExecute = true }); }
+            catch (Exception exception) { MessageBox.Show(this, "No se pudo abrir la página del complemento: " + exception.Message, "Multistream", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        }, true));
+        multistreamPanel.Children.Add(Label("Instalá solo una versión compatible con tu versión de OBS; agrega YouTube y Twitch en el complemento y configura allí el destino secundario. Luego inicia cada salida según sus controles. Si compartís encoder, el consumo puede ser menor; si cada destino codifica por separado, aumentan el uso de CPU/GPU y el ancho de subida. La compatibilidad del complemento debe comprobarse en tu instalación.", 12, "#98A4BE"));
+        RefreshDestinationChoice();
+        root.Children.Add(destinationsPanel);
+        root.Children.Add(multistreamPanel);
+
         var overlayPanel=Panel("Avatar overlay para OBS");overlayPanel.Children.Add(Label("El overlay se abre como ventana sin bordes y fondo transparente. En OBS agregá una fuente Captura de ventana y seleccioná “VTuberBot Avatar Overlay”. Doble clic en el overlay alterna Topmost; arrastrá para ubicarlo.",13,"#98A4BE"));
         overlayPanel.Children.Add(ActionButton("Mostrar overlay",(_,_)=>ShowOverlay(),true));root.Children.Add(overlayPanel);
         return root;
