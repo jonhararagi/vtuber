@@ -143,16 +143,12 @@ public partial class MainWindow
             {
                 var available = await streamerBot.GetEventsAsync();
                 eventsList.Children.Clear(); streamerBotEventChecks.Clear();
-                var initial = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    "twitch.Follow", "twitch.Raid", "twitch.Cheer", "twitch.Sub", "twitch.ReSub", "twitch.GiftSub", "twitch.GiftBomb", "twitch.ChatMessage"
-                };
                 foreach (var category in available.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
                 {
                     var group = Panel(category.Key);
                     foreach (var name in category.Value)
                     {
-                        var check = new CheckBox { Content = name, Tag = category.Key + "." + name, IsChecked = initial.Contains(category.Key + "." + name), Foreground = Brush("#D8DEEE"), Margin = new Thickness(0, 2, 12, 2) };
+                        var check = new CheckBox { Content = name, Tag = category.Key + "." + name, IsChecked = false, Foreground = Brush("#D8DEEE"), Margin = new Thickness(0, 2, 12, 2) };
                         streamerBotEventChecks.Add(check); group.Children.Add(check);
                     }
                     eventsList.Children.Add(group);
@@ -165,13 +161,14 @@ public partial class MainWindow
         {
             var selected = streamerBotEventChecks.Where(c => c.IsChecked == true && c.Tag is string).Select(c => ((string)c.Tag!).Split('.', 2)).Where(p => p.Length == 2).GroupBy(p => p[0], StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.Select(p => p[1]).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), StringComparer.OrdinalIgnoreCase);
-            if (selected.Count == 0) { eventsStatus.Text = "No seleccionaste eventos."; return; }
             try
             {
-                var confirmed = await streamerBot.SubscribeAsync(selected);
-                eventsStatus.Text = "Respuesta Subscribe confirmada: " + string.Join("; ", confirmed.Select(kv => kv.Key + ": " + string.Join(", ", kv.Value)));
+                await SetManualStreamerBotSubscriptionsAsync(selected);
+                eventsStatus.Text = selected.Count == 0
+                    ? "Selección manual vacía. Las reglas habilitadas conservan solo sus suscripciones necesarias."
+                    : "Selección manual guardada; suscripciones reconciliadas con las reglas habilitadas.";
             }
-            catch (Exception ex) { eventsStatus.Text = "Subscribe no confirmado: " + ex.Message; }
+            catch (Exception ex) { eventsStatus.Text = "Suscripciones no confirmadas: " + ex.Message; }
         }, true));
         eventButtons.Children.Add(ActionButton("Desmarcar todos", (_, _) => { foreach (var check in streamerBotEventChecks) check.IsChecked = false; }));
         eventsPanel.Children.Add(eventButtons);
