@@ -412,6 +412,13 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
             if (now - pair.Value > dedupeWindow && seenEvents.TryRemove(pair.Key, out _)) { }
         foreach (var pair in ruleEventRuns)
             if (now - pair.Value > dedupeWindow && ruleEventRuns.TryRemove(pair.Key, out _)) { }
+        // A burst can contain many unique IDs inside the expiry window; cap the dedupe memory as well.
+        if (seenEvents.Count > 5000)
+            foreach (var pair in seenEvents.OrderBy(x => x.Value).Take(seenEvents.Count - 5000))
+                seenEvents.TryRemove(pair.Key, out _);
+        if (ruleEventRuns.Count > 10000)
+            foreach (var pair in ruleEventRuns.OrderBy(x => x.Value).Take(ruleEventRuns.Count - 10000))
+                ruleEventRuns.TryRemove(pair.Key, out _);
         while (globalExecutions.Count > 0 && now - globalExecutions.Peek() >= TimeSpan.FromMinutes(1)) globalExecutions.Dequeue();
     }
 
