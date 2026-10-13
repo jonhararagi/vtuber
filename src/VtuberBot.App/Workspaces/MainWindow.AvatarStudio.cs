@@ -66,7 +66,8 @@ public partial class MainWindow
             Maximum = 100,
             Height = 8,
             Margin = new Thickness(0, 8, 0, 8),
-            IsIndeterminate = false
+            IsIndeterminate = false,
+            Visibility = Visibility.Collapsed
         };
 
         var beginnerActions = new WrapPanel();
@@ -74,14 +75,15 @@ public partial class MainWindow
             LoadDemoProfile("Ejemplo PNGTuber", layered: false), true));
         beginnerActions.Children.Add(ActionButton("PNGTuber con mis imágenes", (_, _) =>
             CreateSimplePngTuber()));
-        startLocalSegmentation = ActionButton("2 · 2.5D con IA local", async (_, _) =>
+        startLocalSegmentation = ActionButton("2 · 2.5D con IA local (experimental)", async (_, _) =>
             await StartLocalAvatarSegmentationAsync());
         beginnerActions.Children.Add(startLocalSegmentation);
-        beginnerActions.Children.Add(ActionButton("3 · Crear modelo 3D en VRoid", (_, _) =>
+        beginnerActions.Children.Add(ActionButton("3 · Abrir creador 3D VRoid (externo)", (_, _) =>
             OpenAvatarExternalTool("https://vroid.com/en/studio", "VRoid Studio")));
         cancelLocalSegmentation = ActionButton("Cancelar IA", (_, _) =>
             activeLocalAvatarSegmentation?.Cancel());
         cancelLocalSegmentation.IsEnabled = false;
+        cancelLocalSegmentation.Visibility = Visibility.Collapsed;
         beginnerActions.Children.Add(cancelLocalSegmentation);
         beginnerPanel.Children.Add(beginnerActions);
         beginnerPanel.Children.Add(localSegmentationProgress);
@@ -404,6 +406,8 @@ public partial class MainWindow
             activeLocalAvatarSegmentation = cancellation;
             startLocalSegmentation.IsEnabled = false;
             cancelLocalSegmentation.IsEnabled = true;
+            cancelLocalSegmentation.Visibility = Visibility.Visible;
+            localSegmentationProgress.Visibility = Visibility.Visible;
             localSegmentationProgress.IsIndeterminate = true;
             localSegmentationStatus.Text = "Iniciando trabajador de IA local...";
             try
@@ -484,7 +488,9 @@ public partial class MainWindow
                 activeLocalAvatarSegmentation = null;
                 startLocalSegmentation.IsEnabled = true;
                 cancelLocalSegmentation.IsEnabled = false;
+                cancelLocalSegmentation.Visibility = Visibility.Collapsed;
                 localSegmentationProgress.IsIndeterminate = false;
+                localSegmentationProgress.Visibility = Visibility.Collapsed;
             }
         }
 
