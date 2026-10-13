@@ -222,9 +222,7 @@ public partial class MainWindow
         var destinationServer = new TextBox
         {
             IsReadOnly = true,
-            Text = destinationChoice.SelectedItem?.ToString() == "YouTube"
-                ? "rtmps://a.rtmp.youtube.com:443/live2"
-                : "rtmps://live.twitch.tv:443/app",
+            Text = ObsStreamingDestinationPolicy.GetServer(destinationChoice.SelectedItem?.ToString() ?? "Twitch"),
             ToolTip = "Servidor seguro RTMPS",
             MinWidth = 320,
             Margin = new Thickness(0, 0, 0, 8)
@@ -241,17 +239,16 @@ public partial class MainWindow
         };
         var destinationKeyStatus = Label("", 12, "#98A4BE");
 
-        string DestinationSecretName() =>
-            destinationChoice.SelectedItem?.ToString() == "YouTube"
-                ? "obs-youtube-stream-key"
-                : "obs-twitch-stream-key";
+        string SelectedDestination() =>
+            ObsStreamingDestinationPolicy.NormalizePlatform(destinationChoice.SelectedItem?.ToString() ?? "Twitch");
+
+        string DestinationSecretName() => ObsStreamingDestinationPolicy.GetSecretName(SelectedDestination());
 
         void RefreshDestinationChoice()
         {
-            var isYouTube = destinationChoice.SelectedItem?.ToString() == "YouTube";
-            destinationServer.Text = isYouTube
-                ? "rtmps://a.rtmp.youtube.com:443/live2"
-                : "rtmps://live.twitch.tv:443/app";
+            var platform = SelectedDestination();
+            var isYouTube = platform == "YouTube";
+            destinationServer.Text = ObsStreamingDestinationPolicy.GetServer(platform);
             destinationKey.Clear();
             destinationKeyStatus.Text = secretStore.HasSecret(DestinationSecretName())
                 ? "Clave guardada de forma cifrada para " + (isYouTube ? "YouTube." : "Twitch.") + " Dejá la caja vacía para reutilizarla."
@@ -304,7 +301,7 @@ public partial class MainWindow
             {
                 if (!obs.IsConnected)
                     throw new InvalidOperationException("Primero conectá y autenticá OBS WebSocket en el panel de arriba.");
-                var platform = destinationChoice.SelectedItem?.ToString() == "YouTube" ? "YouTube" : "Twitch";
+                var platform = SelectedDestination();
                 if (!string.IsNullOrWhiteSpace(destinationKey.Password))
                 {
                     secretStore.Save(DestinationSecretName(), destinationKey.Password);
