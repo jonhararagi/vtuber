@@ -42,6 +42,20 @@ public partial class MainWindow
         liveCenterQueueHandler = null;
     }
 
+    private BitmapSource? CaptureLiveCenterPreview(string state)
+    {
+        if (overlay is not null)
+        {
+            try { return overlay.CapturePreview(); }
+            catch (Exception exception) { store.Log("Avatar", "Vista previa del renderizador no disponible (" + exception.GetType().Name + ")."); }
+        }
+        var expressionPath = store.GetAvatarExpression(state);
+        var fallback = !string.IsNullOrWhiteSpace(expressionPath) && File.Exists(expressionPath) ? expressionPath : avatarPath;
+        if (string.IsNullOrWhiteSpace(fallback) || !File.Exists(fallback)) return null;
+        try { return AvatarImageLoader.Load(fallback, 420); }
+        catch (Exception exception) { store.Log("Avatar", "Vista previa de sprite no disponible (" + exception.GetType().Name + ")."); return null; }
+    }
+
     private UIElement BuildLiveCenterWorkspace()
     {
         DetachLiveCenterHandlers();
@@ -77,13 +91,8 @@ public partial class MainWindow
             if (result.Outcome == "Respuesta enviada" && result.Detail.Contains("expresión aplicada", StringComparison.Ordinal))
             {
                 var state = store.GetSetting("avatar.state", "Idle");
-                var path = store.GetAvatarExpression(state);
-                var actualPath = !string.IsNullOrWhiteSpace(path) && File.Exists(path) ? path : avatarPath;
-                if (!string.IsNullOrWhiteSpace(actualPath) && File.Exists(actualPath))
-                {
-                    try { preview.Source = AvatarImageLoader.Load(actualPath, 420); currentExpression = state; }
-                    catch (Exception exception) { store.Log("Avatar", "No se pudo actualizar la previsualización (" + exception.GetType().Name + ")."); }
-                }
+                var snapshot = CaptureLiveCenterPreview(state);
+                if (snapshot is not null) { preview.Source = snapshot; currentExpression = state; }
             }
         }));
         chatReactions.ResultChanged += liveCenterReactionHandler;
@@ -93,7 +102,12 @@ public partial class MainWindow
         publicPanel.Children.Add(ActionButton("Mostrar overlay público", (_, _) =>
         {
             ShowOverlay();
-            outputStatus.Text = overlay is { IsVisible: true } ? "Overlay visible; puede seleccionarse como fuente de ventana en OBS." : "No se pudo mostrar el overlay; comprobá el perfil del avatar.";
+            if (overlay is { IsVisible: true })
+            {
+                preview.Source = CaptureLiveCenterPreview(currentExpression) ?? preview.Source;
+                outputStatus.Text = "Overlay visible; puede seleccionarse como fuente de ventana en OBS.";
+            }
+            else outputStatus.Text = "No se pudo mostrar el overlay; comprobá el perfil del avatar.";
         }, true));
         publicPanel.Children.Add(ActionButton("Ocultar overlay público", (_, _) =>
         {
@@ -128,8 +142,7 @@ public partial class MainWindow
                     return;
                 }
                 outputStatus.Text = $"Expresión {state} aplicada al renderizador público.";
-                var selectedPath = store.GetAvatarExpression(state);
-                preview.Source = AvatarImageLoader.Load(!string.IsNullOrWhiteSpace(selectedPath) && File.Exists(selectedPath) ? selectedPath : avatarPath!, 420);
+                preview.Source = CaptureLiveCenterPreview(state) ?? preview.Source;
                 currentExpression = state;
             });
             button.IsEnabled = hasSprite;
