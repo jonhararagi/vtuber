@@ -165,13 +165,16 @@ public partial class MainWindow
         panel.Children.Add(confirmation);
 
         var controls = new WrapPanel();
-        var previous = ActionButton("← Paso anterior", (_, _) =>
+        Button previous = null!;
+        Button confirm = null!;
+        Button next = null!;
+        previous = ActionButton("← Paso anterior", (_, _) =>
         {
             var progress = setup.SetCurrentStep(Math.Max(0, stepList.SelectedIndex - 1));
             stepList.SelectedIndex = progress.CurrentStep;
             RefreshWizard();
         });
-        var confirm = ActionButton("Guardar confirmación", (_, _) =>
+        confirm = ActionButton("Guardar confirmación", (_, _) =>
         {
             if (stepList.SelectedIndex == 0)
             {
@@ -191,7 +194,7 @@ public partial class MainWindow
             FooterStatus.Text = "Confirmación manual guardada en SQLite.";
             RefreshWizard();
         }, true);
-        var next = ActionButton("Siguiente paso →", (_, _) =>
+        next = ActionButton("Siguiente paso →", (_, _) =>
         {
             var status = externalApplicationManager.GetStatus(pathField.Text);
             if (!IsPngtuberStepComplete(stepList.SelectedIndex, setup.Load(), status))
