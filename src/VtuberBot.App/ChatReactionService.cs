@@ -297,17 +297,24 @@ public sealed class ChatReactionService : IAsyncDisposable
         {
             await foreach (var item in queue.Reader.ReadAllAsync(lifetime.Token).ConfigureAwait(false))
             {
-                CancellationTokenSource operation;
+                CancellationTokenSource? operation = null;
+                var stale = false;
                 lock (gate)
                 {
-                    if (disposed || paused || item.Epoch != connectionEpoch || (!item.Simulated && (!twitchConnected || !isConnected())))
+                    stale = disposed || paused || item.Epoch != connectionEpoch || (!item.Simulated && (!twitchConnected || !isConnected()));
+                    if (!stale)
                     {
-                        Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Descartada", "Trabajo obsoleto por pausa, cierre o cambio de sesión.", item.Simulated));
-                        continue;
+                        operation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+                        activeAction = operation;
                     }
-                    operation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
-                    activeAction = operation;
                 }
+                if (stale)
+                {
+                    Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Descartada", "Trabajo obsoleto por pausa, cierre o cambio de sesión.", item.Simulated));
+                    SafeEventDispatch.Invoke(QueueChanged, PendingCount);
+                    continue;
+                }
+                var activeOperation = operation!;
                 try
                 {
                     var response = item.Response;
@@ -315,7 +322,7 @@ public sealed class ChatReactionService : IAsyncDisposable
                     {
                         lock (gate)
                             if (paused || item.Epoch != connectionEpoch || !twitchConnected || !isConnected())
-                                throw new OperationCanceledException("sesión invalidada", operation.Token);
+                                throw new OperationCanceledException("sesión invalidada", activeOperation.Token);
                     }
 
                     if (item.Simulated)
@@ -354,7 +361,7 @@ public sealed class ChatReactionService : IAsyncDisposable
                         lock (gate)
                         {
                             spokenQueued = !paused && item.Epoch == connectionEpoch && twitchConnected && isConnected() &&
-                                !operation.IsCancellationRequested && enqueueSpeech(response);
+                                !activeOperation.IsCancellationRequested && enqueueSpeech(response);
                         }
                         details.Add(spokenQueued ? "voz encolada" : "voz omitida/rechazada por pausa, sesión o cola");
                     }
@@ -370,8 +377,8 @@ public sealed class ChatReactionService : IAsyncDisposable
                 }
                 finally
                 {
-                    lock (gate) { if (ReferenceEquals(activeAction, operation)) activeAction = null; }
-                    operation.Dispose();
+                    lock (gate) { if (ReferenceEquals(activeAction, activeOperation)) activeAction = null; }
+                    activeOperation.Dispose();
                     SafeEventDispatch.Invoke(QueueChanged, PendingCount);
                 }
             }
