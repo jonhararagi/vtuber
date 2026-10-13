@@ -117,6 +117,26 @@ public sealed class EventActionCoordinatorTests
     }
 
     [Fact]
+    public async Task IdenticalChatMessagesWithSameTimestampRemainDistinctWithoutProviderIds()
+    {
+        var settings = new MemorySettings();
+        var dispatcher = new RecordingDispatcher();
+        await using var coordinator = new EventActionCoordinator(settings, dispatcher);
+        coordinator.AutomationsPaused = false;
+        coordinator.SaveRule(Rule(enabled: true) with { EventType = "ChatMessage" });
+        using var payload = JsonDocument.Parse("""{"userName":"alice","message":"same text"}""");
+        var timestamp = DateTimeOffset.UtcNow;
+        var first = NormalizedBotEvent.Create("Streamer.bot", "Twitch", "ChatMessage", payload.RootElement,
+            originalTimestamp: timestamp);
+        var second = NormalizedBotEvent.Create("Streamer.bot", "Twitch", "ChatMessage", payload.RootElement,
+            originalTimestamp: timestamp);
+        Assert.True(coordinator.TryPublish(first));
+        Assert.True(coordinator.TryPublish(second));
+        Assert.True(await dispatcher.WaitForCountAsync(2));
+        Assert.Equal(2, dispatcher.Targets.Count);
+    }
+
+    [Fact]
     public async Task CooldownAndGlobalLimitAreEnforced()
     {
         var settings = new MemorySettings();
