@@ -162,6 +162,7 @@ public sealed class ChatReactionServiceTests
         Assert.Equal(1, effects.Sends);
         Assert.Equal("¡Hola alice!", effects.LastMessage);
         Assert.Equal("Happy", effects.LastExpression);
+        await WaitForOutcomeAsync(service, "Respuesta enviada");
         Assert.Equal("primera", Assert.Single(service.GetRecentActivity().Where(x => x.Outcome == "Respuesta enviada")).RuleName);
     }
 
@@ -234,7 +235,7 @@ public sealed class ChatReactionServiceTests
         service.SetPaused(false);
         effects.BlockSend = false;
         Assert.True(service.OnChatMessage("carol", "hola", "fresh"));
-        await WaitForAsync(() => effects.Sends >= 2);
+        await effects.SecondSendEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
         Assert.DoesNotContain(service.GetRecentActivity(), x => x.User == "bob" && x.Outcome == "Respuesta enviada");
     }
 
@@ -272,15 +273,24 @@ public sealed class ChatReactionServiceTests
         Assert.False(service.OnChatMessage("bob", "hola", "2"));
         Assert.False(service.OnChatMessage("alice", "hola", "3"));
         effects.SendRelease.TrySetResult(true);
-        await WaitForAsync(() => service.GetRecentActivity().Any(x => x.Outcome == "Respuesta enviada"));
+        await WaitForOutcomeAsync(service, "Respuesta enviada");
         Assert.Equal(1, effects.Sends);
     }
 
-    private static async Task WaitForAsync(Func<bool> predicate)
+    private static async Task WaitForOutcomeAsync(ChatReactionService service, string outcome)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        while (!predicate())
-            await Task.Delay(10, timeout.Token);
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Handler(ChatReactionResult result)
+        {
+            if (result.Outcome == outcome) completion.TrySetResult(true);
+        }
+        service.ResultChanged += Handler;
+        try
+        {
+            if (service.GetRecentActivity().Any(x => x.Outcome == outcome)) return;
+            await completion.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        }
+        finally { service.ResultChanged -= Handler; }
     }
 
     [Fact]
@@ -300,5 +310,26 @@ public sealed class ChatReactionServiceTests
         Assert.False(service.OnChatMessage("channelowner", "hola", "own-2"));
         Assert.Equal(0, effects.Sends);
         Assert.Contains(service.GetRecentActivity(), x => x.Outcome == "Eco propio ignorado");
+    }
+
+    [Fact]
+    public async Task PerUserCooldownAllowsAnotherViewerButBlocksSameViewer()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var effects = new Effects();
+        await using var service = Create(store, effects);
+        var rule = Rule(global: 0, user: 30, perMinute: 60);
+        Assert.True(service.SaveRule(rule)); Assert.True(service.SetRuleEnabled(rule.Id, true));
+        service.SetTwitchConnected(true);
+
+        Assert.True(service.OnChatMessage("alice", "hola", "u-1"));
+        await effects.SendEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        Assert.False(service.OnChatMessage("alice", "hola", "u-2"));
+        Assert.True(service.OnChatMessage("bob", "hola", "u-3"));
+        effects.SendRelease.TrySetResult(true);
+        await effects.SecondSendEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        Assert.Equal(2, effects.Sends);
+        Assert.Contains(service.GetRecentActivity(), x => x.Outcome == "Cooldown usuario");
     }
 }
