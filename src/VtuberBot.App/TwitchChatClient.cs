@@ -23,7 +23,16 @@ public sealed class TwitchChatClient : IAsyncDisposable
 
     public event Action<string>? MessageReceived;
     public event Action<string>? StatusChanged;
+    /// <summary>Typed connection-state signal; true only after JOIN acknowledgement.</summary>
+    public event Action<bool>? ConnectionStateChanged;
     public bool IsConnected { get; private set; }
+
+    private void SetConnectionState(bool connected)
+    {
+        if (IsConnected == connected) return;
+        IsConnected = connected;
+        SafeEventDispatch.Invoke(ConnectionStateChanged, connected);
+    }
 
     public async Task ConnectAsync(string channel, string oauthToken, CancellationToken external = default)
     {
@@ -167,7 +176,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
                         }
                         else if (line.Contains(" 366 ", StringComparison.Ordinal))
                         {
-                            IsConnected = true;
+                            SetConnectionState(true);
                             sessionConnectedAt ??= DateTimeOffset.UtcNow;
                             firstConnection.TrySetResult(true);
                             initialSignalled = true;
@@ -194,7 +203,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
                 }
                 catch (Exception exception)
                 {
-                    IsConnected = false;
+                    SetConnectionState(false);
                     if (sessionConnectedAt.HasValue && DateTimeOffset.UtcNow - sessionConnectedAt.Value > TimeSpan.FromSeconds(30))
                         retryAttempt = 0;
                     retryAttempt++;
