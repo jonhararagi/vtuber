@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     private readonly LocalSpeechQueue speechQueue = new();
     private readonly LocalOpenAiCompatibleProvider localAiProvider = new();
     private SocialBotService socialBot = null!;
+    private ChatReactionService chatReactions = null!;
     private AvatarOverlayWindow? overlay;
     private string? avatarPath;
     private WaveInEvent? microphone;
@@ -88,7 +89,7 @@ public partial class MainWindow : Window
 
     private static readonly string[] Pages =
     [
-        "Inicio","Avatar Studio","Avatar externo","Streamer.bot","Twitch y chat","Bot social","Comandos","Comunidad y puntos","Automatizaciones","Sorteos",
+        "Inicio","Centro de directo","Avatar Studio","Avatar externo","Streamer.bot","Twitch y chat","Bot social","Comandos","Comunidad y puntos","Automatizaciones","Sorteos",
         "Minijuegos","Moderación","Voz y audio","OBS","Integraciones","Telegram Web","Actividad y diagnóstico","Ajustes"
     ];
 
@@ -219,6 +220,31 @@ public partial class MainWindow : Window
         store = new ProductStore(application.Database.Path);
         communityCommandRouter = new CommunityCommandRouter(store);
         socialBot = new SocialBotService(store, speechQueue, twitch, localAiProvider);
+        chatReactions = new ChatReactionService(
+            store,
+            async (message, cancellationToken) =>
+            {
+                if (!twitch.IsConnected) return false;
+                await twitch.SendMessageAsync(store.GetSetting("twitch.channel"), message, cancellationToken).ConfigureAwait(false);
+                return true; // IRC write completed; Twitch does not acknowledge that viewers saw it.
+            },
+            text =>
+            {
+                var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var r) ? Math.Clamp(r, -10, 10) : 0;
+                var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var v) ? Math.Clamp(v, 0, 100) : 100;
+                return speechQueue.Enqueue(text, SpeechPriority.Normal, store.GetSetting("audio.tts.voiceId"), rate, volume, store.GetSetting("audio.tts.outputId"));
+            },
+            SetChatReactionExpression,
+            () => twitch.IsConnected);
+        chatReactions.SetTwitchConnected(twitch.IsConnected);
+        chatReactions.ResultChanged += result => Dispatcher.BeginInvoke(new Action(() =>
+        {
+            FooterStatus.Text = $"Reacción · {result.Outcome}: {result.Detail}";
+        }));
+        chatReactions.QueueChanged += pending => Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (currentPage == "Centro de directo") FooterStatus.Text = $"Reacciones pendientes: {pending}";
+        }));
         socialBot.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() =>
             FooterStatus.Text = $"Bot social · {status.State}: {status.Detail} · cola {status.Pending}"));
         InitializeEventActionCoordination();
@@ -252,6 +278,7 @@ public partial class MainWindow : Window
         avatarPath = store.GetActiveAvatarProfile().BasePath;
         twitch.StatusChanged += status => Dispatcher.Invoke(() => { FooterStatus.Text = status; RuntimeStatus.Text = twitch.IsConnected ? "●  TWITCH CONECTADO" : "●  LOCAL ACTIVO"; });
         twitch.MessageReceived += HandleTwitchMessage;
+        twitch.ConnectionStateChanged += chatReactions.SetTwitchConnected;
         eventSub.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         speechQueue.StatusChanged += (status, pending) => Dispatcher.BeginInvoke(new Action(() =>
             FooterStatus.Text = $"Voz local: {status} · pendientes: {pending}"));
@@ -295,6 +322,8 @@ public partial class MainWindow : Window
         catch (Exception exception) { LogShutdownFailure("micrófono", exception); }
         try { StopSoundPlayback(); }
         catch (Exception exception) { LogShutdownFailure("reproducción de audio", exception); }
+        try { await chatReactions.DisposeAsync(); }
+        catch (Exception exception) { LogShutdownFailure("reacciones de chat", exception); }
         try { await socialBot.DisposeAsync(); }
         catch (Exception exception) { LogShutdownFailure("bot social", exception); }
         try { localAiProvider.Dispose(); }
@@ -356,6 +385,7 @@ public partial class MainWindow : Window
         PageSubtitle.Text = currentPage switch
         {
             "Inicio" => "Todo lo importante del stream, en un solo lugar.",
+            "Centro de directo" => "Salida pública del avatar y controles privados del creador, separados.",
             "Avatar Studio" => "Importá tu arte, prepará estados y controlá la salida transparente.",
             "Avatar externo" => "Configura PNGTuber Plus, verifica los pasos de avatar y administra atajos locales.",
             "Streamer.bot" => "Conexión WebSocket, catálogo de acciones y suscripciones de eventos confirmadas por el servidor.",
@@ -377,6 +407,7 @@ public partial class MainWindow : Window
         Workspace.Content = currentPage switch
         {
             "Inicio" => BuildDashboard(),
+            "Centro de directo" => BuildLiveCenterWorkspace(),
             "Avatar Studio" => BuildAvatarStudio(),
             "Avatar externo" => BuildPngtuberWorkspace(),
             "Streamer.bot" => BuildStreamerBotWorkspace(),
