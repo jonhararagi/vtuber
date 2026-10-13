@@ -22,15 +22,19 @@ public sealed class ChatReactionServiceTests
         public string LastMessage = "";
         public string LastExpression = "";
         public TaskCompletionSource<bool> SendEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> SecondSendEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> SpeechEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> ExpressionEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource<bool> SendRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource<bool> SendCancelled = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public bool BlockSend;
 
         public Task<bool> Send(string message, CancellationToken token)
         {
-            Interlocked.Increment(ref Sends);
+            var call = Interlocked.Increment(ref Sends);
             LastMessage = message;
             SendEntered.TrySetResult(true);
+            if (call == 2) SecondSendEntered.TrySetResult(true);
             return SendCoreAsync(token);
         }
 
@@ -44,8 +48,8 @@ public sealed class ChatReactionServiceTests
             return true;
         }
 
-        public bool Speak(string text) { Interlocked.Increment(ref Speeches); return true; }
-        public bool Expression(string state) { Interlocked.Increment(ref Expressions); LastExpression = state; return true; }
+        public bool Speak(string text) { Interlocked.Increment(ref Speeches); SpeechEntered.TrySetResult(true); return true; }
+        public bool Expression(string state) { Interlocked.Increment(ref Expressions); LastExpression = state; ExpressionEntered.TrySetResult(true); return true; }
     }
 
     private static ChatReactionRule Rule(string name = "hola", string trigger = "hola",
@@ -153,7 +157,7 @@ public sealed class ChatReactionServiceTests
         Assert.True(service.OnChatMessage("alice", "hola chat", "msg-1"));
         await effects.SendEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
         effects.SendRelease.TrySetResult(true);
-        await WaitForAsync(() => effects.Speeches == 1 && effects.Expressions == 1);
+        await effects.SpeechEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);\n        await effects.ExpressionEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
 
         Assert.Equal(1, effects.Sends);
         Assert.Equal("¡Hola alice!", effects.LastMessage);
@@ -177,7 +181,7 @@ public sealed class ChatReactionServiceTests
         Assert.False(service.OnChatMessage("alice", "hola", "same-id"));
         Assert.False(service.OnChatMessage("bob", "hola", "different-id"));
         effects.SendRelease.TrySetResult(true);
-        await WaitForAsync(() => service.GetRecentActivity().Any(x => x.Outcome == "Respuesta enviada"));
+        await WaitForOutcomeAsync(service, "Respuesta enviada");
 
         Assert.Equal(1, effects.Sends);
         Assert.Contains(service.GetRecentActivity(), x => x.Outcome == "Duplicado");
@@ -207,7 +211,7 @@ public sealed class ChatReactionServiceTests
         Assert.False(service.OnChatMessage("bob", "hola", "old-2"));
         effects.BlockSend = false;
         Assert.True(service.OnChatMessage("carol", "hola", "new-1"));
-        await WaitForAsync(() => effects.Sends >= 2);
+        await effects.SecondSendEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
 
         Assert.Contains(service.GetRecentActivity(), x => x.Outcome == "Cancelada");
     }
@@ -277,5 +281,24 @@ public sealed class ChatReactionServiceTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         while (!predicate())
             await Task.Delay(10, timeout.Token);
+    }
+
+    [Fact]
+    public async Task OwnBotAndChannelMessagesAreIgnoredToPreventEchoLoops()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SetSetting("twitch.channel", "channelowner");
+        store.SetSetting("twitch.bot.login", "mybot");
+        var effects = new Effects();
+        await using var service = Create(store, effects);
+        var rule = Rule(enabled: true, global: 0, user: 0, perMinute: 60);
+        Assert.True(service.SaveRule(rule)); Assert.True(service.SetRuleEnabled(rule.Id, true));
+        service.SetTwitchConnected(true);
+
+        Assert.False(service.OnChatMessage("mybot", "hola", "own-1"));
+        Assert.False(service.OnChatMessage("channelowner", "hola", "own-2"));
+        Assert.Equal(0, effects.Sends);
+        Assert.Contains(service.GetRecentActivity(), x => x.Outcome == "Eco propio ignorado");
     }
 }
