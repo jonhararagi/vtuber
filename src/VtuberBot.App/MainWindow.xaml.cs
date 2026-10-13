@@ -179,7 +179,7 @@ public partial class MainWindow : Window
             using var payloadDocument = JsonDocument.Parse(JsonSerializer.Serialize(new { type, summary }));
             eventActionCoordinator?.TryPublish(NormalizedBotEvent.Create(
                 "VTuberBot.EventSub", "Twitch", type, payloadDocument.RootElement,
-                originalTimestamp: DateTimeOffset.UtcNow, origin: NormalizedEventOrigin.Internal));
+                origin: NormalizedEventOrigin.Internal));
         }
         catch (Exception exception) when (exception is ArgumentException or JsonException or InvalidOperationException)
         {
