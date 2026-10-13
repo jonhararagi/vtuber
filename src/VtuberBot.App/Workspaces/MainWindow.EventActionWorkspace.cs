@@ -413,16 +413,16 @@ public partial class MainWindow
                 {
                     var response = await streamerBot.DoActionAsync(id.ToString("D"), cancellationToken).ConfigureAwait(false);
                     return response.Success
-                        ? new(EventActionOutcome.RequestAccepted, "Streamer.bot aceptó la solicitud. El efecto posterior en OBS no está confirmado.", response.Id)
-                        : new(EventActionOutcome.ActionRejected, "Streamer.bot rechazó la solicitud: " + response.Message, response.Id);
+                        ? new(EventActionOutcome.RequestAccepted, "Streamer.bot aceptó la solicitud. El efecto posterior en OBS no está confirmado.", response.Id, true)
+                        : new(EventActionOutcome.ActionRejected, "Streamer.bot rechazó la solicitud: " + response.Message, response.Id, true);
                 }
                 catch (TimeoutException)
                 {
-                    return new(EventActionOutcome.OutcomeUnknown, "Timeout de Streamer.bot; la acción pudo haber comenzado y su efecto es desconocido.");
+                    return new(EventActionOutcome.OutcomeUnknown, "Timeout de Streamer.bot; la acción pudo haber comenzado y su efecto es desconocido.", null, true);
                 }
                 catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Net.WebSockets.WebSocketException)
                 {
-                    return new(EventActionOutcome.OutcomeUnknown, "La conexión falló durante la solicitud; el resultado es desconocido (" + ex.GetType().Name + ").");
+                    return new(EventActionOutcome.OutcomeUnknown, "La conexión falló durante la solicitud; el resultado es desconocido (" + ex.GetType().Name + ").", null, true);
                 }
             }
 
