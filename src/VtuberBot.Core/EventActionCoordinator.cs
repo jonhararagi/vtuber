@@ -125,6 +125,7 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
     private int automationsPaused;
     private int automaticPngtuberHotkeysAllowed;
     private int globalMaxExecutionsPerMinute;
+    private int queueSaturationWarningPending;
     private int disposed;
 
     public event Action<EventActionActivity>? ActivityChanged;
@@ -238,13 +239,18 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
             ValidateEvent(evt);
             if (queue.Writer.TryWrite(evt))
             {
+                Interlocked.Exchange(ref queueSaturationWarningPending, 0);
                 Record(new(DateTimeOffset.UtcNow, EventActionOutcome.EventReceived, null,
                     evt.Source, evt.Category + "." + evt.Type, "", "Evento recibido y encolado.", evt.CorrelationId));
                 return true;
             }
-            Record(new(DateTimeOffset.UtcNow, EventActionOutcome.QueueSaturated, null, evt.Source,
-                evt.Category + "." + evt.Type, "", "Cola saturada; el evento se descartó sin bloquear al productor.", evt.CorrelationId));
-            try { Warning?.Invoke("Cola de automatizaciones saturada; se descartó un evento. Revisá los límites y la actividad."); } catch { }
+            // Report once per saturation burst; repeated drops must not flood SQLite or the UI dispatcher.
+            if (Interlocked.Exchange(ref queueSaturationWarningPending, 1) == 0)
+            {
+                Record(new(DateTimeOffset.UtcNow, EventActionOutcome.QueueSaturated, null, evt.Source,
+                    evt.Category + "." + evt.Type, "", "Cola saturada; se descartaron eventos sin bloquear al productor.", evt.CorrelationId));
+                try { Warning?.Invoke("Cola de automatizaciones saturada; se descartaron eventos. Revisá los límites y la actividad."); } catch { }
+            }
             return false;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or JsonException)
