@@ -30,12 +30,28 @@ public sealed class EventActionCoordinatorTests
     public async Task DamagedPersistedRulesAreSkippedAndReportedWithoutStoppingStartup()
     {
         var settings = new MemorySettings();
+        settings.SetSetting(EventActionCoordinator.PausedSettingKey, "false");
         settings.SetSetting(EventActionCoordinator.RulesSettingKey,
             """[{"Id":"not-a-guid","Name":"broken","Enabled":true,"Source":"Streamer.bot","Category":"Twitch","EventType":"Raid","Conditions":[],"Destination":"StreamerBot","TargetId":"bad","CooldownSeconds":0,"MaxExecutionsPerMinute":10}]""");
         await using var coordinator = new EventActionCoordinator(settings, new RecordingDispatcher());
         Assert.Empty(coordinator.GetRules());
         Assert.NotEmpty(coordinator.StartupWarnings);
         Assert.True(coordinator.AutomationsPaused);
+        Assert.Equal("true", settings.GetSetting(EventActionCoordinator.PausedSettingKey));
+    }
+
+    [Fact]
+    public async Task CorruptedRulesDocumentForcesAndPersistsGlobalPause()
+    {
+        var settings = new MemorySettings();
+        settings.SetSetting(EventActionCoordinator.PausedSettingKey, "false");
+        settings.SetSetting(EventActionCoordinator.RulesSettingKey, "{not-json");
+        await using var coordinator = new EventActionCoordinator(settings, new RecordingDispatcher());
+
+        Assert.Empty(coordinator.GetRules());
+        Assert.True(coordinator.AutomationsPaused);
+        Assert.Equal("true", settings.GetSetting(EventActionCoordinator.PausedSettingKey));
+        Assert.Contains(coordinator.StartupWarnings, warning => warning.Contains("configuración de reglas está dañada", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
