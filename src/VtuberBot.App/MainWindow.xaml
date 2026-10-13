@@ -147,6 +147,7 @@
             <Button Content="◉  Twitch y chat" Tag="Twitch y chat" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="⌘  Comandos" Tag="Comandos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="♧  Comunidad y puntos" Tag="Comunidad y puntos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+            <Button Content="⚡  Automatizaciones" Tag="Automatizaciones" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="✦  Sorteos" Tag="Sorteos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="♜  Minijuegos" Tag="Minijuegos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="⛨  Moderación" Tag="Moderación" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
