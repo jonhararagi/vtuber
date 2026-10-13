@@ -316,6 +316,6 @@ El run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040) so
 - [x] Añadir whitelist de comandos del avatar, eliminar líneas de comando del texto hablado/publicable y mantener controles administrativos fuera de la salida IA.
 - [x] Añadir comentario periódico de chat, configurable entre 1 y 60 minutos (5 inicial), con buffer acotado y cancelación al pausar/desconectar; transcripción no persistida.
 - [x] Añadir sprites/estados Angry y LeftEyeClose a Avatar Studio y validación de perfiles.
-- [ ] Pendiente de Windows CI para el SHA final de esta orden.
+- [x] Windows CI completada para el commit de implementación cf19663380c914abaa07b7dd7ed5a3163293723b: Release build con 0 warnings/errores, 503/503 pruebas pasadas, publicación self-contained win-x64 correcta y ZIP de 484 entradas (run 38438046595, artefacto 11833843141).
 - [ ] Pendiente de prueba manual con clave/API real, cuota, audio TTS de Gemini y OBS en un equipo Windows.
 - Limitación explícita: la suscripción de ChatGPT web no se convierte en API; el modo manual es copiar/pegar. El modo automático necesita una API admitida y una clave del proveedor. Las cuotas gratuitas y su política de uso de datos dependen del proveedor.
