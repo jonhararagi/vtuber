@@ -149,6 +149,23 @@ public sealed class EventActionCoordinatorTests
     }
 
     [Fact]
+    public async Task BoundedQueueReportsSaturationWithoutBlockingProducer()
+    {
+        var settings = new MemorySettings();
+        var dispatcher = new BlockingDispatcher();
+        var coordinator = new EventActionCoordinator(settings, dispatcher, new EventActionCoordinatorOptions(QueueCapacity: 1));
+        coordinator.AutomationsPaused = false;
+        coordinator.SaveRule(Rule(enabled: true));
+        Publish(coordinator, "queue-first");
+        await dispatcher.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.True(coordinator.TryPublish(CreateEvent("queue-second")));
+        Assert.False(coordinator.TryPublish(CreateEvent("queue-third")));
+        Assert.Contains(coordinator.GetRecentActivity(), x => x.Outcome == EventActionOutcome.QueueSaturated);
+        dispatcher.Release.TrySetResult(true);
+        await coordinator.DisposeAsync();
+    }
+
+    [Fact]
     public async Task ShutdownStopsWorkerAndRejectsNewEvents()
     {
         var settings = new MemorySettings();
@@ -164,6 +181,12 @@ public sealed class EventActionCoordinatorTests
         new(Guid.NewGuid(), "test rule", enabled, "Streamer.bot", "Twitch", "Follow",
             conditions ?? [], destination, destination == EventActionDestination.StreamerBot ? "action-1" : Guid.NewGuid().ToString("D"),
             cooldown, 10, confirmed, destination == EventActionDestination.StreamerBot && confirmed ? "action-1" : null);
+
+    private static NormalizedBotEvent CreateEvent(string id)
+    {
+        using var payload = JsonDocument.Parse("""{"userName":"alice","message":"queue"}""");
+        return NormalizedBotEvent.Create("Streamer.bot", "Twitch", "Follow", payload.RootElement, providerEventId: id);
+    }
 
     private static void Publish(EventActionCoordinator coordinator, string id, string message = "hello")
     {
@@ -183,6 +206,18 @@ public sealed class EventActionCoordinatorTests
         private readonly Dictionary<string, string> values = new(StringComparer.Ordinal);
         public string GetSetting(string key, string fallback = "") => values.TryGetValue(key, out var value) ? value : fallback;
         public void SetSetting(string key, string value) => values[key] = value;
+    }
+
+    private sealed class BlockingDispatcher : IEventActionDispatcher
+    {
+        public TaskCompletionSource<bool> Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public async Task<EventActionExecutionResult> DispatchAsync(EventActionRule rule, NormalizedBotEvent evt, CancellationToken cancellationToken)
+        {
+            Started.TrySetResult(true);
+            await Release.Task.WaitAsync(cancellationToken);
+            return new(EventActionOutcome.RequestAccepted, "released");
+        }
     }
 
     private sealed class RecordingDispatcher : IEventActionDispatcher
