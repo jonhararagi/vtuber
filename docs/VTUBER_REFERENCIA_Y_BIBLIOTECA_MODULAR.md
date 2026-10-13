@@ -29,16 +29,38 @@ No se han descargado ni recortado modelos oficiales para redistribuirlos. La ilu
 
 Las piezas se dibujan localmente en un lienzo común de 512 × 768 y se guardan como PNG con transparencia bajo la carpeta local de datos de VTuberBot. No se necesita internet ni API de imágenes para generarlas.
 
-- **Cabello (8):** coleta alta carmesí, coletas dobles violetas, bob azul noche, ondas rosas, plata/cian, trenza verde marina, corto despeinado y rizos dorados.
-- **Conjuntos (10):** idol estelar, uniforme marinero, gótico romántico, ceremonial rojo, streetwear tecnológico, capitana nocturna, armadura fantástica ligera, hoodie pastel, vestido celestial y cyber runner.
-- **Accesorios de cabeza (10):** lazos, orejas de gato, orejas de conejo, cuernos, halo estelar, gorra tiburón original, corona, auriculares gamer, flores y pluma.
-- **Accesorios faciales / joyería (6):** gafas redondas, pendientes de estrella, choker con corazón, parche estelar, micrófono de diadema y colgante geométrico.
-- **Piezas traseras (6):** capa corta, alas demoníacas, alas de luz, mochila conejito, aletas acuáticas y cintas estelares.
+- **Cabello (11):** coleta alta carmesí, coletas dobles violetas, bob azul noche, ondas rosas, plata/cian, trenza verde marina, corto despeinado, rizos dorados, largo liso índigo, trenza lateral coral y dos moños redondos.
+- **Conjuntos (15):** idol estelar, uniforme marinero, gótico romántico, ceremonial rojo, streetwear tecnológico, capitana nocturna, armadura fantástica ligera, hoodie pastel, vestido celestial, cyber runner, chaqueta idol casual, yukata de festival, túnica de maga, vestido de baile real y abrigo invernal.
+- **Accesorios de cabeza (14):** lazos, orejas de gato, orejas de conejo, cuernos, halo estelar, gorra tiburón original, corona, auriculares gamer, flores, pluma, orejas de zorro, sombrero de bruja, tiara lunar y visor tecnológico.
+- **Accesorios faciales / joyería (9):** gafas redondas, pendientes de estrella, choker con corazón, parche estelar, micrófono de diadema, colgante geométrico, mascarilla urbana, estrellas en mejillas y lazo de cuello.
+- **Piezas traseras (9):** capa corta, alas demoníacas, alas de luz, mochila conejito, aletas acuáticas, cintas estelares, cola esponjosa, mochila mecánica y cristales flotantes.
+- **Configurador de color por zona:** cabello, ropa, accesorio de cabeza, cara/joyería y espalda se pueden teñir por separado con valores HEX #RRGGBB o muestras rápidas. El sistema conserva la transparencia y procura respetar el contorno oscuro y los brillos claros. El original permanece intacto; las variantes teñidas se guardan en otra carpeta y se usan en un perfil nuevo.
 
 Cada pieza existe como capa independiente. El personaje de base usa una prenda neutra/modesta; la ropa, cabello y accesorios son overlays separados. Se pueden mover, escalar, rotar, ocultar o reordenar en el editor. La combinación se crea como **un perfil nuevo**, para no sobreescribir perfiles existentes.
+
+## Programas y catálogos externos que conviene aprovechar
+
+Estos enlaces son fuentes externas para crear o encontrar recursos. **No significa que sus archivos se hayan descargado e incluido automáticamente en VTuberBot**.
+
+| Fuente | Para qué sirve | Cómo encaja con este proyecto |
+|---|---|---|
+| [VRoid Studio — gratuito](https://vroid.com/en/studio) | Crear personajes 3D y personalizar pelo, ropa, cara y texturas; exporta modelos VRM. | Es una vía potente para diseñar un modelo completo. La versión actual de Avatar Studio trabaja con imágenes PNG en capas, así que no puede importar VRM directamente todavía. |
+| [Krita — dibujo digital libre](https://krita.org/es/) | Dibujar pelo, prendas, ojos, accesorios y sprites con capas y transparencia. | Útil para crear PNG separados y luego importarlos en Avatar Studio. |
+| [OpenGameArt — recursos y licencias](https://opengameart.org/content/faq) | Buscar sprites, piezas y fondos. El sitio admite distintas licencias; algunas permiten uso comercial con atribución y otras añaden condiciones. | Preferir CC0 o recursos con licencia claramente compatible; guardar autor, enlace y licencia antes de empaquetar un recurso. |
+| [itch.io — recursos gratuitos](https://itch.io/game-assets/free) | Buscar personajes, sprites, fondos, accesorios 2D y assets 3D, con filtros por formato y estilo. | Gratis no equivale a dominio público: revisar la licencia y las condiciones de cada paquete individual antes de redistribuirlo. |
+| [Live2D Cubism — planes FREE/PRO](https://www.live2d.com/es/cubism/comparison/) | Separar y riggear ilustraciones para animación Live2D. La edición gratuita tiene limitaciones respecto a PRO. | Alternativa para una etapa futura con deformación/rig avanzado; no es un importador automático de rigs dentro del Avatar Studio actual. |
+| [BOOTH — ejemplos de modelos y accesorios](https://booth.pm/en/search/VTuber) | Catálogo de modelos y accesorios de creadores, gratuitos y de pago. | Revisar la licencia de cada producto. No redistribuir modelos de pago o archivos descargados solo porque se permita usarlos en streams. |
+
+### Flujo recomendado con fuentes externas
+
+1. Buscar una pieza con licencia expresa para el uso previsto; guardar título, autor, URL, licencia y si admite modificaciones/redistribución.
+2. Abrirla en Krita para separar cabello, ropa y accesorios en PNG transparentes del mismo tamaño, si la licencia permite modificarla.
+3. Importar la imagen base o cada pieza desde los botones de importación de Avatar Studio y ajustar la capa.
+4. No añadir al repositorio assets externos hasta comprobar tanto la licencia como las condiciones de redistribución. Los perfiles personales pueden usar archivos importados localmente sin convertirlos en contenido distribuido junto al programa.
 
 ## Límites actuales
 
 - Es un sistema de sprites 2D por capas, con movimiento/parallax ligero y sprites de expresión; **no** es Live2D, no deforma mallas o huesos, y no hace tracking facial por cámara.
-- El archivo de diseño de una referencia puede enlazar a imágenes oficiales, pero VTuberBot no almacena ni redistribuye esos dibujos.
-- Antes de considerar terminada la incorporación, el CI de Windows debe compilar, ejecutar pruebas y publicar un ZIP asociado al SHA exacto. Después sigue pendiente la comprobación visual manual en el PC del usuario.
+- El configurador de color se aplica al crear un perfil desde el armario modular; no es todavía un editor de pintura de píxel libre ni un selector de color que modifique en vivo cualquier PNG arbitrario.
+- El archivo de diseño de una referencia puede enlazar a imágenes oficiales, pero VTuberBot no almacena ni redistribuye esos dibujos ni incorpora automáticamente archivos de sitios externos.
+- Después de la compilación y pruebas de Windows sigue pendiente la comprobación visual manual en el PC del usuario, especialmente la calidad de solapamiento de cada combinación de ropa, pelo y accesorios.
