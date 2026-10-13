@@ -59,6 +59,7 @@ public interface IStreamerBotClient : IAsyncDisposable
     Task<IReadOnlyDictionary<string, string[]>> GetEventsAsync(CancellationToken cancellationToken = default);
     Task<StreamerBotResponse> DoActionAsync(string actionId, CancellationToken cancellationToken = default);
     Task<IReadOnlyDictionary<string, string[]>> SubscribeAsync(IReadOnlyDictionary<string, string[]> events, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<string, string[]>> UnsubscribeAsync(IReadOnlyDictionary<string, string[]> events, CancellationToken cancellationToken = default);
 }
 
 public sealed class StreamerBotProtocolException(string message) : Exception(message);
@@ -244,6 +245,32 @@ public sealed class StreamerBotWebSocketClient : IStreamerBotClient
         EnsureSuccess(response);
         if (!response.Payload.TryGetProperty("events", out var confirmed) || confirmed.ValueKind != JsonValueKind.Object)
             throw new StreamerBotProtocolException("La respuesta Subscribe no confirmó las suscripciones mediante events.");
+        var result = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var category in confirmed.EnumerateObject())
+            if (category.Value.ValueKind == JsonValueKind.Array)
+                result[CanonicalCategory(category.Name)] = category.Value.EnumerateArray()
+                    .Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).ToArray();
+        return result;
+    }
+
+    public async Task<IReadOnlyDictionary<string, string[]>> UnsubscribeAsync(
+        IReadOnlyDictionary<string, string[]> events, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+        var selection = new JsonObject();
+        foreach (var category in events)
+        {
+            var names = category.Value.Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            if (names.Length > 0)
+                selection[CanonicalCategory(category.Key)] = new JsonArray(names.Select(name => (JsonNode?)JsonValue.Create(name)).ToArray());
+        }
+        if (selection.Count == 0)
+            throw new ArgumentException("Indicá las suscripciones anteriores que deben retirarse.", nameof(events));
+        var response = await SendRequestAsync("UnSubscribe", new JsonObject { ["events"] = selection }, cancellationToken).ConfigureAwait(false);
+        EnsureSuccess(response);
+        if (!response.Payload.TryGetProperty("events", out var confirmed) || confirmed.ValueKind != JsonValueKind.Object)
+            throw new StreamerBotProtocolException("La respuesta UnSubscribe no confirmó las suscripciones mediante events.");
         var result = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
         foreach (var category in confirmed.EnumerateObject())
             if (category.Value.ValueKind == JsonValueKind.Array)
