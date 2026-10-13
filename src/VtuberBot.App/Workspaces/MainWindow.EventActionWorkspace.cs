@@ -27,7 +27,6 @@ public partial class MainWindow
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     store.Log("Automatizaciones", $"{activity.Outcome}: regla={activity.RuleId?.ToString("N") ?? "-"} fuente={activity.Source} evento={activity.EventType} destino={activity.Destination} correlación={activity.CorrelationId} · {activity.Message}");
-                    if (currentPage == "Automatizaciones") RefreshEventActionActivity();
                 }));
             }
             catch (InvalidOperationException) { }
@@ -336,12 +335,6 @@ public partial class MainWindow
             FooterStatus.Text = "Suscripciones de automatización no confirmadas; revisá Streamer.bot.";
         }
         finally { eventActionSubscriptionGate.Release(); }
-    }
-
-    private void RefreshEventActionActivity()
-    {
-        // The workspace rebuilds on navigation; this hook keeps event callbacks safe while it is open.
-        if (currentPage == "Automatizaciones") Navigate("Automatizaciones");
     }
 
     private sealed class WindowProductSettingsStore(
