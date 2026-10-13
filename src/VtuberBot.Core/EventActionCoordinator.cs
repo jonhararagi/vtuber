@@ -200,8 +200,6 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
         {
             if (!rules.Remove(id)) return false;
             PersistRulesLocked();
-            lastExecution.Remove(id);
-            ruleExecutions.Remove(id);
             return true;
         }
     }
@@ -354,7 +352,11 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
                 RecordActivity(rule, evt, EventActionOutcome.RateLimited, "Se alcanzó el límite por minuto de esta regla.");
                 continue;
             }
-            while (globalExecutions.Count > 0 && now - globalExecutions.Peek() >= TimeSpan.FromMinutes(1)) globalExecutions.Dequeue();
+            HashSet<Guid> activeRuleIds;
+        lock (rulesGate) activeRuleIds = rules.Keys.ToHashSet();
+        foreach (var id in lastExecution.Keys.Where(id => !activeRuleIds.Contains(id)).ToArray()) lastExecution.Remove(id);
+        foreach (var id in ruleExecutions.Keys.Where(id => !activeRuleIds.Contains(id)).ToArray()) ruleExecutions.Remove(id);
+        while (globalExecutions.Count > 0 && now - globalExecutions.Peek() >= TimeSpan.FromMinutes(1)) globalExecutions.Dequeue();
             if (globalExecutions.Count >= GlobalMaxExecutionsPerMinute)
             {
                 RecordActivity(rule, evt, EventActionOutcome.RateLimited, "Se alcanzó el límite global por minuto.");
