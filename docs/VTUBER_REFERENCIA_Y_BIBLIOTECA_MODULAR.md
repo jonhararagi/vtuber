@@ -44,6 +44,8 @@ Estos enlaces son fuentes externas para crear o encontrar recursos. **No signifi
 
 | Fuente | Para qué sirve | Cómo encaja con este proyecto |
 |---|---|---|
+| [See-through — demo online](https://huggingface.co/spaces/24yearsold/see-through-demo) | Usa IA para descomponer una ilustración anime en hasta 23 capas semánticas y generar un PSD. | Acceso rápido desde Avatar Studio. La demo requiere subir la imagen a un servicio externo; puede limitar la cantidad de ejecuciones gratis y la reconstrucción no siempre es perfecta. |
+| [Anime2.5DRig](https://852wa.github.io/Anime2.5DRig/) | Animador web de PSD por capas con parpadeo, boca, movimiento de pelo y opciones de cámara/micrófono. | Abrir el PSD generado por See-through para probar un avatar 2.5D y salida para OBS. Es una herramienta externa, no parte del runtime de VTuberBot. |
 | [VRoid Studio — gratuito](https://vroid.com/en/studio) | Crear personajes 3D y personalizar pelo, ropa, cara y texturas; exporta modelos VRM. | Es una vía potente para diseñar un modelo completo. La versión actual de Avatar Studio trabaja con imágenes PNG en capas, así que no puede importar VRM directamente todavía. |
 | [Krita — dibujo digital libre](https://krita.org/es/) | Dibujar pelo, prendas, ojos, accesorios y sprites con capas y transparencia. | Útil para crear PNG separados y luego importarlos en Avatar Studio. |
 | [OpenGameArt — recursos y licencias](https://opengameart.org/content/faq) | Buscar sprites, piezas y fondos. El sitio admite distintas licencias; algunas permiten uso comercial con atribución y otras añaden condiciones. | Preferir CC0 o recursos con licencia claramente compatible; guardar autor, enlace y licencia antes de empaquetar un recurso. |
@@ -62,5 +64,6 @@ Estos enlaces son fuentes externas para crear o encontrar recursos. **No signifi
 
 - Es un sistema de sprites 2D por capas, con movimiento/parallax ligero y sprites de expresión; **no** es Live2D, no deforma mallas o huesos, y no hace tracking facial por cámara.
 - El configurador de color se aplica al crear un perfil desde el armario modular; no es todavía un editor de pintura de píxel libre ni un selector de color que modifique en vivo cualquier PNG arbitrario.
+- La sección «Crear una VTuber desde una sola imagen» es un asistente con enlaces a servicios web externos: no ejecuta el modelo See-through dentro de VTuberBot ni importa el PSD automáticamente. La demo remota evita tener que alojar el modelo grande localmente, pero implica conexión y subida manual de la imagen.
 - El archivo de diseño de una referencia puede enlazar a imágenes oficiales, pero VTuberBot no almacena ni redistribuye esos dibujos ni incorpora automáticamente archivos de sitios externos.
 - Después de la compilación y pruebas de Windows sigue pendiente la comprobación visual manual en el PC del usuario, especialmente la calidad de solapamiento de cada combinación de ropa, pelo y accesorios.
