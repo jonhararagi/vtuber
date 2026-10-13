@@ -781,7 +781,7 @@ public partial class MainWindow
         }, true));
 
         panel.Children.Add(Label(
-            "Incluye 8 cabellos, 10 conjuntos y 10 accesorios de cabeza, además de 6 accesorios faciales y 6 piezas traseras seleccionables. Las piezas son independientes y se pueden recolocar desde la lista de capas. El movimiento es 2D ligero; no es un rig Live2D ni incluye tracking facial.",
+            "Incluye 11 cabellos, 15 conjuntos, 14 accesorios de cabeza, 9 piezas faciales/joyería y 9 accesorios traseros. Podés cambiar por separado el color de cabello, ropa, cabeza, cara y espalda con HEX o muestras rápidas. Las piezas se recolocan desde la lista de capas. El movimiento es 2D ligero; no es un rig Live2D ni incluye tracking facial.",
             12, "#98A4BE"));
         return panel;
     }
