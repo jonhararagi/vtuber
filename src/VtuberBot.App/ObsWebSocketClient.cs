@@ -154,6 +154,40 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
     public Task<bool> IsRecordingAsync(CancellationToken cancellationToken = default) =>
         GetOutputActiveAsync("GetRecordStatus", "estado de grabación", cancellationToken);
 
+    /// <summary>
+    /// Configures OBS's single native streaming destination. Simultaneous multi-platform
+    /// output requires a separately installed OBS multi-output plugin.
+    /// </summary>
+    public async Task ConfigureStreamDestinationAsync(
+        string platform,
+        string streamKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(streamKey) || streamKey.Trim().Length > 8192)
+            throw new ArgumentException("Pegá una clave de transmisión válida.", nameof(streamKey));
+
+        var server = platform.Trim().ToLowerInvariant() switch
+        {
+            "twitch" => "rtmps://live.twitch.tv:443/app",
+            "youtube" => "rtmps://a.rtmp.youtube.com:443/live2",
+            _ => throw new ArgumentOutOfRangeException(nameof(platform), "Elegí Twitch o YouTube.")
+        };
+
+        if (await IsStreamingAsync(cancellationToken).ConfigureAwait(false))
+            throw new InvalidOperationException("Detené la transmisión actual de OBS antes de cambiar el destino.");
+
+        var response = await RequestAsync(
+            "SetStreamServiceSettings",
+            new
+            {
+                streamServiceType = "rtmp_custom",
+                streamServiceSettings = new { server, key = streamKey.Trim() }
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        EnsureRequestSucceeded(response, "OBS no pudo configurar el destino de transmisión.");
+    }
+
     public Task StartStreamingAsync(CancellationToken cancellationToken = default) =>
         ExecuteOutputRequestAsync("StartStream", "OBS no pudo iniciar la transmisión.", cancellationToken);
 
