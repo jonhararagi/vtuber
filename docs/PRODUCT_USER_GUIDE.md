@@ -1,6 +1,6 @@
 # Guía del candidato integral de VTuberBot
 
-Esta guía corresponde a la rama `product/complete-vtuber-experience`. Las funciones externas no se consideran conectadas hasta completar la autenticación real.
+Esta guía corresponde al candidato integrado publicado en `main`. Las funciones externas no se consideran conectadas hasta completar la autenticación real.
 
 ## Primer inicio y datos
 
@@ -12,8 +12,18 @@ Esta guía corresponde a la rama `product/complete-vtuber-experience`. Las funci
 ## Dashboard, Avatar Studio y OBS overlay
 El Dashboard muestra CPU y RAM reales del proceso cada dos segundos mientras está abierto; no presenta valores GPU/FPS inventados.
 
-1. Abrí **Avatar Studio**. Podés crear un perfil vacío, duplicar el actual o cambiar entre perfiles desde la parte superior; cada uno conserva su propia imagen base, capas/transformaciones y sprites de expresión. Eliminar un perfil no borra los archivos de imagen importados, y siempre debe quedar al menos un perfil. **Exportar perfil (.vtuberavatar)** guarda base, capas, transformaciones y expresiones juntos; al importarlo se crea otro perfil sin sobrescribir los existentes.
-2. Importá la imagen base del perfil activo.
+### Probar un avatar sin traer imágenes externas
+
+1. Abrí **Avatar Studio** y usá los botones de la sección **Empezar con un ejemplo incluido**.
+2. **Probar ejemplo PNGTuber (reposo / habla)** crea un perfil con sprites para reposo, habla, parpadeo, alegría y sorpresa. Al configurar el micrófono, el detector acústico puede alternar Idle/Talking. Es un PNGTuber por estados, no un avatar con tracking facial.
+3. **Probar ejemplo 2D por capas** crea un perfil separado. El flequillo y los destellos son imágenes transparentes independientes: seleccioná una capa, arrastrala en la previsualización y guardá X/Y, escala o rotación. El overlay agrega un movimiento ligero, pero no es un rig Live2D con huesos, deformación facial o seguimiento por cámara.
+4. Los sprites de demostración se generan localmente la primera vez. No hace falta descargar arte, configurar una API ni sobrescribir tus perfiles propios. Al pulsar de nuevo un ejemplo ya creado, se activa el perfil existente sin borrar tus cambios.
+5. **Configurar PNGTuber Plus externo** abre su página de configuración. PNGTuber Plus es otra aplicación y necesita instalarse aparte; el botón de ejemplo integrado no pretende simular que esa aplicación ya está instalada.
+
+### Personalizar el avatar
+
+1. Cada perfil conserva su propia imagen base, capas/transformaciones y sprites de expresión. Podés crear un perfil vacío, duplicar el actual o cambiar entre perfiles desde la parte superior. Eliminar un perfil no borra los archivos de imagen importados, y siempre debe quedar al menos un perfil. **Exportar perfil (.vtuberavatar)** guarda base, capas, transformaciones y expresiones juntos; al importarlo se crea otro perfil sin sobrescribir los existentes.
+2. Importá una imagen base propia si querés reemplazar el personaje de ejemplo.
 3. Importá capas PNG/JPG adicionales transparentes. Podés ocultar o eliminar una capa sin borrar el archivo original, cambiar su orden visual y ajustar X/Y, escala y rotación.
 4. En **Sprites por expresión**, asigná imágenes con el mismo tamaño para Idle, Talking, Blink, Happy o Surprised. La imagen base se usa como fallback para estados normales sin sprite; para Blink necesitás una imagen explícita de ojos cerrados.
 5. En la previsualización, seleccioná una capa visible a la derecha, arrastrala para ajustar X/Y y pulsá **Aplicar y guardar transformación**.
