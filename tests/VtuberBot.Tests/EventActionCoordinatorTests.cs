@@ -54,12 +54,11 @@ public sealed class EventActionCoordinatorTests
         Assert.Equal("action-1", dispatcher.Targets.Single());
 
         using var wrongSourcePayload = JsonDocument.Parse("""{"userName":"alice"}""");
-        coordinator.TryPublish(NormalizedBotEvent.Create("VTuberBot.EventSub", "Twitch", "Follow",
-            wrongSourcePayload.RootElement, providerEventId: "evt-2"));
+        Assert.True(coordinator.TryPublish(NormalizedBotEvent.Create("VTuberBot.EventSub", "Twitch", "Follow",
+            wrongSourcePayload.RootElement, providerEventId: "evt-2")));
         using var missingField = JsonDocument.Parse("""{"userName":null}""");
-        coordinator.TryPublish(NormalizedBotEvent.Create("Streamer.bot", "Twitch", "Follow",
-            missingField.RootElement, providerEventId: "evt-3"));
-        await Task.Delay(150, TestContext.Current.CancellationToken);
+        Assert.True(coordinator.TryPublish(NormalizedBotEvent.Create("Streamer.bot", "Twitch", "Follow",
+            missingField.RootElement, providerEventId: "evt-3")));
         Assert.Single(dispatcher.Targets);
         await AssertActivityAsync(coordinator, EventActionOutcome.ConditionNotMet);
     }
@@ -260,7 +259,10 @@ public sealed class EventActionCoordinatorTests
 
     private static async Task AssertActivityAsync(EventActionCoordinator coordinator, EventActionOutcome outcome)
     {
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(3);
+        while (DateTimeOffset.UtcNow < deadline &&
+            !coordinator.GetRecentActivity().Any(item => item.Outcome == outcome))
+            await Task.Delay(20, TestContext.Current.CancellationToken);
         Assert.Contains(coordinator.GetRecentActivity(), x => x.Outcome == outcome);
     }
 
