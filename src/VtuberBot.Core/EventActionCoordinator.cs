@@ -119,10 +119,18 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
     private readonly Dictionary<Guid, Queue<DateTimeOffset>> ruleExecutions = [];
     private readonly Queue<DateTimeOffset> globalExecutions = new();
     private readonly Queue<EventActionActivity> activity = new();
+    private readonly List<string> startupWarnings = [];
     private int disposed;
 
     public event Action<EventActionActivity>? ActivityChanged;
     public event Action<string>? Warning;
+    public IReadOnlyList<string> StartupWarnings { get { lock (startupWarnings) return startupWarnings.ToArray(); } }
+
+    private void AddStartupWarning(string message)
+    {
+        lock (startupWarnings) startupWarnings.Add(message);
+        try { Warning?.Invoke(message); } catch { }
+    }
 
     public EventActionCoordinator(IProductSettingsStore settings, IEventActionDispatcher dispatcher,
         EventActionCoordinatorOptions? options = null)
@@ -487,24 +495,26 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
         try
         {
             using var document = JsonDocument.Parse(json);
-            if (document.RootElement.ValueKind != JsonValueKind.Array) throw new JsonException("Se esperaba una lista.");
-            var loaded = JsonSerializer.Deserialize<List<EventActionRule>>(json) ?? [];
-            foreach (var rule in loaded.Take(MaxRules))
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+                throw new JsonException("Se esperaba una lista de reglas.");
+            foreach (var element in document.RootElement.EnumerateArray().Take(MaxRules))
             {
                 try
                 {
+                    var rule = element.Deserialize<EventActionRule>();
+                    if (rule is null) throw new JsonException("Regla vacía.");
                     ValidateRule(rule);
                     rules[rule.Id] = rule;
                 }
-                catch (Exception ex) when (ex is ArgumentException or NullReferenceException)
+                catch (Exception ex) when (ex is ArgumentException or JsonException or NullReferenceException or NotSupportedException)
                 {
-                    Warning?.Invoke("Una regla guardada no es válida y fue omitida/desactivada de forma segura.");
+                    AddStartupWarning("Una regla guardada dañada/no compatible se omitió y quedó desactivada de forma segura.");
                 }
             }
         }
         catch (JsonException)
         {
-            Warning?.Invoke("La configuración de reglas está dañada; se conservó en SQLite y el coordinador inició sin reglas.");
+            AddStartupWarning("La configuración de reglas está dañada; el coordinador inició pausado y sin ejecutar reglas. La configuración original se conserva en SQLite.");
         }
     }
 
