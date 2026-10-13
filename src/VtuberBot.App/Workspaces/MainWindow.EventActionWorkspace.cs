@@ -420,7 +420,7 @@ public partial class MainWindow
                 {
                     return new(EventActionOutcome.OutcomeUnknown, "Timeout de Streamer.bot; la acción pudo haber comenzado y su efecto es desconocido.", null, true);
                 }
-                catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Net.WebSockets.WebSocketException)
+                catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Net.WebSockets.WebSocketException or StreamerBotProtocolException)
                 {
                     return new(EventActionOutcome.OutcomeUnknown, "La conexión falló durante la solicitud; el resultado es desconocido (" + ex.GetType().Name + ").", null, true);
                 }
