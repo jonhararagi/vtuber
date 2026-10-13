@@ -30,8 +30,9 @@ public sealed class AvatarLayerOrderingTests
     public void BackgroundNameComparisonIsCaseInsensitiveAndRejectsOtherNames()
     {
         Assert.True(AvatarLayerOrdering.IsBackground(Layer(1, "FONDO", 0)));
-        Assert.False(AvatarLayerOrdering.IsBackground(Layer(2, "Fondo espacial", 0)));
-        Assert.False(AvatarLayerOrdering.IsBackground(Layer(3, "Background", 0)));
+        Assert.True(AvatarLayerOrdering.IsBackground(Layer(2, "Fondo · Alas de ejemplo", 0)));
+        Assert.False(AvatarLayerOrdering.IsBackground(Layer(3, "Fondo espacial", 0)));
+        Assert.False(AvatarLayerOrdering.IsBackground(Layer(4, "Background", 0)));
         Assert.False(AvatarLayerOrdering.IsBackground(null));
     }
 
