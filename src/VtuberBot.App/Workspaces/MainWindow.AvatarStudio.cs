@@ -252,7 +252,6 @@ public partial class MainWindow
             LoadDemoProfile("Ejemplo 2D por capas", layered: true), true));
         demoActions.Children.Add(ActionButton("Configurar PNGTuber Plus externo", (_, _) => Navigate("Avatar externo")));
         demoPanel.Children.Add(demoActions);
-        root.Children.Add(demoPanel);
 
 
         var imageToAvatarPanel = Panel("Separación remota de mayor calidad (requiere subir la imagen)");
