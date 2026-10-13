@@ -191,6 +191,10 @@ public partial class MainWindow
         if (streamerBotInfoLabel is not null && snapshot.Instance is { } instance)
             streamerBotInfoLabel.Text = $"Instancia: {instance.Name} · versión {instance.Version} · ID {instance.InstanceId} · {instance.OperatingSystem}";
         FooterStatus.Text = "Streamer.bot: " + snapshot.Message;
+        if (snapshot.State == StreamerBotConnectionState.Connected)
+            _ = ReconcileStreamerBotSubscriptionsAsync();
+        else if (snapshot.State is StreamerBotConnectionState.ConfiguredDisconnected or StreamerBotConnectionState.UnexpectedDisconnect)
+            appliedStreamerBotSubscriptions = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
     }));
 
     private void HandleStreamerBotEventReceived(StreamerBotEvent evt)
