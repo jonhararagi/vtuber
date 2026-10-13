@@ -280,3 +280,8 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - [ ] Pruebas manuales pendientes: voz SAPI en Windows; Twitch autenticado con cuenta bot; servidor llama.cpp real y modelo GGUF; prueba de no-eco, cooldown, cancelación y desconexión.
 
 No considerar la integración validada en tiempo real hasta completar las comprobaciones pendientes.
+
+
+### CI observado para bot social
+
+El run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040) sobre SHA `127320c4e03a7786a19e5426cdd9525d3b7fe010` compiló correctamente pero terminó con 433/434 pruebas. La prueba del JSON malformado encontró que el proveedor reportaba `Unavailable` en lugar de `InvalidResponse`; se corrigió esa clasificación y se añadió validación explícita de modelo configurado. El SHA posterior debe tener su propio run satisfactorio para considerar validada esta orden.
