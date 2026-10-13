@@ -24,6 +24,8 @@ namespace VtuberBot.App;
 
 public partial class MainWindow
 {
+    private CancellationTokenSource? activeLocalAvatarSegmentation;
+
     private sealed record AvatarProfilePackageManifest(
         int FormatVersion,
         string Name,
@@ -200,10 +202,39 @@ public partial class MainWindow
         demoPanel.Children.Add(demoActions);
         root.Children.Add(demoPanel);
 
-        var imageToAvatarPanel = Panel("Crear una VTuber desde una sola imagen");
+        var localSegmentationPanel = Panel("Modo local lento y seguro — IA sin subir tu imagen");
+        localSegmentationPanel.Margin = new Thickness(0, 0, 0, 14);
+        localSegmentationPanel.Children.Add(Label(
+            "Elegí una ilustración y VTuberBot intentará separar piel/cuerpo, ropa, cabello y detalles en PNG transparentes. Trabaja solo en CPU, a baja prioridad y con un único hilo de IA. El proceso de IA tiene un límite de memoria de 2 GiB y un máximo de 10 minutos; si toca uno de esos límites, se detiene sin cerrar el bot. La primera vez descarga un modelo de 8,7 MB; después trabaja localmente.",
+            12, "#98A4BE"));
+        var localSegmentationStatus = Label(
+            "Preparado. Usá una ilustración con el personaje bien visible y un fondo sencillo; la segmentación anime es experimental.",
+            12, "#98A4BE");
+        var localSegmentationProgress = new ProgressBar
+        {
+            Minimum = 0,
+            Maximum = 100,
+            Height = 10,
+            Margin = new Thickness(0, 8, 0, 8),
+            IsIndeterminate = false
+        };
+        var localSegmentationActions = new WrapPanel();
+        var startLocalSegmentation = ActionButton("Elegir imagen y separar localmente", async (_, _) =>
+            await StartLocalAvatarSegmentationAsync(), true);
+        var cancelLocalSegmentation = ActionButton("Cancelar procesamiento", (_, _) =>
+            activeLocalAvatarSegmentation?.Cancel());
+        cancelLocalSegmentation.IsEnabled = false;
+        localSegmentationActions.Children.Add(startLocalSegmentation);
+        localSegmentationActions.Children.Add(cancelLocalSegmentation);
+        localSegmentationPanel.Children.Add(localSegmentationActions);
+        localSegmentationPanel.Children.Add(localSegmentationProgress);
+        localSegmentationPanel.Children.Add(localSegmentationStatus);
+        root.Children.Add(localSegmentationPanel);
+
+        var imageToAvatarPanel = Panel("Modo remoto de mayor calidad (requiere subir la imagen)");
         imageToAvatarPanel.Margin = new Thickness(0, 0, 0, 14);
         imageToAvatarPanel.Children.Add(Label(
-            "Flujo sencillo con herramientas gratuitas: una IA intenta separar tu ilustración en capas y luego otra herramienta anima el PSD. No hace falta dibujar cada pieza a mano. La separación es aproximada y puede necesitar retoques; para procesarla se carga la imagen a un servicio online.",
+            "Alternativa remota para intentar una separación más avanzada con reconstrucción de partes ocultas. Se abre en el navegador y requiere subir la ilustración. Para imágenes privadas o para no depender de internet, usá el modo local anterior.",
             12, "#98A4BE"));
         var imageToAvatarActions = new WrapPanel();
         imageToAvatarActions.Children.Add(ActionButton("1 · Separar imagen automáticamente", (_, _) =>
@@ -216,11 +247,119 @@ public partial class MainWindow
                 "Animador de avatar 2.5D")));
         imageToAvatarPanel.Children.Add(imageToAvatarActions);
         imageToAvatarPanel.Children.Add(Label(
-            "Cómo usarlo: (1) abre el separador y carga tu PNG/JPG; (2) descarga el PSD por capas; (3) abre el animador y carga ese PSD; (4) habilita cámara/micrófono si querés seguimiento y boca. El separador online puede limitar las ejecuciones gratuitas y requiere conexión. No subas imágenes privadas. La versión local del modelo es demasiado pesada para la PC objetivo sin una GPU con mucha memoria.",
+            "Cómo usarlo: (1) abre el separador y carga tu PNG/JPG; (2) descarga el PSD por capas; (3) abre el animador y carga ese PSD. Este camino puede reconstruir más zonas, pero requiere conexión y subir la imagen. La versión local incluida es más pequeña y privada, aunque reconoce menos categorías y puede requerir correcciones.",
             12, "#98A4BE"));
         root.Children.Add(imageToAvatarPanel);
 
         root.Children.Add(BuildModularWardrobePanel());
+
+        async Task StartLocalAvatarSegmentationAsync()
+        {
+            if (activeLocalAvatarSegmentation is not null)
+                return;
+
+            var dialog = new OpenFileDialog
+            {
+                Title = "Elegí una ilustración para separar en capas",
+                Filter = "Imágenes | *.png;*.jpg;*.jpeg;*.bmp",
+                Multiselect = false
+            };
+            if (dialog.ShowDialog(this) != true)
+                return;
+
+            var outputDirectory = Path.Combine(
+                avatarDirectory,
+                "segmented-imports",
+                DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture)
+                    + "-" + Guid.NewGuid().ToString("N"));
+
+            using var cancellation = new CancellationTokenSource();
+            activeLocalAvatarSegmentation = cancellation;
+            startLocalSegmentation.IsEnabled = false;
+            cancelLocalSegmentation.IsEnabled = true;
+            localSegmentationProgress.IsIndeterminate = true;
+            localSegmentationStatus.Text = "Iniciando trabajador de IA local...";
+            try
+            {
+                var result = await LocalAvatarSegmentationRunner.RunAsync(
+                    dialog.FileName,
+                    outputDirectory,
+                    message => Dispatcher.BeginInvoke(new Action(() =>
+                        localSegmentationStatus.Text = message)),
+                    cancellation.Token);
+
+                var usefulPixels = result.Manifest.SkinPixels
+                    + result.Manifest.ClothesPixels
+                    + result.Manifest.HairPixels;
+                if (usefulPixels < 100)
+                    throw new InvalidDataException("La IA no reconoció suficiente contenido del personaje.");
+
+                var rawName = Path.GetFileNameWithoutExtension(dialog.FileName).Trim();
+                if (string.IsNullOrWhiteSpace(rawName)) rawName = "Avatar";
+                var baseName = rawName + " (IA local)";
+                if (baseName.Length > 64) baseName = baseName[..64];
+                var profileNames = store.GetAvatarProfiles()
+                    .Select(profile => profile.Name)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var profileName = baseName;
+                for (var suffix = 2; profileNames.Contains(profileName); suffix++)
+                {
+                    var extra = " (" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
+                    var allowedBaseLength = Math.Max(1, 64 - extra.Length);
+                    profileName = baseName[..Math.Min(baseName.Length, allowedBaseLength)] + extra;
+                }
+
+                // Only create the profile after validating that the worker generated usable output.
+                var profile = store.CreateAvatarProfile(profileName, duplicateActiveProfile: false);
+                store.SetActiveAvatarProfile(profile.Id);
+                store.SetActiveAvatarProfileBasePath(result.DetailsPath);
+                store.SetAvatarExpression("Idle", result.DetailsPath);
+                if (result.Manifest.ClothesPixels > 0)
+                    store.AddAvatarLayer("Ropa · IA local", result.ClothesPath);
+                if (result.Manifest.SkinPixels > 0)
+                    store.AddAvatarLayer("Piel y cuerpo · IA local", result.SkinPath);
+                if (result.Manifest.HairPixels > 0)
+                    store.AddAvatarLayer("Cabello · IA local", result.HairPath);
+
+                avatarPath = result.DetailsPath;
+                store.SetSetting("avatar.state", "Idle");
+                store.Log("Avatar", "Separación local por IA completada: " + profileName + ".");
+                FooterStatus.Text = $"Avatar creado en modo local: piel {result.Manifest.SkinPixels:N0}, ropa {result.Manifest.ClothesPixels:N0}, pelo {result.Manifest.HairPixels:N0} píxeles.";
+                Navigate("Avatar Studio");
+                ShowOverlay();
+                MessageBox.Show(this,
+                    "Se creó un perfil nuevo con capas aproximadas de piel/cuerpo, ropa, cabello y detalles. Revisá el orden y la alineación: el modelo es experimental y no reconstruye perfectamente todas las zonas ocultas.",
+                    "Separación local terminada",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (OperationCanceledException)
+            {
+                localSegmentationStatus.Text = "Procesamiento cancelado. VTuberBot sigue funcionando.";
+                FooterStatus.Text = "Separación local cancelada.";
+            }
+            catch (TimeoutException exception)
+            {
+                localSegmentationStatus.Text = exception.Message;
+                MessageBox.Show(this, exception.Message, "Límite de procesamiento", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            catch (Exception exception)
+            {
+                localSegmentationStatus.Text = "No se pudo separar la imagen: " + exception.GetBaseException().Message;
+                MessageBox.Show(this,
+                    "No se pudo crear el avatar por capas: " + exception.GetBaseException().Message,
+                    "Separación local",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+            finally
+            {
+                activeLocalAvatarSegmentation = null;
+                startLocalSegmentation.IsEnabled = true;
+                cancelLocalSegmentation.IsEnabled = false;
+                localSegmentationProgress.IsIndeterminate = false;
+            }
+        }
 
         void LoadDemoProfile(string profileName, bool layered)
         {
