@@ -28,6 +28,8 @@ public sealed class SocialBotService : IAsyncDisposable
     private readonly ConcurrentDictionary<string, DateTimeOffset> recentSpeechHashes = new();
     private DateTimeOffset lastSpeechAt = DateTimeOffset.MinValue;
     private int disposed;
+    private readonly object generationGate = new();
+    private CancellationTokenSource? activeGeneration;
 
     public event Action<SocialBotStatus>? StatusChanged;
     public SocialBotService(ProductStore store, LocalSpeechQueue speech, TwitchChatClient twitch, IChatIntelligenceProvider provider)
@@ -108,6 +110,45 @@ public sealed class SocialBotService : IAsyncDisposable
         Publish("IA", "Mención o comando aceptado para procesamiento local.", PendingConversations);
     }
 
+    public async Task<ChatIntelligenceResult> CheckProviderAsync(CancellationToken cancellationToken = default) =>
+        await provider.CheckAsync(BuildOptions(), cancellationToken).ConfigureAwait(false);
+
+    public async Task<ChatIntelligenceResult> GenerateTestAsync(string prompt, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(prompt) || prompt.Length > 1000)
+            return new(false, "", "InvalidInput", "Escribí una prueba de hasta 1000 caracteres.");
+        var botName = store.GetSetting("social.bot.name", "VTuberBot").Trim();
+        var system = "Eres " + botName + ". Idioma: " + store.GetSetting("social.bot.language", "español") +
+            ". Tono: " + store.GetSetting("social.bot.tone", "cercano") + ". Personalidad: " +
+            store.GetSetting("social.bot.personality", "Simpático, bromista y respetuoso") +
+            ". Respondé en menos de " + Math.Clamp(ParseInt("social.chat.maxResponseChars", 350), 40, 500) +
+            " caracteres. No ejecutes código ni acciones externas."; 
+        var messages = new[] { new ChatConversationMessage("system", system), new ChatConversationMessage("user", prompt.Trim()) };
+        return await GenerateCancellableAsync(BuildOptions(), messages, cancellationToken).ConfigureAwait(false);
+    }
+
+    public void CancelGeneration()
+    {
+        lock (generationGate) activeGeneration?.Cancel();
+        Publish("IA", "Se solicitó cancelar la generación activa.", PendingConversations);
+    }
+
+    private ChatIntelligenceOptions BuildOptions() => new(
+        store.GetSetting("social.ai.baseUrl", "http://127.0.0.1:8080/v1"),
+        store.GetSetting("social.ai.model", ""),
+        ParseInt("social.ai.timeoutSeconds", 30),
+        ParseInt("social.ai.maxInputChars", 4000),
+        ParseInt("social.ai.maxResponseTokens", 180),
+        ParseDouble("social.ai.temperature", 0.7));
+
+    private async Task<ChatIntelligenceResult> GenerateCancellableAsync(
+        ChatIntelligenceOptions options, IReadOnlyList<ChatConversationMessage> messages, CancellationToken cancellationToken)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stop.Token);
+        lock (generationGate) activeGeneration = linked;
+        try { return await provider.GenerateAsync(options, messages, linked.Token).ConfigureAwait(false); }
+        finally { lock (generationGate) if (ReferenceEquals(activeGeneration, linked)) activeGeneration = null; }
+    }
     private bool ShouldRead(string username, string text)
     {
         var max = Math.Clamp(ParseInt("social.tts.maxChars", 220), 20, 500);
@@ -167,13 +208,7 @@ public sealed class SocialBotService : IAsyncDisposable
             userCooldowns[work.Username] = now;
         }
 
-        var options = new ChatIntelligenceOptions(
-            store.GetSetting("social.ai.baseUrl", "http://127.0.0.1:8080/v1"),
-            store.GetSetting("social.ai.model", ""),
-            ParseInt("social.ai.timeoutSeconds", 30),
-            ParseInt("social.ai.maxInputChars", 4000),
-            ParseInt("social.ai.maxResponseTokens", 180),
-            ParseDouble("social.ai.temperature", 0.7));
+        var options = BuildOptions();
         var botName = store.GetSetting("social.bot.name", "VTuberBot").Trim();
         var language = store.GetSetting("social.bot.language", "español");
         var personality = store.GetSetting("social.bot.personality", "Simpático, bromista y respetuoso.");
@@ -186,7 +221,7 @@ public sealed class SocialBotService : IAsyncDisposable
             messages.AddRange(context.TakeLast(8));
             messages.Add(new("user", $"{work.Username}: {work.Text}"));
         }
-        var generated = await provider.GenerateAsync(options, messages, cancellationToken).ConfigureAwait(false);
+        var generated = await GenerateCancellableAsync(options, messages, cancellationToken).ConfigureAwait(false);
         if (!generated.Success)
         {
             Publish("IA", generated.Status + ": " + generated.Error, PendingConversations);
