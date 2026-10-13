@@ -125,3 +125,16 @@ Configuración de rutas, apertura y estados de PNGTuber Plus y Streamer.bot: [Ce
 El estado `status=ok` de `DoAction` confirma la respuesta de Streamer.bot, no que OBS o el avatar hayan realizado el efecto final. Para un servidor remoto, tené presente que `ws://` no cifra el tráfico. VTuberBot no cambia el firewall ni abre puertos automáticamente.
 
 La prueba automatizada de protocolo utiliza un servidor simulado; antes de considerar validada la integración completa, hace falta probar la conexión y los eventos contra tu instancia real de Streamer.bot en Windows, junto con OBS y PNGTuber Plus.
+## Automatizaciones por eventos (candidato de producto)
+
+1. Abrí **Automatizaciones** y mantené activada la pausa global mientras configurás.
+2. Elegí una fuente. Para Streamer.bot, conectate desde **Streamer.bot** y consultá el catálogo de eventos reales; seleccioná una categoría y un tipo que devuelva `GetEvents`. Para `VTuberBot.EventSub`, el tipo debe haberse observado en una notificación real procesada por VTuberBot.
+3. Consultá los destinos. Para Streamer.bot se muestran acciones habilitadas del catálogo real; para PNGTuber Plus se muestran solo atajos existentes, registrados y habilitados.
+4. Definí el nombre, las condiciones opcionales (una por línea: `campo|eq|valor`, `campo|contains|texto` o `campo|present|`), cooldown y límite por minuto.
+5. Guardá la regla. Una regla nueva nace desactivada. Para habilitar una regla que solicita una acción externa, confirmá el destino identificado cuando la aplicación lo solicite. La confirmación se invalida si cambiás el identificador de la acción.
+6. Las suscripciones necesarias de reglas habilitadas se combinan con la selección manual de **Streamer.bot**. La interfaz informa si la reconciliación o el servidor no confirmaron la operación.
+7. Consultá la actividad para distinguir un evento recibido de una regla omitida, una solicitud aceptada/rechazada, un timeout/desconexión con resultado desconocido o una tecla enviada.
+
+**Atención con PNGTuber Plus:** habilitar el envío automático de teclas requiere una autorización separada y explícita. Windows puede poner PNGTuber Plus en primer plano y quitar el foco a OBS, un juego u otra aplicación. No se envían teclas al guardar reglas, conectar Streamer.bot ni iniciar VTuberBot. El adaptador solo informa que Windows aceptó el envío; no puede confirmar el cambio de sprite/expresión.
+
+**Seguridad y límites:** la pausa global impide automatizaciones disparadas por eventos, pero no sustituye las acciones manuales existentes. Se aplican límites por regla y globales y una cola acotada; en caso de saturación algunos eventos se descartan y se registra una advertencia. Cuando los proveedores no comparten un identificador común, no puede garantizarse deduplicación entre EventSub y Streamer.bot; evitá crear reglas equivalentes en ambas fuentes.
