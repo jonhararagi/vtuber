@@ -353,6 +353,8 @@ public sealed class SocialBotService : IAsyncDisposable
         var entry = username + ": " + clean;
         lock (contextGate)
         {
+            if (periodicChatBuffer.Any(existing => existing.Equals(entry, StringComparison.OrdinalIgnoreCase)))
+                return;
             if (periodicChatBuffer.Count == 0)
                 lastPeriodicBatchAt = DateTimeOffset.UtcNow;
             periodicChatBuffer.Add(entry);
@@ -544,7 +546,7 @@ public sealed class SocialBotService : IAsyncDisposable
         }
         else Publish("IA", "Respuesta generada localmente; publicación en Twitch desactivada.", PendingConversations);
 
-        if (IsWorkCurrent(work) && store.GetSetting("social.chat.speakReplies", "true") == "true)
+        if (IsWorkCurrent(work) && store.GetSetting("social.chat.speakReplies", "true") == "true")
         {
             var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var r) ? Math.Clamp(r, -10, 10) : 0;
             var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var v) ? Math.Clamp(v, 0, 100) : 100;
