@@ -192,9 +192,12 @@ public partial class MainWindow
             return;
         }
         var text = parsed.Trailing;
-        // Social TTS/AI is an isolated bounded consumer; it never runs model inference on the IRC receive loop.
+        var messageId = parsed.Tags.TryGetValue("id", out var taggedMessageId) ? taggedMessageId : string.Empty;
+        // Both consumers share this one validated IRC PRIVMSG; no extra Twitch subscription is created.
         try { socialBot.OnChatMessage(username, text, store.GetSetting("twitch.channel")); }
         catch (Exception exception) { store.Log("Bot social", "Se aisló un error de recepción social (" + exception.GetType().Name + ")."); }
+        try { chatReactions.OnChatMessage(username, text, messageId); }
+        catch (Exception exception) { store.Log("Reacciones chat", "Se aisló un error de recepción (" + exception.GetType().Name + ")."); }
         PruneExpiredTwitchCooldowns(DateTimeOffset.UtcNow);
 
         chatLines.Insert(0, username + ": " + text);
@@ -202,7 +205,6 @@ public partial class MainWindow
         store.Log("Twitch", "Mensaje recibido de " + username + ".");
 
         var autoModerationEnabled = store.GetSetting("twitch.auto_moderation.enabled", "false") == "true";
-        var messageId = parsed.Tags.TryGetValue("id", out var taggedMessageId) ? taggedMessageId : string.Empty;
         var channelLogin = store.GetSetting("twitch.channel");
         var moderationRoles = CommandPermissionPolicy.GetTwitchRoles(parsed, channelLogin);
         var skipMessageSideEffects = false;
