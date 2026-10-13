@@ -1530,7 +1530,7 @@ public sealed class ProductStore : IProductSettingsStore
     }
 
     private static readonly HashSet<string> AvatarExpressionStates = new(StringComparer.OrdinalIgnoreCase)
-        { "Idle", "Talking", "Blink", "Happy", "Surprised" };
+        { "Idle", "Talking", "Blink", "Happy", "Surprised", "Angry", "LeftEyeClose" };
 
     public IReadOnlyDictionary<string, string> GetAvatarExpressions()
     {

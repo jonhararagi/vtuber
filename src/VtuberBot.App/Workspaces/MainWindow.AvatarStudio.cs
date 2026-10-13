@@ -398,7 +398,7 @@ public partial class MainWindow
         right.Children.Add(ActionButton("Ocultar overlay", (_, _) => { overlay?.Hide(); store.Log("Avatar", "Overlay ocultado."); }));
         right.Children.Add(Label("Estados disponibles", 14, "#F8FAFC", true));
         var states = new WrapPanel();
-        foreach (var state in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" })
+        foreach (var state in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised", "Angry", "LeftEyeClose" })
             states.Children.Add(ActionButton(state, (_, _) =>
             {
                 store.SetSetting("avatar.state", state == "Blink" ? "Idle" : state);
@@ -421,7 +421,7 @@ public partial class MainWindow
         var expressionPanel = Panel("Sprites por expresión");
         expressionPanel.Margin = new Thickness(0, 12, 0, 0);
         expressionPanel.Children.Add(Label("Asigná imágenes del mismo tamaño para cambiar la cara cuando el micrófono activa Talking o al elegir una expresión. Si no asignás una imagen, se usa la base.", 12, "#98A4BE"));
-        foreach (var expressionName in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" })
+        foreach (var expressionName in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised", "Angry", "LeftEyeClose" })
         {
             var savedPath = store.GetAvatarExpression(expressionName) ?? string.Empty;
             var row = new WrapPanel { Margin = new Thickness(0, 4, 0, 4) };
@@ -701,8 +701,8 @@ public partial class MainWindow
                 throw new InvalidOperationException("El paquete admite hasta 100 capas por perfil.");
 
             var expressions = store.GetAvatarExpressions();
-            if (expressions.Count > 5)
-                throw new InvalidOperationException("El perfil contiene más expresiones de las admitidas por este formato.");
+            if (expressions.Count > 7)
+                throw new InvalidOperationException("El perfil contiene más de 7 expresiones admitidas por este formato.");
 
             using (var file = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             using (var archive = new ZipArchive(file, ZipArchiveMode.Create, leaveOpen: false))
@@ -1003,7 +1003,9 @@ public partial class MainWindow
             state.Equals("Talking", StringComparison.OrdinalIgnoreCase) ||
             state.Equals("Blink", StringComparison.OrdinalIgnoreCase) ||
             state.Equals("Happy", StringComparison.OrdinalIgnoreCase) ||
-            state.Equals("Surprised", StringComparison.OrdinalIgnoreCase)))
+            state.Equals("Surprised", StringComparison.OrdinalIgnoreCase) ||
+            state.Equals("Angry", StringComparison.OrdinalIgnoreCase) ||
+            state.Equals("LeftEyeClose", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidDataException("Estado de expresión no admitido: " + (state ?? "(vacío)") + ".");
     }
 

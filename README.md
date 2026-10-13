@@ -12,6 +12,7 @@ VTuberBot está pensado para ser un programa de escritorio completo para gestion
 - [Prompt oficial para GPT Obrero — implementación integral](PROMPTS.md)
 - [Registro central de continuidad](docs/CONTINUIDAD_PROYECTO.md)
 - [Guía de configuración del candidato integral](docs/PRODUCT_USER_GUIDE.md)
+- [ChatSpeak Studio: IA remota, voz femenina, comandos y modos manual/automático](docs/CHATSPEAK-STUDIO.md)
 
 ## Tecnología y restricciones
 
@@ -23,7 +24,7 @@ VTuberBot está pensado para ser un programa de escritorio completo para gestion
 
 ## Estructura actual
 
-La rama `product/complete-vtuber-experience` es el candidato de integración del producto. Incluye dashboard con métricas CPU/RAM del proceso en vivo, navegación, editor de capas con arrastre directo y sprites por expresión, overlay transparente con parpadeo mediante sprite Blink configurado, OAuth PKCE con validación/renovación, chat IRC/EventSub con reconexión, comandos con alias, cooldown global o por usuario, preview segura y permisos por rol de Twitch (Todos/Suscriptor/VIP/Moderador/Broadcaster), puntos y ranking, sorteos con selección criptográfica, minijuegos con reglas y apuestas SQLite atómicas, moderación manual y reglas automáticas opcionales (desactivadas por defecto), timers persistentes, micrófono/VAD acústico y TTS SAPI con selección de voz/velocidad/volumen, OBS WebSocket v5, Telegram Web, SQLite y diagnóstico. Las funciones dependientes de cuentas/credenciales requieren configuración real; el CI no equivale a validación con tu cuenta. Consultá la guía y la continuidad para las limitaciones pendientes. El PR #9 se conserva abierto y `main` no se modifica.
+La rama `product/complete-vtuber-experience` es el candidato de integración del producto. Incluye dashboard con métricas CPU/RAM del proceso en vivo, navegación, editor de capas con arrastre directo y sprites por expresión, overlay transparente con parpadeo mediante sprite Blink configurado, OAuth PKCE con validación/renovación, chat IRC/EventSub con reconexión, comandos con alias, cooldown global o por usuario, preview segura y permisos por rol de Twitch (Todos/Suscriptor/VIP/Moderador/Broadcaster), puntos y ranking, sorteos con selección criptográfica, minijuegos con reglas y apuestas SQLite atómicas, moderación manual y reglas automáticas opcionales (desactivadas por defecto), timers persistentes, micrófono/VAD acústico y TTS SAPI con selección de voz/velocidad/volumen, OBS WebSocket v5, Telegram Web, SQLite y diagnóstico. El candidato también incluye ChatSpeak Studio: modo manual con ChatGPT por copiar/pegar, modo bot con Gemini API configurable, voz TTS remota de estilo femenino anime, comandos de avatar limitados por allowlist y comentario periódico del chat configurable. El nivel gratuito remoto tiene cuotas y condiciones de privacidad; consultar docs/CHATSPEAK-STUDIO.md. Las funciones dependientes de cuentas/credenciales requieren configuración real; el CI no equivale a validación con tu cuenta. Consultá la guía y la continuidad para las limitaciones pendientes. El PR #9 se conserva abierto y `main` no se modifica.
 
 ## Compilar y ejecutar en Windows
 

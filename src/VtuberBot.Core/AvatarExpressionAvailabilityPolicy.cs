@@ -5,9 +5,10 @@ public static class AvatarExpressionAvailabilityPolicy
 {
     public static bool IsAvailable(string state, bool baseSpriteAvailable, bool expressionSpriteAvailable)
     {
-        if (string.Equals(state, "Idle", StringComparison.Ordinal))
+        if (string.Equals(state, "Idle", StringComparison.OrdinalIgnoreCase))
             return baseSpriteAvailable;
-        if (state is not ("Talking" or "Blink" or "Happy" or "Surprised"))
+        if (state is null || !new[] { "Talking", "Blink", "Happy", "Surprised", "Angry", "LeftEyeClose" }
+                .Contains(state, StringComparer.OrdinalIgnoreCase))
             return false;
         return expressionSpriteAvailable;
     }

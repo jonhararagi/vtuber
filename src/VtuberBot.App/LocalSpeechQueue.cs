@@ -525,6 +525,8 @@ public sealed class LocalSpeechQueue : IDisposable
         if (worker.Join(TimeSpan.FromSeconds(2))) signal.Dispose();
     }
 
+    internal static ILocalSpeechSession CreateSystemSpeechSession() => SapiSession.Create();
+
     public LocalSpeechQueue() : this(SapiSession.Create)
     {
     }

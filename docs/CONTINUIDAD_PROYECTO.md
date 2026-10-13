@@ -1318,3 +1318,17 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Pruebas según log: 471 aprobadas, 0 fallidas, 0 omitidas.
 - Artefacto: `VTuberBot-Product-Candidate-win-x64-188e8d208879822eda5d4ae6a53ca284172c29b7`, 78,037,734 bytes, SHA-256 `eb9690b05a2d35cd9243e0ec85cc9cfd8e44365c90f4a4eec20d61fbe9ee7c19`, expira el 2026-10-27.
 - Esta ejecución corresponde exactamente a ese SHA; los commits documentales posteriores requieren su propia CI. La prueba automatizada no sustituye una prueba manual con Twitch autenticado, OBS, Windows SAPI ni un GGUF real.
+
+
+## Orden 3/4 — ChatSpeak Studio (2026-10-13)
+
+Objetivo: quitar la inferencia pesada del PC de referencia y mantener una experiencia VTuber con voz remota, controles locales pequeños y límites seguros.
+
+- La ruta automática usa una API remota HTTPS compatible con Chat Completions; Gemini OpenAI-compatible es la configuración inicial. La implementación local previa permanece, elegible y estrictamente loopback.
+- La salida de voz puede usar Gemini TTS (REST Interactions, WAV) o TTS OpenAI-compatible (MP3). Ambas opciones pasan por la cola de voz actual y sus límites/cancelación. TTS SAPI local sigue disponible como alternativa.
+- Modo manual: abrir ChatGPT, copiar prompt/persona, pegar respuesta en VTuberBot. No se intenta leer el contenido de la página web, cookies o sesión privada. La suscripción web no equivale a API.
+- Credenciales API: guardado DPAPI vinculado al usuario actual de Windows, fuera de SQLite y los logs.
+- La IA puede solicitar exclusivamente /angri, /happy, /surprised, /idle, /talking, /blink y /left eye close. Las directivas válidas no se pronuncian ni se publican en Twitch; desconocidas se descartan. Controles de creador quedan en UI manual.
+- Comentario periódico: buffer limitado a 60 entradas en memoria, intervalo configurable entre 1 y 60 minutos (5 inicial), filtros de enlaces/comandos y cancelación al apagar función, detener bot o desconectar Twitch.
+- Estados Angry y LeftEyeClose ya están previstos en validación, configuración de sprites y el overlay. En perfiles sin imagen asignada, el control informa de que no puede aplicar el estado.
+- Criterio pendiente tras el commit: revisar el Windows CI para el SHA exacto, los tests de comandos y proveedores, y el artefacto win-x64 asociado. Sigue pendiente una prueba manual con clave remota válida, audio real y OBS; la CI no demuestra esos flujos externos.

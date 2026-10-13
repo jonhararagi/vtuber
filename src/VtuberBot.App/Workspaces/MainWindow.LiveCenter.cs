@@ -24,7 +24,8 @@ public partial class MainWindow
                 store.SetSetting("avatar.state", expression);
                 if (overlay is { IsVisible: true })
                     overlay.SetState(expression);
-                return overlay is { IsVisible: true };
+                // The state is persisted even while the public overlay is hidden; it will be applied when shown.
+                return true;
             });
         }
         catch (Exception exception)

@@ -882,3 +882,17 @@ Por lo tanto:
 - `audit/piper-master` ya no está pendiente como rama de auditoría.
 - Su eliminación se registra en `ataud`, junto con las demás ramas de auditoría eliminadas.
 - La entrada histórica de la sección 24 se conserva sin reescribirla, para mantener la trazabilidad del estado que existía en ese momento.
+
+## 30. ChatSpeak Studio — integración de IA remota y voz virtual (2026-10-13)
+
+Trabajo registrado en la rama product/complete-vtuber-experience:
+
+- Se añadió un proveedor de chat remoto HTTPS OpenAI-compatible y un router que cambia entre proveedor remoto y el adaptador local restringido a loopback.
+- Gemini OpenAI-compatible se propone como configuración inicial para evitar una inferencia pesada local; la voz remota usa Gemini TTS/Interactions por defecto y permite un endpoint TTS OpenAI-compatible.
+- La cola existente de voz se conserva, con sesiones inyectables para alternar SAPI y el TTS remoto. La voz inicial se instruye como femenina, juvenil, cálida y de estilo anime original; no clona a una actriz o personaje específico.
+- Las claves remotas se protegen mediante DPAPI para el usuario actual y quedan fuera de SQLite y del registro de actividad.
+- El modo manual abre ChatGPT y facilita copiar el prompt/pegar la respuesta. No se inspecciona el DOM, cookies ni la sesión web.
+- Los comandos del modelo están en una lista permitida, se limitan a cuatro por salida y las líneas con barra se retiran de la voz y del texto público. Cambiar chat, reiniciar, activar o desactivar el bot son controles manuales del creador.
+- El comentario periódico recoge un máximo acotado de mensajes en memoria y usa un intervalo configurable con cinco minutos iniciales. Los lotes no se guardan como transcripción, se eliminan al pausar/desconectar y se cancelan cuando se desactiva el modo.
+- Estados Angry y LeftEyeClose agregados a ProductStore, Avatar Studio y al renderizador nativo. Si falta un sprite, el motor no afirma que la expresión se mostró.
+- Estado en esta anotación: cambios preparados para registrar; Windows CI y prueba de API/audio real deben acreditarse con el SHA final exacto. No se afirma una prueba manual con una cuenta real.

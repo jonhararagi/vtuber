@@ -150,7 +150,9 @@ public sealed class AvatarOverlayWindow : Window
             return;
         }
 
-        state = nextState is "Talking" or "Happy" or "Surprised" ? nextState : "Idle";
+        var isBuiltInState = nextState is "Idle" or "Talking" or "Happy" or "Surprised";
+        var hasConfiguredExpression = expressionImages.TryGetValue(nextState, out var customPath) && File.Exists(customPath);
+        state = isBuiltInState || hasConfiguredExpression ? nextState : "Idle";
         transientState = null;
         transientUntil = DateTimeOffset.MinValue;
         RenderAvatar();

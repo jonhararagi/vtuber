@@ -95,3 +95,13 @@ No es suficiente: ventana abierta, estado RUNNING, help/status/ping, CI verde o 
 El candidato de producto completo debe incluir el diseño y navegación funcionales, avatar importable y visible, audio/VAD/TTS local, conexión Twitch preparada y funcional tras OAuth, los sistemas de comunidad/gaming/moderación, SQLite persistente, overlay/OBS, Telegram Web con fallback, datos/credenciales protegidos, logs/diagnóstico y paquete reproducible. El resultado de cada flujo debe ser verificable; no se deben simular éxitos.
 
 El inventario, límites, decisiones, dependencias, referencias y secuencia de implementación se mantienen en docs/PRODUCT_BLUEPRINT.md y en el registro central de continuidad.
+
+## 9. ChatSpeak Studio — IA remota, voz virtual y comandos visuales
+
+- El modo manual utiliza ChatGPT web mediante apertura del navegador y flujo explícito de copiar/pegar; no extrae DOM, cookies ni conversaciones de la sesión web.
+- El modo automático usa el adaptador remoto HTTPS configurable (Gemini OpenAI-compatible por defecto) o el proveedor local existente limitado a loopback. Respuestas automáticas, publicación a Twitch y comentario periódico permanecen desactivados por defecto.
+- La voz virtual remota usa Gemini TTS como configuración inicial, con voz femenina original de estilo anime; se permite cambiar a un endpoint TTS OpenAI-compatible o al SAPI local. Una voz concreta requiere configurar la clave, el modelo y el preset aceptados por el proveedor.
+- Las credenciales remotas se cifran por usuario de Windows con DPAPI y quedan fuera de SQLite y los logs.
+- Las directivas de IA se limitan a una lista cerrada de expresiones (/angri, /happy, /surprised, /idle, /talking, /blink, /left eye close). Las líneas con comandos se eliminan del texto hablado. Los controles administrativos permanecen exclusivos del creador.
+- El comentario periódico de chat utiliza un lote acotado en memoria, intervalo configurable (5 minutos por defecto), deduplicación/filtros básicos y cancelación al pausar/desconectar. No persiste una transcripción completa.
+- Los proveedores gratuitos están sujetos a cuotas, elegibilidad y condiciones de privacidad del proveedor; no se prometen llamadas ilimitadas ni una integración gratuita permanente.

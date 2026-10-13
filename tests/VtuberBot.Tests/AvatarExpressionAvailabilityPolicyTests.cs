@@ -11,6 +11,10 @@ public sealed class AvatarExpressionAvailabilityPolicyTests
     [InlineData("Happy", true, false, false)]
     [InlineData("Happy", false, true, true)]
     [InlineData("Blink", true, false, false)]
+    [InlineData("Angry", true, false, false)]
+    [InlineData("Angry", false, true, true)]
+    [InlineData("LeftEyeClose", true, false, false)]
+    [InlineData("LeftEyeClose", false, true, true)]
     [InlineData("Unknown", true, true, false)]
     public void ExpressionButtonsOnlyEnableWhenRequiredResourceExists(string state, bool baseSprite, bool expressionSprite, bool expected)
     {

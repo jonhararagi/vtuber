@@ -306,3 +306,16 @@ El run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040) so
 - [x] Windows CI validada en SHA `188e8d208879822eda5d4ae6a53ca284172c29b7`: restore, build Release, 471/471 pruebas aprobadas, 0 fallidas, 0 omitidas y artefacto win-x64 asociado a ese SHA. Si cambia el SHA por una modificación posterior, se exige otra ejecución exacta.
 - [ ] Validación manual real en Windows con Twitch, OBS, SAPI y sprites de avatar.
 - No se prioriza ni se implementa agente autónomo de videojuegos; los minijuegos de Twitch existentes se mantienen.
+
+## Orden 3/4 — ChatSpeak Studio, IA remota, TTS de personaje y comandos visuales (2026-10-13)
+
+- [x] Añadir adaptador remoto HTTPS OpenAI-compatible para chat con selección dinámica entre proveedor remoto y proveedor local loopback existente.
+- [x] Añadir sesión TTS remota: Gemini Interactions audio con salida WAV y endpoint OpenAI-compatible con salida MP3; cola de voz existente sigue siendo el único planificador de reproducción.
+- [x] Encriptar claves API con DPAPI por usuario de Windows; no guardar claves en SQLite ni en logs.
+- [x] Añadir modo manual ChatGPT web basado en copiar/pegar, sin extracción de cookies, DOM o respuestas de sesión.
+- [x] Añadir whitelist de comandos del avatar, eliminar líneas de comando del texto hablado/publicable y mantener controles administrativos fuera de la salida IA.
+- [x] Añadir comentario periódico de chat, configurable entre 1 y 60 minutos (5 inicial), con buffer acotado y cancelación al pausar/desconectar; transcripción no persistida.
+- [x] Añadir sprites/estados Angry y LeftEyeClose a Avatar Studio y validación de perfiles.
+- [ ] Pendiente de Windows CI para el SHA final de esta orden.
+- [ ] Pendiente de prueba manual con clave/API real, cuota, audio TTS de Gemini y OBS en un equipo Windows.
+- Limitación explícita: la suscripción de ChatGPT web no se convierte en API; el modo manual es copiar/pegar. El modo automático necesita una API admitida y una clave del proveedor. Las cuotas gratuitas y su política de uso de datos dependen del proveedor.

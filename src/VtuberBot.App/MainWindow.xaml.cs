@@ -33,8 +33,11 @@ public partial class MainWindow : Window
     private readonly TwitchChatClient twitch = new();
     private readonly TwitchEventSubClient eventSub = new();
     private readonly ObsWebSocketClient obs = new();
-    private readonly LocalSpeechQueue speechQueue = new();
+    private readonly LocalSpeechQueue speechQueue;
     private readonly LocalOpenAiCompatibleProvider localAiProvider = new();
+    private readonly RemoteOpenAiCompatibleProvider remoteAiProvider;
+    private readonly ConfiguredChatIntelligenceProvider configuredAiProvider;
+    private readonly UserSecretStore secretStore;
     private SocialBotService socialBot = null!;
     private ChatReactionService chatReactions = null!;
     private Action<ChatReactionResult>? liveCenterReactionHandler;
@@ -221,8 +224,23 @@ public partial class MainWindow : Window
         InitializeComponent();
         this.application = application;
         store = new ProductStore(application.Database.Path);
+        secretStore = new UserSecretStore(Path.Combine(application.Config.BaseDirectory, "secrets"));
+        remoteAiProvider = new RemoteOpenAiCompatibleProvider(() => secretStore.Read("remote-ai-api-key"));
+        configuredAiProvider = new ConfiguredChatIntelligenceProvider(localAiProvider, remoteAiProvider,
+            () => store.GetSetting("social.ai.provider", "remote") == "remote");
+        speechQueue = new LocalSpeechQueue(() => new ConfigurableSpeechSession(
+            () => store.GetSetting("social.tts.provider", "remote") == "remote",
+            LocalSpeechQueue.CreateSystemSpeechSession,
+            () => new RemoteSpeechSession(
+                secretStore,
+                () => store.GetSetting("social.tts.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta"),
+                () => store.GetSetting("social.tts.remoteModel", "gemini-3.8-flash-tts"),
+                () => store.GetSetting("social.tts.remoteVoice", "Leda"),
+                () => store.GetSetting("social.tts.remoteInstructions",
+                    "Habla en español con una voz femenina adulta joven, cálida, expresiva y de estilo anime original. Buena dicción, energía y emoción natural; no imites a un personaje o actriz específica."),
+                () => store.GetSetting("social.ai.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta/openai/"))));
         communityCommandRouter = new CommunityCommandRouter(store);
-        socialBot = new SocialBotService(store, speechQueue, twitch, localAiProvider);
+        socialBot = new SocialBotService(store, speechQueue, twitch, configuredAiProvider, SetChatReactionExpression);
         chatReactions = new ChatReactionService(
             store,
             async (message, cancellationToken) =>
@@ -284,7 +302,7 @@ public partial class MainWindow : Window
         twitch.ConnectionStateChanged += chatReactions.SetTwitchConnected;
         eventSub.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         speechQueue.StatusChanged += (status, pending) => Dispatcher.BeginInvoke(new Action(() =>
-            FooterStatus.Text = $"Voz local: {status} · pendientes: {pending}"));
+            FooterStatus.Text = $"Voz: {status} · pendientes: {pending}"));
         eventSub.EventReceived += HandleEventSubEvent;
         obs.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         streamerBot.StateChanged += HandleStreamerBotStateChanged;
@@ -331,6 +349,8 @@ public partial class MainWindow : Window
         catch (Exception exception) { LogShutdownFailure("bot social", exception); }
         try { localAiProvider.Dispose(); }
         catch (Exception exception) { LogShutdownFailure("proveedor IA local", exception); }
+        try { remoteAiProvider.Dispose(); }
+        catch (Exception exception) { LogShutdownFailure("proveedor IA remoto", exception); }
         try { speechQueue.Dispose(); }
         catch (Exception exception) { LogShutdownFailure("cola de voz", exception); }
         try { overlay?.Close(); }
