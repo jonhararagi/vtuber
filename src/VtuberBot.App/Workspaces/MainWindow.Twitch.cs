@@ -192,6 +192,9 @@ public partial class MainWindow
             return;
         }
         var text = parsed.Trailing;
+        // Social TTS/AI is an isolated bounded consumer; it never runs model inference on the IRC receive loop.
+        try { socialBot.OnChatMessage(username, text, store.GetSetting("twitch.channel")); }
+        catch (Exception exception) { store.Log("Bot social", "Se aisló un error de recepción social (" + exception.GetType().Name + ")."); }
         PruneExpiredTwitchCooldowns(DateTimeOffset.UtcNow);
 
         chatLines.Insert(0, username + ": " + text);
