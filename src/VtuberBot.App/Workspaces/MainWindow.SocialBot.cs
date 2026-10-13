@@ -43,7 +43,6 @@ public partial class MainWindow
         speechPanel.Children.Add(ActionButton("Detener voz actual", (_, _) => { speechQueue.StopCurrentSpeech(); FooterStatus.Text = "Se solicitó detener la voz actual."; }));
         speechPanel.Children.Add(ActionButton("Vaciar cola de voz", (_, _) => { speechQueue.ClearPending(); FooterStatus.Text = "Cola de voz pendiente vaciada."; }));
         speechPanel.Children.Add(Label("La voz, velocidad, volumen y salida se eligen en «Voz y audio».", 11, "#98A4BE"));
-        root.Children.Add(speechPanel);
 
         var aiPanel = Panel("2. Personalidad y proveedor de IA");
         var botName = TextField("Nombre/personaje del bot", store.GetSetting("social.bot.name", "VTuberBot"));
@@ -137,7 +136,7 @@ public partial class MainWindow
         aiPanel.Children.Add(autoReply); aiPanel.Children.Add(periodicCommentary);
         aiPanel.Children.Add(Label("Frecuencia del comentario periódico", 12, "#98A4BE")); aiPanel.Children.Add(periodicIntervalMinutes);
         aiPanel.Children.Add(publish); aiPanel.Children.Add(speakReplies);
-        aiPanel.Children.Add(ActionButton("Guardar configuración ChatSpeak", (_, _) =>
+        var saveConfigurationButton = ActionButton("Guardar toda la configuración", (_, _) =>
         {
             if (!int.TryParse(maxChars.Text, out var maxCharsValue) || maxCharsValue is < 20 or > 500 ||
                 remoteAiApiKey.Password.Length > 8192 || remoteTtsApiKey.Password.Length > 8192 ||
@@ -206,10 +205,8 @@ public partial class MainWindow
                 }
             }
             socialBot.SetAutomaticRepliesEnabled(store.GetSetting("social.chat.enabled", "false") == "true");
-            FooterStatus.Text = "Configuración de ChatSpeak guardada. Las claves quedan fuera de SQLite."; store.Log("ChatSpeak", "Preferencias guardadas; no se registró el contenido del chat.");
-        }, true));
-        root.Children.Add(aiPanel);
-        root.Children.Add(voicePanel);
+            FooterStatus.Text = "Configuración guardada. Las claves quedan cifradas para este usuario de Windows."; store.Log("ChatSpeak", "Preferencias guardadas; no se registró el contenido del chat.");
+        }, true);
 
         var manualPanel = Panel("Modo manual · ChatGPT web y comandos del creador");
         manualPanel.Children.Add(Label("ChatGPT se abre en tu navegador normal. Copiá el prompt, pegalo en la web, y pegá su respuesta aquí. VTuberBot no lee cookies, DOM ni la conversación privada de esa página. Para empezar un chat web nuevo, usá el control New chat de ChatGPT.", 12, "#98A4BE"));
@@ -317,7 +314,6 @@ public partial class MainWindow
                     break;
             }
         }));
-        root.Children.Add(manualPanel);
 
         var testPanel = Panel("4. Estado y prueba privada");
         var status = Label("Proveedor local: sin comprobar · respuestas automáticas según configuración", 12, "#98A4BE");
@@ -343,8 +339,51 @@ public partial class MainWindow
             socialBot.CancelGeneration();
             status.Text = "Cancelación solicitada; no se confirmará una publicación nueva.";
         }));
-        root.Children.Add(testPanel);
-        root.Children.Add(Label("El proveedor local solo acepta localhost. El proveedor remoto y la voz TTS requieren URLs HTTPS compatibles, una clave API guardada y cuota del proveedor. La suscripción web de ChatGPT no incluye automáticamente el uso de su API. Las respuestas automáticas siguen desactivadas hasta que las habilites.", 11, "#98A4BE"));
+        var tabs = new TabControl
+        {
+            Height = 500, MinHeight = 420, Margin = new Thickness(0, 10, 0, 0),
+            Background = Brush("#0B0E17"), Foreground = Brush("#F8FAFC"),
+            BorderBrush = Brush("#29334D"), BorderThickness = new Thickness(1),
+            Padding = new Thickness(6)
+        };
+
+        TabItem MakeTab(string title, params UIElement[] contents)
+        {
+            var stack = new StackPanel { Margin = new Thickness(8) };
+            foreach (var element in contents) stack.Children.Add(element);
+            return new TabItem
+            {
+                Header = title,
+                Content = new ScrollViewer
+                {
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    Content = stack
+                }
+            };
+        }
+
+        var quickStart = Panel("Empezá por acá · solo 3 pasos");
+        quickStart.Children.Add(Label("No hace falta configurar todas las funciones. Primero conseguí una voz, después probala y, solo si querés, activá el bot.", 13, "#D5DEEF"));
+        quickStart.Children.Add(Label("1 · Abrí «Voz y audio», deja la voz remota y pega tu clave de Google AI Studio. Si ya guardaste la clave de IA de Google, puede reutilizarse.", 12, "#98A4BE"));
+        quickStart.Children.Add(ActionButton("Paso 1: configurar la voz", (_, _) => tabs.SelectedIndex = 1));
+        quickStart.Children.Add(Label("2 · Guarda la configuración y pulsa «Probar voz chillona». La prueba solo confirma la reproducción local; escucha el resultado para decidir si te gusta.", 12, "#98A4BE"));
+        quickStart.Children.Add(ActionButton("Paso 2: ir a Voz y audio", (_, _) => tabs.SelectedIndex = 1));
+        quickStart.Children.Add(Label("3 · El bot automático está apagado al iniciar. Para usarlo, entra en «Bot automático», configura el canal y la clave, y activa las respuestas solo cuando estés listo.", 12, "#98A4BE"));
+        quickStart.Children.Add(ActionButton("Paso 3: configurar el bot", (_, _) => tabs.SelectedIndex = 3));
+        quickStart.Children.Add(Label("También puedes usar el modo manual con ChatGPT web: copiar y pegar, sin automatizar tu navegador. No hace falta configurar OBS para probar la voz.", 12, "#98A4BE"));
+        quickStart.Children.Add(ActionButton("Usar modo manual", (_, _) => tabs.SelectedIndex = 4));
+
+        tabs.Items.Add(MakeTab("Empezar aquí", quickStart));
+        tabs.Items.Add(MakeTab("Voz y audio", voicePanel));
+        tabs.Items.Add(MakeTab("Leer el chat", speechPanel));
+        tabs.Items.Add(MakeTab("Bot automático", aiPanel));
+        tabs.Items.Add(MakeTab("Chat manual", manualPanel));
+        tabs.Items.Add(MakeTab("Pruebas y estado", testPanel));
+
+        root.Children.Add(saveConfigurationButton);
+        root.Children.Add(tabs);
+        root.Children.Add(Label("El proveedor local solo acepta localhost. La IA y la voz remotas requieren conexión, clave y cuota. El nivel gratuito tiene límites y la política del proveedor puede permitir usar el contenido para mejorar sus servicios. Las respuestas automáticas siguen apagadas hasta que las actives.", 11, "#98A4BE"));
         return root;
     }
 }
