@@ -1310,3 +1310,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Las reglas nuevas nacen desactivadas. No invocan IA. La prueba local no envía chat ni activa efectos. Las respuestas solo activan voz/expresión después de que la escritura IRC haya finalizado; eso no confirma entrega/visualización en Twitch.
 - No se implementa agente de videojuegos y no se eliminan minijuegos existentes.
 - Pendiente de validar: CI Windows del SHA final; ejecución manual con Twitch real, OBS y voz SAPI; verificar sprites en un perfil real; confirmar UX del editor con teclado/escala DPI.
+
+## Validación Windows — Orden 2/4 (2026-10-13)
+
+- SHA probado por Windows CI: `188e8d208879822eda5d4ae6a53ca284172c29b7`.
+- Run: https://github.com/jonhararagi/vtuber/actions/runs/38415049993 — restauración, compilación Release, pruebas, publicación win-x64 y subida del artefacto completadas.
+- Pruebas según log: 471 aprobadas, 0 fallidas, 0 omitidas.
+- Artefacto: `VTuberBot-Product-Candidate-win-x64-188e8d208879822eda5d4ae6a53ca284172c29b7`, 78,037,734 bytes, SHA-256 `eb9690b05a2d35cd9243e0ec85cc9cfd8e44365c90f4a4eec20d61fbe9ee7c19`, expira el 2026-10-27.
+- Esta ejecución corresponde exactamente a ese SHA; los commits documentales posteriores requieren su propia CI. La prueba automatizada no sustituye una prueba manual con Twitch autenticado, OBS, Windows SAPI ni un GGUF real.
