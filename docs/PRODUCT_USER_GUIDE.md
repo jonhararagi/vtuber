@@ -34,6 +34,17 @@ El Dashboard muestra CPU y RAM reales del proceso cada dos segundos mientras est
 4. Los sprites de demostración se generan localmente la primera vez. No hace falta descargar arte, configurar una API ni sobrescribir tus perfiles propios. Al pulsar de nuevo un ejemplo ya creado, se activa el perfil existente sin borrar tus cambios.
 5. **Configurar PNGTuber Plus externo** abre su página de configuración. PNGTuber Plus es otra aplicación y necesita instalarse aparte; el botón de ejemplo integrado no pretende simular que esa aplicación ya está instalada.
 
+### Crear una VTuber desde una sola imagen
+
+Avatar Studio tiene una sección **Crear una VTuber desde una sola imagen** con dos accesos directos:
+
+1. **Separar imagen automáticamente:** abre [See-through](https://huggingface.co/spaces/24yearsold/see-through-demo), una demo online que usa IA para inferir capas a partir de una ilustración anime y exportarlas como PSD. Cargá una imagen, esperá el procesamiento y descargá el PSD.
+2. **Animar el PSD como VTuber:** abre [Anime2.5DRig](https://852wa.github.io/Anime2.5DRig/). Cargá el PSD que descargaste para probar parpadeo, movimiento de pelo, boca, cámara/micrófono y salida para OBS.
+
+**Importante:** este flujo abre servicios externos en el navegador; el separador no se ejecuta dentro de VTuberBot y hay que subir la imagen manualmente. Las ejecuciones gratuitas del separador pueden ser limitadas (la documentación del proyecto indica alrededor de 1–2 extracciones diarias por usuario registrado). La imagen sale de tu PC, así que no uses arte privado. El separador local requiere alrededor de 12–16 GB de VRAM en la configuración recomendada y no es una opción realista para el equipo objetivo con gráficos integrados; por eso el atajo usa la demo online.
+
+La descomposición de una imagen plana es una reconstrucción estimada: el modelo intenta generar lo que queda oculto tras el cabello o la ropa y puede equivocarse. Puede necesitar ajustes y no crea por sí solo un rig Live2D profesional. El camino integrado en la aplicación sigue siendo un acceso sencillo a esas herramientas, no una importación directa del PSD al overlay de VTuberBot.
+
 ### Combinar ropa, peinados y accesorios
 
 1. En Avatar Studio, bajá hasta **Armario modular — piezas originales inspiradas en estilos VTuber**.
@@ -41,7 +52,7 @@ El Dashboard muestra CPU y RAM reales del proceso cada dos segundos mientras est
 3. Pulsá **Crear perfil con esta combinación**. El programa genera los PNG transparentes localmente y guarda una combinación nueva como perfil independiente.
 4. Podés volver al armario y crear muchas combinaciones distintas. Tus perfiles anteriores no se sobrescriben.
 5. En la lista de capas, seleccioná una prenda o accesorio para moverlo con arrastre, ajustar escala/rotación, ocultarlo o cambiar su orden. Las piezas traseras aparecen debajo del personaje.
-6. El catálogo tiene 8 peinados, 10 conjuntos, 10 adornos de cabeza, 6 accesorios faciales/joyería y 6 piezas traseras. Son **diseños originales genéricos**, estudiados a partir de tendencias visibles en VTubers conocidos; no son modelos de esos VTubers ni utilizan sus ilustraciones oficiales.
+6. El catálogo tiene 11 peinados, 15 conjuntos, 14 adornos de cabeza, 9 accesorios faciales/joyería y 9 piezas traseras. Son **diseños originales genéricos**, estudiados a partir de tendencias visibles en VTubers conocidos; no son modelos de esos VTubers ni utilizan sus ilustraciones oficiales.
 
 Para saber qué referencias visuales se estudiaron y cómo se mapearon a categorías, consultá [Referencias visuales y biblioteca modular de VTuberBot](VTUBER_REFERENCIA_Y_BIBLIOTECA_MODULAR.md).
 
