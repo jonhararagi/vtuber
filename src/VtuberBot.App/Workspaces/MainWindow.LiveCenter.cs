@@ -38,8 +38,10 @@ public partial class MainWindow
     {
         if (liveCenterReactionHandler is not null) chatReactions.ResultChanged -= liveCenterReactionHandler;
         if (liveCenterQueueHandler is not null) chatReactions.QueueChanged -= liveCenterQueueHandler;
+        if (liveCenterConnectionHandler is not null) twitch.ConnectionStateChanged -= liveCenterConnectionHandler;
         liveCenterReactionHandler = null;
         liveCenterQueueHandler = null;
+        liveCenterConnectionHandler = null;
     }
 
     private BitmapSource? CaptureLiveCenterPreview(string state)
@@ -119,6 +121,9 @@ public partial class MainWindow
 
         var privatePanel = Panel("B. Controles privados · solo creador");
         var connectionStatus = Label(twitch.IsConnected ? "Twitch: conectado" : "Twitch: desconectado", 12, "#98A4BE");
+        liveCenterConnectionHandler = connected => Dispatcher.BeginInvoke(new Action(() =>
+            connectionStatus.Text = connected ? "Twitch: conectado" : "Twitch: desconectado"));
+        twitch.ConnectionStateChanged += liveCenterConnectionHandler;
         var avatarStatus = Label(!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath) ? "Avatar: perfil con imagen base" : "Avatar: falta imagen base", 12, "#98A4BE");
         var queueStatus = Label($"Cola de reacciones: {chatReactions.PendingCount}", 12, "#98A4BE");
         liveCenterQueueHandler = pending => Dispatcher.BeginInvoke(new Action(() => queueStatus.Text = $"Cola de reacciones: {pending}"));
