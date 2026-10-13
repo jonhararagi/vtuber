@@ -201,6 +201,8 @@ public sealed class SocialBotService : IAsyncDisposable
         {
             while (responseTimes.Count > 0 && now - responseTimes.Peek() >= TimeSpan.FromMinutes(1))
                 responseTimes.Dequeue();
+            foreach (var expired in userCooldowns.Where(pair => now - pair.Value > TimeSpan.FromMinutes(10)).Select(pair => pair.Key).ToArray())
+                userCooldowns.Remove(expired);
             if (responseTimes.Count >= maxPerMinute || (responseTimes.Count > 0 && now - responseTimes.Last() < globalCooldown) ||
                 userCooldowns.TryGetValue(work.Username, out var last) && now - last < userCooldown)
             {
@@ -276,6 +278,11 @@ public sealed class SocialBotService : IAsyncDisposable
     {
         foreach (var item in recentSpeechHashes.Where(kv => now - kv.Value > TimeSpan.FromSeconds(30)).Select(kv => kv.Key).ToArray())
             recentSpeechHashes.TryRemove(item, out _);
+        if (recentSpeechHashes.Count > 2048)
+        {
+            foreach (var item in recentSpeechHashes.OrderBy(pair => pair.Value).Take(recentSpeechHashes.Count - 2048).Select(pair => pair.Key))
+                recentSpeechHashes.TryRemove(item, out _);
+        }
     }
     private void Publish(string state, string detail, int pending) => VtuberBot.Core.SafeEventDispatch.Invoke(StatusChanged, new SocialBotStatus(state, detail, pending));
 
