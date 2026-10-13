@@ -38,7 +38,7 @@ public sealed class SocialBotService : IAsyncDisposable
         this.provider = provider;
         conversations = Channel.CreateBounded<ChatWork>(new BoundedChannelOptions(64)
         {
-            FullMode = BoundedChannelFullMode.DropWrite,
+            FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
             SingleWriter = false,
             AllowSynchronousContinuations = false
@@ -233,7 +233,7 @@ public sealed class SocialBotService : IAsyncDisposable
         return clean;
     }
     private int ParseInt(string key, int fallback) => int.TryParse(store.GetSetting(key, fallback.ToString(System.Globalization.CultureInfo.InvariantCulture)), out var value) ? value : fallback;
-    private double ParseDouble(string key, double fallback) => double.TryParse(store.GetSetting(key, fallback.ToString(System.Globalization.CultureInfo.InvariantCulture), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture), out var value) ? value : fallback;
+    private double ParseDouble(string key, double fallback) => double.TryParse(store.GetSetting(key, fallback.ToString(System.Globalization.CultureInfo.InvariantCulture)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : fallback;
     private void PruneHashes(DateTimeOffset now)
     {
         foreach (var item in recentSpeechHashes.Where(kv => now - kv.Value > TimeSpan.FromSeconds(30)).Select(kv => kv.Key).ToArray())
