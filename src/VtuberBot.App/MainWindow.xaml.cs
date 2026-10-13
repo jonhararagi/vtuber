@@ -34,6 +34,8 @@ public partial class MainWindow : Window
     private readonly TwitchEventSubClient eventSub = new();
     private readonly ObsWebSocketClient obs = new();
     private readonly LocalSpeechQueue speechQueue = new();
+    private readonly LocalOpenAiCompatibleProvider localAiProvider = new();
+    private SocialBotService socialBot = null!;
     private AvatarOverlayWindow? overlay;
     private string? avatarPath;
     private WaveInEvent? microphone;
@@ -86,7 +88,7 @@ public partial class MainWindow : Window
 
     private static readonly string[] Pages =
     [
-        "Inicio","Avatar Studio","Avatar externo","Streamer.bot","Twitch y chat","Comandos","Comunidad y puntos","Automatizaciones","Sorteos",
+        "Inicio","Avatar Studio","Avatar externo","Streamer.bot","Twitch y chat","Bot social","Comandos","Comunidad y puntos","Automatizaciones","Sorteos",
         "Minijuegos","Moderación","Voz y audio","OBS","Integraciones","Telegram Web","Actividad y diagnóstico","Ajustes"
     ];
 
@@ -216,6 +218,9 @@ public partial class MainWindow : Window
         this.application = application;
         store = new ProductStore(application.Database.Path);
         communityCommandRouter = new CommunityCommandRouter(store);
+        socialBot = new SocialBotService(store, speechQueue, twitch, localAiProvider);
+        socialBot.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() =>
+            FooterStatus.Text = $"Bot social · {status.State}: {status.Detail} · cola {status.Pending}"));
         InitializeEventActionCoordination();
 
         var savedVadThreshold = double.TryParse(
@@ -290,6 +295,10 @@ public partial class MainWindow : Window
         catch (Exception exception) { LogShutdownFailure("micrófono", exception); }
         try { StopSoundPlayback(); }
         catch (Exception exception) { LogShutdownFailure("reproducción de audio", exception); }
+        try { await socialBot.DisposeAsync(); }
+        catch (Exception exception) { LogShutdownFailure("bot social", exception); }
+        try { localAiProvider.Dispose(); }
+        catch (Exception exception) { LogShutdownFailure("proveedor IA local", exception); }
         try { speechQueue.Dispose(); }
         catch (Exception exception) { LogShutdownFailure("cola de voz", exception); }
         try { overlay?.Close(); }
@@ -372,6 +381,7 @@ public partial class MainWindow : Window
             "Avatar externo" => BuildPngtuberWorkspace(),
             "Streamer.bot" => BuildStreamerBotWorkspace(),
             "Twitch y chat" => BuildTwitchPage(),
+            "Bot social" => BuildSocialBotPage(),
             "Comandos" => BuildCommandsPage(),
             "Comunidad y puntos" => BuildCommunityPage(),
             "Automatizaciones" => BuildEventActionWorkspace(),
