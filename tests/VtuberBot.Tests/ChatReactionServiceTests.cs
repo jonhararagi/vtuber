@@ -351,4 +351,25 @@ public sealed class ChatReactionServiceTests
         await effects.SendCancelled.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
         Assert.Contains(service.GetRecentActivity(), x => x.Outcome == "Cancelada");
     }
+
+    [Fact]
+    public async Task RepeatedEventsWithoutProviderIdsAreDeduplicatedBriefly()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var effects = new Effects();
+        await using var service = Create(store, effects);
+        var rule = Rule(global: 0, user: 0, perMinute: 60);
+        Assert.True(service.SaveRule(rule)); Assert.True(service.SetRuleEnabled(rule.Id, true));
+        service.SetTwitchConnected(true);
+
+        Assert.True(service.OnChatMessage("alice", "hola chat", null));
+        await effects.SendEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        Assert.False(service.OnChatMessage("alice", "hola chat", null));
+        effects.SendRelease.TrySetResult(true);
+        await WaitForOutcomeAsync(service, "Respuesta enviada");
+
+        Assert.Equal(1, effects.Sends);
+        Assert.Contains(service.GetRecentActivity(), x => x.Outcome == "Duplicado");
+    }
 }
