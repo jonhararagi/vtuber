@@ -43,7 +43,7 @@ public sealed class ChatReactionService : IAsyncDisposable
     private readonly ProductStore store;
     private readonly Func<string, CancellationToken, Task<bool>> sendChat;
     private readonly Func<string, bool> enqueueSpeech;
-    private readonly Func<string, bool> setExpression;
+    private readonly Func<string, CancellationToken, bool> setExpression;
     private readonly Func<bool> isConnected;
     private readonly Channel<WorkItem> queue;
     private readonly CancellationTokenSource lifetime = new();
@@ -69,7 +69,7 @@ public sealed class ChatReactionService : IAsyncDisposable
     public event Action<int>? QueueChanged;
 
     public ChatReactionService(ProductStore store, Func<string, CancellationToken, Task<bool>> sendChat,
-        Func<string, bool> enqueueSpeech, Func<string, bool> setExpression, Func<bool> isConnected,
+        Func<string, bool> enqueueSpeech, Func<string, CancellationToken, bool> setExpression, Func<bool> isConnected,
         int queueCapacity = QueueCapacity)
     {
         this.store = store;
@@ -278,6 +278,11 @@ public sealed class ChatReactionService : IAsyncDisposable
                 result = new(now, rule.Name, username, "Límite por minuto", "Se alcanzó el límite de ejecuciones de la regla.", simulated);
                 return false;
             }
+            foreach (var expired in userCooldowns.Where(x => now - x.Value > TimeSpan.FromHours(1)).Select(x => x.Key).ToArray())
+                userCooldowns.Remove(expired);
+            if (userCooldowns.Count >= 10000)
+                foreach (var oldest in userCooldowns.OrderBy(x => x.Value).Take(userCooldowns.Count - 9000).Select(x => x.Key).ToArray())
+                    userCooldowns.Remove(oldest);
             globalCooldowns[rule.Id] = now;
             userCooldowns[userKey] = now;
             executions.Enqueue(now);
@@ -330,13 +335,29 @@ public sealed class ChatReactionService : IAsyncDisposable
                     }
 
                     var details = new List<string> { "solicitud IRC enviada" };
+                    lock (gate)
+                    {
+                        if (paused || item.Epoch != connectionEpoch || !twitchConnected || !isConnected())
+                        {
+                            Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Respuesta enviada", "La escritura IRC terminó antes de la pausa/desconexión; el mensaje no se puede retirar y se omitieron voz y expresión.", false));
+                            continue;
+                        }
+                    }
                     if (item.Rule.Expression.Length > 0)
                     {
-                        var expressionSet = setExpression(item.Rule.Expression);
-                        details.Add(expressionSet ? "expresión aplicada" : "expresión no aplicada (sprite o overlay no disponible)");
+                        var expressionSet = setExpression(item.Rule.Expression, operation.Token);
+                        details.Add(expressionSet ? "expresión aplicada" : "expresión no aplicada (sprite, overlay o sesión no disponible)");
                     }
                     if (item.Rule.Speak)
-                        details.Add(enqueueSpeech(response) ? "voz encolada" : "voz rechazada por la cola");
+                    {
+                        bool spokenQueued;
+                        lock (gate)
+                        {
+                            spokenQueued = !paused && item.Epoch == connectionEpoch && twitchConnected && isConnected() &&
+                                !operation.IsCancellationRequested && enqueueSpeech(response);
+                        }
+                        details.Add(spokenQueued ? "voz encolada" : "voz omitida/rechazada por pausa, sesión o cola");
+                    }
                     Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Respuesta enviada", string.Join("; ", details), false));
                 }
                 catch (OperationCanceledException)
@@ -407,7 +428,7 @@ public sealed class ChatReactionService : IAsyncDisposable
         if (string.IsNullOrWhiteSpace(rule.Name) || rule.Name.Trim().Length > 60 ||
             string.IsNullOrWhiteSpace(rule.Trigger) || rule.Trigger.Trim().Length > 80 ||
             rule.Trigger.Any(char.IsControl) || rule.Responses is null || rule.Responses.Count is < 1 or > 8 ||
-            rule.Responses.Any(x => x is null || x.Trim().Length is < 1 or > 400 || x.Any(ch => ch is '\r' or '\n')) ||
+            rule.Responses.Any(x => x is null || x.Trim().Length is < 1 or > 400 || x.Any(char.IsControl)) ||
             !Enum.IsDefined(rule.MatchType) ||
             rule.GlobalCooldownSeconds is < 0 or > 3600 || rule.UserCooldownSeconds is < 0 or > 3600 ||
             rule.MaxPerMinute is < 1 or > 60 ||
