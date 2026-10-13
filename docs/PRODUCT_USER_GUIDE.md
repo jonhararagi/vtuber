@@ -20,6 +20,17 @@ El Dashboard muestra CPU y RAM reales del proceso cada dos segundos mientras est
 4. Los sprites de demostración se generan localmente la primera vez. No hace falta descargar arte, configurar una API ni sobrescribir tus perfiles propios. Al pulsar de nuevo un ejemplo ya creado, se activa el perfil existente sin borrar tus cambios.
 5. **Configurar PNGTuber Plus externo** abre su página de configuración. PNGTuber Plus es otra aplicación y necesita instalarse aparte; el botón de ejemplo integrado no pretende simular que esa aplicación ya está instalada.
 
+### Combinar ropa, peinados y accesorios
+
+1. En Avatar Studio, bajá hasta **Armario modular — piezas originales inspiradas en estilos VTuber**.
+2. Elegí por separado **Cabello**, **Conjunto / ropa**, **Accesorio de cabeza**, **Accesorio facial / joyería** y **Espalda / capa / alas / mochila**.
+3. Pulsá **Crear perfil con esta combinación**. El programa genera los PNG transparentes localmente y guarda una combinación nueva como perfil independiente.
+4. Podés volver al armario y crear muchas combinaciones distintas. Tus perfiles anteriores no se sobrescriben.
+5. En la lista de capas, seleccioná una prenda o accesorio para moverlo con arrastre, ajustar escala/rotación, ocultarlo o cambiar su orden. Las piezas traseras aparecen debajo del personaje.
+6. El catálogo tiene 8 peinados, 10 conjuntos, 10 adornos de cabeza, 6 accesorios faciales/joyería y 6 piezas traseras. Son **diseños originales genéricos**, estudiados a partir de tendencias visibles en VTubers conocidos; no son modelos de esos VTubers ni utilizan sus ilustraciones oficiales.
+
+Para saber qué referencias visuales se estudiaron y cómo se mapearon a categorías, consultá [Referencias visuales y biblioteca modular de VTuberBot](VTUBER_REFERENCIA_Y_BIBLIOTECA_MODULAR.md).
+
 ### Personalizar el avatar
 
 1. Cada perfil conserva su propia imagen base, capas/transformaciones y sprites de expresión. Podés crear un perfil vacío, duplicar el actual o cambiar entre perfiles desde la parte superior. Eliminar un perfil no borra los archivos de imagen importados, y siempre debe quedar al menos un perfil. **Exportar perfil (.vtuberavatar)** guarda base, capas, transformaciones y expresiones juntos; al importarlo se crea otro perfil sin sobrescribir los existentes.
