@@ -267,3 +267,16 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - Runs públicos revisados: [#380](https://github.com/jonhararagi/vtuber/actions/runs/38328651554) falló por un literal de carácter inválido; [#390](https://github.com/jonhararagi/vtuber/actions/runs/38328971940) falló por imports y variables del wizard; [#397](https://github.com/jonhararagi/vtuber/actions/runs/38329277301) falló por diagnósticos de cancelación xUnit. Las correcciones correspondientes ya están en commits posteriores a esos SHA.
 - Los runs anteriores no se reutilizan como prueba de éxito. La corrección posterior fue validada por [#435](https://github.com/jonhararagi/vtuber/actions/runs/38384321638), cuyo `head_sha` es `0609de270aa045912f487c5117c429bce8a25b30`; su artefacto se generó en esa misma ejecución. Para revisiones posteriores, el `head_sha` del run y del artefacto debe coincidir exactamente con el HEAD que se distribuye.
 - Run [#415](https://github.com/jonhararagi/vtuber/actions/runs/38329915472): Release build passed, tests failed 1/422 because the asynchronous condition test asserted after a fixed delay. The test now waits deterministically; run #423 verifies the correction with 423/423 passing tests.
+
+
+## Bot social — implementación en validación (2026-10-13)
+
+- [x] Añadido proveedor local compatible con `/v1/models` y `/v1/chat/completions`, con rechazo explícito de hosts no-loopback.
+- [x] Conectado el consumidor social al flujo IRC existente con cola de generación acotada; no se bloquea el receptor de red con inferencia.
+- [x] Añadida página **Bot social** para TTS, filtros, límites, personalidad, configuración del modelo, comprobación, prueba privada y cancelación.
+- [x] Respuestas automáticas, publicación en Twitch, lectura de chat y voz de respuestas desactivadas por defecto.
+- [x] Añadidas pruebas simuladas del protocolo del proveedor local y de la protección contra endpoints remotos.
+- [ ] Pendiente de aceptación: Windows CI del SHA final exacto, corrección de cualquier error que revele y confirmación del artefacto de ese SHA.
+- [ ] Pruebas manuales pendientes: voz SAPI en Windows; Twitch autenticado con cuenta bot; servidor llama.cpp real y modelo GGUF; prueba de no-eco, cooldown, cancelación y desconexión.
+
+No considerar la integración validada en tiempo real hasta completar las comprobaciones pendientes.
