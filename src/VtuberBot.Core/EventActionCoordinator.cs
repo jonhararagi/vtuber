@@ -105,6 +105,7 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
     public const string GlobalLimitSettingKey = "automation.eventActions.globalPerMinute";
     private const int MaxRules = 200;
     private const int MaxActivity = 500;
+    private const int MaxPayloadCharacters = 65536;
     private readonly IProductSettingsStore settings;
     private readonly IEventActionDispatcher dispatcher;
     private readonly EventActionCoordinatorOptions options;
@@ -257,7 +258,7 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
             {
                 "eq" => string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase),
                 "contains" when value.ValueKind == JsonValueKind.String => actual.Contains(expected, StringComparison.OrdinalIgnoreCase),
-                "present" => value.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined,
+                "present" => true,
                 _ => false
             };
             if (!matched) return false;
@@ -450,8 +451,9 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
         value = payload;
         foreach (var segment in fieldPath.Split('.'))
         {
-            if (value.ValueKind != JsonValueKind.Object || !value.TryGetProperty(segment, out value))
+            if (value.ValueKind != JsonValueKind.Object || !value.TryGetProperty(segment, out var child))
                 return false;
+            value = child;
         }
         return true;
     }
@@ -462,8 +464,10 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
         if (string.IsNullOrWhiteSpace(evt.Source) || evt.Source.Length > 80 ||
             string.IsNullOrWhiteSpace(evt.Category) || evt.Category.Length > 80 ||
             string.IsNullOrWhiteSpace(evt.Type) || evt.Type.Length > 120 ||
-            evt.Payload.ValueKind == JsonValueKind.Undefined || evt.CausalDepth is < 0 or > 32)
-            throw new ArgumentException("El evento normalizado no cumple el contrato.");
+            evt.Payload.ValueKind != JsonValueKind.Object || evt.CausalDepth is < 0 or > 32)
+            throw new ArgumentException("El evento normalizado debe incluir fuente, categoría, tipo y un payload JSON objeto.");
+        if (evt.Payload.GetRawText().Length > MaxPayloadCharacters)
+            throw new ArgumentException("El payload del evento supera el límite de 64 KiB.");
     }
 
     private static void ValidateRule(EventActionRule rule)
