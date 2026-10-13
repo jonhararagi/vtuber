@@ -14,7 +14,7 @@ public partial class MainWindow
         root.Children.Add(Label("ChatSpeak Studio · IA remota y voz de personaje", 22, "#F8FAFC", true));
         root.Children.Add(Label("Modo manual con ChatGPT web (copiar/pegar) y modo bot con proveedor remoto compatible. El bot nunca lee la sesión privada del navegador. Las respuestas automáticas empiezan desactivadas.", 12, "#98A4BE"));
 
-        var speechPanel = Panel("1. Leer chat con voz local (Windows SAPI)");
+        var speechPanel = Panel("Lectura del chat");
         var readEnabled = new CheckBox { Content = "Activar lectura de chat", IsChecked = store.GetSetting("social.tts.enabled", "false") == "true", Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
         var readAll = new CheckBox { Content = "Leer TODOS los mensajes (puede narrar contenido ofensivo o incómodo)", IsChecked = store.GetSetting("social.tts.readAll", "false") == "true", Foreground = Brush("#F0C674"), Margin = new Thickness(0, 4, 0, 8) };
         readAll.Checked += (_, _) => MessageBox.Show(this, "La lectura de todo el chat puede narrar mensajes ofensivos, enlaces o contenido incómodo. Los filtros no son moderación infalible. Guardá la configuración solo si aceptás ese riesgo.", "Advertencia de lectura de chat", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -43,6 +43,7 @@ public partial class MainWindow
         speechPanel.Children.Add(ActionButton("Detener voz actual", (_, _) => { speechQueue.StopCurrentSpeech(); FooterStatus.Text = "Se solicitó detener la voz actual."; }));
         speechPanel.Children.Add(ActionButton("Vaciar cola de voz", (_, _) => { speechQueue.ClearPending(); FooterStatus.Text = "Cola de voz pendiente vaciada."; }));
         speechPanel.Children.Add(Label("La voz, velocidad, volumen y salida se eligen en «Voz y audio».", 11, "#98A4BE"));
+        speechPanel.Children.Add(Label("La voz usada aquí depende del proveedor elegido en «Voz de personaje».", 11, "#98A4BE"));
 
         var aiPanel = Panel("2. Personalidad y proveedor de IA");
         var botName = TextField("Nombre/personaje del bot", store.GetSetting("social.bot.name", "VTuberBot"));
@@ -315,8 +316,8 @@ public partial class MainWindow
             }
         }));
 
-        var testPanel = Panel("4. Estado y prueba privada");
-        var status = Label("Proveedor local: sin comprobar · respuestas automáticas según configuración", 12, "#98A4BE");
+        var testPanel = Panel("Prueba privada de IA");
+        var status = Label("Proveedor de IA sin comprobar · las pruebas no se publican", 12, "#98A4BE");
         socialBot.StatusChanged += snapshot => Dispatcher.BeginInvoke(() =>
         {
             status.Text = snapshot.State + ": " + snapshot.Detail;
@@ -326,12 +327,12 @@ public partial class MainWindow
         testPanel.Children.Add(status); testPanel.Children.Add(testPrompt); testPanel.Children.Add(testOutput);
         testPanel.Children.Add(ActionButton("Comprobar servidor y modelo", async (_, _) =>
         {
-            try { var result = await socialBot.CheckProviderAsync(); status.Text = result.Success ? "IA local disponible" : "IA local: " + result.Status + " · " + result.Error; FooterStatus.Text = status.Text; }
-            catch (Exception ex) { status.Text = "IA local: error · " + ex.Message; }
+            try { var result = await socialBot.CheckProviderAsync(); status.Text = result.Success ? "Proveedor de IA disponible" : "Proveedor de IA: " + result.Status + " · " + result.Error; FooterStatus.Text = status.Text; }
+            catch (Exception ex) { status.Text = "Proveedor de IA: error · " + ex.Message; }
         }));
         testPanel.Children.Add(ActionButton("Generar respuesta de prueba (privada)", async (_, _) =>
         {
-            try { status.Text = "Generando en el modelo local…"; var result = await socialBot.GenerateTestAsync(testPrompt.Text); testOutput.Text = result.Success ? result.Text : result.Status + ": " + result.Error; status.Text = result.Success ? "Prueba generada localmente; no publicada." : "IA local: " + result.Status; }
+            try { status.Text = "Generando respuesta de prueba…"; var result = await socialBot.GenerateTestAsync(testPrompt.Text); testOutput.Text = result.Success ? result.Text : result.Status + ": " + result.Error; status.Text = result.Success ? "Prueba generada; no publicada." : "Proveedor de IA: " + result.Status; }
             catch (Exception ex) { status.Text = "Prueba fallida: " + ex.Message; }
         }, true));
         testPanel.Children.Add(ActionButton("Cancelar generación activa", (_, _) =>
