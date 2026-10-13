@@ -177,3 +177,11 @@ Abrí **Bot social** desde la navegación principal.
 - Configurá el **login real de la cuenta bot** para que sus propios mensajes no creen un bucle de respuesta.
 
 La configuración se guarda en SQLite. Los errores de proveedor, timeout, cola llena y desconexión se informan en el estado de la aplicación. Una respuesta generada localmente no significa que se haya publicado; el envío aceptado por Twitch tampoco confirma que el público haya oído o leído el mensaje.
+
+## Bot social — pausa y desconexión
+
+- Al guardar **Habilitar respuestas automáticas** desactivado, el servicio incrementa la generación de sesión, descarta conversaciones pendientes y cancela las inferencias conversacionales activas. Los trabajos antiguos no se reanudan al volver a activar el bot.
+- Una desconexión real después de haber conectado Twitch cancela las conversaciones de esa sesión. Al reconectar solo se aceptan menciones nuevas. El modo local sin conexión inicial sigue disponible si no se solicita publicar en Twitch.
+- La lectura TTS de mensajes entrantes es independiente de la IA conversacional: apagar las respuestas no apaga la lectura configurada. Las respuestas generadas solo se encolan para voz si siguen autorizadas al terminar.
+- La cancelación impide publicaciones nuevas mientras la operación aún no se haya iniciado. Si Twitch ya aceptó un mensaje antes de la solicitud de pausa, la aplicación no puede retirarlo de forma fiable. «Encolado para voz» tampoco confirma que el audio haya sido oído.
+- La señal de estado de conexión se basa en el estado tipado de TwitchChatClient, no en el análisis de mensajes de log.
