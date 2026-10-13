@@ -319,3 +319,11 @@ El run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040) so
 - [x] Windows CI completada para el commit de implementación cf19663380c914abaa07b7dd7ed5a3163293723b: Release build con 0 warnings/errores, 503/503 pruebas pasadas, publicación self-contained win-x64 correcta y ZIP de 484 entradas (run 38438046595, artefacto 11833843141).
 - [ ] Pendiente de prueba manual con clave/API real, cuota, audio TTS de Gemini y OBS en un equipo Windows.
 - Limitación explícita: la suscripción de ChatGPT web no se convierte en API; el modo manual es copiar/pegar. El modo automático necesita una API admitida y una clave del proveedor. Las cuotas gratuitas y su política de uso de datos dependen del proveedor.
+
+
+## 2026-10-13 — Destinos de emisión Twitch y YouTube
+
+- La página OBS ahora puede configurar su salida principal mediante OBS WebSocket v5 para Twitch o YouTube con RTMPS; las claves se guardan cifradas con DPAPI fuera de SQLite y de los logs.
+- La selección/cambio de destino requiere detener la transmisión actual. Iniciar/parar continúa verificándose mediante el estado real de OBS.
+- La emisión simultánea sigue siendo opcional y depende de un complemento multi-RTMP externo compatible. VTuberBot no instala plugins, no controla su panel y no presenta una doble salida como validada por CI.
+- Pendiente de validación manual en Windows: confirmar cada plataforma con claves reales, probar una emisión privada/no listada y confirmar compatibilidad de complemento si se necesita simultaneidad.
