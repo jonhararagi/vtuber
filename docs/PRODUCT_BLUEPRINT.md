@@ -261,6 +261,14 @@ Todos los comandos y triggers usan el mismo pipeline para que probarlos localmen
 
 No se copiará código, assets, diseño exacto, nombres internos ni estructura propietaria. Se desarrollará código original conforme a la licencia de cada dependencia que se decida añadir.
 
+## 6.1 Destinos de emisión y multistream
+
+- La salida principal de OBS se puede configurar en VTuberBot para Twitch o YouTube mediante la solicitud oficial OBS WebSocket v5 `SetStreamServiceSettings`, usando RTMPS.
+- Las claves de emisión son secretos de plataforma: DPAPI para el usuario actual de Windows, fuera de SQLite, logs y paquete de distribución.
+- La UI debe mostrar claramente el destino seleccionado, si hay clave guardada y si OBS está autenticado/emitido. Configurar destino nunca debe fingir que empezó la transmisión.
+- El cambio de destino se bloquea mientras OBS transmite.
+- La emisión simultánea requiere un multi-output plugin o relay. No se incluye plugin de terceros ni se afirma control directo de su UI. La documentación debe describir la dependencia, carga de red/CPU/GPU y la validación requerida.
+
 ## 7. Decisiones de integración confirmadas
 
 - Mantener C#/.NET 10/WPF y el núcleo actual como base útil.
