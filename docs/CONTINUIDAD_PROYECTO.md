@@ -1285,3 +1285,10 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Archivos creados: `src/VtuberBot.Core/LocalOpenAiCompatibleProvider.cs`, `src/VtuberBot.App/SocialBotService.cs`, `src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs`, `tests/VtuberBot.Tests/LocalOpenAiCompatibleProviderTests.cs`.
 - Archivos modificados: `src/VtuberBot.App/MainWindow.xaml.cs`, `src/VtuberBot.App/Workspaces/MainWindow.Twitch.cs`, `docs/EXTERNAL-INTEGRATIONS.md`, `docs/PRODUCT_USER_GUIDE.md`, `ROADMAP.md`.
 - Pendiente: inspeccionar CI del SHA final y corregir fallos reales; comprobar artefacto asociado a ese mismo SHA; prueba manual con SAPI/Windows, Twitch OAuth y cuenta bot separada, llama.cpp y un modelo instalado. El estado «generado» no implica «publicado», y el envío aceptado por Twitch no demuestra que el espectador haya oído el audio.
+
+
+### Evidencia de CI durante esta orden
+
+- Run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040), SHA `127320c4e03a7786a19e5426cdd9525d3b7fe010`: restauración y compilación Release correctas; 433/434 pruebas pasaron. Falló `LocalOpenAiCompatibleProviderTests.ReportsEmptyAndMalformedResponsesInsteadOfInventingText`: el JSON malformado devolvía el estado genérico `Unavailable` en lugar de `InvalidResponse`.
+- Corrección aplicada en `LocalOpenAiCompatibleProvider.cs`: se separó el tratamiento de `JsonException` para reportar `InvalidResponse`; también se exige que el ID del modelo exista y se expone el límite de contexto en la UI.
+- Se añadieron pruebas `SocialBotServiceTests.cs` para defaults desactivados, disparador por mención/comando, procesamiento asíncrono y prevención del eco propio. La aceptación sigue pendiente del run correspondiente al SHA final tras estas correcciones.
