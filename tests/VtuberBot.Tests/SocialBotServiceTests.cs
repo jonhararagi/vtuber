@@ -1,3 +1,4 @@
+using System.Reflection;
 using VtuberBot.App;
 using VtuberBot.Core;
 using Xunit;
@@ -285,5 +286,41 @@ public sealed class SocialBotServiceTests
         await provider.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
         Assert.Equal(0, service.PendingConversations);
         speech.Dispose();
+    }
+
+    [Fact]
+    public async Task TwitchDisconnectCancelsOldSessionAndReconnectAcceptsOnlyNewWork()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SetSetting("social.chat.enabled", "true");
+        var speech = new LocalSpeechQueue();
+        await using var twitch = new TwitchChatClient();
+        var provider = new FakeProvider { Block = true };
+        await using var service = new SocialBotService(store, speech, twitch, provider);
+
+        SetTwitchConnection(twitch, true);
+        service.OnChatMessage("alice", "!bot sesión vieja activa", "channel");
+        await provider.Called.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        service.OnChatMessage("bob", "!bot sesión vieja en cola", "channel");
+        Assert.Equal(1, service.PendingConversations);
+
+        SetTwitchConnection(twitch, false);
+        await provider.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        Assert.Equal(0, service.PendingConversations);
+
+        SetTwitchConnection(twitch, true);
+        service.OnChatMessage("carol", "!bot sesión nueva", "channel");
+        await provider.SecondCalled.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        Assert.Equal(2, Volatile.Read(ref provider.Calls));
+        provider.Release.TrySetResult(true);
+        speech.Dispose();
+    }
+
+    private static void SetTwitchConnection(TwitchChatClient client, bool connected)
+    {
+        var setter = typeof(TwitchChatClient).GetMethod("SetConnectionState", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Connection state seam was not found.");
+        setter.Invoke(client, [connected]);
     }
 }
