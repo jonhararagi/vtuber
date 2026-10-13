@@ -138,3 +138,6 @@ La prueba automatizada de protocolo utiliza un servidor simulado; antes de consi
 **Atención con PNGTuber Plus:** habilitar el envío automático de teclas requiere una autorización separada y explícita. Windows puede poner PNGTuber Plus en primer plano y quitar el foco a OBS, un juego u otra aplicación. No se envían teclas al guardar reglas, conectar Streamer.bot ni iniciar VTuberBot. El adaptador solo informa que Windows aceptó el envío; no puede confirmar el cambio de sprite/expresión.
 
 **Seguridad y límites:** la pausa global impide automatizaciones disparadas por eventos, pero no sustituye las acciones manuales existentes. Se aplican límites por regla y globales y una cola acotada; en caso de saturación algunos eventos se descartan y se registra una advertencia. Cuando los proveedores no comparten un identificador común, no puede garantizarse deduplicación entre EventSub y Streamer.bot; evitá crear reglas equivalentes en ambas fuentes.
+### Nota de validación de automatizaciones
+
+La configuración de reglas y sus destinos se implementa en la rama de producto, pero su aceptación sigue pendiente de Windows CI verde en el SHA final y de pruebas manuales. Una ejecución de CI anterior que falle no invalida ni demuestra el estado de un SHA posterior; consultá el run asociado al commit exacto antes de distribuir el paquete.
