@@ -124,6 +124,47 @@
         </Setter.Value>
       </Setter>
     </Style>
+    <Style TargetType="{x:Type TabControl}">
+      <Setter Property="Background" Value="#0B0E17"/>
+      <Setter Property="Foreground" Value="#F8FAFC"/>
+      <Setter Property="BorderBrush" Value="#29334D"/>
+      <Setter Property="Padding" Value="6"/>
+    </Style>
+    <Style TargetType="{x:Type TabItem}">
+      <Setter Property="Foreground" Value="#98A4BE"/>
+      <Setter Property="Background" Value="#151A2A"/>
+      <Setter Property="BorderBrush" Value="#29334D"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="14,8"/>
+      <Setter Property="Margin" Value="0,0,6,0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type TabItem}">
+            <Border x:Name="TabSurface" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="8,8,0,0" Padding="{TemplateBinding Padding}">
+              <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="TabSurface" Property="Background" Value="#202A40"/>
+                <Setter TargetName="TabSurface" Property="BorderBrush" Value="#69D8F2"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="TabSurface" Property="Background" Value="#173A4A"/>
+                <Setter TargetName="TabSurface" Property="BorderBrush" Value="#69D8F2"/>
+                <Setter Property="Foreground" Value="#8DE6F8"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="TabSurface" Property="Opacity" Value="0.45"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </Window.Resources>
   <Grid>
     <Grid.ColumnDefinitions><ColumnDefinition Width="238"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
