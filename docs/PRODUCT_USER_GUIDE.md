@@ -157,32 +157,38 @@ La prueba automatizada de protocolo utiliza un servidor simulado; antes de consi
 La revisión de código de la auditoría final, SHA `0609de270aa045912f487c5117c429bce8a25b30`, está validada por [Windows CI #435](https://github.com/jonhararagi/vtuber/actions/runs/38384321638): restore correcto, build Release con 0 advertencias/errores, 424/424 pruebas y publicación del artefacto win-x64 del mismo SHA. La corrección hace que una configuración de reglas dañada fuerce la pausa global y añade pruebas para reglas inválidas y JSON corrupto. El CI valida código, tests y paquete, no una sesión real con servicios externos. Las pruebas manuales con Streamer.bot, Twitch, OBS y PNGTuber Plus siguen pendientes.
 
 
-## Bot social: leer el chat y conversar con IA local
+## Bot social / ChatSpeak Studio — guía de inicio simple
 
-Abrí **Bot social** desde la navegación principal.
+La página **Bot social / IA** está organizada en pestañas para no mostrar todas las opciones de golpe. La primera pestaña, **Empezar aquí**, explica el orden recomendado. Las respuestas automáticas y la publicación en Twitch permanecen desactivadas hasta que tú las actives.
 
-### Leer mensajes con voz local
-1. En **Voz y audio**, actualizá la lista de voces instaladas y elegí voz, velocidad, volumen y salida; guardá los ajustes.
-2. En **Bot social**, activá **Activar lectura de chat**.
-3. Por defecto no se narra todo el chat: se priorizan menciones o activaciones explícitas. Configurá el máximo de caracteres, intervalo, capacidad de cola y usuarios ignorados.
-4. Los filtros de enlaces y comandos vienen activos. La opción **Leer TODOS los mensajes** requiere una decisión explícita y muestra una advertencia de moderación/privacidad.
-5. Usá **Encolar frase de prueba** para probar manualmente la cola. **Detener voz actual** y **Vaciar cola de voz** no desconectan Twitch.
+### Conseguir la voz aguda y chillona
 
-### Configurar la personalidad y la IA local
-1. Instalá por separado un runtime local compatible con la API de chat de OpenAI (por ejemplo, el servidor HTTP de `llama.cpp`) y un modelo compatible. VTuberBot no descarga pesos ni incluye modelos en el ZIP.
-2. Dejá el servidor escuchando en `127.0.0.1`, por ejemplo `http://127.0.0.1:8080/v1`. Este proveedor rechaza destinos remotos por privacidad.
-3. Configurá el ID del modelo que publica `/v1/models`, el idioma, tono, personalidad, timeout y longitud máxima.
-4. Pulsá **Guardar configuración social** y después **Comprobar servidor y modelo**. Una comprobación correcta demuestra que el endpoint local responde, no que la personalidad sea perfecta.
-5. Usá **Generar respuesta de prueba (privada)** para probar sin publicar en Twitch. **Cancelar generación activa** solicita cancelar la inferencia.
+1. Abrí **Bot social / IA** y entrá en **Voz y audio**.
+2. Dejá seleccionado **Remoto (voz de personaje)** y mantén el modelo predeterminado de Gemini TTS. La voz inicial es **Zephyr**, con instrucciones para que el resultado sea muy agudo, brillante, nasal/juguetón y exagerado, como una voz caricaturesca de anime.
+3. Si no guardaste una clave de Google AI Studio, creá una desde https://aistudio.google.com/apikey y pegala en el campo de clave TTS. Si ya guardaste una clave de IA de Google, la aplicación puede reutilizarla.
+4. Pulsa **Guardar toda la configuración** y después **Probar voz chillona**. Escucha la frase y ajusta las instrucciones antes de usarla en un directo. La etiqueta Zephyr es un preset; la altura exacta del tono depende del modelo y del proveedor, así que la prueba auditiva es importante.
+5. Para usar una voz de Windows, seleccioná **Local (voces de Windows)** en lugar del proveedor remoto. La calidad y el tono dependerán de las voces instaladas en ese equipo.
 
-### Habilitar conversación en directo
-- El modo conversacional empieza desactivado. Habilitá **Habilitar respuestas automáticas** solo después de configurar y probar el proveedor.
-- El bot responde únicamente cuando lo mencionan por el nombre configurado o cuando se usa el comando de activación (por defecto `!bot`). No responde a todos los mensajes.
-- Configurá cooldown global, cooldown por usuario y límite por minuto. El texto de chat es contenido no confiable: nunca se interpreta como código ni selecciona acciones externas.
-- **Publicar las respuestas generadas en el chat de Twitch** y **Encolar también las respuestas ... en la voz local** son opciones independientes. Para publicar se requiere la conexión Twitch autenticada.
-- Configurá el **login real de la cuenta bot** para que sus propios mensajes no creen un bucle de respuesta.
+Las claves se cifran con DPAPI para tu usuario de Windows y no se escriben en SQLite ni en los logs. La voz remota necesita conexión y cuota del proveedor. El nivel gratuito puede tener límites y reglas de privacidad: revisa la guía [ChatSpeak Studio](CHATSPEAK-STUDIO.md) antes de enviar contenido real del chat.
 
-La configuración se guarda en SQLite. Los errores de proveedor, timeout, cola llena y desconexión se informan en el estado de la aplicación. Una respuesta generada localmente no significa que se haya publicado; el envío aceptado por Twitch tampoco confirma que el público haya oído o leído el mensaje.
+### Leer el chat en voz alta
+
+1. Entrá en la pestaña **Leer el chat** y marca **Activar lectura de chat**.
+2. Mantén activos los filtros de comandos y enlaces y conserva una longitud e intervalo razonables. Puedes añadir usuarios ignorados.
+3. Pulsa **Guardar toda la configuración** para aplicar los cambios.
+4. Usa **Encolar frase de prueba** para revisar la salida seleccionada. **Detener voz actual** cancela la frase activa y **Vaciar cola de voz** elimina las que esperan.
+
+La lectura del chat es independiente de las respuestas de IA. «Leer TODOS los mensajes» puede pronunciar mensajes ofensivos o incómodos y requiere aceptar una advertencia.
+
+### Conversar con IA y automatizar respuestas
+
+1. En **Bot automático**, deja seleccionado **Remoto (API HTTPS)** para evitar instalar un modelo pesado en el PC. Pega la clave API remota si todavía no existe y conserva el modelo predeterminado si quieres usar Gemini.
+2. Configura nombre, personalidad y límites. Pulsa **Guardar toda la configuración** y prueba el proveedor en **Pruebas y estado**; la prueba privada no publica mensajes.
+3. Solo cuando estés listo, activa **Habilitar respuestas automáticas** y confirma el aviso. Por defecto, el bot responde a una mención o al comando configurado (`!bot`), no a cada mensaje.
+4. **Publicar las respuestas en Twitch** es una opción separada y viene desactivada. La voz de las respuestas también es independiente de la publicación de texto.
+5. Para usar ChatGPT web manualmente, entra en **Chat manual**, copia el prompt, pégalo en la web, y vuelve a pegar la respuesta generada. VTuberBot no lee tu sesión privada, las cookies ni el contenido de la web de ChatGPT.
+
+No hace falta configurar OBS ni activar el bot automático para probar la voz. Para una explicación completa de modo manual, IA remota, privacidad, límites y comandos del avatar, consulta [ChatSpeak Studio](CHATSPEAK-STUDIO.md).
 
 ## Bot social — pausa y desconexión
 
