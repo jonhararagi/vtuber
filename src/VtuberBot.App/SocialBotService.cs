@@ -146,7 +146,10 @@ public sealed class SocialBotService : IAsyncDisposable
 
     public void CancelGeneration()
     {
-        lock (generationGate) foreach (var generation in activeGenerations.ToArray()) generation.Cancel();
+        CancellationTokenSource[] active;
+        lock (generationGate) active = activeGenerations.ToArray();
+        foreach (var generation in active)
+            try { generation.Cancel(); } catch (ObjectDisposedException) { }
         Publish("IA", "Se solicitó cancelar la generación activa.", PendingConversations);
     }
 
@@ -187,8 +190,10 @@ public sealed class SocialBotService : IAsyncDisposable
 
     private void CancelAutomaticGenerations()
     {
-        lock (generationGate)
-            foreach (var generation in activeAutomaticGenerations.ToArray()) generation.Cancel();
+        CancellationTokenSource[] active;
+        lock (generationGate) active = activeAutomaticGenerations.ToArray();
+        foreach (var generation in active)
+            try { generation.Cancel(); } catch (ObjectDisposedException) { }
     }
 
     private void OnTwitchConnectionStateChanged(bool connected)
