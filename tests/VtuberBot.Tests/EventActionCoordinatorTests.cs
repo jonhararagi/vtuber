@@ -163,7 +163,7 @@ public sealed class EventActionCoordinatorTests
         int cooldown = 0, EventActionDestination destination = EventActionDestination.StreamerBot, bool confirmed = true) =>
         new(Guid.NewGuid(), "test rule", enabled, "Streamer.bot", "Twitch", "Follow",
             conditions ?? [], destination, destination == EventActionDestination.StreamerBot ? "action-1" : Guid.NewGuid().ToString("D"),
-            cooldown, 10, confirmed);
+            cooldown, 10, confirmed, destination == EventActionDestination.StreamerBot && confirmed ? "action-1" : null);
 
     private static void Publish(EventActionCoordinator coordinator, string id, string message = "hello")
     {
