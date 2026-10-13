@@ -143,7 +143,6 @@ public sealed class EventActionCoordinatorTests
         var dispatcher = new RecordingDispatcher();
         await using var coordinator = new EventActionCoordinator(settings, dispatcher);
         Assert.Throws<ArgumentException>(() => coordinator.SaveRule(Rule(enabled: true, conditions: [new("../secret", "eq", "x")])));
-        using var undefined = default(JsonDocument);
         Assert.False(coordinator.TryPublish(new NormalizedBotEvent("", "", "", null, DateTimeOffset.UtcNow,
             null, default, "", NormalizedEventOrigin.External)));
         Assert.Contains(coordinator.GetRecentActivity(), x => x.Outcome == EventActionOutcome.InternalError);
