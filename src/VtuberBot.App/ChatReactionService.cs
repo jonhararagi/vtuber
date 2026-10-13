@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Globalization;
 using System.Threading.Channels;
 using VtuberBot.Core;
 
@@ -150,7 +151,7 @@ public sealed class ChatReactionService : IAsyncDisposable
 
     public void SetPaused(bool value)
     {
-        lock (gate) paused = value;
+        lock (gate) { paused = value; if (value) connectionEpoch++; }
         store.SetSetting(PausedSettingKey, value ? "true" : "false");
         if (value) InvalidatePending("reacciones pausadas");
     }
@@ -188,7 +189,7 @@ public sealed class ChatReactionService : IAsyncDisposable
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(message) || message.Length > MaximumMessageLength)
             return new(DateTimeOffset.UtcNow, "", username ?? "", "Entrada inválida", "Usuario o mensaje vacío, o mensaje demasiado largo.", true);
         ChatReactionRule? rule;
-        lock (rulesGate) rule = rules.FirstOrDefault(x => x.Enabled && Matches(x, message));
+        lock (rulesGate) rule = rules.FirstOrDefault(x => Matches(x, message));
         if (rule is null)
             return new(DateTimeOffset.UtcNow, "", username, "Sin coincidencia", "Ninguna regla activa coincide; no se envió nada a Twitch ni se activó voz o avatar.", true);
         var response = ResolveResponse(rule, username);
@@ -310,7 +311,17 @@ public sealed class ChatReactionService : IAsyncDisposable
                         continue;
                     }
 
-                    var details = new List<string>();
+                    lock (gate)
+                        if (paused || item.Epoch != connectionEpoch || !twitchConnected || !isConnected())
+                            throw new OperationCanceledException("sesión invalidada antes del envío", operation.Token);
+                    var sent = await sendChat(response, operation.Token).ConfigureAwait(false);
+                    if (!sent)
+                    {
+                        Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Envío fallido", "Twitch rechazó el envío; no se activaron voz ni expresión.", false));
+                        continue;
+                    }
+
+                    var details = new List<string> { "solicitud IRC enviada" };
                     if (item.Rule.Expression.Length > 0)
                     {
                         var expressionSet = setExpression(item.Rule.Expression);
@@ -318,16 +329,7 @@ public sealed class ChatReactionService : IAsyncDisposable
                     }
                     if (item.Rule.Speak)
                         details.Add(enqueueSpeech(response) ? "voz encolada" : "voz rechazada por la cola");
-                    if (response.Length > 0)
-                    {
-                        lock (gate)
-                            if (paused || item.Epoch != connectionEpoch || !twitchConnected || !isConnected())
-                                throw new OperationCanceledException("sesión invalidada antes del envío", operation.Token);
-                        var sent = await sendChat(response, operation.Token).ConfigureAwait(false);
-                        details.Add(sent ? "solicitud IRC enviada" : "envío rechazado");
-                        Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, sent ? "Respuesta enviada" : "Envío fallido", string.Join("; ", details), false));
-                    }
-                    else Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Efectos ejecutados", string.Join("; ", details), false));
+                    Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Respuesta enviada", string.Join("; ", details), false));
                 }
                 catch (OperationCanceledException)
                 {
