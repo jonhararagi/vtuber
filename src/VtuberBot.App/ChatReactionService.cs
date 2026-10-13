@@ -189,7 +189,7 @@ public sealed class ChatReactionService : IAsyncDisposable
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(message) || message.Length > MaximumMessageLength)
             return new(DateTimeOffset.UtcNow, "", username ?? "", "Entrada inválida", "Usuario o mensaje vacío, o mensaje demasiado largo.", true);
         ChatReactionRule? rule;
-        lock (rulesGate) rule = rules.FirstOrDefault(x => Matches(x, message));
+        lock (rulesGate) rule = rules.FirstOrDefault(x => x.Enabled && Matches(x, message)) ?? rules.FirstOrDefault(x => Matches(x, message));
         if (rule is null)
             return new(DateTimeOffset.UtcNow, "", username, "Sin coincidencia", "Ninguna regla activa coincide; no se envió nada a Twitch ni se activó voz o avatar.", true);
         var response = ResolveResponse(rule, username);
@@ -386,7 +386,7 @@ public sealed class ChatReactionService : IAsyncDisposable
             var valid = new List<ChatReactionRule>();
             foreach (var rule in loaded.Take(MaximumRules))
             {
-                if (TryValidate(rule, out var clean, out _)) valid.Add(clean);
+                if (rule is not null && TryValidate(rule, out var clean, out _)) valid.Add(clean);
                 else store.Log("Reacciones chat", "Se omitió una regla persistida inválida; no se ejecutó.");
             }
             return valid;
