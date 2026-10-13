@@ -286,6 +286,14 @@ public sealed class SocialBotService : IAsyncDisposable
 
     private async Task ProcessConversationAsync(ChatWork work, CancellationToken cancellationToken)
     {
+        using var operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stop.Token);
+        lock (generationGate) activeAutomaticGenerations.Add(operation);
+        try { await ProcessConversationCoreAsync(work, operation.Token).ConfigureAwait(false); }
+        finally { lock (generationGate) activeAutomaticGenerations.Remove(operation); }
+    }
+
+    private async Task ProcessConversationCoreAsync(ChatWork work, CancellationToken cancellationToken)
+    {
         if (!IsWorkCurrent(work)) return;
         var now = DateTimeOffset.UtcNow;
         var globalCooldown = TimeSpan.FromSeconds(Math.Clamp(ParseInt("social.chat.globalCooldownSeconds", 12), 1, 300));
