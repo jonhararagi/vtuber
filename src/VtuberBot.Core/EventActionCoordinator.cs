@@ -481,8 +481,12 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
     {
         if (!string.IsNullOrWhiteSpace(evt.ProviderEventId))
             return "id:" + evt.Source.ToLowerInvariant() + ":" + evt.ProviderEventId;
-        // Without a reliable provider ID, only timestamped events with identical payloads are deduplicated.
-        // Chat-like events lacking a timestamp remain distinct, even if user and text are identical.
+        // Chat messages may legitimately repeat with identical text and coarse timestamps. Without a
+        // provider ID, keep them distinct rather than silently dropping a real viewer message.
+        if (evt.Type.Contains("chat", StringComparison.OrdinalIgnoreCase) ||
+            evt.Type.Equals("message", StringComparison.OrdinalIgnoreCase))
+            return "unique:" + evt.CorrelationId;
+        // For non-chat events, only timestamped events with identical payloads use the fallback key.
         if (evt.OriginalTimestamp is not { } timestamp)
             return "unique:" + evt.CorrelationId;
         var stable = evt.Source.ToLowerInvariant() + "|" + evt.Category.ToLowerInvariant() + "|" +
