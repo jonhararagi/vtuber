@@ -199,6 +199,27 @@ public partial class MainWindow
         demoActions.Children.Add(ActionButton("Configurar PNGTuber Plus externo", (_, _) => Navigate("Avatar externo")));
         demoPanel.Children.Add(demoActions);
         root.Children.Add(demoPanel);
+
+        var imageToAvatarPanel = Panel("Crear una VTuber desde una sola imagen");
+        imageToAvatarPanel.Margin = new Thickness(0, 0, 0, 14);
+        imageToAvatarPanel.Children.Add(Label(
+            "Flujo sencillo con herramientas gratuitas: una IA intenta separar tu ilustración en capas y luego otra herramienta anima el PSD. No hace falta dibujar cada pieza a mano. La separación es aproximada y puede necesitar retoques; para procesarla se carga la imagen a un servicio online.",
+            12, "#98A4BE"));
+        var imageToAvatarActions = new WrapPanel();
+        imageToAvatarActions.Children.Add(ActionButton("1 · Separar imagen automáticamente", (_, _) =>
+            OpenAvatarExternalTool(
+                "https://huggingface.co/spaces/24yearsold/see-through-demo",
+                "Separador automático de imágenes"), true));
+        imageToAvatarActions.Children.Add(ActionButton("2 · Animar el PSD como VTuber", (_, _) =>
+            OpenAvatarExternalTool(
+                "https://852wa.github.io/Anime2.5DRig/",
+                "Animador de avatar 2.5D")));
+        imageToAvatarPanel.Children.Add(imageToAvatarActions);
+        imageToAvatarPanel.Children.Add(Label(
+            "Cómo usarlo: (1) abre el separador y carga tu PNG/JPG; (2) descarga el PSD por capas; (3) abre el animador y carga ese PSD; (4) habilita cámara/micrófono si querés seguimiento y boca. El separador online puede limitar las ejecuciones gratuitas y requiere conexión. No subas imágenes privadas. La versión local del modelo es demasiado pesada para la PC objetivo sin una GPU con mucha memoria.",
+            12, "#98A4BE"));
+        root.Children.Add(imageToAvatarPanel);
+
         root.Children.Add(BuildModularWardrobePanel());
 
         void LoadDemoProfile(string profileName, bool layered)
@@ -615,6 +636,21 @@ public partial class MainWindow
         }
     }
 
+
+    private void OpenAvatarExternalTool(string url, string toolName)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            FooterStatus.Text = "Abierto en el navegador: " + toolName + ".";
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this,
+                "No se pudo abrir " + toolName + ": " + exception.Message,
+                "VTuberBot", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     private UIElement BuildModularWardrobePanel()
     {
