@@ -14,13 +14,28 @@ public sealed class EventActionCoordinatorTests
         var first = new EventActionCoordinator(settings, dispatcher);
         var saved = first.SaveRule(Rule(enabled: false));
         Assert.False(saved.Enabled);
+        var edited = first.SaveRule(saved with { Name = "edited rule", Enabled = true });
+        Assert.Equal("edited rule", edited.Name);
+        first.SaveRule(edited with { Enabled = false });
         await first.DisposeAsync();
 
         var second = new EventActionCoordinator(settings, dispatcher);
-        Assert.Contains(second.GetRules(), x => x.Id == saved.Id && !x.Enabled);
+        Assert.Contains(second.GetRules(), x => x.Id == saved.Id && x.Name == "edited rule" && !x.Enabled);
         Assert.True(second.RemoveRule(saved.Id));
         Assert.Empty(second.GetRules());
         await second.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DamagedPersistedRulesAreSkippedAndReportedWithoutStoppingStartup()
+    {
+        var settings = new MemorySettings();
+        settings.SetSetting(EventActionCoordinator.RulesSettingKey,
+            """[{"Id":"not-a-guid","Name":"broken","Enabled":true,"Source":"Streamer.bot","Category":"Twitch","EventType":"Raid","Conditions":[],"Destination":"StreamerBot","TargetId":"bad","CooldownSeconds":0,"MaxExecutionsPerMinute":10}]""");
+        await using var coordinator = new EventActionCoordinator(settings, new RecordingDispatcher());
+        Assert.Empty(coordinator.GetRules());
+        Assert.NotEmpty(coordinator.StartupWarnings);
+        Assert.True(coordinator.AutomationsPaused);
     }
 
     [Fact]
