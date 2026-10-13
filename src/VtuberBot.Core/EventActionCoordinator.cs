@@ -11,7 +11,7 @@ public enum NormalizedEventOrigin { Internal, External }
 public enum EventActionDestination { StreamerBot, PngtuberPlus }
 public enum EventActionOutcome
 {
-    EventReceived, DuplicateDiscarded, RuleDisabled, AutomationsPaused, ConditionNotMet,
+    EventReceived, DuplicateDiscarded, RuleDisabled, RuleChanged, AutomationsPaused, ConditionNotMet,
     ActionQueued, ActionSent, RequestAccepted, ActionRejected, OutcomeUnknown, HotkeySent,
     InternalError, QueueSaturated, InvalidDestination, Cooldown, RateLimited, CausalDepthLimit
 }
@@ -341,6 +341,22 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
             {
                 RecordActivity(rule, evt, EventActionOutcome.InvalidDestination,
                     "Acción externa bloqueada: falta la confirmación explícita del destino.");
+                continue;
+            }
+
+            // Rules are immutable snapshots. If the user edits/deletes one while this event is queued,
+            // do not dispatch using a stale destination or a half-obsolete rule.
+            lock (rulesGate)
+            {
+                if (!rules.TryGetValue(rule.Id, out var currentRule) || currentRule != rule)
+                {
+                    RecordActivity(rule, evt, EventActionOutcome.RuleChanged, "La regla cambió o se eliminó mientras el evento esperaba; se omitió esta ejecución.");
+                    continue;
+                }
+            }
+            if (AutomationsPaused)
+            {
+                RecordActivity(rule, evt, EventActionOutcome.AutomationsPaused, "Las automatizaciones se pausaron antes del despacho.");
                 continue;
             }
 
