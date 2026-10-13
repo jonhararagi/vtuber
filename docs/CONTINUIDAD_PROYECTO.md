@@ -8,7 +8,7 @@
 
 - **Repositorio:** https://github.com/jonhararagi/vtuber
 - **Rama principal:** `main`
-- **HEAD de `main` comprobado en el PR #9:** `bbcd06c0e0706000cd95d85771b33452d11e7663`. No se modificó `main`.
+- **Rama de distribución:** `main` es la rama que se entrega al usuario. Los registros históricos más abajo conservan los SHA y resultados que les corresponden; no deben interpretarse como el HEAD actual ni como CI de cambios posteriores.
 - **Rama histórica de estabilización:** `v0.2.3/stabilization-gate`.
 - **Rama de producto activa:** `product/complete-vtuber-experience` (rama nueva para la entrega integrada; creada desde el HEAD de PR #9 `4ba87d8f94d65a84dba475c8b0f9103380892777`).
 - **PR activo:** [#9 — feat: add v0.2.3 stabilization gate](https://github.com/jonhararagi/vtuber/pull/9). Base `main`; permanece abierto y sin fusionar.
@@ -16,6 +16,14 @@
 - **Arquitectura vigente para el producto completo:** C#/.NET 10/WPF/SQLite; Core independiente de WPF; sin EF Core; módulos de avatar, audio, Twitch, comunidad/engagement, OBS y Telegram desacoplados por contratos/eventos. La especificación activa es `docs/PRODUCT_BLUEPRINT.md`. El usuario autorizó el 2026-10-12 a completar el diseño y el alcance global del producto antes de solicitar una validación manual integrada.
 - **Flujo de trabajo:** GPT Cerebro decide y audita; GPT Obrero implementa cambios aprobados en GitHub; Gemini Inspector revisa. GitHub es la fuente de verdad.
 
+## Corrección de producto — 2026-10-13: ejemplos de avatar incluidos
+
+- **Hallazgo confirmado:** el Avatar Studio nativo requería que el usuario importara una imagen antes de mostrar un personaje; el estado vacío mostraba «Todavía no hay arte importado». El modo PNGTuber Plus solo configuraba una aplicación externa instalada aparte. Por eso el candidato no permitía probar un avatar visual desde una instalación limpia.
+- **Implementado en main:** `src/VtuberBot.App/DemoAvatarFactory.cs` genera sprites PNG transparentes de ejemplo localmente, sin red ni servicios externos. El editor Avatar Studio ofrece ahora **Probar ejemplo PNGTuber (reposo / habla)** y **Probar ejemplo 2D por capas**.
+- El ejemplo PNGTuber crea sprites completos Idle, Talking, Blink, Happy y Surprised en un perfil separado.
+- El ejemplo 2D crea un perfil separado con sprites alineados y capas transparentes de flequillo y destellos que se pueden mover, escalar y rotar. Los perfiles propios no se sobrescriben; si el perfil de ejemplo ya existe, el botón lo activa en lugar de recrearlo.
+- **Límites explícitos:** son sprites 2D y movimiento/parallax ligero, no un rig Live2D, no deformación ósea ni seguimiento facial por cámara. PNGTuber Plus continúa siendo una aplicación de terceros que el usuario instala separadamente.
+- **Pendiente hasta CI:** compilar con Windows, ejecutar las pruebas, generar el ZIP correspondiente al HEAD final y comprobar que los assets generados se muestran tanto en Avatar Studio como en el overlay. No afirmar que el usuario ya recibió esta corrección en el ZIP anterior.
 ## 2. Historial de trabajo
 
 ### 2026-10-12 — Corrección de versión V0.2.3 y guía manual
