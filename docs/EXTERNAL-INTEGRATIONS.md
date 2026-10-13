@@ -57,3 +57,6 @@ El espacio **Automatizaciones** coordina eventos de la conexión WebSocket real 
 - La actividad distingue recepción, saturación, deduplicación, pausa, cooldown/límite, solicitud aceptada, rechazo, resultado desconocido y tecla enviada. La aceptación del servidor no demuestra el efecto posterior en OBS.
 
 **Pendiente de validación:** la implementación necesita Windows CI verde sobre el SHA final y pruebas manuales con una instancia real de Streamer.bot, eventos de Twitch, OBS y PNGTuber Plus. No se afirma que el efecto visual del avatar esté verificado automáticamente.
+### Estado de CI de la capa de automatizaciones
+
+Las ejecuciones Windows CI #380, #390 y #397 de commits anteriores fallaron respectivamente por un literal de carácter, imports/variables no inicializadas y diagnósticos xUnit de cancelación. Las correcciones están en commits posteriores; **la integración no debe considerarse aceptada hasta verificar el workflow del SHA final exacto**. Las ejecuciones fallidas no generaron artefactos.
