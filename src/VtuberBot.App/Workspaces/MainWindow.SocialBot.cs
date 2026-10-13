@@ -104,27 +104,27 @@ public partial class MainWindow
         };
         var remoteTtsBaseUrl = TextField("URL base TTS remoto (HTTPS)", store.GetSetting("social.tts.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta"));
         var remoteTtsModel = TextField("Modelo TTS", store.GetSetting("social.tts.remoteModel", "gemini-3.8-flash-tts"));
-        var remoteTtsVoice = TextField("ID de voz", store.GetSetting("social.tts.remoteVoice", "Leda"));
+        var remoteTtsVoice = TextField("ID de voz (predeterminada: Zephyr)", store.GetSetting("social.tts.remoteVoice", "Zephyr"));
         var remoteTtsInstructions = new TextBox
         {
             Text = store.GetSetting("social.tts.remoteInstructions",
-                "Habla en español con una voz femenina adulta joven, cálida, expresiva y de estilo anime original. Buena dicción, energía y emoción natural; no imites a un personaje o actriz específica."),
+                "Habla en español con una voz femenina adulta joven MUY aguda y chillona, tipo personaje anime enérgico: timbre brillante, ligeramente nasal y juguetón, tono alto, reacciones exageradas y ritmo vivaz. Debe sonar intencionalmente aguda y caricaturesca, pero mantener dicción clara sin gritar ni distorsionar; no imites a un personaje, actriz ni persona real específica."),
             AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 65, MinWidth = 280, Margin = new Thickness(0, 0, 0, 8)
         };
         var remoteTtsApiKey = new PasswordBox { MinWidth = 280, Margin = new Thickness(0, 0, 0, 8), MaxLength = 8192 };
         var remoteTtsKeyStatus = Label(secretStore.HasSecret("remote-tts-api-key") ? "Clave TTS guardada cifrada para este usuario de Windows." : "Clave TTS todavía no configurada.", 11, "#98A4BE");
-        var voiceTestText = TextField("Frase de prueba (máximo 500 caracteres)", "¡Hola, chat! Soy tu VTuber, ¿nos divertimos hoy?");
-        var voicePanel = Panel("Voz de personaje · femenina, original y estilo anime");
+        var voiceTestText = TextField("Frase de prueba (máximo 500 caracteres)", "¡H-hola, chat! ¡Yaaay! ¡Hoy va a ser un directo súper divertido!");
+        var voicePanel = Panel("Voz de personaje · femenina, aguda, chillona y estilo anime");
         voicePanel.Children.Add(Label("Proveedor de voz", 12, "#98A4BE")); voicePanel.Children.Add(speechProvider);
         voicePanel.Children.Add(Label("URL base TTS remoto", 12, "#98A4BE")); voicePanel.Children.Add(remoteTtsBaseUrl);
         voicePanel.Children.Add(Label("Modelo de voz (Gemini 3.8 Flash TTS por defecto)", 12, "#98A4BE")); voicePanel.Children.Add(remoteTtsModel);
-        voicePanel.Children.Add(Label("Voz (por ejemplo Leda, estilo juvenil)", 12, "#98A4BE")); voicePanel.Children.Add(remoteTtsVoice);
+        voicePanel.Children.Add(Label("Voz (Zephyr = brillante; instrucciones para tono muy agudo/chillón)", 12, "#98A4BE")); voicePanel.Children.Add(remoteTtsVoice);
         voicePanel.Children.Add(Label("Instrucciones de voz", 12, "#98A4BE")); voicePanel.Children.Add(remoteTtsInstructions);
         voicePanel.Children.Add(Label("Clave API TTS (se cifra con DPAPI y no se guarda en SQLite)", 12, "#98A4BE")); voicePanel.Children.Add(remoteTtsApiKey);
         voicePanel.Children.Add(remoteTtsKeyStatus);
         voicePanel.Children.Add(Label("La voz Gemini puede reutilizar la clave de IA de Google. El nivel gratuito tiene límites; Google indica que su contenido se usa para mejorar sus productos.", 11, "#98A4BE"));
         voicePanel.Children.Add(Label("Probar la voz", 12, "#98A4BE")); voicePanel.Children.Add(voiceTestText);
-        voicePanel.Children.Add(ActionButton("Probar voz femenina", (_, _) =>
+        voicePanel.Children.Add(ActionButton("Probar voz chillona", (_, _) =>
         {
             var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var r) ? Math.Clamp(r, -10, 10) : 0;
             var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var v) ? Math.Clamp(v, 0, 100) : 100;
