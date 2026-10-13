@@ -1380,3 +1380,13 @@ Ramas encontradas mediante búsqueda paginada en el repo: `main`, `product/compl
 - **La eliminación remota no se completó:** la acción GitHub conectada disponible para ramas permite buscar, crear y mover refs, pero no expone eliminación de refs/branches. La herramienta de navegador disponible informó falta de créditos. No se usó una maniobra insegura para simular borrado. Se necesita ejecutar la limpieza desde la UI de GitHub o conceder una acción/API que permita borrar ramas después de revisar cualquier PR que las use.
 
 Esta tabla es un análisis de ramas, no una afirmación de que las ramas enumeradas ya estén borradas. No se modificó `main` ni se fusionó/cerró el PR #9.
+
+## Ampliación del armario modular y configurador de color (13/10/2026)
+
+- `src/VtuberBot.App/ModularWardrobeFactory.cs`: catálogo ampliado con 11 peinados, 15 conjuntos, 14 accesorios de cabeza, 9 faciales/de joyería y 9 piezas traseras. Incluye el helper `TintPng` para producir PNG teñidos preservando transparencia y procurando conservar contornos oscuros y brillos.
+- `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs`: panel de HEX/muestras por cinco zonas (cabello, ropa, cabeza, cara/joyería, espalda). Los colores se aplican al crear un perfil modular nuevo; no sobrescriben el catálogo original ni los perfiles previos.
+- `docs/VTUBER_REFERENCIA_Y_BIBLIOTECA_MODULAR.md`: enlaces a VRoid Studio, Krita, OpenGameArt, itch.io, Live2D Cubism y BOOTH, con límites de compatibilidad/licencias. No se descargaron ni incluyeron automáticamente assets externos; debe verificarse licencia por recurso antes de redistribuir.
+- `docs/PRODUCT_USER_GUIDE.md`: instrucciones del configurador.
+- Commits de esta ampliación de código: `19f5c1cc27b4091b5f14a6fee2469baa56139c48`, `9fb532347571d2774139682f5adcddfc8d49faff`, `5181e35b81501ec24e90dc86811347c0f624a73f`, `a33ccb26625f4b730e078510c1e12b750f450357`.
+- Estado de validación en esta edición: no afirmar compilación Windows ni inspección visual manual hasta verificar la ejecución de CI asociada a los commits de código. La comprobación visual real de solapamiento y el aspecto del avatar en el PC del usuario sigue pendiente.
+
