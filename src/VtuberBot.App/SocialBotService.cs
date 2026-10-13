@@ -35,6 +35,7 @@ public sealed class SocialBotService : IAsyncDisposable
     private long automationEpoch;
     private bool automaticRepliesEnabled;
     private bool twitchConnected;
+    private bool twitchSessionLost;
 
     public event Action<SocialBotStatus>? StatusChanged;
     public SocialBotService(ProductStore store, LocalSpeechQueue speech, TwitchChatClient twitch, IChatIntelligenceProvider provider)
@@ -115,7 +116,7 @@ public sealed class SocialBotService : IAsyncDisposable
         ChatWork work;
         lock (automationGate)
         {
-            if (!automaticRepliesEnabled || !twitchConnected) return;
+            if (!automaticRepliesEnabled || twitchSessionLost) return;
             work = new ChatWork(username, prompt, channel, DateTimeOffset.UtcNow, automationEpoch);
         }
         if (!conversations.Writer.TryWrite(work))
@@ -173,14 +174,14 @@ public sealed class SocialBotService : IAsyncDisposable
     private bool IsAutomaticRepliesEnabled()
     {
         lock (automationGate)
-            return automaticRepliesEnabled && twitchConnected &&
+            return automaticRepliesEnabled && !twitchSessionLost &&
                    store.GetSetting("social.chat.enabled", "false") == "true";
     }
 
     private bool IsWorkCurrent(ChatWork work)
     {
         lock (automationGate)
-            return automaticRepliesEnabled && twitchConnected && work.Epoch == automationEpoch &&
+            return automaticRepliesEnabled && !twitchSessionLost && work.Epoch == automationEpoch &&
                    store.GetSetting("social.chat.enabled", "false") == "true";
     }
 
@@ -192,18 +193,22 @@ public sealed class SocialBotService : IAsyncDisposable
 
     private void OnTwitchConnectionStateChanged(bool connected)
     {
+        bool lostSession;
         lock (automationGate)
         {
+            lostSession = twitchConnected && !connected;
             twitchConnected = connected;
+            if (lostSession) twitchSessionLost = true;
+            else if (connected) twitchSessionLost = false;
             automationEpoch++;
         }
-        if (!connected)
+        if (!connected && lostSession)
         {
             while (conversations.Reader.TryRead(out _)) { }
             CancelAutomaticGenerations();
             Publish("IA", "Twitch desconectado; se cancelaron conversaciones automáticas de la sesión.", PendingConversations);
         }
-        else
+        else if (connected)
             Publish("IA", "Twitch conectado; se aceptarán menciones nuevas si la automatización está habilitada.", PendingConversations);
     }
 
@@ -269,6 +274,10 @@ public sealed class SocialBotService : IAsyncDisposable
                 if (!IsWorkCurrent(work)) continue;
                 try { await ProcessConversationAsync(work, stop.Token).ConfigureAwait(false); }
                 catch (OperationCanceledException) when (stop.IsCancellationRequested) { break; }
+                catch (OperationCanceledException) when (!IsWorkCurrent(work))
+                {
+                    Publish("IA", "Generación automática cancelada por pausa o cambio de sesión Twitch.", PendingConversations);
+                }
                 catch (Exception ex) { store.Log("Bot social", "Error aislado al procesar conversación local (" + ex.GetType().Name + ")."); Publish("Error", "Falló una conversación; el chat continúa funcionando.", PendingConversations); }
             }
         }
