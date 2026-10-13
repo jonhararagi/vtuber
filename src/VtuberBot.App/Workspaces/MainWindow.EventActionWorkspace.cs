@@ -201,6 +201,20 @@ public partial class MainWindow
                 if (!int.TryParse(perRuleLimit.Text, out var maxPerMinute) || maxPerMinute is < 1 or > 100)
                     throw new ArgumentException("El límite por regla debe estar entre 1 y 100 por minuto.");
                 var dest = Equals(destination.SelectedItem, "Streamer.bot") ? EventActionDestination.StreamerBot : EventActionDestination.PngtuberPlus;
+                if (dest == EventActionDestination.StreamerBot)
+                {
+                    if (!Guid.TryParse(targetId, out var selectedActionId))
+                        throw new InvalidOperationException("El destino Streamer.bot no tiene un GUID válido.");
+                    var currentActions = await streamerBot.GetActionsAsync();
+                    if (!currentActions.Any(a => a.Enabled && Guid.TryParse(a.Id, out var id) && id == selectedActionId))
+                        throw new InvalidOperationException("La acción no está disponible/habilitada en el catálogo actual. Actualizá destinos.");
+                }
+                else
+                {
+                    if (!Guid.TryParse(targetId, out var selectedHotkeyId) ||
+                        !(eventActionHotkeys?.Load() ?? []).Any(h => h.Enabled && h.Id == selectedHotkeyId))
+                        throw new InvalidOperationException("El atajo no existe en el registro actual o está deshabilitado.");
+                }
                 var shouldEnable = enabled.IsChecked == true;
                 var confirmed = selectedRule?.ExternalActionConfirmed == true;
                 if (shouldEnable && dest == EventActionDestination.StreamerBot && !confirmed)
@@ -210,8 +224,9 @@ public partial class MainWindow
                     if (answer != MessageBoxResult.Yes) { enabled.IsChecked = false; return; }
                     confirmed = true;
                 }
-                var conditions = string.IsNullOrWhiteSpace(conditionPath.Text) ? Array.Empty<EventActionCondition>() :
-                    [new EventActionCondition(conditionPath.Text.Trim(), conditionOperator.SelectedItem?.ToString() ?? "eq", conditionValue.Text)];
+                IReadOnlyList<EventActionCondition> conditions = string.IsNullOrWhiteSpace(conditionPath.Text)
+                    ? Array.Empty<EventActionCondition>()
+                    : new[] { new EventActionCondition(conditionPath.Text.Trim(), conditionOperator.SelectedItem?.ToString() ?? "eq", conditionValue.Text) };
                 var selectedSource = source.SelectedItem?.ToString() ?? "";
                 if (selectedSource == "Streamer.bot")
                 {
