@@ -330,9 +330,9 @@ public sealed class SocialBotServiceTests
         using var temp = new TempDb();
         var store = new ProductStore(temp.DatabasePath);
         store.SetSetting("social.chat.enabled", "true");
-        store.SetSetting("social.chat.globalCooldownSeconds", "300");
-        store.SetSetting("social.chat.userCooldownSeconds", "600");
-        store.SetSetting("social.chat.maxPerMinute", "1");
+        store.SetSetting("social.chat.globalCooldownSeconds", "1");
+        store.SetSetting("social.chat.userCooldownSeconds", "1");
+        store.SetSetting("social.chat.maxPerMinute", "4");
         var speech = new LocalSpeechQueue();
         await using var twitch = new TwitchChatClient();
         var provider = new FakeProvider();
@@ -348,8 +348,12 @@ public sealed class SocialBotServiceTests
         await firstReply.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
         service.OnChatMessage("alice", "!bot repetida", "channel");
         service.OnChatMessage("bob", "!bot global", "channel");
-
         Assert.Equal(1, Volatile.Read(ref provider.Calls));
+
+        await Task.Delay(TimeSpan.FromMilliseconds(1100), TestContext.Current.CancellationToken);
+        service.OnChatMessage("bob", "!bot después del cooldown", "channel");
+        await provider.SecondCalled.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        Assert.Equal(2, Volatile.Read(ref provider.Calls));
         speech.Dispose();
     }
 
