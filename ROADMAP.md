@@ -291,7 +291,7 @@ El run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040) so
 - [x] Pausar respuestas automáticas invalida trabajos antiguos, vacía la cola pendiente y cancela inferencias automáticas activas.
 - [x] Twitch expone un evento tipado de conexión; una sesión que se desconecta invalida y cancela las conversaciones que le pertenecen. La reconexión solo permite mensajes nuevos.
 - [x] El TTS de mensajes entrantes sigue siendo independiente de la IA conversacional; una generación cancelada no debe encolar la voz de la respuesta.
-- [x] Añadidas pruebas deterministas con `TaskCompletionSource` para cancelación, cola pendiente, separación del TTS, saturación acotada, filtros, recuperación tras error del proveedor y cierre del servicio; cooldowns solo se consumen tras una respuesta válida.
+- [x] Añadidas pruebas con `TaskCompletionSource` para cancelación, cola pendiente, separación del TTS, saturación acotada, filtros, recuperación tras error del proveedor, cierre del servicio, transición de sesión Twitch simulada, conectividad y expiración de cooldown; cooldowns solo se consumen tras una respuesta válida. La transición simulada no demuestra reconexión de red real.
 - [ ] Pendiente: comprobar el SHA final exacto con Windows CI, leer el resumen de pruebas y confirmar el artefacto de ese mismo SHA.
 - [ ] Pendiente: pruebas manuales en Windows con Twitch autenticado, desconexión real durante inferencia, SAPI y un servidor llama.cpp con modelo GGUF real.
 - Límite conocido: un mensaje que Twitch ya aceptó antes de la solicitud de pausa no puede retirarse automáticamente de forma fiable.
