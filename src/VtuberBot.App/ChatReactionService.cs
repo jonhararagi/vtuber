@@ -333,7 +333,7 @@ public sealed class ChatReactionService : IAsyncDisposable
                     if (item.Rule.Expression.Length > 0)
                     {
                         var expressionSet = setExpression(item.Rule.Expression);
-                        details.Add(expressionSet ? "expresión aplicada" : "expresión no disponible");
+                        details.Add(expressionSet ? "expresión aplicada" : "expresión no aplicada (sprite o overlay no disponible)");
                     }
                     if (item.Rule.Speak)
                         details.Add(enqueueSpeech(response) ? "voz encolada" : "voz rechazada por la cola");
