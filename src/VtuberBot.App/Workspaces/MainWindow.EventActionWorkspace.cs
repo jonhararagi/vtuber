@@ -25,8 +25,9 @@ public partial class MainWindow
         eventActionHotkeys = new PngtuberHotkeyRegistry(settings, new WindowsPngtuberHotkeySender());
         var dispatcher = new WindowEventActionDispatcher(streamerBot, settings, eventActionHotkeys,
             () => store.GetSetting("integrations.pngTuberPlus.path"));
-        eventActionCoordinator = new EventActionCoordinator(settings, dispatcher);
-        eventActionCoordinator.ActivityChanged += _ =>
+        var coordinator = new EventActionCoordinator(settings, dispatcher);
+        eventActionCoordinator = coordinator;
+        coordinator.ActivityChanged += _ =>
         {
             if (Interlocked.Exchange(ref eventActionUiUpdateScheduled, 1) != 0) return;
             try
@@ -34,7 +35,7 @@ public partial class MainWindow
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     Interlocked.Exchange(ref eventActionUiUpdateScheduled, 0);
-                    var recent = eventActionCoordinator.GetRecentActivity();
+                    var recent = coordinator.GetRecentActivity();
                     foreach (var item in recent.Where(item => item.Sequence > lastLoggedEventActionSequence).OrderBy(item => item.Sequence))
                     {
                         store.Log("Automatizaciones", $"{item.Outcome}: regla={item.RuleId?.ToString("N") ?? "-"} fuente={item.Source} evento={item.EventType} destino={item.Destination} correlación={item.CorrelationId} · {item.Message}");
@@ -48,7 +49,7 @@ public partial class MainWindow
             }
             catch (InvalidOperationException) { Interlocked.Exchange(ref eventActionUiUpdateScheduled, 0); }
         };
-        eventActionCoordinator.Warning += warning =>
+        coordinator.Warning += warning =>
         {
             Volatile.Write(ref latestEventActionWarning, warning);
             if (Interlocked.Exchange(ref eventActionWarningUiUpdateScheduled, 1) != 0) return;
@@ -67,7 +68,7 @@ public partial class MainWindow
             }
             catch (InvalidOperationException) { Interlocked.Exchange(ref eventActionWarningUiUpdateScheduled, 0); }
         };
-        foreach (var warning in eventActionCoordinator.StartupWarnings)
+        foreach (var warning in coordinator.StartupWarnings)
             store.Log("Automatizaciones", warning);
     }
 
