@@ -60,3 +60,4 @@ El espacio **Automatizaciones** coordina eventos de la conexión WebSocket real 
 ### Estado de CI de la capa de automatizaciones
 
 Las ejecuciones Windows CI #380, #390 y #397 de commits anteriores fallaron respectivamente por un literal de carácter, imports/variables no inicializadas y diagnósticos xUnit de cancelación. Las correcciones están en commits posteriores; **la integración no debe considerarse aceptada hasta verificar el workflow del SHA final exacto**. Las ejecuciones fallidas no generaron artefactos.
+Windows CI run [#415](https://github.com/jonhararagi/vtuber/actions/runs/38329915472) compiled successfully but failed one of 422 tests: an asynchronous condition test asserted after a fixed delay. The test now waits for the expected coordinator activity with a bounded timeout. This correction still needs confirmation in a later run.
