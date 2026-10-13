@@ -333,4 +333,22 @@ public sealed class ChatReactionServiceTests
         Assert.Equal(2, effects.Sends);
         Assert.Contains(service.GetRecentActivity(), x => x.Outcome == "Cooldown usuario");
     }
+
+    [Fact]
+    public async Task ClosingServiceCancelsActiveSendAndStopsBackgroundWorker()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var effects = new Effects { BlockSend = true };
+        var service = Create(store, effects);
+        var rule = Rule(global: 0, user: 0, perMinute: 60);
+        Assert.True(service.SaveRule(rule)); Assert.True(service.SetRuleEnabled(rule.Id, true));
+        service.SetTwitchConnected(true);
+        Assert.True(service.OnChatMessage("alice", "hola", "close-1"));
+        await effects.SendEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+
+        await service.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        await effects.SendCancelled.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        Assert.Contains(service.GetRecentActivity(), x => x.Outcome == "Cancelada");
+    }
 }
