@@ -30,13 +30,14 @@ El modo automático permanece desactivado por defecto. Solo genera respuestas cu
 
 La opción **Comentar automáticamente el chat por intervalos** empieza desactivada y requiere el modo bot. Su intervalo inicial es de 5 minutos, ajustable entre 1 y 60 minutos. El colector conserva únicamente en memoria un máximo de 60 mensajes recientes, corta mensajes largos, omite enlaces, comandos con `!` y menciones directas al bot, y no persiste un transcript en SQLite. Si la cola se llena, el lote se aplaza; si el bot se pausa o se desconecta Twitch, se descarta. La IA puede devolver `[SILENCIO]` si el lote no contiene un tema digno de comentar.
 
-## Voz de personaje femenina
+## Voz de personaje aguda y chillona
 
 La configuración inicial usa Gemini 3.8 Flash TTS por medio de la API Interactions de Google:
 
 - Base URL: `https://generativelanguage.googleapis.com/v1beta`
 - Modelo: `gemini-3.8-flash-tts`
-- Voz inicial: `Leda`, con instrucciones para una voz femenina juvenil, cálida, expresiva y de estilo anime original.
+- Voz inicial: `Zephyr`, con instrucciones de estilo para una voz femenina **muy aguda y chillona**, brillante, ligeramente nasal, juguetona y de reacciones exageradas, con dicción clara sin gritar ni distorsionar.
+- En ChatSpeak Studio, la caja de instrucciones permite ajustar el carácter. La etiqueta de voz es un preset del proveedor, no un control numérico garantizado de tono: la altura exacta depende del modelo y del proveedor. Usa **Probar voz chillona** para escuchar el resultado antes de un directo.
 
 El audio se devuelve como WAV y se reproduce por la cola de voz existente. La API TTS de Gemini publica un nivel gratuito sujeto a sus límites; el contenido de ese nivel puede utilizarse para mejorar productos de Google. Si cambias a otro TTS compatible con OpenAI, la ruta `/v1/audio/speech` permite recibir MP3. La clave TTS puede reutilizar la de IA si ambas URL pertenecen al mismo endpoint/proveedor detectado por el programa; para servicios distintos, guarda una clave TTS independiente. También puedes seleccionar el TTS local de Windows, que no requiere conexión ni una API, aunque la calidad depende de las voces instaladas.
 
