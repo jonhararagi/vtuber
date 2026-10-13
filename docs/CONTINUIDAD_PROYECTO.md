@@ -1392,3 +1392,13 @@ Esta tabla es un análisis de ramas, no una afirmación de que las ramas enumera
 - Artifact verificado: [VTuberBot Product Candidate win-x64](https://github.com/jonhararagi/vtuber/actions/runs/38451299853/artifacts/11841275624), id `11841275624`, SHA-256 `ee4556487385396887993ecffc172cc98cb6f1cc0e6d214d8a22b3302114be5d`, creado el 13/10/2026 y con vencimiento el 27/10/2026. La modificación posterior fue documental, por lo que el binario corresponde al mismo código de aplicación.
 - Sigue pendiente la comprobación visual manual en el PC del usuario: solapamiento real de pelo/ropa/accesorios y calidad de cada combinación. El CI no valida el aspecto visual en pantalla.
 
+## Asistente simplificado «Crear una VTuber desde una sola imagen» (13/10/2026)
+
+- En `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs` se añadió una sección de dos botones: abrir la demo de separación See-through y abrir Anime2.5DRig para animar el PSD generado. Los enlaces se abren en el navegador predeterminado; no se intenta subir automáticamente la imagen.
+- Fuentes: [See-through demo de Hugging Face](https://huggingface.co/spaces/24yearsold/see-through-demo), [repositorio See-through](https://github.com/shitagaki-lab/see-through), [Anime2.5DRig](https://852wa.github.io/Anime2.5DRig/).
+- Según el repositorio de See-through, la descomposición semántica puede producir hasta 23 capas y PSD; la demo online puede limitar ejecuciones gratuitas. El pipeline local completo ronda 12–16 GB de VRAM a 1280px, demasiado exigente para el equipo Ryzen 5 5600G con gráfica integrada, por lo que el camino recomendado es el online.
+- Advertencia: la imagen debe subirse manualmente al sitio externo. La reconstrucción de partes ocultas es una estimación y puede necesitar retoques. No es un rig Live2D profesional.
+- Guía para usuarios actualizada en `docs/PRODUCT_USER_GUIDE.md`; enlaces y limitaciones agregados a `docs/VTUBER_REFERENCIA_Y_BIBLIOTECA_MODULAR.md`.
+- Este asistente es un acceso de flujo de trabajo a herramientas externas, no una implementación integrada del modelo ni un importador PSD dentro del overlay VTuberBot. No afirmar que procesa una imagen dentro de la aplicación hasta implementar y validar ese pipeline completo.
+- Pendiente verificar CI de Windows del nuevo botón y documentación; revisión visual manual en el PC del usuario aún pendiente.
+
