@@ -185,3 +185,15 @@ La configuración se guarda en SQLite. Los errores de proveedor, timeout, cola l
 - La lectura TTS de mensajes entrantes es independiente de la IA conversacional: apagar las respuestas no apaga la lectura configurada. Las respuestas generadas solo se encolan para voz si siguen autorizadas al terminar.
 - La cancelación impide publicaciones nuevas mientras la operación aún no se haya iniciado. Si Twitch ya aceptó un mensaje antes de la solicitud de pausa, la aplicación no puede retirarlo de forma fiable. «Encolado para voz» tampoco confirma que el audio haya sido oído.
 - La señal de estado de conexión se basa en el estado tipado de TwitchChatClient, no en el análisis de mensajes de log.
+
+## Centro de directo y reglas de reacción del chat
+
+1. Abrí **Centro de directo**. La zona pública es la ventana separada **VTuberBot Avatar Overlay**, transparente y sin controles privados; elegí esa ventana como fuente de captura de ventana en OBS. No captures la ventana principal de VTuberBot si no querés mostrar configuraciones privadas.
+2. En **Controles privados**, comprobá el estado real de Twitch y el perfil del avatar. Los botones de expresión se deshabilitan si falta el sprite correspondiente. **Mostrar overlay público** y **Ocultar overlay público** actúan sobre la ventana real del avatar.
+3. En **Editor de reglas**, introducí nombre, activador, tipo de coincidencia, respuestas alternativas (una por línea), opción de voz, expresión, cooldowns y máximo por minuto. `{user}` se sustituye por el nombre de usuario validado.
+4. **Guardar regla** crea una regla desactivada. Seleccionala y pulsá **Activar regla seleccionada** para habilitarla explícitamente. La primera regla coincidente de la lista tiene prioridad; usa **Subir/Bajar prioridad** para cambiar el orden.
+5. **Probar regla local** ejecuta solo una simulación: muestra la regla y la respuesta prevista. No conecta Twitch ni envía chat, voz o expresiones. Para un directo real, conectá Twitch desde **Twitch y chat** y activá únicamente las reglas deseadas.
+6. Para detener las reacciones, marcá **Pausar todas las reacciones automáticas**. Esto invalida trabajos activos/pendientes de reglas. No apaga la lectura TTS independiente del chat. Para ocultar la salida visual, usa **Ocultar overlay público**.
+7. El registro indica si una regla coincidió, se descartó, fue cancelada, si la cola se saturó, si la voz fue encolada o si la escritura IRC terminó. «Voz encolada» no significa que el audio ya se oyó; una escritura IRC completada tampoco confirma que los espectadores vieran el mensaje.
+
+Las reglas se guardan en SQLite local, con un máximo de 100 reglas, 8 respuestas por regla, 400 caracteres por respuesta, 64 trabajos pendientes y límites de cooldown/ejecuciones. No se permiten regex, scripts ni código del usuario. Las reglas no necesitan IA local.
