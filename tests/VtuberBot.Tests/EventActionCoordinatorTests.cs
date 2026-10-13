@@ -65,6 +65,17 @@ public sealed class EventActionCoordinatorTests
     }
 
     [Fact]
+    public void ConditionsHandleMissingNullAndUnexpectedFieldTypesSafely()
+    {
+        using var payload = JsonDocument.Parse("""{"nullable":null,"number":42,"text":"hello"}""");
+        var evt = NormalizedBotEvent.Create("Streamer.bot", "Twitch", "Follow", payload.RootElement);
+        Assert.True(EventActionCoordinator.MatchesConditions(evt, [new("nullable", "present", "")]));
+        Assert.True(EventActionCoordinator.MatchesConditions(evt, [new("nullable", "eq", "null")]));
+        Assert.False(EventActionCoordinator.MatchesConditions(evt, [new("missing", "eq", "value")]));
+        Assert.False(EventActionCoordinator.MatchesConditions(evt, [new("number", "contains", "4")]));
+    }
+
+    [Fact]
     public async Task GlobalPauseAndDisabledRulesPreventAutomaticExecution()
     {
         var settings = new MemorySettings();
