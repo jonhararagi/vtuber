@@ -37,6 +37,8 @@ public partial class MainWindow : Window
     private readonly LocalOpenAiCompatibleProvider localAiProvider = new();
     private SocialBotService socialBot = null!;
     private ChatReactionService chatReactions = null!;
+    private Action<ChatReactionResult>? liveCenterReactionHandler;
+    private Action<int>? liveCenterQueueHandler;
     private AvatarOverlayWindow? overlay;
     private string? avatarPath;
     private WaveInEvent? microphone;
@@ -372,6 +374,7 @@ public partial class MainWindow : Window
 
     private void Navigate(string page)
     {
+        DetachLiveCenterHandlers();
         dashboardMetricsTimer?.Stop();
         currentPage = Pages.Contains(page, StringComparer.Ordinal) ? page : "Inicio";
         foreach (var navigationButton in NavigationPanel.Children.OfType<Button>())
