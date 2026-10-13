@@ -33,8 +33,8 @@ public sealed class SocialBotServiceTests
     {
         using var temp = new TempDb();
         var store = new ProductStore(temp.DatabasePath);
-        var speech = new LocalSpeechQueue();
-        var twitch = new TwitchChatClient();
+        using var speech = new LocalSpeechQueue();
+        await using var twitch = new TwitchChatClient();
         var provider = new FakeProvider();
         await using (var service = new SocialBotService(store, speech, twitch, provider))
         {
@@ -42,7 +42,6 @@ public sealed class SocialBotServiceTests
             await Task.Delay(100, TestContext.Current.CancellationToken);
             Assert.Equal(0, Volatile.Read(ref provider.Calls));
         }
-        speech.Dispose();
     }
 
     [Fact]
