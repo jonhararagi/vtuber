@@ -12,6 +12,7 @@ public partial class MainWindow
     private readonly List<StreamerBotAction> eventActionStreamerBotActions = [];
     private readonly SemaphoreSlim eventActionSubscriptionGate = new(1, 1);
     private IReadOnlyDictionary<string, string[]> appliedStreamerBotSubscriptions = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+    private ListBox? eventActionActivityList;
 
     private void InitializeEventActionCoordination()
     {
@@ -27,6 +28,7 @@ public partial class MainWindow
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     store.Log("Automatizaciones", $"{activity.Outcome}: regla={activity.RuleId?.ToString("N") ?? "-"} fuente={activity.Source} evento={activity.EventType} destino={activity.Destination} correlación={activity.CorrelationId} · {activity.Message}");
+                    if (currentPage == "Automatizaciones") RefreshEventActionActivity();
                 }));
             }
             catch (InvalidOperationException) { }
@@ -262,6 +264,7 @@ public partial class MainWindow
 
         var activityPanel = Panel("Actividad real de automatizaciones");
         var activityList = new ListBox { MinHeight = 180, MaxHeight = 300, Background = Brush("#101525"), Foreground = Brush("#F1F5F9") };
+        eventActionActivityList = activityList;
         void FillActivity()
         {
             activityList.Items.Clear();
@@ -353,6 +356,14 @@ public partial class MainWindow
             FooterStatus.Text = "Suscripciones de automatización no confirmadas; revisá Streamer.bot.";
         }
         finally { eventActionSubscriptionGate.Release(); }
+    }
+
+    private void RefreshEventActionActivity()
+    {
+        if (eventActionActivityList is null || eventActionCoordinator is null) return;
+        eventActionActivityList.Items.Clear();
+        foreach (var item in eventActionCoordinator.GetRecentActivity().Reverse())
+            eventActionActivityList.Items.Add($"{item.At:HH:mm:ss} · {item.Outcome} · {item.Source}/{item.EventType} · {item.Destination} · {item.Message}");
     }
 
     private sealed class WindowProductSettingsStore(
