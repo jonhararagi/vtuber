@@ -55,7 +55,9 @@ public sealed class LocalOpenAiCompatibleProvider : IChatIntelligenceProvider, I
             if (!document.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
                 return new(false, "", "InvalidResponse", "El endpoint /models no devolvió la lista esperada.");
             var configuredModel = options.Model.Trim();
-            if (configuredModel.Length > 0 && !data.EnumerateArray().Any(item =>
+            if (configuredModel.Length == 0)
+                return new(false, "", "ModelMissing", "El servidor responde, pero falta configurar el ID del modelo local.");
+            if (!data.EnumerateArray().Any(item =>
                 item.ValueKind == JsonValueKind.Object &&
                 item.TryGetProperty("id", out var id) &&
                 string.Equals(id.GetString(), configuredModel, StringComparison.Ordinal)))
