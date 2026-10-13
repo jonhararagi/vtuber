@@ -14,6 +14,10 @@ public partial class MainWindow
     private readonly SemaphoreSlim eventActionSubscriptionGate = new(1, 1);
     private IReadOnlyDictionary<string, string[]> appliedStreamerBotSubscriptions = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
     private ListBox? eventActionActivityList;
+    private int eventActionUiUpdateScheduled;
+    private int eventActionWarningUiUpdateScheduled;
+    private long lastLoggedEventActionSequence;
+    private string? latestEventActionWarning;
 
     private void InitializeEventActionCoordination()
     {
@@ -22,22 +26,46 @@ public partial class MainWindow
         var dispatcher = new WindowEventActionDispatcher(streamerBot, settings, eventActionHotkeys,
             () => store.GetSetting("integrations.pngTuberPlus.path"));
         eventActionCoordinator = new EventActionCoordinator(settings, dispatcher);
-        eventActionCoordinator.ActivityChanged += activity =>
+        eventActionCoordinator.ActivityChanged += _ =>
         {
+            if (Interlocked.Exchange(ref eventActionUiUpdateScheduled, 1) != 0) return;
             try
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    store.Log("Automatizaciones", $"{activity.Outcome}: regla={activity.RuleId?.ToString("N") ?? "-"} fuente={activity.Source} evento={activity.EventType} destino={activity.Destination} correlación={activity.CorrelationId} · {activity.Message}");
+                    Interlocked.Exchange(ref eventActionUiUpdateScheduled, 0);
+                    var recent = eventActionCoordinator.GetRecentActivity();
+                    foreach (var item in recent.Where(item => item.Sequence > lastLoggedEventActionSequence).OrderBy(item => item.Sequence))
+                    {
+                        store.Log("Automatizaciones", $"{item.Outcome}: regla={item.RuleId?.ToString("N") ?? "-"} fuente={item.Source} evento={item.EventType} destino={item.Destination} correlación={item.CorrelationId} · {item.Message}");
+                        lastLoggedEventActionSequence = item.Sequence;
+                    }
+                    var latest = recent.LastOrDefault();
+                    if (latest is not null)
+                        FooterStatus.Text = $"Automatización: {latest.Outcome} · {latest.Message}";
                     if (currentPage == "Automatizaciones") RefreshEventActionActivity();
                 }));
             }
-            catch (InvalidOperationException) { }
+            catch (InvalidOperationException) { Interlocked.Exchange(ref eventActionUiUpdateScheduled, 0); }
         };
         eventActionCoordinator.Warning += warning =>
         {
-            try { Dispatcher.BeginInvoke(new Action(() => { FooterStatus.Text = warning; store.Log("Automatizaciones", warning); })); }
-            catch (InvalidOperationException) { }
+            Volatile.Write(ref latestEventActionWarning, warning);
+            if (Interlocked.Exchange(ref eventActionWarningUiUpdateScheduled, 1) != 0) return;
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    Interlocked.Exchange(ref eventActionWarningUiUpdateScheduled, 0);
+                    var latest = Volatile.Read(ref latestEventActionWarning);
+                    if (!string.IsNullOrWhiteSpace(latest))
+                    {
+                        FooterStatus.Text = latest;
+                        store.Log("Automatizaciones", latest);
+                    }
+                }));
+            }
+            catch (InvalidOperationException) { Interlocked.Exchange(ref eventActionWarningUiUpdateScheduled, 0); }
         };
         foreach (var warning in eventActionCoordinator.StartupWarnings)
             store.Log("Automatizaciones", warning);
