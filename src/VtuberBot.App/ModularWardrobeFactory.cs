@@ -39,7 +39,10 @@ internal static class ModularWardrobeFactory
         new("silver-cyan", "Plata con mechón cian", "Corte plateado con un acento luminoso."),
         new("mint-braid", "Trenza verde marina", "Trenza lateral y flequillo suelto."),
         new("short-spiky", "Corto despeinado", "Silueta corta para un estilo gamer."),
-        new("royal-curls", "Rizos dorados", "Volumen y rizos de fantasía.")
+        new("royal-curls", "Rizos dorados", "Volumen y rizos de fantasía."),
+        new("long-straight", "Largo liso índigo", "Mechones largos y rectos a ambos lados."),
+        new("side-braid", "Trenza lateral coral", "Trenza marcada sobre un hombro."),
+        new("double-buns", "Dos moños redondos", "Dos moños altos y mechones cortos.")
     ];
 
     public static IReadOnlyList<WardrobeOption> OutfitOptions { get; } =
@@ -53,7 +56,12 @@ internal static class ModularWardrobeFactory
         new("fantasy-knight", "Armadura fantástica ligera", "Hombreras suaves, túnica blanca y ribetes oro."),
         new("comfy-hoodie", "Hoodie pastel", "Sudadera amplia y cómoda con puños grandes."),
         new("celestial-gown", "Vestido celestial", "Azul profundo con líneas lunares y estrellas."),
-        new("cyber-runner", "Traje cyber runner", "Paneles deportivos morado/cian y cinturón técnico.")
+        new("cyber-runner", "Traje cyber runner", "Paneles deportivos morado/cian y cinturón técnico."),
+        new("idol-casual", "Chaqueta idol casual", "Chaqueta corta, cuello contrastado y falda plisada."),
+        new("summer-festival", "Yukata de festival", "Kimono ligero con faja y mangas amplias."),
+        new("mage-academy", "Túnica de maga", "Túnica larga con paneles y ribetes arcanos."),
+        new("royal-ballgown", "Vestido de baile real", "Corpiño ajustado y falda amplia."),
+        new("winter-parka", "Abrigo invernal", "Abrigo acolchado con cuello y bolsillos.")
     ];
 
     public static IReadOnlyList<WardrobeOption> HeadAccessoryOptions { get; } =
@@ -67,7 +75,11 @@ internal static class ModularWardrobeFactory
         new("mini-crown", "Mini corona", "Corona dorada con gemas."),
         new("gamer-headset", "Auriculares gamer", "Auriculares grandes con luces cian."),
         new("flower-clip", "Flores laterales", "Broche floral de tres pétalos."),
-        new("feather-pin", "Pluma ornamental", "Adorno de pluma azul y oro.")
+        new("feather-pin", "Pluma ornamental", "Adorno de pluma azul y oro."),
+        new("fox-ears", "Orejas de zorro", "Diadema de orejas triangulares con interior coral."),
+        new("witch-hat", "Sombrero de bruja", "Sombrero cónico con hebilla decorativa."),
+        new("crescent-tiara", "Tiara lunar", "Media luna con pequeñas estrellas."),
+        new("robo-visor", "Visor tecnológico", "Visor futurista sobre la frente.")
     ];
 
     public static IReadOnlyList<WardrobeOption> FaceAccessoryOptions { get; } =
@@ -78,6 +90,9 @@ internal static class ModularWardrobeFactory
         new("star-eyepatch", "Parche estelar", "Parche decorativo sobre un ojo."),
         new("mic-headset", "Micrófono de diadema", "Micrófono pequeño de streamer."),
         new("mask-pendant", "Colgante técnico", "Pequeño colgante geométrico."),
+        new("face-mask", "Mascarilla urbana", "Mascarilla con contorno suave."),
+        new("cheek-stars", "Estrellitas en mejillas", "Pequeños adornos simétricos."),
+        new("neck-ribbon", "Lazo de cuello", "Lazo decorativo debajo del cuello."),
         new("none-face", "Sin accesorio facial", "Dejar libre la cara.")
     ];
 
@@ -89,6 +104,9 @@ internal static class ModularWardrobeFactory
         new("bunny-backpack", "Mochila conejito", "Mochila redondeada con orejas."),
         new("fin-ornament", "Aletas acuáticas", "Aletas laterales estilizadas."),
         new("starlight-ribbons", "Cintas estelares", "Cintas largas con acentos brillantes."),
+        new("fox-tail", "Cola esponjosa", "Cola curva grande detrás de la cintura."),
+        new("mechanical-pack", "Mochila mecánica", "Mochila tecnológica con antenas."),
+        new("crystal-orbit", "Cristales flotantes", "Cristales mágicos alrededor de la espalda."),
         new("none-back", "Sin accesorio trasero", "Dejar libre la silueta.")
     ];
 
@@ -253,6 +271,9 @@ internal static class ModularWardrobeFactory
             "silver-cyan" => ("#BFC9DA", "#EAF3FC", "#53E9F2"),
             "mint-braid" => ("#247F78", "#5AC5A8", "#BBF9D9"),
             "short-spiky" => ("#302A47", "#5D526F", "#B4A7D8"),
+            "long-straight" => ("#292750", "#504BA1", "#B7B9F7"),
+            "side-braid" => ("#9D4C43", "#E68776", "#FFD0B9"),
+            "double-buns" => ("#7B355F", "#C46DA8", "#F8C5E7"),
             _ => ("#A87924", "#E8C35D", "#FFE9A1")
         };
 
@@ -299,6 +320,26 @@ internal static class ModularWardrobeFactory
                 dc.DrawGeometry(dark, Outline, Geometry.Parse("M 147,220 L 158,157 L 193,176 L 214,113 L 252,147 L 285,105 L 304,154 L 346,138 L 367,200 L 343,236 L 321,211 L 289,230 L 258,204 L 227,233 L 195,210 L 173,242 Z"));
                 dc.DrawGeometry(mid, null, Geometry.Parse("M 174,174 L 205,185 L 218,140 L 239,178 L 280,133 L 290,183 L 327,164 L 344,204 L 309,190 L 283,204 L 255,179 L 225,205 L 196,186 Z"));
                 break;
+            case "long-straight":
+                dc.DrawGeometry(dark, Outline, Geometry.Parse("M 159,205 C 140,252 146,337 137,383 L 171,401 L 195,231 Z"));
+                dc.DrawGeometry(dark, Outline, Geometry.Parse("M 353,205 C 372,252 366,337 375,383 L 341,401 L 317,231 Z"));
+                dc.DrawGeometry(mid, null, Geometry.Parse("M 157,277 L 159,367 L 173,377 L 179,253 Z"));
+                dc.DrawGeometry(mid, null, Geometry.Parse("M 355,277 L 353,367 L 339,377 L 333,253 Z"));
+                break;
+            case "side-braid":
+                dc.DrawGeometry(dark, Outline, Geometry.Parse("M 165,211 C 143,252 155,302 169,330 L 184,352 L 205,336 L 194,245 Z"));
+                dc.DrawGeometry(dark, Outline, Geometry.Parse("M 344,223 C 378,245 375,278 354,296 C 373,317 365,342 343,353 C 357,371 342,391 326,401 L 312,378 C 331,363 330,349 316,334 C 340,319 339,304 322,290 C 341,271 332,246 318,238 Z"));
+                dc.DrawGeometry(highlight, null, Geometry.Parse("M 338,257 L 354,278 L 338,295 L 324,278 Z"));
+                dc.DrawGeometry(highlight, null, Geometry.Parse("M 343,312 L 357,331 L 341,346 L 328,330 Z"));
+                break;
+            case "double-buns":
+                dc.DrawEllipse(dark, Outline, new Point(179, 143), 31, 29);
+                dc.DrawEllipse(mid, FineOutline, new Point(179, 143), 18, 17);
+                dc.DrawEllipse(dark, Outline, new Point(333, 143), 31, 29);
+                dc.DrawEllipse(mid, FineOutline, new Point(333, 143), 18, 17);
+                dc.DrawGeometry(dark, Outline, Geometry.Parse("M 171,204 C 145,241 154,289 173,323 L 196,256 Z"));
+                dc.DrawGeometry(dark, Outline, Geometry.Parse("M 341,204 C 367,241 358,289 339,323 L 316,256 Z"));
+                break;
             default:
                 dc.DrawGeometry(dark, Outline, Geometry.Parse("M 146,213 C 134,144 192,105 258,117 C 329,107 374,159 361,219 L 340,255 L 322,215 L 292,209 L 278,238 L 254,205 L 227,240 L 205,211 L 181,241 L 160,267 Z"));
                 dc.DrawGeometry(mid, null, Geometry.Parse("M 184,157 C 221,118 267,124 295,139 C 259,133 225,156 204,184 Z"));
@@ -325,6 +366,11 @@ internal static class ModularWardrobeFactory
             "fantasy-knight" => ("#C7D4E5", "#667FA7", "#FBFAF2", "#D6B65D"),
             "comfy-hoodie" => ("#74BDB8", "#B1E4DD", "#FFF4F0", "#D77C9F"),
             "celestial-gown" => ("#1B2C65", "#3D61A5", "#A6DDF6", "#F5D98F"),
+            "idol-casual" => ("#7C2D5C", "#D75A8A", "#F8E9F0", "#F6CA62"),
+            "summer-festival" => ("#B52E52", "#EAA0AE", "#FFF0D8", "#D5A447"),
+            "mage-academy" => ("#2F285A", "#6655AC", "#B2D8FA", "#E8C96C"),
+            "royal-ballgown" => ("#542A68", "#A66CC2", "#F6DFF6", "#EFC66C"),
+            "winter-parka" => ("#266B75", "#55B5B6", "#E6FAF9", "#D9829C"),
             _ => ("#292A46", "#6345A9", "#4DE7E2", "#E65A8C")
         };
         var main = Brush(palette.Item1);
@@ -417,6 +463,52 @@ internal static class ModularWardrobeFactory
                 dc.DrawRoundedRectangle(trim, FineOutline, new Rect(187, 546, 42, 47), 7, 7);
                 dc.DrawLine(new Pen(accent, 7), new Point(306, 515), new Point(326, 586));
                 DrawSleeves(dc, main, light);
+                break;
+            case "idol-casual":
+                dc.DrawGeometry(main, Outline, Geometry.Parse("M 183,389 L 220,379 L 256,413 L 292,379 L 329,389 L 343,590 L 314,621 L 198,621 L 169,590 Z"));
+                dc.DrawGeometry(light, FineOutline, Geometry.Parse("M 201,403 L 230,397 L 256,429 L 282,397 L 311,403 L 294,474 L 256,504 L 218,474 Z"));
+                dc.DrawGeometry(accent, FineOutline, Geometry.Parse("M 234,424 L 278,424 L 287,490 L 256,516 L 225,490 Z"));
+                dc.DrawGeometry(main, Outline, Geometry.Parse("M 196,586 L 316,586 L 353,692 L 159,692 Z"));
+                for (var i = 0; i < 5; i++) dc.DrawLine(new Pen(trim, 4), new Point(183 + i * 34, 625), new Point(174 + i * 35, 679));
+                DrawSleeves(dc, main, light);
+                break;
+            case "summer-festival":
+                dc.DrawGeometry(main, Outline, Geometry.Parse("M 183,389 L 220,379 L 256,417 L 292,379 L 329,389 L 345,600 L 315,628 L 197,628 L 167,600 Z"));
+                dc.DrawGeometry(light, null, Geometry.Parse("M 193,405 L 223,399 L 256,432 L 289,399 L 319,405 L 301,473 L 256,507 L 211,473 Z"));
+                dc.DrawGeometry(trim, FineOutline, Geometry.Parse("M 240,424 L 272,424 L 280,489 L 256,514 L 232,489 Z"));
+                dc.DrawGeometry(main, Outline, Geometry.Parse("M 195,590 L 317,590 L 378,699 L 134,699 Z"));
+                dc.DrawGeometry(light, null, Geometry.Parse("M 227,608 L 285,608 L 312,685 L 200,685 Z"));
+                dc.DrawLine(new Pen(trim, 10), new Point(201, 555), new Point(311, 577));
+                DrawWideSleeves(dc, main, light);
+                DrawStar(dc, new Point(256, 556), 10, accent);
+                break;
+            case "mage-academy":
+                dc.DrawGeometry(main, Outline, Geometry.Parse("M 184,389 L 221,378 L 256,416 L 291,378 L 328,389 L 346,593 L 317,620 L 195,620 L 166,593 Z"));
+                dc.DrawGeometry(light, null, Geometry.Parse("M 203,405 L 231,401 L 256,433 L 281,401 L 309,405 L 292,487 L 256,516 L 220,487 Z"));
+                dc.DrawGeometry(main, Outline, Geometry.Parse("M 193,592 L 319,592 L 395,706 L 117,706 Z"));
+                dc.DrawGeometry(trim, null, Geometry.Parse("M 246,426 L 266,426 L 281,486 L 256,508 L 231,486 Z"));
+                dc.DrawLine(new Pen(trim, 6), new Point(201, 609), new Point(311, 609));
+                dc.DrawLine(new Pen(trim, 6), new Point(185, 652), new Point(327, 652));
+                DrawWideSleeves(dc, main, light);
+                for (var i = 0; i < 3; i++) DrawStar(dc, new Point(224 + i * 32, 672), 7, accent);
+                break;
+            case "royal-ballgown":
+                dc.DrawGeometry(main, Outline, Geometry.Parse("M 184,389 L 221,378 L 256,415 L 291,378 L 328,389 L 341,581 L 311,612 L 201,612 L 171,581 Z"));
+                dc.DrawGeometry(light, null, Geometry.Parse("M 204,405 L 232,401 L 256,432 L 280,401 L 308,405 L 292,484 L 256,512 L 220,484 Z"));
+                dc.DrawGeometry(main, Outline, Geometry.Parse("M 198,580 L 314,580 L 402,706 L 110,706 Z"));
+                dc.DrawGeometry(trim, FineOutline, Geometry.Parse("M 240,426 L 272,426 L 283,487 L 256,511 L 229,487 Z"));
+                dc.DrawGeometry(light, null, Geometry.Parse("M 152,666 L 360,666 L 384,695 L 128,695 Z"));
+                DrawWideSleeves(dc, main, light);
+                DrawStar(dc, new Point(256, 548), 12, trim);
+                break;
+            case "winter-parka":
+                dc.DrawGeometry(main, Outline, Geometry.Parse("M 182,390 L 220,378 L 256,416 L 292,378 L 330,390 L 350,610 L 320,635 L 192,635 L 162,610 Z"));
+                dc.DrawGeometry(light, null, Geometry.Parse("M 203,401 L 232,398 L 256,429 L 280,398 L 309,401 L 291,487 L 256,514 L 221,487 Z"));
+                dc.DrawRoundedRectangle(accent, FineOutline, new Rect(198, 549, 50, 38), 9, 9);
+                dc.DrawRoundedRectangle(accent, FineOutline, new Rect(264, 549, 50, 38), 9, 9);
+                dc.DrawGeometry(main, Outline, Geometry.Parse("M 194,599 L 318,599 L 355,695 L 157,695 Z"));
+                DrawWideSleeves(dc, main, light);
+                dc.DrawLine(new Pen(trim, 7), new Point(256, 429), new Point(256, 615));
                 break;
             default: // star idol
                 dc.DrawGeometry(main, Outline, Geometry.Parse("M 184,390 L 224,380 L 256,414 L 288,380 L 328,390 L 345,600 L 316,626 L 196,626 L 167,600 Z"));
@@ -511,6 +603,28 @@ internal static class ModularWardrobeFactory
                 dc.DrawEllipse(gold, null, new Point(333, 179), 7, 7);
                 dc.DrawGeometry(Brush("#4EAB7F"), null, Geometry.Parse("M 325,190 L 305,210 L 327,204 Z"));
                 break;
+            case "fox-ears":
+                dc.DrawGeometry(Brush("#C96752"), Outline, Geometry.Parse("M 155,192 L 148,116 L 213,174 Z"));
+                dc.DrawGeometry(Brush("#C96752"), Outline, Geometry.Parse("M 357,192 L 364,116 L 299,174 Z"));
+                dc.DrawGeometry(Brush("#FFE0C9"), null, Geometry.Parse("M 162,174 L 158,134 L 194,173 Z"));
+                dc.DrawGeometry(Brush("#FFE0C9"), null, Geometry.Parse("M 350,174 L 354,134 L 318,173 Z"));
+                break;
+            case "witch-hat":
+                dc.DrawGeometry(Brush("#393052"), Outline, Geometry.Parse("M 176,185 L 226,78 L 267,66 L 306,186 Z"));
+                dc.DrawEllipse(Brush("#252039"), FineOutline, new Point(256, 184), 111, 17);
+                dc.DrawRoundedRectangle(Brush("#E9C66A"), null, new Rect(222, 142, 66, 13), 3, 3);
+                break;
+            case "crescent-tiara":
+                dc.DrawGeometry(Brush("#EACB72"), FineOutline, Geometry.Parse("M 175,188 C 186,126 222,111 256,128 C 290,111 326,126 337,188 L 318,186 L 306,150 L 281,173 L 256,134 L 231,173 L 206,150 L 194,186 Z"));
+                dc.DrawGeometry(Brush("#EACB72"), null, Geometry.Parse("M 267,90 C 242,104 245,132 264,141 C 285,148 303,127 295,108 C 287,126 268,128 259,115 C 254,105 260,96 267,90 Z"));
+                DrawStar(dc, new Point(202, 174), 7, Brush("#7AE6E7"));
+                DrawStar(dc, new Point(311, 174), 7, Brush("#E68BB7"));
+                break;
+            case "robo-visor":
+                dc.DrawRoundedRectangle(Brush("#24314F"), Outline, new Rect(168, 190, 176, 47), 16, 16);
+                dc.DrawRoundedRectangle(Brush("#59E4E2"), FineOutline, new Rect(184, 199, 144, 28), 10, 10);
+                dc.DrawLine(new Pen(Brush("#F7FCFF"), 3), new Point(202, 204), new Point(225, 218));
+                break;
             default: // feather pin
                 dc.DrawGeometry(Brush("#4A8FE0"), Outline, Geometry.Parse("M 328,176 C 291,155 306,116 342,102 C 359,132 357,160 328,176 Z"));
                 dc.DrawLine(new Pen(gold, 3), new Point(323, 167), new Point(343, 119));
@@ -553,6 +667,23 @@ internal static class ModularWardrobeFactory
                 dc.DrawGeometry(null, new Pen(Brush("#5D526F"), 4), Geometry.Parse("M 359,275 C 338,299 320,306 296,307"));
                 dc.DrawEllipse(Brush("#53E6DE"), FineOutline, new Point(294, 307), 7, 7);
                 break;
+            case "face-mask":
+                dc.DrawRoundedRectangle(Brush("#D8DAE8"), FineOutline, new Rect(198, 267, 116, 42), 12, 12);
+                dc.DrawLine(new Pen(Brush("#A7B0CA"), 3), new Point(198, 276), new Point(184, 267));
+                dc.DrawLine(new Pen(Brush("#A7B0CA"), 3), new Point(314, 276), new Point(328, 267));
+                dc.DrawLine(new Pen(Brush("#A7B0CA"), 2), new Point(212, 282), new Point(300, 282));
+                dc.DrawLine(new Pen(Brush("#A7B0CA"), 2), new Point(212, 292), new Point(300, 292));
+                break;
+            case "cheek-stars":
+                DrawStar(dc, new Point(177, 289), 8, gold);
+                DrawStar(dc, new Point(335, 289), 8, gold);
+                dc.DrawEllipse(Brush("#E68BB7"), null, new Point(189, 302), 4, 4);
+                dc.DrawEllipse(Brush("#E68BB7"), null, new Point(323, 302), 4, 4);
+                break;
+            case "neck-ribbon":
+                dc.DrawGeometry(Brush("#D85CA8"), FineOutline, Geometry.Parse("M 226,368 L 246,378 L 256,366 L 266,378 L 286,368 L 276,393 L 256,402 L 236,393 Z"));
+                dc.DrawEllipse(gold, FineOutline, new Point(256, 384), 5, 5);
+                break;
             default: // geometric pendant
                 dc.DrawLine(new Pen(gold, 3), new Point(256, 361), new Point(256, 386));
                 dc.DrawGeometry(Brush("#53E6DE"), FineOutline, Geometry.Parse("M 256,384 L 269,397 L 256,411 L 243,397 Z"));
@@ -590,6 +721,24 @@ internal static class ModularWardrobeFactory
                 dc.DrawGeometry(Brush("#68C8E8"), Outline, Geometry.Parse("M 339,400 C 378,395 401,426 395,459 C 371,445 352,451 325,464 Z"));
                 dc.DrawLine(new Pen(Brush("#D9FAFF"), 4), new Point(144, 414), new Point(163, 450));
                 dc.DrawLine(new Pen(Brush("#D9FAFF"), 4), new Point(368, 414), new Point(349, 450));
+                break;
+            case "fox-tail":
+                dc.DrawGeometry(Brush("#D57955"), Outline, Geometry.Parse("M 321,521 C 372,514 397,480 389,444 C 426,454 444,492 426,525 C 408,563 369,584 329,568 Z"));
+                dc.DrawGeometry(Brush("#FFF0DB"), FineOutline, Geometry.Parse("M 391,452 C 418,468 424,489 413,507 C 401,522 385,528 371,527 C 390,511 402,486 391,452 Z"));
+                break;
+            case "mechanical-pack":
+                dc.DrawRoundedRectangle(Brush("#37445E"), Outline, new Rect(323, 434, 70, 93), 12, 12);
+                dc.DrawRoundedRectangle(Brush("#55E5DC"), FineOutline, new Rect(335, 447, 46, 19), 5, 5);
+                dc.DrawLine(new Pen(Brush("#D4E7FF"), 4), new Point(343, 485), new Point(373, 485));
+                dc.DrawLine(new Pen(Brush("#D4E7FF"), 4), new Point(343, 498), new Point(373, 498));
+                dc.DrawLine(new Pen(Brush("#E9C66A"), 5), new Point(335, 434), new Point(323, 412));
+                dc.DrawLine(new Pen(Brush("#E9C66A"), 5), new Point(381, 434), new Point(393, 412));
+                break;
+            case "crystal-orbit":
+                dc.DrawGeometry(Brush("#83DCEB"), FineOutline, Geometry.Parse("M 157,438 L 174,402 L 191,438 L 174,466 Z"));
+                dc.DrawGeometry(Brush("#B69BFA"), FineOutline, Geometry.Parse("M 356,490 L 375,447 L 394,490 L 375,520 Z"));
+                dc.DrawGeometry(Brush("#EAD1F5"), FineOutline, Geometry.Parse("M 338,392 L 349,365 L 360,392 L 349,413 Z"));
+                dc.DrawGeometry(null, new Pen(Brush("#D9C5F2"), 3), Geometry.Parse("M 161,421 C 215,371 308,375 369,445"));
                 break;
             default: // starlight ribbons
                 dc.DrawGeometry(Brush("#8C7AE6"), null, Geometry.Parse("M 222,410 C 190,465 208,503 181,556 C 159,600 183,640 162,683 L 188,676 C 208,633 190,604 215,563 C 240,523 223,467 238,420 Z"));
