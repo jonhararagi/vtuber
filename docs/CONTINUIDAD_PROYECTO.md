@@ -1300,3 +1300,13 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - La generación valida de nuevo el epoch/estado tras la inferencia y antes de publicar o encolar voz. La lectura TTS entrante permanece separada de la IA.
 - Pruebas deterministas añadidas para cancelación de inferencia bloqueada, descarte de cola pendiente, independencia del TTS entrante, ausencia de voz conversacional tras una pausa, límite/saturación de cola, filtros TTS, recuperación tras fallo del proveedor, cierre del servicio, estado de conexión Twitch simulado, comprobación del proveedor y expiración del cooldown. Los cooldowns se contabilizan tras una respuesta válida, no tras un fallo. La transición simulada no sustituye una prueba de red Twitch real.
 - Límite: no se puede retirar de forma garantizada un mensaje que Twitch ya haya aceptado antes de que llegue la solicitud de pausa. Aún requiere ejecución Windows CI para el SHA final y prueba manual de desconexión/reconexión con Twitch real y llama.cpp/GGUF.
+
+## Continuidad — Orden 2/4: reacciones de chat y Centro de directo (2026-10-13)
+
+- HEAD base indicado y verificado: `b0fd5336e189ff11a3e368a559f633e15d9ae276`; trabajo directo en `product/complete-vtuber-experience`.
+- Se agregó `ChatReactionService`: motor de reglas persistidas en SQLite, match exacto/palabra completa/frase contenida, normalización de acentos y mayúsculas, respuestas alternativas con `{user}`, cooldown global/usuario, límite por minuto, deduplicación por ID IRC, cola acotada, cancelación/invalidación por pausa y sesión Twitch, historial acotado y registro sin contenido de chat.
+- La canalización existente `TwitchChatClient.MessageReceived → HandleTwitchMessage → ProcessTwitchMessageAsync` pasa los mensajes ya validados al servicio de reacciones. No hay un segundo cliente ni suscripción. Los mensajes del login del bot/canal se ignoran para prevenir bucles.
+- Se agregó el espacio de trabajo **Centro de directo** con previsualización, control del overlay público, controles privados de expresión, pausa global de reglas, control de TTS independiente, simulación local y editor de reglas. La ventana transparente existente sigue siendo la salida para OBS; no se colocan controles privados dentro de ella.
+- Las reglas nuevas nacen desactivadas. No invocan IA. La prueba local no envía chat ni activa efectos. Las respuestas solo activan voz/expresión después de que la escritura IRC haya finalizado; eso no confirma entrega/visualización en Twitch.
+- No se implementa agente de videojuegos y no se eliminan minijuegos existentes.
+- Pendiente de validar: CI Windows del SHA final; ejecución manual con Twitch real, OBS y voz SAPI; verificar sprites en un perfil real; confirmar UX del editor con teclado/escala DPI.
