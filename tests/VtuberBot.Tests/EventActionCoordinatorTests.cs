@@ -123,6 +123,23 @@ public sealed class EventActionCoordinatorTests
     }
 
     [Fact]
+    public async Task GlobalExecutionLimitStopsAdditionalRulesInTheSameEventBurst()
+    {
+        var settings = new MemorySettings();
+        var dispatcher = new RecordingDispatcher();
+        await using var coordinator = new EventActionCoordinator(settings, dispatcher);
+        coordinator.AutomationsPaused = false;
+        coordinator.GlobalMaxExecutionsPerMinute = 1;
+        coordinator.SaveRule(Rule(enabled: true));
+        coordinator.SaveRule(Rule(enabled: true));
+        Publish(coordinator, "one-event-two-rules");
+        Assert.True(await dispatcher.WaitForCountAsync(1));
+        await Task.Delay(100);
+        Assert.Single(dispatcher.Targets);
+        Assert.Contains(coordinator.GetRecentActivity(), x => x.Outcome == EventActionOutcome.RateLimited);
+    }
+
+    [Fact]
     public async Task DispatcherFailureIsIsolatedAndDoesNotKillWorker()
     {
         var settings = new MemorySettings();
