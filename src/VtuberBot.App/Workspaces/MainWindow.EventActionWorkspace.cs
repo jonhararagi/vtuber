@@ -89,9 +89,13 @@ public partial class MainWindow
         var eventType = TextField("Tipo de evento real");
         var destination = new ComboBox { MinWidth = 250, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "Streamer.bot", "PNGTuber Plus" }, SelectedIndex = 0 };
         var target = new ComboBox { MinWidth = 360, Margin = new Thickness(0, 0, 8, 8), DisplayMemberPath = "Content" };
-        var conditionPath = TextField("Campo JSON opcional, por ejemplo userName");
-        var conditionOperator = new ComboBox { MinWidth = 130, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "eq", "contains", "present" }, SelectedIndex = 0 };
-        var conditionValue = TextField("Valor esperado (no se usa con present)");
+        var conditionsEditor = new TextBox
+        {
+            AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 78,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            ToolTip = "Una condición por línea: campo|eq|valor, campo|contains|texto o campo|present|",
+            Background = Brush("#101525"), Foreground = Brush("#F8FAFC"), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 8)
+        };
         var cooldown = TextField("Cooldown en segundos", "0"); cooldown.Width = 110;
         var perRuleLimit = TextField("Máximo por minuto", "10"); perRuleLimit.Width = 110;
         var enabled = new CheckBox { Content = "Activada (solo al guardar expresamente)", IsChecked = false, Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
@@ -149,8 +153,9 @@ public partial class MainWindow
         editor.Children.Add(Label("Destino", 12, "#98A4BE"));
         destination.SelectionChanged += (_, _) => { target.Items.Clear(); status.Text = "Actualizá destinos para consultar el catálogo real."; };
         editor.Children.Add(destination); editor.Children.Add(target);
-        editor.Children.Add(Label("Condición opcional (campo JSON permitido)", 12, "#98A4BE"));
-        editor.Children.Add(conditionPath); editor.Children.Add(conditionOperator); editor.Children.Add(conditionValue);
+        editor.Children.Add(Label("Condiciones opcionales (una por línea; rutas JSON simples, sin expresiones ni código)", 12, "#98A4BE"));
+        editor.Children.Add(Label("Formato: campo|eq|valor · campo|contains|texto · campo|present|", 11, "#98A4BE"));
+        editor.Children.Add(conditionsEditor);
         var limitsRow = new WrapPanel(); limitsRow.Children.Add(cooldown); limitsRow.Children.Add(perRuleLimit); editor.Children.Add(limitsRow);
         editor.Children.Add(enabled); editor.Children.Add(status);
 
@@ -180,9 +185,8 @@ public partial class MainWindow
             editingId = rule.Id; selectedRule = rule; name.Text = rule.Name;
             source.SelectedItem = rule.Source; category.Text = rule.Category; eventType.Text = rule.EventType;
             destination.SelectedItem = rule.Destination == EventActionDestination.StreamerBot ? "Streamer.bot" : "PNGTuber Plus";
-            conditionPath.Text = rule.Conditions.FirstOrDefault()?.FieldPath ?? "";
-            conditionOperator.SelectedItem = rule.Conditions.FirstOrDefault()?.Operator ?? "eq";
-            conditionValue.Text = rule.Conditions.FirstOrDefault()?.ExpectedValue ?? "";
+            conditionsEditor.Text = string.Join(Environment.NewLine, rule.Conditions.Select(condition =>
+                condition.FieldPath + "|" + condition.Operator + "|" + condition.ExpectedValue));
             cooldown.Text = rule.CooldownSeconds.ToString(); perRuleLimit.Text = rule.MaxExecutionsPerMinute.ToString();
             enabled.IsChecked = rule.Enabled; target.Items.Clear();
             target.Items.Add(new ComboBoxItem { Content = rule.TargetId + " · destino guardado (volvé a validar)", Tag = rule.TargetId });
@@ -229,9 +233,18 @@ public partial class MainWindow
                     confirmed = true;
                     confirmedTargetId = targetId;
                 }
-                IReadOnlyList<EventActionCondition> conditions = string.IsNullOrWhiteSpace(conditionPath.Text)
-                    ? Array.Empty<EventActionCondition>()
-                    : new[] { new EventActionCondition(conditionPath.Text.Trim(), conditionOperator.SelectedItem?.ToString() ?? "eq", conditionValue.Text) };
+                var conditions = new List<EventActionCondition>();
+                foreach (var line in conditionsEditor.Text.Split(new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var fields = line.Split('|', 3, StringSplitOptions.None);
+                    if (fields.Length < 2 || fields.Length == 2 && fields[1] != "present")
+                        throw new ArgumentException("Cada condición debe ser campo|eq|valor, campo|contains|texto o campo|present|.");
+                    var operation = fields[1].Trim();
+                    var expected = fields.Length > 2 ? fields[2] : "";
+                    if (operation is not ("eq" or "contains" or "present"))
+                        throw new ArgumentException("Operador de condición no permitido: " + operation);
+                    conditions.Add(new EventActionCondition(fields[0].Trim(), operation, expected));
+                }
                 var selectedSource = source.SelectedItem?.ToString() ?? "";
                 if (selectedSource == "Streamer.bot")
                 {
