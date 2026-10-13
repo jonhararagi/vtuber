@@ -285,3 +285,13 @@ No considerar la integración validada en tiempo real hasta completar las compro
 ### CI observado para bot social
 
 El run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040) sobre SHA `127320c4e03a7786a19e5426cdd9525d3b7fe010` compiló correctamente pero terminó con 433/434 pruebas. La prueba del JSON malformado encontró que el proveedor reportaba `Unavailable` en lugar de `InvalidResponse`; se corrigió esa clasificación y se añadió validación explícita de modelo configurado. El SHA posterior debe tener su propio run satisfactorio para considerar validada esta orden.
+
+## Bot social — brechas de ciclo de vida (2026-10-13)
+
+- [x] Pausar respuestas automáticas invalida trabajos antiguos, vacía la cola pendiente y cancela inferencias automáticas activas.
+- [x] Twitch expone un evento tipado de conexión; una sesión que se desconecta invalida y cancela las conversaciones que le pertenecen. La reconexión solo permite mensajes nuevos.
+- [x] El TTS de mensajes entrantes sigue siendo independiente de la IA conversacional; una generación cancelada no debe encolar la voz de la respuesta.
+- [x] Añadidas pruebas deterministas con `TaskCompletionSource` para cancelación, cola pendiente y separación del TTS.
+- [ ] Pendiente: comprobar el SHA final exacto con Windows CI, leer el resumen de pruebas y confirmar el artefacto de ese mismo SHA.
+- [ ] Pendiente: pruebas manuales en Windows con Twitch autenticado, desconexión real durante inferencia, SAPI y un servidor llama.cpp con modelo GGUF real.
+- Límite conocido: un mensaje que Twitch ya aceptó antes de la solicitud de pausa no puede retirarse automáticamente de forma fiable.
