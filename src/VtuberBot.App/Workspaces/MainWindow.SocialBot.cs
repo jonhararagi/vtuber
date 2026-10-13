@@ -117,14 +117,23 @@ public partial class MainWindow
             if (!wasEnabled && autoReply.IsChecked == true)
             {
                 var confirm = MessageBox.Show(this, "Vas a habilitar respuestas automáticas generadas por IA local. Solo responderá a menciones o al comando configurado. ¿Querés habilitarlo?", "Confirmar automatización", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (confirm != MessageBoxResult.Yes) store.SetSetting("social.chat.enabled", "false");
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    autoReply.IsChecked = false;
+                    store.SetSetting("social.chat.enabled", "false");
+                }
             }
+            socialBot.SetAutomaticRepliesEnabled(store.GetSetting("social.chat.enabled", "false") == "true");
             FooterStatus.Text = "Configuración del bot social guardada en SQLite."; store.Log("Bot social", "Preferencias de TTS y conversación guardadas; no se registró el contenido del chat.");
         }, true));
         root.Children.Add(aiPanel);
 
         var testPanel = Panel("3. Estado y prueba privada");
-        var status = Label("IA local: sin comprobar", 12, "#98A4BE");
+        var status = Label("Proveedor local: sin comprobar · respuestas automáticas según configuración", 12, "#98A4BE");
+        socialBot.StatusChanged += snapshot => Dispatcher.BeginInvoke(() =>
+        {
+            status.Text = snapshot.State + ": " + snapshot.Detail;
+        });
         var testPrompt = TextField("Escribí una pregunta de prueba (no se publicará)", "¡Hola! Presentate en una frase.");
         var testOutput = new TextBox { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, MinWidth = 280 };
         testPanel.Children.Add(status); testPanel.Children.Add(testPrompt); testPanel.Children.Add(testOutput);
@@ -138,7 +147,11 @@ public partial class MainWindow
             try { status.Text = "Generando en el modelo local…"; var result = await socialBot.GenerateTestAsync(testPrompt.Text); testOutput.Text = result.Success ? result.Text : result.Status + ": " + result.Error; status.Text = result.Success ? "Prueba generada localmente; no publicada." : "IA local: " + result.Status; }
             catch (Exception ex) { status.Text = "Prueba fallida: " + ex.Message; }
         }, true));
-        testPanel.Children.Add(ActionButton("Cancelar generación activa", (_, _) => socialBot.CancelGeneration()));
+        testPanel.Children.Add(ActionButton("Cancelar generación activa", (_, _) =>
+        {
+            socialBot.CancelGeneration();
+            status.Text = "Cancelación solicitada; no se confirmará una publicación nueva.";
+        }));
         root.Children.Add(testPanel);
         root.Children.Add(Label("Para IA conversacional: instalá/configurá por separado llama.cpp server y descargá un modelo GGUF compatible. VTuberBot no descarga modelos, no incluye pesos y no envía mensajes a servicios remotos. La comprobación HTTP usa /v1/models; el servidor debe implementar /v1/chat/completions.", 11, "#98A4BE"));
         return root;
