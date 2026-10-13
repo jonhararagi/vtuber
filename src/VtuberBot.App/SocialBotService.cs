@@ -99,9 +99,10 @@ public sealed class SocialBotService : IAsyncDisposable
         if (!isCommand && !mentions)
             return;
 
-        var work = new ChatWork(username, isCommand ? text[command.Length..].Trim() : Regex.Replace(
-            text, @"(?<![\w])@" + Regex.Escape(string.IsNullOrWhiteSpace(botName) ? "VTuberBot" : botName) + @"(?![\w])", "", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(50)).Trim(),
-            channel, DateTimeOffset.UtcNow);
+        var prompt = isCommand ? text[command.Length..].Trim() : Regex.Replace(
+            text, @"(?<![\w])@" + Regex.Escape(string.IsNullOrWhiteSpace(botName) ? "VTuberBot" : botName) + @"(?![\w])", "", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(50)).Trim();
+        if (prompt.Length == 0) prompt = "Saludá al chat brevemente."; 
+        var work = new ChatWork(username, prompt, channel, DateTimeOffset.UtcNow);
         if (!conversations.Writer.TryWrite(work))
         {
             Publish("IA", "Cola de conversaciones llena; se descartó una mención.", PendingConversations);
