@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using VtuberBot.Core;
 
 namespace VtuberBot.App;
 
@@ -121,7 +122,7 @@ public partial class MainWindow
                 File.Exists(store.GetAvatarExpression(state) ?? ""));
             var button = ActionButton(state, (_, _) =>
             {
-                if (!SetChatReactionExpression(state))
+                if (!SetChatReactionExpression(state, CancellationToken.None))
                 {
                     outputStatus.Text = $"No se mostró {state}: el overlay debe estar visible y el sprite debe existir.";
                     return;
