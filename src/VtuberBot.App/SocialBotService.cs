@@ -316,8 +316,6 @@ public sealed class SocialBotService : IAsyncDisposable
                 Publish("IA", "Respuesta omitida por cooldown o límite por minuto.", PendingConversations);
                 return;
             }
-            responseTimes.Enqueue(now);
-            userCooldowns[work.Username] = now;
         }
 
         var options = BuildOptions();
@@ -349,6 +347,11 @@ public sealed class SocialBotService : IAsyncDisposable
         {
             Publish("IA", "La respuesta local quedó vacía tras validarla.", PendingConversations);
             return;
+        }
+        lock (contextGate)
+        {
+            responseTimes.Enqueue(DateTimeOffset.UtcNow);
+            userCooldowns[work.Username] = DateTimeOffset.UtcNow;
         }
         lock (contextGate)
         {
