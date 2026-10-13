@@ -1,14 +1,18 @@
 namespace VtuberBot.Core;
 
 /// <summary>
-/// Defines the visual order for avatar layers. A layer named "Fondo" is rendered below
-/// the base character; all other layers are rendered above it.
+/// Defines the visual order for avatar layers. A layer named "Fondo" or starting with
+/// "Fondo ·" is rendered below the base character; all other layers are rendered above it.
 /// </summary>
 public static class AvatarLayerOrdering
 {
-    public static bool IsBackground(AvatarLayer? layer) =>
-        layer is not null &&
-        string.Equals(layer.Name.Trim(), "Fondo", StringComparison.OrdinalIgnoreCase);
+    public static bool IsBackground(AvatarLayer? layer)
+    {
+        if (layer is null) return false;
+        var name = layer.Name.Trim();
+        return string.Equals(name, "Fondo", StringComparison.OrdinalIgnoreCase) ||
+            name.StartsWith("Fondo ·", StringComparison.OrdinalIgnoreCase);
+    }
 
     public static IReadOnlyList<AvatarLayer> BackgroundLayers(IEnumerable<AvatarLayer> layers)
     {
