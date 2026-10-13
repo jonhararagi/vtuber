@@ -49,7 +49,7 @@ public sealed class ChatReactionServiceTests
         }
 
         public bool Speak(string text) { Interlocked.Increment(ref Speeches); SpeechEntered.TrySetResult(true); return true; }
-        public bool Expression(string state) { Interlocked.Increment(ref Expressions); LastExpression = state; ExpressionEntered.TrySetResult(true); return true; }
+        public bool Expression(string state, CancellationToken token) { if (token.IsCancellationRequested) return false; Interlocked.Increment(ref Expressions); LastExpression = state; ExpressionEntered.TrySetResult(true); return true; }
     }
 
     private static ChatReactionRule Rule(string name = "hola", string trigger = "hola",
