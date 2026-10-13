@@ -255,3 +255,10 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 
 
 - **Corrección de compilación detectada por CI:** se arregló el literal multilínea de texto en `MainWindow.PngtuberWorkspace.cs` que impedía compilar el workspace PNGTuber Plus. La corrección es mínima y conserva el contenido y las funciones del panel. Falta confirmar el nuevo run de Windows CI para el SHA final.
+### Orden 4/5 — Orquestador unificado de eventos y acciones
+
+- **Implementación en curso en `product/complete-vtuber-experience`:** coordinador desacoplado de WPF, reglas JSON persistidas en preferencias SQLite existentes, cola acotada y procesamiento secuencial, condiciones exactas sobre campos JSON, cooldown, límites por regla/globales, deduplicación con memoria acotada y límite de profundidad causal.
+- **Productores conectados:** eventos reales recibidos por el cliente WebSocket de Streamer.bot y notificaciones que ya pasan por el puente interno EventSub de VTuberBot. Las fuentes permanecen diferenciadas; no se afirma deduplicación cruzada sin ID compartido.
+- **Destinos:** acciones habilitadas revalidadas mediante `GetActions` y atajos registrados de PNGTuber Plus. La autorización de atajos es explícita y está desactivada por defecto; una respuesta aceptada o una tecla enviada no confirma el efecto posterior.
+- **Suscripciones:** selección manual sin valores preseleccionados y reconciliación con los eventos requeridos por reglas habilitadas mediante `Subscribe`/`UnSubscribe`.
+- **No marcar como aceptado todavía:** falta demostrar restore/build/tests/publish de Windows CI para el SHA final exacto y hacer pruebas manuales con las aplicaciones reales. El CI anterior que falló no es evidencia de la versión actual.
