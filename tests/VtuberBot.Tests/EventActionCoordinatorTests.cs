@@ -59,7 +59,7 @@ public sealed class EventActionCoordinatorTests
         using var missingField = JsonDocument.Parse("""{"userName":null}""");
         coordinator.TryPublish(NormalizedBotEvent.Create("Streamer.bot", "Twitch", "Follow",
             missingField.RootElement, providerEventId: "evt-3"));
-        await Task.Delay(150);
+        await Task.Delay(150, TestContext.Current.CancellationToken);
         Assert.Single(dispatcher.Targets);
         await AssertActivityAsync(coordinator, EventActionOutcome.ConditionNotMet);
     }
@@ -72,13 +72,13 @@ public sealed class EventActionCoordinatorTests
         await using var coordinator = new EventActionCoordinator(settings, dispatcher);
         coordinator.SaveRule(Rule(enabled: false));
         Publish(coordinator, "one");
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
         Assert.Empty(dispatcher.Targets);
 
         coordinator.SaveRule(Rule(enabled: true));
         coordinator.AutomationsPaused = true;
         Publish(coordinator, "two");
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
         Assert.Empty(dispatcher.Targets);
         Assert.Contains(coordinator.GetRecentActivity(), x => x.Outcome == EventActionOutcome.AutomationsPaused);
     }
@@ -95,7 +95,7 @@ public sealed class EventActionCoordinatorTests
         Publish(coordinator, "provider-same", "same text");
         Publish(coordinator, "provider-same", "same text");
         Assert.True(await dispatcher.WaitForCountAsync(1));
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
         Assert.Single(dispatcher.Targets);
 
         Publish(coordinator, "provider-different-1", "same text");
@@ -117,7 +117,7 @@ public sealed class EventActionCoordinatorTests
         Publish(coordinator, "first");
         Assert.True(await dispatcher.WaitForCountAsync(1));
         Publish(coordinator, "second");
-        await Task.Delay(150);
+        await Task.Delay(150, TestContext.Current.CancellationToken);
         Assert.Single(dispatcher.Targets);
         Assert.Contains(coordinator.GetRecentActivity(), x => x.Outcome is EventActionOutcome.Cooldown or EventActionOutcome.RateLimited);
     }
@@ -134,7 +134,7 @@ public sealed class EventActionCoordinatorTests
         coordinator.SaveRule(Rule(enabled: true));
         Publish(coordinator, "one-event-two-rules");
         Assert.True(await dispatcher.WaitForCountAsync(1));
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
         Assert.Single(dispatcher.Targets);
         Assert.Contains(coordinator.GetRecentActivity(), x => x.Outcome == EventActionOutcome.RateLimited);
     }
@@ -163,7 +163,7 @@ public sealed class EventActionCoordinatorTests
         coordinator.AutomationsPaused = false;
         coordinator.SaveRule(Rule(enabled: true, destination: EventActionDestination.PngtuberPlus, confirmed: true));
         Publish(coordinator, "png-1");
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
         Assert.Empty(dispatcher.Targets);
         Assert.Contains(coordinator.GetRecentActivity(), x => x.Outcome == EventActionOutcome.InvalidDestination);
     }
@@ -189,7 +189,7 @@ public sealed class EventActionCoordinatorTests
         coordinator.AutomationsPaused = false;
         coordinator.SaveRule(Rule(enabled: true));
         Publish(coordinator, "queue-first");
-        await dispatcher.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await dispatcher.Started.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
         Assert.True(coordinator.TryPublish(CreateEvent("queue-second")));
         Assert.False(coordinator.TryPublish(CreateEvent("queue-third")));
         Assert.Contains(coordinator.GetRecentActivity(), x => x.Outcome == EventActionOutcome.QueueSaturated);
@@ -229,7 +229,7 @@ public sealed class EventActionCoordinatorTests
 
     private static async Task AssertActivityAsync(EventActionCoordinator coordinator, EventActionOutcome outcome)
     {
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
         Assert.Contains(coordinator.GetRecentActivity(), x => x.Outcome == outcome);
     }
 
@@ -268,7 +268,7 @@ public sealed class EventActionCoordinatorTests
                 while (DateTimeOffset.UtcNow < until)
                 {
                     if (Targets.Count >= expected) return true;
-                    await Task.Delay(10);
+                    await Task.Delay(10, TestContext.Current.CancellationToken);
                 }
                 return false;
             });
