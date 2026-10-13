@@ -202,7 +202,7 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
 
     public IReadOnlyList<EventActionActivity> GetRecentActivity()
     {
-        lock (activity) return activity.ToArray();
+        lock (activity) return activity.OrderBy(item => item.Sequence).ToArray();
     }
 
     public EventActionRule SaveRule(EventActionRule rule)
