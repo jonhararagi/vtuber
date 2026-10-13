@@ -73,6 +73,14 @@ internal static class DemoAvatarFactory
         encoder.Save(output);
     }
 
+    private static void DrawEllipse(DrawingContext context, Brush? fill, Pen? pen, Rect bounds) =>
+        context.DrawEllipse(
+            fill,
+            pen,
+            new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2),
+            bounds.Width / 2,
+            bounds.Height / 2);
+
     private static void DrawCharacter(DrawingContext dc, string expression, bool includeFrontHair)
     {
         var outline = new Pen(Brush("#352445"), 7) { LineJoin = PenLineJoin.Round };
@@ -87,7 +95,7 @@ internal static class DemoAvatarFactory
         var teal = Brush("#69E4D0");
 
         // Soft ground shadow; the rest of the canvas remains transparent.
-        dc.DrawEllipse(Brush("#440F172A"), null, new Rect(135, 710, 242, 28));
+        DrawEllipse(dc, Brush("#440F172A"), null, new Rect(135, 710, 242, 28));
 
         // Long hair behind the shoulders.
         dc.DrawGeometry(hair, outline, Geometry.Parse(
@@ -113,34 +121,34 @@ internal static class DemoAvatarFactory
         dc.DrawGeometry(Brush("#5C4AA7"), null, Geometry.Parse(
             "M 181,552 C 215,577 295,577 331,552 L 352,688 L 160,688 Z"));
         dc.DrawRoundedRectangle(Brush("#322650"), fineOutline, new Rect(222, 608, 68, 47), 8, 8);
-        dc.DrawEllipse(teal, fineOutline, new Rect(244, 619, 24, 24));
+        DrawEllipse(dc, teal, fineOutline, new Rect(244, 619, 24, 24));
 
         // Neck and face.
         dc.DrawRoundedRectangle(skinShadow, null, new Rect(222, 342, 68, 82), 20, 20);
-        dc.DrawEllipse(skinShadow, null, new Rect(132, 222, 40, 62));
-        dc.DrawEllipse(skin, fineOutline, new Rect(134, 216, 35, 57));
-        dc.DrawEllipse(skinShadow, null, new Rect(341, 222, 40, 62));
-        dc.DrawEllipse(skin, fineOutline, new Rect(343, 216, 35, 57));
-        dc.DrawEllipse(skin, outline, new Rect(151, 120, 210, 267));
-        dc.DrawEllipse(Brush("#FFEBDD"), null, new Rect(172, 139, 170, 227));
+        DrawEllipse(dc, skinShadow, null, new Rect(132, 222, 40, 62));
+        DrawEllipse(dc, skin, fineOutline, new Rect(134, 216, 35, 57));
+        DrawEllipse(dc, skinShadow, null, new Rect(341, 222, 40, 62));
+        DrawEllipse(dc, skin, fineOutline, new Rect(343, 216, 35, 57));
+        DrawEllipse(dc, skin, outline, new Rect(151, 120, 210, 267));
+        DrawEllipse(dc, Brush("#FFEBDD"), null, new Rect(172, 139, 170, 227));
 
         // Soft cheek blush.
-        dc.DrawEllipse(Brush("#55F08AA6"), null, new Rect(174, 278, 45, 20));
-        dc.DrawEllipse(Brush("#55F08AA6"), null, new Rect(292, 278, 45, 20));
+        DrawEllipse(dc, Brush("#55F08AA6"), null, new Rect(174, 278, 45, 20));
+        DrawEllipse(dc, Brush("#55F08AA6"), null, new Rect(292, 278, 45, 20));
 
         DrawEyes(dc, expression, fineOutline);
 
         // Nose and mouth; each generated PNG has the same canvas and character alignment.
-        dc.DrawEllipse(Brush("#D58B83"), null, new Rect(251, 277, 8, 5));
+        DrawEllipse(dc, Brush("#D58B83"), null, new Rect(251, 277, 8, 5));
         switch (expression)
         {
             case "Talking":
-                dc.DrawEllipse(Brush("#572944"), fineOutline, new Rect(239, 299, 36, 44));
-                dc.DrawEllipse(Brush("#F08AAB"), null, new Rect(247, 324, 20, 12));
+                DrawEllipse(dc, Brush("#572944"), fineOutline, new Rect(239, 299, 36, 44));
+                DrawEllipse(dc, Brush("#F08AAB"), null, new Rect(247, 324, 20, 12));
                 break;
             case "Surprised":
-                dc.DrawEllipse(Brush("#572944"), fineOutline, new Rect(243, 298, 29, 43));
-                dc.DrawEllipse(Brush("#F08AAB"), null, new Rect(249, 323, 17, 10));
+                DrawEllipse(dc, Brush("#572944"), fineOutline, new Rect(243, 298, 29, 43));
+                DrawEllipse(dc, Brush("#F08AAB"), null, new Rect(249, 323, 17, 10));
                 break;
             case "Happy":
                 dc.DrawGeometry(Brush("#572944"), fineOutline, Geometry.Parse(
@@ -162,7 +170,7 @@ internal static class DemoAvatarFactory
         // Hair clip and outfit accents.
         dc.DrawGeometry(Brush("#FF78C8"), fineOutline, Geometry.Parse(
             "M 319,151 C 293,126 306,104 323,115 C 337,87 361,108 348,132 C 367,145 347,165 333,154 Z"));
-        dc.DrawEllipse(Brush("#FFF1AA"), null, new Rect(326, 128, 9, 9));
+        DrawEllipse(dc, Brush("#FFF1AA"), null, new Rect(326, 128, 9, 9));
         dc.DrawLine(new Pen(Brush("#B6A1FF"), 4) { StartLineCap = PenLineCap.Round },
             new Point(182, 179), new Point(197, 158));
         dc.DrawLine(new Pen(Brush("#B6A1FF"), 4) { StartLineCap = PenLineCap.Round },
@@ -188,17 +196,17 @@ internal static class DemoAvatarFactory
         }
 
         var eyeHeight = expression == "Surprised" ? 54 : 47;
-        dc.DrawEllipse(Brush("#FFFFFF"), outline, new Rect(184, 220, 48, eyeHeight));
-        dc.DrawEllipse(Brush("#8060D6"), null, new Rect(195, 228, 28, eyeHeight - 12));
-        dc.DrawEllipse(Brush("#2F234B"), null, new Rect(202, 234, 15, eyeHeight - 23));
-        dc.DrawEllipse(Brush("#FFFFFF"), null, new Rect(199, 231, 10, 11));
-        dc.DrawEllipse(Brush("#FFFFFF"), null, new Rect(213, 250, 5, 6));
+        DrawEllipse(dc, Brush("#FFFFFF"), outline, new Rect(184, 220, 48, eyeHeight));
+        DrawEllipse(dc, Brush("#8060D6"), null, new Rect(195, 228, 28, eyeHeight - 12));
+        DrawEllipse(dc, Brush("#2F234B"), null, new Rect(202, 234, 15, eyeHeight - 23));
+        DrawEllipse(dc, Brush("#FFFFFF"), null, new Rect(199, 231, 10, 11));
+        DrawEllipse(dc, Brush("#FFFFFF"), null, new Rect(213, 250, 5, 6));
 
-        dc.DrawEllipse(Brush("#FFFFFF"), outline, new Rect(280, 220, 48, eyeHeight));
-        dc.DrawEllipse(Brush("#8060D6"), null, new Rect(290, 228, 28, eyeHeight - 12));
-        dc.DrawEllipse(Brush("#2F234B"), null, new Rect(297, 234, 15, eyeHeight - 23));
-        dc.DrawEllipse(Brush("#FFFFFF"), null, new Rect(294, 231, 10, 11));
-        dc.DrawEllipse(Brush("#FFFFFF"), null, new Rect(308, 250, 5, 6));
+        DrawEllipse(dc, Brush("#FFFFFF"), outline, new Rect(280, 220, 48, eyeHeight));
+        DrawEllipse(dc, Brush("#8060D6"), null, new Rect(290, 228, 28, eyeHeight - 12));
+        DrawEllipse(dc, Brush("#2F234B"), null, new Rect(297, 234, 15, eyeHeight - 23));
+        DrawEllipse(dc, Brush("#FFFFFF"), null, new Rect(294, 231, 10, 11));
+        DrawEllipse(dc, Brush("#FFFFFF"), null, new Rect(308, 250, 5, 6));
 
         var brow = new Pen(Brush("#352445"), 5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         dc.DrawGeometry(null, brow, Geometry.Parse("M 186,211 Q 207,198 228,211"));
