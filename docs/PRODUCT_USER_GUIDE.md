@@ -79,6 +79,12 @@ Los mensajes del chat comparten el registro local de comandos; la actividad otor
 
 Si OBS está cerrado o la contraseña no coincide, la app sigue funcionando y muestra el error sin fingir conexión. Si una conexión ya autenticada se corta de forma transitoria, la app reintenta cada vez con una espera creciente limitada a 30 segundos; la desconexión manual detiene los reintentos. La reconexión real debe confirmarse en un OBS configurado.
 
+## Transmitir en Twitch o YouTube
+
+En la página **OBS**, conecta OBS WebSocket con host `127.0.0.1`, puerto `4455` y tu contraseña. En **Transmitir a Twitch o YouTube**, elige la plataforma, pulsa **Abrir panel de la plataforma** para preparar un directo, pega la clave de emisión y pulsa **Guardar clave cifrada**. Después usa **Configurar destino en OBS** y, cuando hayas comprobado escena, audio y privacidad, pulsa **Iniciar transmisión**. Puedes dejar el campo de clave vacío para reutilizar la clave cifrada ya guardada. Cambiar de plataforma exige parar primero la emisión.
+
+Para emitir en las dos plataformas a la vez, seguí la guía [Transmisión a Twitch y YouTube](STREAMING-YOUTUBE-TWITCH.md). Necesitarás configurar por separado la salida secundaria en un complemento compatible de OBS. VTuberBot controla la salida principal; no afirma que el botón de inicio maneje automáticamente un complemento externo.
+
 ## Telegram Web
 
 La página intenta cargar Telegram Web mediante WebView2. Si el Runtime no está instalado o falla la inicialización, usá **Abrir en navegador**. Las cookies permanecen en el perfil WebView2/navegador, no en el repositorio ni en la base del bot.
