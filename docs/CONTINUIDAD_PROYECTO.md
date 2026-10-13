@@ -1261,3 +1261,12 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - **Estado de validación:** el resultado de [Windows CI](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml?query=branch%3Aproduct%2Fcomplete-vtuber-experience) debe comprobarse para el SHA exacto de la revisión final que incluye esta entrada. No se debe reutilizar #427 como evidencia de esa revisión. La aceptación global también requiere pruebas manuales con Streamer.bot, Twitch, OBS y PNGTuber Plus.
 - **Paquete previo:** el artefacto de #427 era `VTuberBot-Product-Candidate-win-x64-dc55ca9bb68dfbb5ff35c024931e930c34730fe5`, 77,991,884 bytes, expiración 2026-10-27 10:16:33 UTC. No es el paquete de la auditoría final.
 - **Integridad:** no se modificó `main`, no se fusionó ni cerró el PR #9. El PR #9 se comprobó abierto y sin fusionar al inicio de la auditoría.
+
+
+### Resultado de Windows CI de la auditoría — SHA de código `0609de270aa045912f487c5117c429bce8a25b30`
+
+- [Windows CI #435](https://github.com/jonhararagi/vtuber/actions/runs/38384321638) finalizó `success` para ese SHA exacto.
+- Restore: correcto. Build Release: correcto, **0 advertencias y 0 errores**. Tests: **424 aprobados, 0 fallidos, 0 omitidos**.
+- Publicación self-contained win-x64: correcta. El workflow validó el ejecutable `VtuberBot.App.exe`, `BUILD-INFO.txt` y los patrones de archivos prohibidos antes de subir el ZIP.
+- Artefacto exacto: `VTuberBot-Product-Candidate-win-x64-0609de270aa045912f487c5117c429bce8a25b30`, 77,992,115 bytes, SHA-256 `107075a6f97ae93bdb7e068382225c82fffcfa2bb3e808f29457ea20713a4c11`, expiración 2026-10-27 10:36:30 UTC.
+- Esta evidencia valida compilación, suite automatizada y paquete para el SHA citado; no equivale a prueba manual con Twitch, OBS, Streamer.bot, Telegram/WebView2, micrófono ni PNGTuber Plus real. Los commits documentales posteriores deben validarse mediante el run correspondiente a su propio SHA.
