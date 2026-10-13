@@ -544,6 +544,7 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
     {
         var json = settings.GetSetting(RulesSettingKey);
         if (string.IsNullOrWhiteSpace(json)) return;
+        var foundInvalidRule = false;
         try
         {
             using var document = JsonDocument.Parse(json);
@@ -560,13 +561,31 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
                 }
                 catch (Exception ex) when (ex is ArgumentException or JsonException or NullReferenceException or NotSupportedException)
                 {
-                    AddStartupWarning("Una regla guardada dañada/no compatible se omitió y quedó desactivada de forma segura.");
+                    foundInvalidRule = true;
+                    AddStartupWarning("Una regla guardada dañada/no compatible se omitió. Por seguridad, todas las automatizaciones quedaron pausadas; la configuración original se conserva en SQLite.");
                 }
             }
+            if (foundInvalidRule)
+                PauseAfterDamagedConfiguration();
         }
         catch (JsonException)
         {
-            AddStartupWarning("La configuración de reglas está dañada; el coordinador inició pausado y sin ejecutar reglas. La configuración original se conserva en SQLite.");
+            PauseAfterDamagedConfiguration();
+            AddStartupWarning("La configuración de reglas está dañada; las automatizaciones se pausaron y no se cargaron reglas. La configuración original se conserva en SQLite.");
+        }
+    }
+
+    private void PauseAfterDamagedConfiguration()
+    {
+        // Fail closed even if persisting the safety switch itself fails.
+        Volatile.Write(ref automationsPaused, 1);
+        try
+        {
+            settings.SetSetting(PausedSettingKey, "true");
+        }
+        catch (Exception ex)
+        {
+            AddStartupWarning("No se pudo persistir la pausa global tras detectar configuración dañada (" + ex.GetType().Name + "); la pausa sigue activa durante esta sesión.");
         }
     }
 
