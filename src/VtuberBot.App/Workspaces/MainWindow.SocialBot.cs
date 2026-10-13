@@ -53,6 +53,7 @@ public partial class MainWindow
         var baseUrl = TextField("Servidor local compatible OpenAI", store.GetSetting("social.ai.baseUrl", "http://127.0.0.1:8080/v1"));
         var model = TextField("ID del modelo publicado por el servidor", store.GetSetting("social.ai.model", ""));
         var timeout = TextField("Timeout en segundos (1–120)", store.GetSetting("social.ai.timeoutSeconds", "30"));
+        var maxInputChars = TextField("Máximo de caracteres de contexto (100–20000)", store.GetSetting("social.ai.maxInputChars", "4000"));
         var maxResponse = TextField("Máximo de caracteres por respuesta (40–500)", store.GetSetting("social.chat.maxResponseChars", "350"));
         var maxTokens = TextField("Máximo de tokens generados (16–1024)", store.GetSetting("social.ai.maxResponseTokens", "180"));
         var command = TextField("Comando para activar (ej. !bot)", store.GetSetting("social.chat.command", "!bot"));
@@ -70,6 +71,7 @@ public partial class MainWindow
         aiPanel.Children.Add(Label("URL base local (solo localhost / loopback)", 12, "#98A4BE")); aiPanel.Children.Add(baseUrl);
         aiPanel.Children.Add(Label("Modelo", 12, "#98A4BE")); aiPanel.Children.Add(model);
         aiPanel.Children.Add(Label("Timeout (1–120 s)", 12, "#98A4BE")); aiPanel.Children.Add(timeout);
+        aiPanel.Children.Add(Label("Máximo de caracteres de contexto (100–20000)", 12, "#98A4BE")); aiPanel.Children.Add(maxInputChars);
         aiPanel.Children.Add(Label("Máximo de respuesta (40–500 caracteres)", 12, "#98A4BE")); aiPanel.Children.Add(maxResponse);
         aiPanel.Children.Add(Label("Tokens máximos (16–1024)", 12, "#98A4BE")); aiPanel.Children.Add(maxTokens);
         aiPanel.Children.Add(Label("Comando que activa el bot", 12, "#98A4BE")); aiPanel.Children.Add(command);
@@ -83,6 +85,7 @@ public partial class MainWindow
                 !int.TryParse(interval.Text, out var intervalValue) || intervalValue is < 0 or > 10000 ||
                 !int.TryParse(queueLimit.Text, out var queueValue) || queueValue is < 1 or > 100 ||
                 !int.TryParse(timeout.Text, out var timeoutValue) || timeoutValue is < 1 or > 120 ||
+                !int.TryParse(maxInputChars.Text, out var inputCharsValue) || inputCharsValue is < 100 or > 20000 ||
                 !int.TryParse(maxResponse.Text, out var responseValue) || responseValue is < 40 or > 500 ||
                 !int.TryParse(maxTokens.Text, out var tokensValue) || tokensValue is < 16 or > 1024 ||
                 !int.TryParse(globalCooldown.Text, out var globalValue) || globalValue is < 1 or > 300 ||
@@ -104,7 +107,7 @@ public partial class MainWindow
             store.SetSetting("social.bot.name", botName.Text.Trim()); store.SetSetting("twitch.bot.login", botLogin.Text.Trim()); store.SetSetting("social.bot.language", language.Text.Trim());
             store.SetSetting("social.bot.tone", tone.Text.Trim()); store.SetSetting("social.bot.personality", personality.Text.Trim());
             store.SetSetting("social.ai.baseUrl", baseUrl.Text.Trim()); store.SetSetting("social.ai.model", model.Text.Trim());
-            store.SetSetting("social.ai.timeoutSeconds", timeoutValue.ToString()); store.SetSetting("social.ai.maxInputChars", "4000");
+            store.SetSetting("social.ai.timeoutSeconds", timeoutValue.ToString()); store.SetSetting("social.ai.maxInputChars", inputCharsValue.ToString());
             store.SetSetting("social.ai.maxResponseTokens", tokensValue.ToString()); store.SetSetting("social.chat.maxResponseChars", responseValue.ToString());
             store.SetSetting("social.chat.command", command.Text.Trim()); store.SetSetting("social.chat.globalCooldownSeconds", globalValue.ToString());
             store.SetSetting("social.chat.userCooldownSeconds", userValue.ToString()); store.SetSetting("social.chat.maxPerMinute", minuteValue.ToString());
