@@ -220,6 +220,14 @@ public sealed class ChatReactionService : IAsyncDisposable
             result = new(DateTimeOffset.UtcNow, "", username ?? "", "Entrada inválida", "Se descartó un mensaje vacío o fuera de los límites.", simulated);
             return false;
         }
+        var botLogin = store.GetSetting("twitch.bot.login", store.GetSetting("twitch.channel", "")).Trim();
+        var channelLogin = store.GetSetting("twitch.channel", "").Trim();
+        if (username.Equals(botLogin, StringComparison.OrdinalIgnoreCase) ||
+            username.Equals(channelLogin, StringComparison.OrdinalIgnoreCase))
+        {
+            result = new(DateTimeOffset.UtcNow, "", username, "Eco propio ignorado", "El mensaje procede de la cuenta del bot o del canal; no se generan reacciones.", simulated);
+            return false;
+        }
         long epoch;
         lock (gate)
         {
@@ -403,7 +411,7 @@ public sealed class ChatReactionService : IAsyncDisposable
             !Enum.IsDefined(rule.MatchType) ||
             rule.GlobalCooldownSeconds is < 0 or > 3600 || rule.UserCooldownSeconds is < 0 or > 3600 ||
             rule.MaxPerMinute is < 1 or > 60 ||
-            rule.Expression.Length > 30 || (rule.Expression.Length > 0 && rule.Expression is not ("Idle" or "Talking" or "Blink" or "Happy" or "Surprised")))
+            (rule.Expression ?? "").Length > 30 || (!string.IsNullOrEmpty(rule.Expression) && rule.Expression is not ("Idle" or "Talking" or "Blink" or "Happy" or "Surprised"))
         {
             error = "Campos fuera de rango o tipo de coincidencia/expresión no permitido.";
             return false;
