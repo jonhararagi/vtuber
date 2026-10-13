@@ -188,13 +188,23 @@ public sealed class ChatReactionService : IAsyncDisposable
     public ChatReactionResult TestMessage(string username, string message)
     {
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(message) || message.Length > MaximumMessageLength)
-            return new(DateTimeOffset.UtcNow, "", username ?? "", "Entrada inválida", "Usuario o mensaje vacío, o mensaje demasiado largo.", true);
+        {
+            var invalid = new ChatReactionResult(DateTimeOffset.UtcNow, "", username ?? "", "Entrada inválida", "Usuario o mensaje vacío, o mensaje demasiado largo.", true);
+            Record(invalid);
+            return invalid;
+        }
         ChatReactionRule? rule;
         lock (rulesGate) rule = rules.FirstOrDefault(x => x.Enabled && Matches(x, message)) ?? rules.FirstOrDefault(x => Matches(x, message));
         if (rule is null)
-            return new(DateTimeOffset.UtcNow, "", username, "Sin coincidencia", "Ninguna regla activa coincide; no se envió nada a Twitch ni se activó voz o avatar.", true);
+        {
+            var unmatched = new ChatReactionResult(DateTimeOffset.UtcNow, "", username, "Sin coincidencia", "Ninguna regla activa coincide; no se envió nada a Twitch ni se activó voz o avatar.", true);
+            Record(unmatched);
+            return unmatched;
+        }
         var response = ResolveResponse(rule, username);
-        return new(DateTimeOffset.UtcNow, rule.Name, username, "Simulación local", $"Coincidiría con «{rule.Trigger}». Respuesta prevista: {response}. No se ejecutaron efectos.", true);
+        var result = new ChatReactionResult(DateTimeOffset.UtcNow, rule.Name, username, "Simulación local", $"Coincidiría con «{rule.Trigger}». Respuesta prevista: {response}. No se ejecutaron efectos.", true);
+        Record(result);
+        return result;
     }
 
     public static bool Matches(ChatReactionRule rule, string message)
