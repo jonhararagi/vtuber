@@ -186,6 +186,79 @@ public partial class MainWindow
         root.Children.Add(profilePanel);
         root.Children.Add(profileActions);
 
+        var demoPanel = Panel("Empezar con un ejemplo incluido");
+        demoPanel.Margin = new Thickness(0, 0, 0, 14);
+        demoPanel.Children.Add(Label(
+            "Ahora puedes probar el avatar sin buscar imágenes externas. PNGTuber integrado alterna sprites de reposo/habla con el micrófono. 2D por capas separa el flequillo y los destellos para que puedas moverlos, escalarlos y rotarlos. Son demostraciones 2D con movimiento ligero: no son un rig Live2D, no incluyen seguimiento facial ni huesos.",
+            12, "#98A4BE"));
+        var demoActions = new WrapPanel();
+        demoActions.Children.Add(ActionButton("Probar ejemplo PNGTuber (reposo / habla)", (_, _) =>
+            LoadDemoProfile("Ejemplo PNGTuber", layered: false), true));
+        demoActions.Children.Add(ActionButton("Probar ejemplo 2D por capas", (_, _) =>
+            LoadDemoProfile("Ejemplo 2D por capas", layered: true), true));
+        demoActions.Children.Add(ActionButton("Configurar PNGTuber Plus externo", (_, _) => Navigate("Avatar externo")));
+        demoPanel.Children.Add(demoActions);
+        root.Children.Add(demoPanel);
+
+        void LoadDemoProfile(string profileName, bool layered)
+        {
+            try
+            {
+                var assets = DemoAvatarFactory.EnsureAssets(avatarDirectory);
+                var existing = store.GetAvatarProfiles().FirstOrDefault(profile =>
+                    string.Equals(profile.Name, profileName, StringComparison.OrdinalIgnoreCase));
+
+                if (existing is not null)
+                {
+                    store.SetActiveAvatarProfile(existing.Id);
+                    var activated = store.GetActiveAvatarProfile();
+                    avatarPath = activated.BasePath;
+                    if (string.IsNullOrWhiteSpace(avatarPath) || !File.Exists(avatarPath))
+                        throw new InvalidOperationException("El perfil de ejemplo existe, pero su imagen base ya no está disponible. Crea un perfil nuevo o importa otra imagen.");
+                    FooterStatus.Text = "Se activó el perfil de ejemplo existente; tus cambios no se sobrescribieron.";
+                    store.Log("Avatar", "Perfil de ejemplo activado: " + activated.Name + ".");
+                }
+                else
+                {
+                    var created = store.CreateAvatarProfile(profileName, duplicateActiveProfile: false);
+                    store.SetActiveAvatarProfile(created.Id);
+                    var idle = layered ? assets.LayeredIdle : assets.Idle;
+                    var talking = layered ? assets.LayeredTalking : assets.Talking;
+                    var blink = layered ? assets.LayeredBlink : assets.Blink;
+                    var happy = layered ? assets.LayeredHappy : assets.Happy;
+                    var surprised = layered ? assets.LayeredSurprised : assets.Surprised;
+
+                    store.SetActiveAvatarProfileBasePath(idle);
+                    store.SetAvatarExpression("Idle", idle);
+                    store.SetAvatarExpression("Talking", talking);
+                    store.SetAvatarExpression("Blink", blink);
+                    store.SetAvatarExpression("Happy", happy);
+                    store.SetAvatarExpression("Surprised", surprised);
+                    if (layered)
+                    {
+                        store.AddAvatarLayer("Pelo frontal (demo 2D)", assets.FrontHairLayer);
+                        store.AddAvatarLayer("Destellos decorativos (demo 2D)", assets.SparklesLayer);
+                    }
+
+                    avatarPath = idle;
+                    store.SetSetting("avatar.state", "Idle");
+                    FooterStatus.Text = layered
+                        ? "Ejemplo 2D creado: selecciona una capa y muévela en la previsualización."
+                        : "Ejemplo PNGTuber creado: el micrófono puede alternar entre reposo y habla.";
+                    store.Log("Avatar", "Creado perfil de demostración: " + created.Name + ".");
+                }
+
+                Navigate("Avatar Studio");
+                ShowOverlay();
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this,
+                    "No se pudo cargar el ejemplo de avatar: " + exception.Message,
+                    "VTuberBot", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         var columns = new Grid();
         columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.1, GridUnitType.Star) });
         columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
