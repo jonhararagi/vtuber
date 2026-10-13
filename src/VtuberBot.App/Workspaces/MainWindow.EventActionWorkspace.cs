@@ -175,8 +175,8 @@ public partial class MainWindow
         {
             editingId = null; selectedRule = null;
             name.Text = ""; source.SelectedItem = "Streamer.bot"; category.Text = ""; eventType.Text = "";
-            destination.SelectedItem = "Streamer.bot"; target.Items.Clear(); conditionPath.Text = ""; conditionValue.Text = "";
-            conditionOperator.SelectedItem = "eq"; cooldown.Text = "0"; perRuleLimit.Text = "10"; enabled.IsChecked = false;
+            destination.SelectedItem = "Streamer.bot"; target.Items.Clear(); conditionsEditor.Text = "";
+            cooldown.Text = "0"; perRuleLimit.Text = "10"; enabled.IsChecked = false;
             status.Text = "Regla nueva desactivada. No se ejecutará hasta habilitarla expresamente.";
         }
         rulesList.SelectionChanged += (_, _) =>
