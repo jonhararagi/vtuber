@@ -47,6 +47,47 @@ public partial class MainWindow
     private UIElement BuildAvatarStudio()
     {
         var root = new StackPanel();
+
+        // A beginner should choose an avatar workflow, not configure layers/settings manually.
+        var beginnerPanel = Panel("Empezá por acá — elegí tu tipo de VTuber");
+        beginnerPanel.Margin = new Thickness(0, 0, 0, 14);
+        beginnerPanel.Children.Add(Label(
+            "Recomendado: PNGTuber. Es la forma más sencilla y liviana de empezar. Podés usar un ejemplo o tus propias imágenes. El modo 2.5D intenta separar una imagen con IA local y puede necesitar correcciones. El modo 3D crea el modelo en VRoid Studio externo; aún no se carga directamente en el overlay de VTuberBot.",
+            12, "#98A4BE"));
+
+        Button startLocalSegmentation = null!;
+        Button cancelLocalSegmentation = null!;
+        var localSegmentationStatus = Label(
+            "Listo. PNGTuber recomendado para empezar. Para 2.5D, el modelo local es experimental y separa tres clases aproximadas.",
+            12, "#98A4BE");
+        var localSegmentationProgress = new ProgressBar
+        {
+            Minimum = 0,
+            Maximum = 100,
+            Height = 8,
+            Margin = new Thickness(0, 8, 0, 8),
+            IsIndeterminate = false
+        };
+
+        var beginnerActions = new WrapPanel();
+        beginnerActions.Children.Add(ActionButton("1 · PNGTuber de ejemplo", (_, _) =>
+            LoadDemoProfile("Ejemplo PNGTuber", layered: false), true));
+        beginnerActions.Children.Add(ActionButton("PNGTuber con mis imágenes", async (_, _) =>
+            await CreateSimplePngTuberAsync()));
+        startLocalSegmentation = ActionButton("2 · 2.5D con IA local", async (_, _) =>
+            await StartLocalAvatarSegmentationAsync());
+        beginnerActions.Children.Add(startLocalSegmentation);
+        beginnerActions.Children.Add(ActionButton("3 · Crear modelo 3D en VRoid", (_, _) =>
+            OpenAvatarExternalTool("https://vroid.com/en/studio", "VRoid Studio")));
+        cancelLocalSegmentation = ActionButton("Cancelar IA", (_, _) =>
+            activeLocalAvatarSegmentation?.Cancel());
+        cancelLocalSegmentation.IsEnabled = false;
+        beginnerActions.Children.Add(cancelLocalSegmentation);
+        beginnerPanel.Children.Add(beginnerActions);
+        beginnerPanel.Children.Add(localSegmentationProgress);
+        beginnerPanel.Children.Add(localSegmentationStatus);
+        root.Children.Add(beginnerPanel);
+
         var profilePanel = Panel("Perfiles de avatar");
         profilePanel.Margin = new Thickness(0, 0, 0, 14);
         profilePanel.Children.Add(Label("Cada perfil conserva su imagen base, capas, transformaciones y sprites de expresión.", 12, "#98A4BE"));
@@ -185,10 +226,21 @@ public partial class MainWindow
             if (profilePicker.SelectedItem is AvatarProfile profile && profile.Id != store.GetActiveAvatarProfile().Id)
                 SwitchToProfile(profile);
         };
-        root.Children.Add(profilePanel);
-        root.Children.Add(profileActions);
+        var profileManagement = new StackPanel();
+        profileManagement.Children.Add(profilePanel);
+        profileManagement.Children.Add(profileActions);
+        root.Children.Add(new Expander
+        {
+            Header = "Opciones avanzadas de perfil (duplicar, importar, exportar o eliminar)",
+            Content = profileManagement,
+            IsExpanded = false,
+            Foreground = Brush("#F8FAFC"),
+            Background = Brush("#161F33"),
+            Padding = new Thickness(10),
+            Margin = new Thickness(0, 0, 0, 14)
+        });
 
-        var demoPanel = Panel("Empezar con un ejemplo incluido");
+        var demoPanel = Panel("Más ejemplos incluidos");
         demoPanel.Margin = new Thickness(0, 0, 0, 14);
         demoPanel.Children.Add(Label(
             "Ahora puedes probar el avatar sin buscar imágenes externas. PNGTuber integrado alterna sprites de reposo/habla con el micrófono. 2D por capas separa el flequillo y los destellos para que puedas moverlos, escalarlos y rotarlos. Son demostraciones 2D con movimiento ligero: no son un rig Live2D, no incluyen seguimiento facial ni huesos.",
@@ -202,58 +254,132 @@ public partial class MainWindow
         demoPanel.Children.Add(demoActions);
         root.Children.Add(demoPanel);
 
-        var localSegmentationPanel = Panel("Modo local lento y seguro — IA sin subir tu imagen");
-        localSegmentationPanel.Margin = new Thickness(0, 0, 0, 14);
-        localSegmentationPanel.Children.Add(Label(
-            "Elegí una ilustración y VTuberBot intentará separar piel/cuerpo, ropa, cabello y detalles en PNG transparentes. Trabaja solo en CPU, a baja prioridad y con un único hilo de IA. El proceso de IA tiene un límite de memoria de 2 GiB y un máximo de 10 minutos; si toca uno de esos límites, se detiene sin cerrar el bot. La primera vez descarga un modelo de 8,7 MB; después trabaja localmente.",
-            12, "#98A4BE"));
-        var localSegmentationStatus = Label(
-            "Preparado. Usá una ilustración con el personaje bien visible y un fondo sencillo; la segmentación anime es experimental.",
-            12, "#98A4BE");
-        var localSegmentationProgress = new ProgressBar
-        {
-            Minimum = 0,
-            Maximum = 100,
-            Height = 10,
-            Margin = new Thickness(0, 8, 0, 8),
-            IsIndeterminate = false
-        };
-        var localSegmentationActions = new WrapPanel();
-        Button startLocalSegmentation = null!;
-        Button cancelLocalSegmentation = null!;
-        startLocalSegmentation = ActionButton("Elegir imagen y separar localmente", async (_, _) =>
-            await StartLocalAvatarSegmentationAsync(), true);
-        cancelLocalSegmentation = ActionButton("Cancelar procesamiento", (_, _) =>
-            activeLocalAvatarSegmentation?.Cancel());
-        cancelLocalSegmentation.IsEnabled = false;
-        localSegmentationActions.Children.Add(startLocalSegmentation);
-        localSegmentationActions.Children.Add(cancelLocalSegmentation);
-        localSegmentationPanel.Children.Add(localSegmentationActions);
-        localSegmentationPanel.Children.Add(localSegmentationProgress);
-        localSegmentationPanel.Children.Add(localSegmentationStatus);
-        root.Children.Add(localSegmentationPanel);
 
-        var imageToAvatarPanel = Panel("Modo remoto de mayor calidad (requiere subir la imagen)");
+        var imageToAvatarPanel = Panel("Separación remota de mayor calidad (requiere subir la imagen)");
         imageToAvatarPanel.Margin = new Thickness(0, 0, 0, 14);
         imageToAvatarPanel.Children.Add(Label(
-            "Alternativa remota para intentar una separación más avanzada con reconstrucción de partes ocultas. Se abre en el navegador y requiere subir la ilustración. Para imágenes privadas o para no depender de internet, usá el modo local anterior.",
+            "Alternativa más avanzada: intenta reconstruir partes ocultas usando un servicio web. Solo usala si aceptás subir la ilustración a un tercero. Para conservar la imagen en tu PC, elegí el modo local del panel principal.",
             12, "#98A4BE"));
         var imageToAvatarActions = new WrapPanel();
-        imageToAvatarActions.Children.Add(ActionButton("1 · Separar imagen automáticamente", (_, _) =>
+        imageToAvatarActions.Children.Add(ActionButton("Abrir separador online", (_, _) =>
             OpenAvatarExternalTool(
                 "https://huggingface.co/spaces/24yearsold/see-through-demo",
                 "Separador automático de imágenes"), true));
-        imageToAvatarActions.Children.Add(ActionButton("2 · Animar el PSD como VTuber", (_, _) =>
+        imageToAvatarActions.Children.Add(ActionButton("Abrir animador 2.5D", (_, _) =>
             OpenAvatarExternalTool(
                 "https://852wa.github.io/Anime2.5DRig/",
                 "Animador de avatar 2.5D")));
         imageToAvatarPanel.Children.Add(imageToAvatarActions);
         imageToAvatarPanel.Children.Add(Label(
-            "Cómo usarlo: (1) abre el separador y carga tu PNG/JPG; (2) descarga el PSD por capas; (3) abre el animador y carga ese PSD. Este camino puede reconstruir más zonas, pero requiere conexión y subir la imagen. La versión local incluida es más pequeña y privada, aunque reconoce menos categorías y puede requerir correcciones.",
+            "El PSD se descarga y se carga manualmente en el animador. Esta función no importa PSD automáticamente al overlay de VTuberBot.",
             12, "#98A4BE"));
-        root.Children.Add(imageToAvatarPanel);
 
-        root.Children.Add(BuildModularWardrobePanel());
+        var advancedTools = new StackPanel();
+        advancedTools.Children.Add(demoPanel);
+        advancedTools.Children.Add(imageToAvatarPanel);
+        advancedTools.Children.Add(BuildModularWardrobePanel());
+        root.Children.Add(new Expander
+        {
+            Header = "Personalización avanzada (capas, ropa, colores y herramientas externas)",
+            Content = advancedTools,
+            IsExpanded = false,
+            Foreground = Brush("#F8FAFC"),
+            Background = Brush("#161F33"),
+            Padding = new Thickness(10),
+            Margin = new Thickness(0, 0, 0, 14)
+        });
+
+        async Task CreateSimplePngTuberAsync()
+        {
+            var idleDialog = new OpenFileDialog
+            {
+                Title = "Elegí la imagen de reposo de tu PNGTuber",
+                Filter = "Imágenes PNG/JPG/BMP | *.png;*.jpg;*.jpeg;*.bmp",
+                Multiselect = false
+            };
+            if (idleDialog.ShowDialog(this) != true)
+                return;
+
+            string ValidateAndCopy(string sourcePath, string targetFolder)
+            {
+                var info = new FileInfo(sourcePath);
+                var extension = Path.GetExtension(sourcePath).ToLowerInvariant();
+                if (!info.Exists || info.Length <= 0 || info.Length > 25 * 1024 * 1024)
+                    throw new InvalidDataException("Cada imagen debe existir y ocupar menos de 25 MB.");
+                if (extension is not ".png" and not ".jpg" and not ".jpeg" and not ".bmp")
+                    throw new InvalidDataException("Formato no admitido. Elegí PNG, JPG o BMP.");
+                _ = LoadImage(sourcePath);
+                var folder = Path.Combine(avatarDirectory, "art-library", targetFolder);
+                Directory.CreateDirectory(folder);
+                var destination = Path.Combine(folder,
+                    "pngtuber-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture)
+                    + "-" + Guid.NewGuid().ToString("N") + extension);
+                File.Copy(sourcePath, destination, overwrite: false);
+                return destination;
+            }
+
+            string? talkingSource = null;
+            var talkingChoice = MessageBox.Show(
+                this,
+                "¿Tenés una segunda imagen con la boca abierta para cuando hablás?\n\nSí: elegir una segunda imagen.\nNo: usar la misma imagen en reposo y hablando.",
+                "Imagen de hablando (opcional)",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Question);
+            if (talkingChoice == MessageBoxResult.Cancel)
+                return;
+            if (talkingChoice == MessageBoxResult.Yes)
+            {
+                var talkingDialog = new OpenFileDialog
+                {
+                    Title = "Elegí la imagen de hablando (boca abierta)",
+                    Filter = "Imágenes PNG/JPG/BMP | *.png;*.jpg;*.jpeg;*.bmp",
+                    Multiselect = false
+                };
+                if (talkingDialog.ShowDialog(this) != true)
+                    return;
+                talkingSource = talkingDialog.FileName;
+            }
+
+            var suggestedName = Path.GetFileNameWithoutExtension(idleDialog.FileName);
+            if (suggestedName.Length > 45) suggestedName = suggestedName[..45];
+            var profileName = PromptProfileName("Crear mi primer PNGTuber", suggestedName + " PNGTuber");
+            if (profileName is null)
+                return;
+
+            try
+            {
+                localSegmentationStatus.Text = "Preparando tu PNGTuber...";
+                var idlePath = ValidateAndCopy(idleDialog.FileName, "base");
+                var talkingPath = talkingSource is null
+                    ? idlePath
+                    : ValidateAndCopy(talkingSource, "expressions");
+
+                var profile = store.CreateAvatarProfile(profileName, duplicateActiveProfile: false);
+                store.SetActiveAvatarProfile(profile.Id);
+                store.SetActiveAvatarProfileBasePath(idlePath);
+                store.SetAvatarExpression("Idle", idlePath);
+                store.SetAvatarExpression("Talking", talkingPath);
+                avatarPath = idlePath;
+                store.SetSetting("avatar.state", "Idle");
+                store.Log("Avatar", "Creado PNGTuber sencillo desde imágenes propias: " + profileName + ".");
+                FooterStatus.Text = talkingSource is null
+                    ? "PNGTuber creado. Para animar la boca, añadí después un sprite de hablando."
+                    : "PNGTuber creado con sprites de reposo y hablando.";
+                localSegmentationStatus.Text = talkingSource is null
+                    ? "PNGTuber listo. Con una imagen es estático; añadí una imagen de boca abierta para alternar al hablar."
+                    : "PNGTuber listo: las imágenes de reposo y hablando se alternan con el detector del micrófono.";
+                Navigate("Avatar Studio");
+                ShowOverlay();
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this,
+                    "No se pudo crear el PNGTuber: " + exception.GetBaseException().Message,
+                    "Crear PNGTuber",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+        }
 
         async Task StartLocalAvatarSegmentationAsync()
         {
