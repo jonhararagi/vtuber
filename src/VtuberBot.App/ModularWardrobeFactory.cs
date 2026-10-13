@@ -600,6 +600,79 @@ internal static class ModularWardrobeFactory
         }
     }
 
+
+    /// <summary>
+    /// Recolors the mid-tones of a transparent PNG while preserving its alpha, dark outlines and light highlights.
+    /// Assets are written to a separate local folder so the original catalog PNGs are never modified.
+    /// </summary>
+    public static string TintPng(string sourcePath, string destinationDirectory, Color tint)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationDirectory);
+        if (!File.Exists(sourcePath))
+            throw new FileNotFoundException("No se encontró la pieza que se desea recolorear.", sourcePath);
+
+        Directory.CreateDirectory(destinationDirectory);
+        var suffix = $"{tint.R:X2}{tint.G:X2}{tint.B:X2}";
+        var destinationPath = Path.Combine(
+            Path.GetFullPath(destinationDirectory),
+            Path.GetFileNameWithoutExtension(sourcePath) + "-" + suffix + ".png");
+
+        var input = new BitmapImage();
+        input.BeginInit();
+        input.CacheOption = BitmapCacheOption.OnLoad;
+        input.UriSource = new Uri(Path.GetFullPath(sourcePath), UriKind.Absolute);
+        input.EndInit();
+        input.Freeze();
+
+        BitmapSource pixelsSource = new FormatConvertedBitmap(input, PixelFormats.Bgra32, null, 0);
+        var width = pixelsSource.PixelWidth;
+        var height = pixelsSource.PixelHeight;
+        var stride = checked(width * 4);
+        var pixels = new byte[checked(stride * height)];
+        pixelsSource.CopyPixels(pixels, stride, 0);
+
+        for (var i = 0; i < pixels.Length; i += 4)
+        {
+            var alpha = pixels[i + 3];
+            if (alpha == 0)
+                continue;
+
+            var blue = pixels[i];
+            var green = pixels[i + 1];
+            var red = pixels[i + 2];
+            var luminance = (red * 0.2126) + (green * 0.7152) + (blue * 0.0722);
+
+            // Protect dark linework and near-white shine so recolors keep the illustrated style.
+            if (luminance < 42 || luminance > 244)
+                continue;
+
+            var brightness = 0.34 + 0.66 * (luminance / 255.0);
+            var targetRed = tint.R * brightness;
+            var targetGreen = tint.G * brightness;
+            var targetBlue = tint.B * brightness;
+            var mix = luminance < 82 ? 0.42 : luminance > 218 ? 0.48 : 0.84;
+
+            pixels[i] = ToByte(blue * (1 - mix) + targetBlue * mix);
+            pixels[i + 1] = ToByte(green * (1 - mix) + targetGreen * mix);
+            pixels[i + 2] = ToByte(red * (1 - mix) + targetRed * mix);
+        }
+
+        var outputBitmap = BitmapSource.Create(
+            width, height, pixelsSource.DpiX, pixelsSource.DpiY,
+            PixelFormats.Bgra32, null, pixels, stride);
+        outputBitmap.Freeze();
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(outputBitmap));
+        using (var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            encoder.Save(output);
+
+        return destinationPath;
+
+        static byte ToByte(double value) => (byte)Math.Clamp((int)Math.Round(value), 0, 255);
+    }
+
     private static void DrawStar(DrawingContext dc, Point center, double radius, Brush fill)
     {
         var points = new Point[10];
