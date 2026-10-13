@@ -102,12 +102,9 @@ internal static class LocalAvatarSegmentationWorker
         Report("Separando piel, ropa y cabello a 512 × 512...");
         var inputTensor = BuildInputTensor(bitmap);
         var inputName = session.InputMetadata.Keys.First();
-        using var inputs = new List<NamedOnnxValue>
-        {
-            NamedOnnxValue.CreateFromTensor(inputName,
-                new DenseTensor<float>(inputTensor, new[] { 1, 3, ModelSize, ModelSize }))
-        };
-        using var outputs = session.Run(inputs);
+        using var modelInput = NamedOnnxValue.CreateFromTensor(inputName,
+            new DenseTensor<float>(inputTensor, new[] { 1, 3, ModelSize, ModelSize }));
+        using var outputs = session.Run(new[] { modelInput });
         var output = outputs.FirstOrDefault()
             ?? throw new InvalidDataException("El modelo no devolvió una máscara de segmentación.");
         var scores = output.AsTensor<float>().ToArray();
@@ -399,7 +396,12 @@ internal static class LocalAvatarSegmentationWorker
     }
 
     private static void Report(string message) => WriteLine("INFO\t" + message);
-    private static void ReportError(string message) => WriteLine("ERROR\t" + message);
+    private static void ReportError(string message)
+    {
+        WriteLine("ERROR\t" + message);
+        try { Console.Error.WriteLine(message); Console.Error.Flush(); }
+        catch { }
+    }
 
     private static void WriteLine(string value)
     {
@@ -517,8 +519,9 @@ internal static class LocalAvatarSegmentationRunner
         if (!File.Exists(manifestPath))
             throw new InvalidDataException("El trabajador terminó sin generar su manifiesto de capas.");
 
+        await using var manifestStream = File.OpenRead(manifestPath);
         var manifest = await JsonSerializer.DeserializeAsync<LocalAvatarSegmentationManifest>(
-            File.OpenRead(manifestPath), cancellationToken: CancellationToken.None).ConfigureAwait(false)
+            manifestStream, cancellationToken: CancellationToken.None).ConfigureAwait(false)
             ?? throw new InvalidDataException("No se pudo leer el manifiesto de capas.");
 
         var result = new LocalAvatarSegmentationResult(
