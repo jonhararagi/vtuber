@@ -196,12 +196,28 @@ public partial class MainWindow
         FooterStatus.Text = "Streamer.bot: " + snapshot.Message;
     }));
 
-    private void HandleStreamerBotEventReceived(StreamerBotEvent evt) => Dispatcher.BeginInvoke(new Action(() =>
+    private void HandleStreamerBotEventReceived(StreamerBotEvent evt)
     {
-        var normalized = $"Streamer.bot/{evt.Source}/{evt.Type}";
-        store.Log("Streamer.bot event", normalized);
-        FooterStatus.Text = "Evento recibido: " + normalized;
-    }));
+        // Publish synchronously to the bounded Core channel only; never await actions in the WebSocket receive loop.
+        try
+        {
+            eventActionCoordinator?.TryPublish(NormalizedBotEvent.Create(
+                "Streamer.bot", evt.Source, evt.Type, evt.Data,
+                originalTimestamp: evt.Timestamp, origin: NormalizedEventOrigin.External));
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or System.Text.Json.JsonException)
+        {
+            try { store.Log("Automatizaciones", "Evento de Streamer.bot rechazado (" + exception.GetType().Name + ")."); }
+            catch { }
+        }
+
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            var normalized = $"Streamer.bot/{evt.Source}/{evt.Type}";
+            store.Log("Streamer.bot event", normalized);
+            FooterStatus.Text = "Evento recibido: " + normalized;
+        }));
+    }
 
     private static bool IsLoopbackHost(string host) =>
         host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || host == "127.0.0.1" || host == "::1";
