@@ -216,13 +216,16 @@ public partial class MainWindow
                         throw new InvalidOperationException("El atajo no existe en el registro actual o está deshabilitado.");
                 }
                 var shouldEnable = enabled.IsChecked == true;
-                var confirmed = selectedRule?.ExternalActionConfirmed == true;
+                var confirmed = selectedRule?.ExternalActionConfirmed == true &&
+                    string.Equals(selectedRule.ConfirmedTargetId, targetId, StringComparison.OrdinalIgnoreCase);
+                string? confirmedTargetId = confirmed ? targetId : null;
                 if (shouldEnable && dest == EventActionDestination.StreamerBot && !confirmed)
                 {
                     var targetName = target.SelectedItem is ComboBoxItem item ? item.Content?.ToString() : targetId;
                     var answer = MessageBox.Show($"Esta regla podrá solicitar una acción externa de Streamer.bot:\n\n{targetName}\n\nEl efecto posterior en OBS no está garantizado. ¿Confirmás este destino para automatización?", "Confirmar acción externa", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (answer != MessageBoxResult.Yes) { enabled.IsChecked = false; return; }
                     confirmed = true;
+                    confirmedTargetId = targetId;
                 }
                 IReadOnlyList<EventActionCondition> conditions = string.IsNullOrWhiteSpace(conditionPath.Text)
                     ? Array.Empty<EventActionCondition>()
@@ -239,7 +242,7 @@ public partial class MainWindow
                     throw new InvalidOperationException("Este tipo interno todavía no se ha observado en un evento EventSub real; no se puede validar todavía.");
                 var saved = coordinator.SaveRule(new EventActionRule(editingId ?? Guid.NewGuid(), name.Text,
                     shouldEnable, selectedSource, category.Text, eventType.Text, conditions,
-                    dest, targetId, cooldownSeconds, maxPerMinute, confirmed));
+                    dest, targetId, cooldownSeconds, maxPerMinute, confirmed, confirmedTargetId));
                 selectedRule = saved; editingId = saved.Id;
                 ReloadRules(); status.Text = "Regla guardada en SQLite. No se envió ninguna tecla ni se ejecutó una acción al guardar.";
                 await ReconcileStreamerBotSubscriptionsAsync();
