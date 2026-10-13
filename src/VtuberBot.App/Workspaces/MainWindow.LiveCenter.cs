@@ -16,7 +16,7 @@ public partial class MainWindow
             {
                 if (string.IsNullOrWhiteSpace(avatarPath) || !File.Exists(avatarPath))
                     return false;
-                var path = store.GetAvatarExpression(expression);
+                var path = expression == "Idle" ? avatarPath : store.GetAvatarExpression(expression);
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                     return false;
                 store.SetSetting("avatar.state", expression);
@@ -98,7 +98,8 @@ public partial class MainWindow
                     return;
                 }
                 outputStatus.Text = $"Expresión {state} aplicada al renderizador público.";
-                preview.Source = AvatarImageLoader.Load(store.GetAvatarExpression(state) ?? avatarPath!, 420);
+                var selectedPath = store.GetAvatarExpression(state);
+                preview.Source = AvatarImageLoader.Load(!string.IsNullOrWhiteSpace(selectedPath) && File.Exists(selectedPath) ? selectedPath : avatarPath!, 420);
                 currentExpression = state;
             });
             button.IsEnabled = hasSprite;
