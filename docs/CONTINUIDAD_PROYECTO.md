@@ -23,7 +23,7 @@
 - El ejemplo PNGTuber crea sprites completos Idle, Talking, Blink, Happy y Surprised en un perfil separado.
 - El ejemplo 2D crea un perfil separado con sprites alineados y capas transparentes de flequillo y destellos que se pueden mover, escalar y rotar. Los perfiles propios no se sobrescriben; si el perfil de ejemplo ya existe, el botón lo activa en lugar de recrearlo.
 - **Límites explícitos:** son sprites 2D y movimiento/parallax ligero, no un rig Live2D, no deformación ósea ni seguimiento facial por cámara. PNGTuber Plus continúa siendo una aplicación de terceros que el usuario instala separadamente.
-- **Pendiente hasta CI:** compilar con Windows, ejecutar las pruebas, generar el ZIP correspondiente al HEAD final y comprobar que los assets generados se muestran tanto en Avatar Studio como en el overlay. No afirmar que el usuario ya recibió esta corrección en el ZIP anterior.
+- **CI de la implementación:** Windows CI #569 para SHA `834a54c2e641ff7d5812a06ddfefa35c8a9ba77a` terminó **SUCCESS**: restore, compilación Release, pruebas automáticas, publicación self-contained win-x64 y subida del artefacto. [Ejecución #569](https://github.com/jonhararagi/vtuber/actions/runs/38447651443) · [ZIP #11839366497](https://github.com/jonhararagi/vtuber/actions/runs/38447651443/artifacts/11839366497) · 78,077,972 bytes · SHA-256 `9449c6f68eb03c303f509778c0ec740e4a4851a2de799538a8ad3dae5775cc81` · expira el 2026-10-27 18:34:55 UTC. La compilación/pruebas validan ese SHA; todavía no hay prueba visual manual en el PC del usuario.
 ## 2. Historial de trabajo
 
 ### 2026-10-12 — Corrección de versión V0.2.3 y guía manual
