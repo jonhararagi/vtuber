@@ -76,3 +76,10 @@ La sección **Bot social** reutiliza el cliente IRC/TLS de Twitch ya existente y
 - Las colas y los límites son acotados. Una respuesta generada no se considera publicada hasta que el cliente Twitch acepta el envío; esto tampoco confirma que los espectadores la hayan leído.
 
 **Estado de verificación:** el código y las pruebas simuladas no sustituyen la prueba manual con Twitch autenticado, Windows SAPI y un modelo local instalado. No declarar la integración en tiempo real como validada hasta revisar Windows CI del SHA final y realizar esas pruebas manuales.
+
+
+## Emisiones a Twitch y YouTube desde OBS
+
+La página **OBS** puede configurar la salida RTMPS principal de OBS para Twitch o YouTube mediante `SetStreamServiceSettings`; no necesita un segundo cliente de emisión ni guarda las claves en SQLite. Las claves se protegen mediante DPAPI para el usuario actual de Windows. La aplicación debe estar conectada a OBS WebSocket y la transmisión debe estar detenida para cambiar el destino. Guía paso a paso: [Transmisión a Twitch y YouTube](STREAMING-YOUTUBE-TWITCH.md).
+
+**Emisión simultánea:** la salida nativa de OBS es un destino. La doble salida necesita un complemento multi-RTMP de terceros instalado por el usuario; VTuberBot no lo instala ni controla directamente su panel. Hay que comprobar que el complemento sea compatible con la versión local de OBS. El CI de VTuberBot no prueba una transmisión real a Twitch/YouTube ni la compatibilidad de un plugin externo.
