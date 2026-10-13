@@ -403,12 +403,26 @@ public partial class MainWindow : Window
 
     private void Refresh_Click(object sender, RoutedEventArgs e) => Navigate(currentPage);
 
+    private static IEnumerable<Button> EnumerateNavigationButtons(DependencyObject root)
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(root))
+        {
+            if (child is Button button)
+                yield return button;
+            if (child is DependencyObject nested)
+            {
+                foreach (var descendant in EnumerateNavigationButtons(nested))
+                    yield return descendant;
+            }
+        }
+    }
+
     private void Navigate(string page)
     {
         DetachLiveCenterHandlers();
         dashboardMetricsTimer?.Stop();
         currentPage = Pages.Contains(page, StringComparer.Ordinal) ? page : "Inicio";
-        foreach (var navigationButton in NavigationPanel.Children.OfType<Button>())
+        foreach (var navigationButton in EnumerateNavigationButtons(NavigationPanel))
         {
             var selected = string.Equals(navigationButton.Tag as string, currentPage, StringComparison.Ordinal);
             navigationButton.Background = Brush(selected ? "#173A4A" : "#161D2E");
