@@ -67,9 +67,13 @@ public sealed class LocalOpenAiCompatibleProvider : IChatIntelligenceProvider, I
             return new(false, "", "Timeout", "El servidor local agotó el tiempo de comprobación.");
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or UriFormatException or InvalidOperationException)
+        catch (JsonException)
         {
-            return new(false, "", "Unavailable", ex is JsonException ? "El servidor devolvió JSON inválido." : ex.Message);
+            return new(false, "", "InvalidResponse", "El servidor devolvió JSON inválido.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or UriFormatException or InvalidOperationException)
+        {
+            return new(false, "", "Unavailable", ex.Message);
         }
     }
 
@@ -126,9 +130,13 @@ public sealed class LocalOpenAiCompatibleProvider : IChatIntelligenceProvider, I
             return new(false, "", "Timeout", "La generación local agotó el tiempo configurado.");
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or UriFormatException or InvalidOperationException)
+        catch (JsonException)
         {
-            return new(false, "", "Unavailable", ex is JsonException ? "El servidor devolvió JSON inválido." : ex.Message);
+            return new(false, "", "InvalidResponse", "El servidor devolvió JSON inválido.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or UriFormatException or InvalidOperationException)
+        {
+            return new(false, "", "Unavailable", ex.Message);
         }
     }
 
