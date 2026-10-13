@@ -395,7 +395,8 @@ internal static class LocalAvatarSegmentationWorker
         return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
     }
 
-    private static void Report(string message) => WriteLine("INFO\t" + message);
+    private static void Report(string message) =>
+        WriteLine(message.StartsWith("TERMINADO\t", StringComparison.Ordinal) ? message : "INFO\t" + message);
     private static void ReportError(string message)
     {
         WriteLine("ERROR\t" + message);
