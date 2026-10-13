@@ -48,7 +48,7 @@ public sealed class SocialBotService : IAsyncDisposable
         worker = Task.Run(ProcessQueueAsync);
     }
 
-    public int PendingConversations => Math.Max(0, 64 - conversations.Reader.Count);
+    public int PendingConversations => conversations.Reader.Count;
 
     public void OnChatMessage(string username, string text, string channel)
     {
@@ -61,8 +61,10 @@ public sealed class SocialBotService : IAsyncDisposable
 
         var botName = store.GetSetting("social.bot.name", "VTuberBot").Trim();
         var channelLogin = channel.Trim().TrimStart('#');
+        var configuredBotLogin = store.GetSetting("twitch.bot.login", channelLogin).Trim();
+        if (configuredBotLogin.Length == 0) configuredBotLogin = channelLogin;
         if (username.Equals(botName, StringComparison.OrdinalIgnoreCase) ||
-            username.Equals(store.GetSetting("twitch.bot.login", channelLogin), StringComparison.OrdinalIgnoreCase))
+            username.Equals(configuredBotLogin, StringComparison.OrdinalIgnoreCase))
             return;
 
         if (store.GetSetting("social.tts.enabled", "false") == "true" && ShouldRead(username, text))
