@@ -224,14 +224,14 @@ public sealed class StreamerBotWebSocketTests
         var port = ReservePort();
         using var listener = new HttpListener();
         listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
-        var requestSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requestSeen = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var server = Task.Run(async () =>
         {
             var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5));
             using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
             await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"cancel","name":"Test","version":"1","os":"windows"}}""");
             using var request = await ReceiveJsonAsync(socket);
-            requestSeen.TrySetResult();
+            requestSeen.TrySetResult(true);
             await Task.Delay(500);
         });
         await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
@@ -256,6 +256,7 @@ public sealed class StreamerBotWebSocketTests
             var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5));
             using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
             await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"json","name":"Test","version":"1","os":"windows"}}""");
+            await Task.Delay(100);
             await SendTextAsync(socket, "{this is not json");
             await Task.Delay(200);
         });
@@ -298,8 +299,8 @@ public sealed class StreamerBotWebSocketTests
     private static async Task WaitForStateAsync(IStreamerBotClient client, StreamerBotConnectionState state)
     {
         if (client.Snapshot.State == state) return;
-        var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        void Handler(StreamerBotConnectionSnapshot snapshot) { if (snapshot.State == state) changed.TrySetResult(); }
+        var changed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Handler(StreamerBotConnectionSnapshot snapshot) { if (snapshot.State == state) changed.TrySetResult(true); }
         client.StateChanged += Handler;
         try { await changed.Task.WaitAsync(TimeSpan.FromSeconds(3)); }
         finally { client.StateChanged -= Handler; }
