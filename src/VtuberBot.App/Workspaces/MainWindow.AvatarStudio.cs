@@ -654,6 +654,66 @@ public partial class MainWindow
         panel.Children.Add(Label("5 · Espalda / capa / alas / mochila", 12, "#F8FAFC", true));
         panel.Children.Add(back);
 
+        var colorPanel = Panel("Configurar colores por zona");
+        colorPanel.Margin = new Thickness(0, 10, 0, 12);
+        colorPanel.Children.Add(Label(
+            "Escribí un color hexadecimal (#RRGGBB) o elegí una muestra. Cada zona se recolorea por separado; dejala vacía o pulsa «Original» para conservar sus colores. El contorno oscuro y los brillos claros se protegen.",
+            12, "#98A4BE"));
+
+        var colorInputs = new Dictionary<string, TextBox>(StringComparer.OrdinalIgnoreCase);
+        void AddColorRow(string area, string title)
+        {
+            var row = new WrapPanel { Margin = new Thickness(0, 5, 0, 5), VerticalAlignment = VerticalAlignment.Center };
+            var label = Label(title, 12, "#F8FAFC", true);
+            label.Width = 150;
+            label.VerticalAlignment = VerticalAlignment.Center;
+            row.Children.Add(label);
+
+            var settingKey = "avatar.wardrobe.custom-tint." + area;
+            var input = new TextBox
+            {
+                Text = store.GetSetting(settingKey, string.Empty),
+                Width = 94,
+                Height = 28,
+                Padding = new Thickness(5, 3, 5, 3),
+                Margin = new Thickness(0, 0, 8, 0),
+                Background = Brush("#101525"),
+                Foreground = Brush("#F8FAFC"),
+                BorderBrush = Brush("#34415E"),
+                ToolTip = "Escribí #RRGGBB o dejalo vacío para usar el color original."
+            };
+            colorInputs[area] = input;
+            row.Children.Add(input);
+
+            foreach (var hex in new[] { "#E65E78", "#D85CA8", "#9576DF", "#3B82F6", "#42B9B0", "#E8C35D" })
+            {
+                var swatch = new Button
+                {
+                    Content = " ",
+                    Width = 22,
+                    Height = 22,
+                    Padding = new Thickness(0),
+                    Margin = new Thickness(2, 2, 2, 2),
+                    Background = Brush(hex),
+                    BorderBrush = Brush("#C7D2E5"),
+                    BorderThickness = new Thickness(1),
+                    ToolTip = hex
+                };
+                swatch.Click += (_, _) => input.Text = hex;
+                row.Children.Add(swatch);
+            }
+
+            row.Children.Add(ActionButton("Original", (_, _) => input.Clear()));
+            colorPanel.Children.Add(row);
+        }
+
+        AddColorRow("hair", "Cabello");
+        AddColorRow("outfit", "Ropa / conjunto");
+        AddColorRow("head", "Accesorio de cabeza");
+        AddColorRow("face", "Cara / joyería");
+        AddColorRow("back", "Espalda / alas / capa");
+        panel.Children.Add(colorPanel);
+
         var summary = Label("", 12, "#69E4D0", true);
         panel.Children.Add(summary);
 
@@ -687,7 +747,37 @@ public partial class MainWindow
                 return;
             }
 
-            CreateModularWardrobeProfile(selectedHair, selectedOutfit, selectedHead, selectedFace, selectedBack);
+            var customTints = new Dictionary<string, Color?>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (var pair in colorInputs)
+                {
+                    var raw = pair.Value.Text.Trim();
+                    Color? parsed = null;
+                    if (!string.IsNullOrWhiteSpace(raw))
+                    {
+                        var hex = raw.StartsWith('#') ? raw[1..] : raw;
+                        if (hex.Length != 6 || !hex.All(Uri.IsHexDigit))
+                            throw new FormatException($"El color de «{pair.Key}» debe tener formato #RRGGBB, por ejemplo #E65E78.");
+
+                        parsed = Color.FromRgb(
+                            Convert.ToByte(hex[..2], 16),
+                            Convert.ToByte(hex.Substring(2, 2), 16),
+                            Convert.ToByte(hex.Substring(4, 2), 16));
+                        pair.Value.Text = $"#{parsed.Value.R:X2}{parsed.Value.G:X2}{parsed.Value.B:X2}";
+                    }
+
+                    customTints[pair.Key] = parsed;
+                    store.SetSetting("avatar.wardrobe.custom-tint." + pair.Key, pair.Value.Text.Trim());
+                }
+            }
+            catch (FormatException exception)
+            {
+                MessageBox.Show(this, exception.Message, "Color no válido", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            CreateModularWardrobeProfile(selectedHair, selectedOutfit, selectedHead, selectedFace, selectedBack, customTints);
         }, true));
 
         panel.Children.Add(Label(
@@ -701,12 +791,19 @@ public partial class MainWindow
         WardrobeOption outfit,
         WardrobeOption head,
         WardrobeOption face,
-        WardrobeOption back)
+        WardrobeOption back,
+        IReadOnlyDictionary<string, Color?> customTints)
     {
         try
         {
             var assets = ModularWardrobeFactory.EnsureAssets(avatarDirectory);
-            var baseName = "Armario - " + outfit.Name;
+            var customColorDirectory = Path.Combine(avatarDirectory, "builtin-demos", "wardrobe-custom-colors");
+            string ApplyTint(string area, string sourcePath) =>
+                customTints.TryGetValue(area, out var tint) && tint.HasValue
+                    ? ModularWardrobeFactory.TintPng(sourcePath, customColorDirectory, tint.Value)
+                    : sourcePath;
+            var hasCustomColors = customTints.Values.Any(tint => tint.HasValue);
+            var baseName = "Armario - " + outfit.Name + (hasCustomColors ? " personalizado" : string.Empty);
             var profileName = baseName;
             var existingNames = store.GetAvatarProfiles()
                 .Select(profile => profile.Name)
@@ -728,21 +825,21 @@ public partial class MainWindow
             store.SetAvatarExpression("Surprised", assets.BaseSurprised);
 
             if (back.Id != "none-back")
-                store.AddAvatarLayer("Fondo · " + back.Name, assets.BackAccessories[back.Id]);
-            store.AddAvatarLayer("Ropa · " + outfit.Name, assets.Outfits[outfit.Id]);
-            store.AddAvatarLayer("Cabello · " + hair.Name, assets.Hair[hair.Id]);
+                store.AddAvatarLayer("Fondo · " + back.Name, ApplyTint("back", assets.BackAccessories[back.Id]));
+            store.AddAvatarLayer("Ropa · " + outfit.Name, ApplyTint("outfit", assets.Outfits[outfit.Id]));
+            store.AddAvatarLayer("Cabello · " + hair.Name, ApplyTint("hair", assets.Hair[hair.Id]));
             if (head.Id != "star-halo")
             {
                 // A halo is also a head layer, and uses the same common canvas as every other item.
                 if (assets.HeadAccessories.TryGetValue(head.Id, out var headPath))
-                    store.AddAvatarLayer("Cabeza · " + head.Name, headPath);
+                    store.AddAvatarLayer("Cabeza · " + head.Name, ApplyTint("head", headPath));
             }
             else if (assets.HeadAccessories.TryGetValue(head.Id, out var haloPath))
             {
                 store.AddAvatarLayer("Cabeza · " + head.Name, haloPath);
             }
             if (face.Id != "none-face" && assets.FaceAccessories.TryGetValue(face.Id, out var facePath))
-                store.AddAvatarLayer("Accesorio · " + face.Name, facePath);
+                store.AddAvatarLayer("Accesorio · " + face.Name, ApplyTint("face", facePath));
 
             avatarPath = assets.BaseIdle;
             store.SetSetting("avatar.state", "Idle");
