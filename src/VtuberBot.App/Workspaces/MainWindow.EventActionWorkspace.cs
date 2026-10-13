@@ -38,6 +38,8 @@ public partial class MainWindow
             try { Dispatcher.BeginInvoke(new Action(() => { FooterStatus.Text = warning; store.Log("Automatizaciones", warning); })); }
             catch (InvalidOperationException) { }
         };
+        foreach (var warning in eventActionCoordinator.StartupWarnings)
+            store.Log("Automatizaciones", warning);
     }
 
     private UIElement BuildEventActionWorkspace()
