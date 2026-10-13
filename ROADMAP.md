@@ -303,6 +303,6 @@ El run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040) so
 - [x] Persistir reglas en SQLite y validar límites; reglas nuevas desactivadas; prueba local de solo lectura/efectos sin Twitch.
 - [x] Añadir Centro de directo con controles privados y salida pública en `AvatarOverlayWindow`; expresiones dependientes de recursos PNG existentes; mantener TTS independiente.
 - [x] Documentar límites de envío IRC y prueba manual.
-- [ ] Validar Windows CI en el SHA final exacto, incluidos restore, build Release, suite completa y artefacto.
+- [x] Windows CI validada en SHA `188e8d208879822eda5d4ae6a53ca284172c29b7`: restore, build Release, 471/471 pruebas aprobadas, 0 fallidas, 0 omitidas y artefacto win-x64 asociado a ese SHA. Si cambia el SHA por una modificación posterior, se exige otra ejecución exacta.
 - [ ] Validación manual real en Windows con Twitch, OBS, SAPI y sprites de avatar.
 - No se prioriza ni se implementa agente autónomo de videojuegos; los minijuegos de Twitch existentes se mantienen.
