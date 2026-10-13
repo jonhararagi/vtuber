@@ -76,7 +76,8 @@ public sealed record EventActionActivity(
     string EventType,
     string Destination,
     string Message,
-    string CorrelationId);
+    string CorrelationId,
+    long Sequence = 0);
 
 public interface IEventActionDispatcher
 {
@@ -126,6 +127,7 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
     private int automaticPngtuberHotkeysAllowed;
     private int globalMaxExecutionsPerMinute;
     private int queueSaturationWarningPending;
+    private long activitySequence;
     private int disposed;
 
     public event Action<EventActionActivity>? ActivityChanged;
@@ -443,6 +445,7 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
 
     private void Record(EventActionActivity entry)
     {
+        entry = entry with { Sequence = Interlocked.Increment(ref activitySequence) };
         lock (activity)
         {
             activity.Enqueue(entry);
