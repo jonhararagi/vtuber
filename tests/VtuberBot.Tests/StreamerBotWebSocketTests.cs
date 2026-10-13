@@ -218,7 +218,7 @@ public sealed class StreamerBotWebSocketTests
         });
         await using var client = new StreamerBotWebSocketClient(TimeSpan.FromMilliseconds(150));
         await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), cancellationToken: TestContext.Current.CancellationToken);
-        await Assert.ThrowsAsync<TimeoutException>(() => client.GetActionsAsync());
+        await Assert.ThrowsAsync<TimeoutException>(() => client.GetActionsAsync(TestContext.Current.CancellationToken));
         Assert.Equal(StreamerBotConnectionState.Connected, client.Snapshot.State);
         await client.DisconnectAsync(TestContext.Current.CancellationToken);
         await server.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
