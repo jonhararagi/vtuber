@@ -34,6 +34,10 @@ dotnet test VtuberBot.sln --configuration Release
 dotnet run --project src/VtuberBot.App --configuration Release
 ```
 
+## Descargar el candidato de Windows
+
+No hace falta clonar ni compilar el repositorio para probar el paquete. Abrí [Windows CI de la rama de producto](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml?query=branch%3Aproduct%2Fcomplete-vtuber-experience), elegí la ejecución cuyo **Head SHA coincide exactamente** con el commit que querés probar, y descargá el ZIP en la sección **Artifacts**. Extraelo a una carpeta normal y ejecutá `VtuberBot.App.exe`. Revisá `BUILD-INFO.txt` dentro del paquete. El artefacto es temporal (retención configurada de 14 días); no es una release pública. Streamer.bot, PNGTuber Plus y otras aplicaciones externas se instalan por separado.
+
 ## Criterio de finalización
 
 El CI verde certifica únicamente la ejecución automatizada para el commit correspondiente. La aceptación del producto requiere además la integración real de las funciones descritas en PRODUCT_BLUEPRINT.md, sin botones muertos ni conexiones simuladas, seguida de una validación global en Windows.
