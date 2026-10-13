@@ -115,9 +115,10 @@ public partial class MainWindow
         var expressionButtons = new WrapPanel();
         foreach (var state in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" })
         {
-            var hasSprite = state == "Idle"
-                ? !string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath)
-                : File.Exists(store.GetAvatarExpression(state) ?? "");
+            var hasSprite = AvatarExpressionAvailabilityPolicy.IsAvailable(
+                state,
+                !string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath),
+                File.Exists(store.GetAvatarExpression(state) ?? ""));
             var button = ActionButton(state, (_, _) =>
             {
                 if (!SetChatReactionExpression(state))
