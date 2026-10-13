@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Threading.Channels;
 using VtuberBot.Core;
 
@@ -246,18 +247,22 @@ public sealed class ChatReactionService : IAsyncDisposable
         var now = DateTimeOffset.UtcNow;
         lock (rulesGate)
         {
-            if (!string.IsNullOrWhiteSpace(messageId))
+            var hasProviderId = !string.IsNullOrWhiteSpace(messageId);
+            var dedupeKey = hasProviderId
+                ? "id:" + messageId
+                : "fallback:" + username.ToLowerInvariant() + ":" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Normalize(message))));
+            var dedupeWindow = hasProviderId ? TimeSpan.FromMinutes(5) : TimeSpan.FromSeconds(2);
+            if (seenMessageIds.TryGetValue(dedupeKey, out var previouslySeen) && now - previouslySeen <= dedupeWindow)
             {
-                if (seenMessageIds.ContainsKey(messageId))
-                {
-                    result = new(now, "", username, "Duplicado", "El ID del mensaje ya se procesó.", simulated);
-                    return false;
-                }
-                seenMessageIds[messageId] = now;
-                foreach (var old in seenMessageIds.Where(x => now - x.Value > TimeSpan.FromMinutes(5)).Select(x => x.Key).ToArray())
-                    seenMessageIds.Remove(old);
-                while (seenMessageIds.Count > 2000) seenMessageIds.Remove(seenMessageIds.First().Key);
+                result = new(now, "", username, "Duplicado", "El evento de mensaje ya se procesó recientemente.", simulated);
+                return false;
             }
+            seenMessageIds[dedupeKey] = now;
+            foreach (var old in seenMessageIds.Where(x =>
+                now - x.Value > (x.Key.StartsWith("fallback:", StringComparison.Ordinal) ? TimeSpan.FromSeconds(2) : TimeSpan.FromMinutes(5)))
+                .Select(x => x.Key).ToArray())
+                seenMessageIds.Remove(old);
+            while (seenMessageIds.Count > 2000) seenMessageIds.Remove(seenMessageIds.First().Key);
             var rule = rules.FirstOrDefault(x => x.Enabled && Matches(x, message));
             if (rule is null) return false;
             if (globalCooldowns.TryGetValue(rule.Id, out var lastGlobal) && now - lastGlobal < TimeSpan.FromSeconds(rule.GlobalCooldownSeconds))
