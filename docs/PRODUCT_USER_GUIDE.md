@@ -2,6 +2,20 @@
 
 Esta guía corresponde al candidato integrado publicado en `main`. Las funciones externas no se consideran conectadas hasta completar la autenticación real.
 
+### Personalizar los colores del armario modular
+
+En Avatar Studio, dentro de «Armario modular», encontrarás el panel «Configurar colores por zona». Cada fila afecta solo a una categoría del nuevo perfil:
+
+- Cabello
+- Ropa / conjunto
+- Accesorio de cabeza
+- Cara / joyería
+- Espalda / alas / capa
+
+Escribí un color HEX como #E65E78 o elegí una de las muestras. «Original» limpia ese campo. Dejando una zona vacía, conserva los colores del diseño. Al pulsar «Crear perfil con esta combinación», se crean PNG teñidos separados: las imágenes del catálogo original no se sobrescriben y tus perfiles anteriores no se modifican. Si el color no tiene seis dígitos hexadecimales, la app avisa y no crea el perfil.
+
+El ajuste está pensado para las piezas originales del armario modular. No es un pincel para editar libremente cualquier región de un PNG importado. Para modelos externos o una ilustración propia, prepara capas PNG con transparencia en un editor como [Krita](https://krita.org/es/) e impórtalas desde Avatar Studio; revisa siempre la licencia antes de incluirlas en un paquete distribuible.
+
 ## Primer inicio y datos
 
 - Ejecutá `VtuberBot.App.exe` en Windows.
