@@ -2,6 +2,18 @@
 
 Esta guía corresponde al candidato integrado publicado en `main`. Las funciones externas no se consideran conectadas hasta completar la autenticación real.
 
+## Empezar: elegí tu tipo de VTuber
+
+No tenés que configurar nada técnico para empezar. En **Avatar Studio**, arriba de todo está la tarjeta «Empezá por acá — elegí tu tipo de VTuber».
+
+1. **PNGTuber (recomendado):** es la opción más sencilla y liviana. Elegí «PNGTuber de ejemplo» para probarlo enseguida o «PNGTuber con mis imágenes» para elegir una imagen de reposo y, opcionalmente, una segunda imagen con la boca abierta. Con una sola imagen queda estático al hablar; con dos el detector del micrófono alterna las imágenes.
+2. **2.5D con IA local:** elegí una ilustración y el programa intenta separar cabello, ropa, piel/cuerpo y detalles. La primera vez descarga el modelo pequeño y luego procesa la imagen localmente. Tiene un límite de 2 GiB para el proceso de IA y diez minutos; si el modelo falla o no reconoce bien las zonas, probá otra imagen o usá PNGTuber.
+3. **3D con VRoid:** abre [VRoid Studio](https://vroid.com/en/studio), un creador externo de modelos 3D. La importación y animación de VRM dentro del overlay de VTuberBot todavía no está implementada; esta opción sirve para comenzar a crear el modelo por separado, no para prometer que ya funciona dentro del bot.
+
+**Nuestra ruta recomendada para la primera versión es PNGTuber.** Se configura con una o dos imágenes, funciona con el overlay 2D actual y evita depender de un rig 3D o de una IA grande. 2.5D queda como experimento opcional; 3D puede incorporarse más adelante cuando tengamos un runtime VRM y sus pruebas.
+
+Las opciones de perfiles avanzados (importar/exportar/duplicar) y el armario de ropa/colores están plegados para no abrumar. Abrí «Opciones avanzadas de perfil» o «Personalización avanzada» solamente cuando las necesites.
+
 ### Personalizar los colores del armario modular
 
 En Avatar Studio, dentro de «Armario modular», encontrarás el panel «Configurar colores por zona». Cada fila afecta solo a una categoría del nuevo perfil:
@@ -28,15 +40,15 @@ El Dashboard muestra CPU y RAM reales del proceso cada dos segundos mientras est
 
 ### Probar un avatar sin traer imágenes externas
 
-1. Abrí **Avatar Studio** y usá los botones de la sección **Empezar con un ejemplo incluido**.
-2. **Probar ejemplo PNGTuber (reposo / habla)** crea un perfil con sprites para reposo, habla, parpadeo, alegría y sorpresa. Al configurar el micrófono, el detector acústico puede alternar Idle/Talking. Es un PNGTuber por estados, no un avatar con tracking facial.
-3. **Probar ejemplo 2D por capas** crea un perfil separado. El flequillo y los destellos son imágenes transparentes independientes: seleccioná una capa, arrastrala en la previsualización y guardá X/Y, escala o rotación. El overlay agrega un movimiento ligero, pero no es un rig Live2D con huesos, deformación facial o seguimiento por cámara.
+1. Abrí **Avatar Studio** y usá la tarjeta de inicio **Empezá por acá**.
+2. **PNGTuber de ejemplo** crea un perfil con sprites para reposo, habla, parpadeo, alegría y sorpresa. Al configurar el micrófono, el detector acústico puede alternar Idle/Talking. Es un PNGTuber por estados, no un avatar con tracking facial.
+3. El ejemplo 2D por capas está dentro de **Personalización avanzada** y crea un perfil separado. El flequillo y los destellos son imágenes transparentes independientes: seleccioná una capa, arrastrala en la previsualización y guardá X/Y, escala o rotación. El overlay agrega un movimiento ligero, pero no es un rig Live2D con huesos, deformación facial o seguimiento por cámara.
 4. Los sprites de demostración se generan localmente la primera vez. No hace falta descargar arte, configurar una API ni sobrescribir tus perfiles propios. Al pulsar de nuevo un ejemplo ya creado, se activa el perfil existente sin borrar tus cambios.
-5. **Configurar PNGTuber Plus externo** abre su página de configuración. PNGTuber Plus es otra aplicación y necesita instalarse aparte; el botón de ejemplo integrado no pretende simular que esa aplicación ya está instalada.
+5. La opción avanzada **Configurar PNGTuber Plus externo** abre su página de configuración. PNGTuber Plus es otra aplicación y necesita instalarse aparte; el botón de ejemplo integrado no pretende simular que esa aplicación ya está instalada.
 
 ### Modo local lento y seguro: separar una ilustración
 
-En Avatar Studio, abrí **Modo local lento y seguro — IA sin subir tu imagen** y pulsá **Elegir imagen y separar localmente**. Se admiten PNG, JPG/JPEG y BMP de hasta 25 MB. La primera vez el programa descarga un modelo de unos 8,7 MB; después la inferencia se realiza localmente y la imagen no se envía a un servidor.
+En la tarjeta superior **Empezá por acá**, pulsá **2 · 2.5D con IA local**. Se admiten PNG, JPG/JPEG y BMP de hasta 25 MB. La primera vez el programa descarga un modelo de unos 8,7 MB; después la inferencia se realiza localmente y la imagen no se envía a un servidor.
 
 - La IA se ejecuta en un proceso separado, solo en CPU, con un hilo de inferencia, prioridad baja, una fecha límite de 10 minutos y un límite de memoria de proceso de 2 GiB aplicado por Windows Job Object. Si el sistema no permite imponer ese límite, el trabajo no se inicia. Podés cancelar sin cerrar el bot.
 - El modelo intenta separar **piel/cuerpo, ropa y cabello**. Los píxeles cercanos que no entran en esas zonas se conservan en una capa de **detalles y contorno**. Al finalizar se crea un perfil nuevo con las capas PNG transparentes.
@@ -46,7 +58,7 @@ En Avatar Studio, abrí **Modo local lento y seguro — IA sin subir tu imagen**
 
 ### Crear una VTuber desde una sola imagen
 
-Avatar Studio tiene una sección **Crear una VTuber desde una sola imagen** con dos accesos directos:
+Dentro de **Personalización avanzada** existe una alternativa web para probar una separación más compleja, usando dos accesos directos:
 
 1. **Separar imagen automáticamente:** abre [See-through](https://huggingface.co/spaces/24yearsold/see-through-demo), una demo online que usa IA para inferir capas a partir de una ilustración anime y exportarlas como PSD. Cargá una imagen, esperá el procesamiento y descargá el PSD.
 2. **Animar el PSD como VTuber:** abre [Anime2.5DRig](https://852wa.github.io/Anime2.5DRig/). Cargá el PSD que descargaste para probar parpadeo, movimiento de pelo, boca, cámara/micrófono y salida para OBS.
