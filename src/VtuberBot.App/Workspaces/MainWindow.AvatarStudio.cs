@@ -199,6 +199,7 @@ public partial class MainWindow
         demoActions.Children.Add(ActionButton("Configurar PNGTuber Plus externo", (_, _) => Navigate("Avatar externo")));
         demoPanel.Children.Add(demoActions);
         root.Children.Add(demoPanel);
+        root.Children.Add(BuildModularWardrobePanel());
 
         void LoadDemoProfile(string profileName, bool layered)
         {
@@ -611,6 +612,150 @@ public partial class MainWindow
             if (overlay is { IsVisible: true } && !string.IsNullOrWhiteSpace(avatarPath))
                 overlay.SetAvatar(avatarPath, store.GetAvatarLayers(), GetAvatarExpressionPaths());
             Navigate("Avatar Studio");
+        }
+    }
+
+
+    private UIElement BuildModularWardrobePanel()
+    {
+        var panel = Panel("Armario modular — piezas originales inspiradas en estilos VTuber");
+        panel.Margin = new Thickness(0, 0, 0, 14);
+        panel.Children.Add(Label(
+            "Combina cabello, conjunto, accesorio de cabeza, accesorio facial y pieza trasera por separado. Cada opción se genera como PNG transparente independiente y se guarda como un perfil nuevo; no reemplaza tus otros avatares. Estos son diseños originales inspirados en géneros habituales —idol, gótico, marinero, fantasía, demonio, acuático y cyber—, no copias de modelos oficiales.",
+            12, "#98A4BE"));
+
+        ComboBox Choice(IReadOnlyList<WardrobeOption> options)
+        {
+            var combo = new ComboBox
+            {
+                ItemsSource = options,
+                DisplayMemberPath = nameof(WardrobeOption.Name),
+                SelectedIndex = 0,
+                MinWidth = 280,
+                Margin = new Thickness(0, 4, 0, 8)
+            };
+            return combo;
+        }
+
+        var hair = Choice(ModularWardrobeFactory.HairOptions);
+        var outfit = Choice(ModularWardrobeFactory.OutfitOptions);
+        var head = Choice(ModularWardrobeFactory.HeadAccessoryOptions);
+        var face = Choice(ModularWardrobeFactory.FaceAccessoryOptions);
+        var back = Choice(ModularWardrobeFactory.BackAccessoryOptions);
+
+        panel.Children.Add(Label("1 · Cabello", 12, "#F8FAFC", true));
+        panel.Children.Add(hair);
+        panel.Children.Add(Label("2 · Conjunto / ropa", 12, "#F8FAFC", true));
+        panel.Children.Add(outfit);
+        panel.Children.Add(Label("3 · Accesorio de cabeza", 12, "#F8FAFC", true));
+        panel.Children.Add(head);
+        panel.Children.Add(Label("4 · Accesorio facial / joyería", 12, "#F8FAFC", true));
+        panel.Children.Add(face);
+        panel.Children.Add(Label("5 · Espalda / capa / alas / mochila", 12, "#F8FAFC", true));
+        panel.Children.Add(back);
+
+        var summary = Label("", 12, "#69E4D0", true);
+        panel.Children.Add(summary);
+
+        void UpdateSummary()
+        {
+            summary.Text =
+                "Combinación: " +
+                (hair.SelectedItem as WardrobeOption)?.Name + " · " +
+                (outfit.SelectedItem as WardrobeOption)?.Name + " · " +
+                (head.SelectedItem as WardrobeOption)?.Name + " · " +
+                (face.SelectedItem as WardrobeOption)?.Name + " · " +
+                (back.SelectedItem as WardrobeOption)?.Name;
+        }
+
+        hair.SelectionChanged += (_, _) => UpdateSummary();
+        outfit.SelectionChanged += (_, _) => UpdateSummary();
+        head.SelectionChanged += (_, _) => UpdateSummary();
+        face.SelectionChanged += (_, _) => UpdateSummary();
+        back.SelectionChanged += (_, _) => UpdateSummary();
+        UpdateSummary();
+
+        panel.Children.Add(ActionButton("Crear perfil con esta combinación", (_, _) =>
+        {
+            if (hair.SelectedItem is not WardrobeOption selectedHair ||
+                outfit.SelectedItem is not WardrobeOption selectedOutfit ||
+                head.SelectedItem is not WardrobeOption selectedHead ||
+                face.SelectedItem is not WardrobeOption selectedFace ||
+                back.SelectedItem is not WardrobeOption selectedBack)
+            {
+                MessageBox.Show(this, "Seleccioná una opción en cada categoría.");
+                return;
+            }
+
+            CreateModularWardrobeProfile(selectedHair, selectedOutfit, selectedHead, selectedFace, selectedBack);
+        }, true));
+
+        panel.Children.Add(Label(
+            "Incluye 8 cabellos, 10 conjuntos y 10 accesorios de cabeza, además de 6 accesorios faciales y 6 piezas traseras seleccionables. Las piezas son independientes y se pueden recolocar desde la lista de capas. El movimiento es 2D ligero; no es un rig Live2D ni incluye tracking facial.",
+            12, "#98A4BE"));
+        return panel;
+    }
+
+    private void CreateModularWardrobeProfile(
+        WardrobeOption hair,
+        WardrobeOption outfit,
+        WardrobeOption head,
+        WardrobeOption face,
+        WardrobeOption back)
+    {
+        try
+        {
+            var assets = ModularWardrobeFactory.EnsureAssets(avatarDirectory);
+            var baseName = "Armario - " + outfit.Name;
+            var profileName = baseName;
+            var existingNames = store.GetAvatarProfiles()
+                .Select(profile => profile.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            for (var suffix = 2; existingNames.Contains(profileName); suffix++)
+            {
+                var extra = " (" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
+                var allowedBaseLength = Math.Max(1, 64 - extra.Length);
+                profileName = baseName[..Math.Min(baseName.Length, allowedBaseLength)] + extra;
+            }
+
+            var profile = store.CreateAvatarProfile(profileName, duplicateActiveProfile: false);
+            store.SetActiveAvatarProfile(profile.Id);
+            store.SetActiveAvatarProfileBasePath(assets.BaseIdle);
+            store.SetAvatarExpression("Idle", assets.BaseIdle);
+            store.SetAvatarExpression("Talking", assets.BaseTalking);
+            store.SetAvatarExpression("Blink", assets.BaseBlink);
+            store.SetAvatarExpression("Happy", assets.BaseHappy);
+            store.SetAvatarExpression("Surprised", assets.BaseSurprised);
+
+            if (back.Id != "none-back")
+                store.AddAvatarLayer("Fondo · " + back.Name, assets.BackAccessories[back.Id]);
+            store.AddAvatarLayer("Ropa · " + outfit.Name, assets.Outfits[outfit.Id]);
+            store.AddAvatarLayer("Cabello · " + hair.Name, assets.Hair[hair.Id]);
+            if (head.Id != "star-halo")
+            {
+                // A halo is also a head layer, and uses the same common canvas as every other item.
+                if (assets.HeadAccessories.TryGetValue(head.Id, out var headPath))
+                    store.AddAvatarLayer("Cabeza · " + head.Name, headPath);
+            }
+            else if (assets.HeadAccessories.TryGetValue(head.Id, out var haloPath))
+            {
+                store.AddAvatarLayer("Cabeza · " + head.Name, haloPath);
+            }
+            if (face.Id != "none-face" && assets.FaceAccessories.TryGetValue(face.Id, out var facePath))
+                store.AddAvatarLayer("Accesorio · " + face.Name, facePath);
+
+            avatarPath = assets.BaseIdle;
+            store.SetSetting("avatar.state", "Idle");
+            store.Log("Avatar", "Creado perfil modular con piezas originales: " + profileName + ".");
+            Navigate("Avatar Studio");
+            ShowOverlay();
+            FooterStatus.Text = "Perfil modular creado. Seleccioná las capas para moverlas o cambiar su escala y rotación.";
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this,
+                "No se pudo crear el perfil modular: " + exception.Message,
+                "VTuberBot", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
