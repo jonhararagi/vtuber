@@ -226,7 +226,7 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
             }
             Record(new(DateTimeOffset.UtcNow, EventActionOutcome.QueueSaturated, null, evt.Source,
                 evt.Category + "." + evt.Type, "", "Cola saturada; el evento se descartó sin bloquear al productor.", evt.CorrelationId));
-            Warning?.Invoke("Cola de automatizaciones saturada; se descartó un evento. Revisá los límites y la actividad.");
+            try { Warning?.Invoke("Cola de automatizaciones saturada; se descartó un evento. Revisá los límites y la actividad."); } catch { }
             return false;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or JsonException)
