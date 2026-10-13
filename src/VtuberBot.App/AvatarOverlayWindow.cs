@@ -97,6 +97,21 @@ public sealed class AvatarOverlayWindow : Window
         Closed += (_, _) => timer.Stop();
     }
 
+    /// <summary>Snapshots the existing renderer for the private control-center preview; no second renderer is created.</summary>
+    public BitmapSource CapturePreview()
+    {
+        Dispatcher.VerifyAccess();
+        var width = Math.Clamp((int)Math.Ceiling(ActualWidth > 0 ? ActualWidth : Width), 160, 1920);
+        var height = Math.Clamp((int)Math.Ceiling(ActualHeight > 0 ? ActualHeight : Height), 180, 1080);
+        layerCanvas.Measure(new Size(width, height));
+        layerCanvas.Arrange(new Rect(0, 0, width, height));
+        layerCanvas.UpdateLayout();
+        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(layerCanvas);
+        bitmap.Freeze();
+        return bitmap;
+    }
+
     public void SetParallaxEnabled(bool enabled)
     {
         parallaxEnabled = enabled;
