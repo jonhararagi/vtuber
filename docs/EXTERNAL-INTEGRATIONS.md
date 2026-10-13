@@ -43,3 +43,17 @@ El espacio **Streamer.bot** usa el servidor WebSocket de la instancia, separado 
 - **Pruebas automatizadas añadidas:** endpoint, algoritmo de autenticación y prueba de protocolo con servidor WebSocket simulado que envía `Hello` fragmentado, autentica, responde a solicitudes y publica un evento. El servidor simulado no sustituye una validación con Streamer.bot real.
 - **Pendiente de validación en Windows real:** comprobar conexión con la versión instalada, contraseña correcta/incorrecta, acciones seleccionadas de bajo riesgo, eventos Twitch habilitados, comportamiento en OBS y PNGTuber Plus. No se afirma integración directa con expresiones de PNGTuber Plus.
 - **Limitaciones actuales:** reconexión manual, sin reconexión automática; no hay un EventManager genérico compartido en el Core actual, por lo que el evento se expone mediante el contrato del cliente y se registra para preparar la coordinación de la Orden 4/5.
+## Automatizaciones por eventos — implementación en la rama de producto
+
+El espacio **Automatizaciones** coordina eventos de la conexión WebSocket real de Streamer.bot y notificaciones que ya procesa el puente de Twitch EventSub de VTuberBot. No vuelve a ejecutar comandos de chat ni republica cada acción como un evento entrante.
+
+- Las reglas se guardan en las preferencias SQLite existentes bajo `automation.eventActions.rules.v1`; el interruptor global y la autorización de teclas también usan las preferencias existentes. No se crea otra base de datos.
+- Las reglas nuevas están desactivadas y las automatizaciones arrancan pausadas si no existe una preferencia previa. El origen de cada regla es explícito.
+- Para eventos de Streamer.bot se consulta `GetEvents`; las suscripciones manuales y las requeridas por reglas habilitadas se reconcilian en un solo conjunto. Al editar o borrar reglas se intenta retirar la selección anterior y aplicar la nueva; al reconectar se reconstruye desde SQLite.
+- Antes de cada ejecución se comprueba la conexión y el catálogo actual de acciones habilitadas. La confirmación de una acción externa queda vinculada al identificador concreto de destino.
+- PNGTuber Plus solo acepta atajos ya registrados y habilitados. El envío automático está desautorizado por defecto y su habilitación advierte que Windows puede cambiar el foco. Un resultado de envío de tecla no confirma un cambio de expresión.
+- Las condiciones usan rutas simples de campos JSON y operadores exactos `eq`, `contains` y `present`. No se evalúa código, expresiones C# ni comandos de sistema recibidos en eventos.
+- La cola tiene capacidad acotada, el procesamiento se ejecuta fuera del bucle WebSocket, hay cooldown por regla, límites por regla/globales, deduplicación con memoria acotada y límite de profundidad causal. Si falta un ID de proveedor o una marca de tiempo fiable, no se afirma que los eventos equivalentes de Streamer.bot y EventSub se deduplicaron.
+- La actividad distingue recepción, saturación, deduplicación, pausa, cooldown/límite, solicitud aceptada, rechazo, resultado desconocido y tecla enviada. La aceptación del servidor no demuestra el efecto posterior en OBS.
+
+**Pendiente de validación:** la implementación necesita Windows CI verde sobre el SHA final y pruebas manuales con una instancia real de Streamer.bot, eventos de Twitch, OBS y PNGTuber Plus. No se afirma que el efecto visual del avatar esté verificado automáticamente.
