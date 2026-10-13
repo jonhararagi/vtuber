@@ -86,7 +86,7 @@ public partial class MainWindow : Window
 
     private static readonly string[] Pages =
     [
-        "Inicio","Avatar Studio","Avatar externo","Streamer.bot","Twitch y chat","Comandos","Comunidad y puntos","Sorteos",
+        "Inicio","Avatar Studio","Avatar externo","Streamer.bot","Twitch y chat","Comandos","Comunidad y puntos","Automatizaciones","Sorteos",
         "Minijuegos","Moderación","Voz y audio","OBS","Integraciones","Telegram Web","Actividad y diagnóstico","Ajustes"
     ];
 
@@ -174,6 +174,17 @@ public partial class MainWindow : Window
         while (chatLines.Count > 200)
             chatLines.RemoveAt(chatLines.Count - 1);
         store.Log("Twitch EventSub", type + ": " + summary);
+        try
+        {
+            using var payloadDocument = JsonDocument.Parse(JsonSerializer.Serialize(new { type, summary }));
+            eventActionCoordinator?.TryPublish(NormalizedBotEvent.Create(
+                "VTuberBot.EventSub", "Twitch", type, payloadDocument.RootElement,
+                originalTimestamp: DateTimeOffset.UtcNow, origin: NormalizedEventOrigin.Internal));
+        }
+        catch (Exception exception) when (exception is ArgumentException or JsonException or InvalidOperationException)
+        {
+            store.Log("Automatizaciones", "Se descartó un evento EventSub malformado (" + exception.GetType().Name + ").");
+        }
 
         if (type is "subscription_error" or "revocation")
             return;
@@ -205,6 +216,7 @@ public partial class MainWindow : Window
         this.application = application;
         store = new ProductStore(application.Database.Path);
         communityCommandRouter = new CommunityCommandRouter(store);
+        InitializeEventActionCoordination();
 
         var savedVadThreshold = double.TryParse(
             store.GetSetting("audio.vad.threshold", "8"),
@@ -291,6 +303,8 @@ public partial class MainWindow : Window
         catch (Exception exception) { LogShutdownFailure("Twitch EventSub", exception); }
         try { await obs.DisposeAsync(); }
         catch (Exception exception) { LogShutdownFailure("OBS WebSocket", exception); }
+        try { if (eventActionCoordinator is not null) await eventActionCoordinator.DisposeAsync(); }
+        catch (Exception exception) { LogShutdownFailure("coordinador de automatizaciones", exception); }
         try { await streamerBot.DisposeAsync(); }
         catch (Exception exception) { LogShutdownFailure("Streamer.bot WebSocket", exception); }
 
@@ -339,6 +353,7 @@ public partial class MainWindow : Window
             "Twitch y chat" => "Conexión oficial por IRC/TLS; la cuenta solo aparece conectada tras autenticación real.",
             "Comandos" => "Un registro de comandos compartido entre pruebas locales y chat.",
             "Comunidad y puntos" => "Perfiles, puntos e historial persistidos en SQLite local.",
+            "Automatizaciones" => "Eventos reales, reglas persistentes, destinos validados y límites de seguridad.",
             "Sorteos" => "Participantes deduplicados y ganador guardado en el historial.",
             "Minijuegos" => "Juegos locales con resultados y recompensas registradas.",
             "Moderación" => "Reglas configurables; el modo actual marca coincidencias sin castigar automáticamente.",
@@ -359,6 +374,7 @@ public partial class MainWindow : Window
             "Twitch y chat" => BuildTwitchPage(),
             "Comandos" => BuildCommandsPage(),
             "Comunidad y puntos" => BuildCommunityPage(),
+            "Automatizaciones" => BuildEventActionWorkspace(),
             "Sorteos" => BuildGiveawaysPage(),
             "Minijuegos" => BuildMinigamesPage(),
             "Moderación" => BuildModerationPage(),
