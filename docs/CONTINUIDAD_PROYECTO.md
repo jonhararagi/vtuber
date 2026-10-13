@@ -1332,3 +1332,34 @@ Objetivo: quitar la inferencia pesada del PC de referencia y mantener una experi
 - Comentario periódico: buffer limitado a 60 entradas en memoria, intervalo configurable entre 1 y 60 minutos (5 inicial), filtros de enlaces/comandos y cancelación al apagar función, detener bot o desconectar Twitch.
 - Estados Angry y LeftEyeClose ya están previstos en validación, configuración de sprites y el overlay. En perfiles sin imagen asignada, el control informa de que no puede aplicar el estado.
 - Windows CI del commit de implementación cf19663380c914abaa07b7dd7ed5a3163293723b completada: Release build con 0 warnings/errores, 503/503 pruebas pasadas (0 omitidas), publish self-contained win-x64 correcto y artefacto 11833843141 disponible en el run 38438046595. Sigue pendiente probar una clave válida de Google AI Studio, escuchar el audio real y verificar el overlay en OBS; CI no acredita esos flujos externos.
+
+
+## 2026-10-13 — Voz chillona, interfaz guiada y destinos Twitch/YouTube
+
+### Cambios verificados en la rama de producto
+
+- **Voz:** el preset remoto predeterminado pasó a `Zephyr` y sus instrucciones piden deliberadamente una voz femenina en español muy aguda/chillona, brillante, juguetona, nasal ligera y con expresividad caricaturesca. Solo se migran automáticamente los valores que coinciden exactamente con el preset anterior Leda/instrucciones predeterminadas; preferencias personalizadas se conservan. La percepción de tono depende del proveedor/modelo y requiere escuchar la prueba real.
+- **Interfaz ChatSpeak:** la página se reorganizó en pestañas `Empezar aquí`, `Voz y audio`, `Leer el chat`, `Bot automático`, `Chat manual` y `Pruebas y estado`, con un botón global `Guardar toda la configuración`. La navegación lateral se agrupa por tareas para reducir el número de opciones expuestas al comenzar; el resaltado de la página activa recorre los botones anidados.
+- **Destinos de streaming:** `ObsStreamingDestinationPolicy` normaliza solo Twitch/YouTube, asigna servidores RTMPS distintos, nombres de secreto separados y comprueba longitud/formato de la clave. `ObsWebSocketClient.ConfigureStreamDestinationAsync` envía `SetStreamServiceSettings` al OBS autenticado y se niega a cambiar destino si OBS está transmitiendo. En el panel OBS, las claves se guardan en ficheros protegidos por DPAPI mediante `UserSecretStore`, fuera de SQLite y de logs. Seleccionar el destino no inicia la emisión: primero se configura y luego se inicia desde los controles de OBS.
+- **Emisión simultánea:** no se ha implementado un cliente de doble salida dentro de VTuberBot. OBS principal transmite a un destino; emitir a Twitch y YouTube a la vez requiere configurar por separado un complemento multi-RTMP o un servicio externo. La página y `docs/STREAMING-YOUTUBE-TWITCH.md` explican esta dependencia y advierten que el complemento no se instala ni se considera validado por el bot.
+- **Documentación:** README, guía de usuario, ChatSpeak Studio, centro de integraciones, roadmap y blueprint describen estos cambios y sus límites.
+
+### Tests y evidencia
+
+- Se añadió `tests/VtuberBot.Tests/ObsStreamingDestinationPolicyTests.cs` para destinos RTMPS de Twitch/YouTube, normalización, nombres separados de secretos, entradas desconocidas, claves vacías, espacios y claves demasiado largas.
+- **No atribuir el CI verde anterior a este cambio final.** Windows CI #550 validó el commit `a4cf0575b443d5bbdd5a11ca92018774eb1efca5` (build Release, pruebas y ZIP de 74.5 MB); ese SHA antecede a la implementación de destinos de streaming y a sus pruebas nuevas. El último commit de código de esta orden es `70ac4ed9a9705e1fdc4c1b499b39827b9121b10a`. En el momento de registrar esta nota, las consultas disponibles no devolvieron una ejecución de Windows CI vinculada de forma demostrable a ese SHA exacto. Por lo tanto, **la compilación/tests finales quedan PENDIENTES de evidencia CI sobre el commit actual**.
+- Pendiente de validación manual en Windows: escuchar realmente la voz remota, confirmar las credenciales/cuota del TTS; autenticar OBS WebSocket; configurar destinos con claves válidas sin mostrarlas en capturas/logs; hacer una emisión de prueba privada/no listada en cada plataforma y verificar audio/escena/destino. La emisión simultánea queda pendiente además de comprobar compatibilidad del plugin local y sus dos salidas.
+
+## 2026-10-13 — Auditoría de ramas (sin borrado)
+
+Ramas encontradas mediante búsqueda paginada en el repo: `main`, `product/complete-vtuber-experience`, `v0.2.3/stabilization-gate`, `v0.2.2/sqlite-concurrency-hardening`, `v0.2.1/performance-health`, `v0.2.0/control-plane-command-core`, `fix/scheduler-concurrent-shutdown`, `chore/canonical-repository-identity`, `migration/csharp-net10-wpf` y `assets/marmalade-cc0-static-avatar-sample`.
+
+- Mantener `main` y `product/complete-vtuber-experience`.
+- Mantener `v0.2.3/stabilization-gate` porque es la rama de PR #9 que se verificó abierta; no cerrar ni fusionar ese PR como parte de la limpieza.
+- `v0.2.0/control-plane-command-core`, `v0.2.1/performance-health`, `v0.2.2/sqlite-concurrency-hardening` y `migration/csharp-net10-wpf` son líneas históricas cuyo código queda superado por main/product en las comparaciones realizadas.
+- `fix/scheduler-concurrent-shutdown` contiene el mismo arreglo actual de `Scheduling.cs` y las pruebas de shutdown ya aparecen también en `product/complete-vtuber-experience`; no mostró una corrección de código exclusiva pendiente de portar.
+- `chore/canonical-repository-identity` difiere solo en el contenido histórico de `PROMPTS.md`; la rama de producto ya tiene la identidad/canon actualizada.
+- **No borrar a ciegas** `assets/marmalade-cc0-static-avatar-sample`: contiene PNGs y avisos CC0 que no figuran en la rama de producto. Son assets de muestra no integrados en el runtime; si se retira la rama, los recursos únicos se perderán del alcance visible del repo salvo que se archiven antes. No se copian automáticamente al paquete de distribución.
+- **La eliminación remota no se completó:** la acción GitHub conectada disponible para ramas permite buscar, crear y mover refs, pero no expone eliminación de refs/branches. La herramienta de navegador disponible informó falta de créditos. No se usó una maniobra insegura para simular borrado. Se necesita ejecutar la limpieza desde la UI de GitHub o conceder una acción/API que permita borrar ramas después de revisar cualquier PR que las use.
+
+Esta tabla es un análisis de ramas, no una afirmación de que las ramas enumeradas ya estén borradas. No se modificó `main` ni se fusionó/cerró el PR #9.
