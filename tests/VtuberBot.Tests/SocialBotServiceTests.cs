@@ -146,10 +146,16 @@ public sealed class SocialBotServiceTests
         await using var twitch = new TwitchChatClient();
         var provider = new FakeProvider();
         await using var service = new SocialBotService(store, speech, twitch, provider);
+        var speechQueued = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.StatusChanged += status =>
+        {
+            if (status.State == "TTS" && status.Detail.Contains("Mensaje de chat encolado", StringComparison.Ordinal))
+                speechQueued.TrySetResult(true);
+        };
 
         service.OnChatMessage("alice", "mensaje independiente", "channel");
 
-        Assert.True(speech.PendingCount > 0);
+        await speechQueued.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
         Assert.Equal(0, Volatile.Read(ref provider.Calls));
         speech.Dispose();
     }
