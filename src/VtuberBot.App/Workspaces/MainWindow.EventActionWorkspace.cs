@@ -262,7 +262,10 @@ public partial class MainWindow
                     shouldEnable, selectedSource, category.Text, eventType.Text, conditions,
                     dest, targetId, cooldownSeconds, maxPerMinute, confirmed, confirmedTargetId));
                 selectedRule = saved; editingId = saved.Id;
-                ReloadRules(); status.Text = "Regla guardada en SQLite. No se envió ninguna tecla ni se ejecutó una acción al guardar.";
+                ReloadRules();
+                status.Text = "Regla guardada en SQLite. No se envió ninguna tecla ni se ejecutó una acción al guardar.";
+                if (saved.Enabled && selectedSource == "Streamer.bot" && dest == EventActionDestination.StreamerBot)
+                    status.Text += " Advertencia de posible ciclo: una acción externa podría producir nuevos eventos; mantené cooldown y límites conservadores.";
                 await ReconcileStreamerBotSubscriptionsAsync();
                 FooterStatus.Text = "Regla guardada: " + saved.Name;
             }
