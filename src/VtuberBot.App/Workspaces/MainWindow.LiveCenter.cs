@@ -32,8 +32,17 @@ public partial class MainWindow
         }
     }
 
+    private void DetachLiveCenterHandlers()
+    {
+        if (liveCenterReactionHandler is not null) chatReactions.ResultChanged -= liveCenterReactionHandler;
+        if (liveCenterQueueHandler is not null) chatReactions.QueueChanged -= liveCenterQueueHandler;
+        liveCenterReactionHandler = null;
+        liveCenterQueueHandler = null;
+    }
+
     private UIElement BuildLiveCenterWorkspace()
     {
+        DetachLiveCenterHandlers();
         var root = new StackPanel();
         root.Children.Add(Label("Centro de directo", 22, "#F8FAFC", true));
         root.Children.Add(Label("La salida pública está en la ventana transparente del avatar. Esta página y sus controles son privados y no deben capturarse en OBS.", 12, "#98A4BE"));
@@ -60,6 +69,22 @@ public partial class MainWindow
         var outputStatus = Label($"Estado solicitado: {currentExpression}", 12, "#F8FAFC");
         publicDetails.Children.Add(outputStatus);
         publicDetails.Children.Add(Label("La previsualización usa el sprite asignado; si no existe, se muestra la imagen base y no se simula una expresión.", 11, "#98A4BE"));
+        liveCenterReactionHandler = result => Dispatcher.BeginInvoke(new Action(() =>
+        {
+            outputStatus.Text = $"Última reacción: {result.Outcome} · {result.Detail}";
+            if (result.Outcome == "Respuesta enviada" && result.Detail.Contains("expresión aplicada", StringComparison.Ordinal))
+            {
+                var state = store.GetSetting("avatar.state", "Idle");
+                var path = store.GetAvatarExpression(state);
+                var actualPath = !string.IsNullOrWhiteSpace(path) && File.Exists(path) ? path : avatarPath;
+                if (!string.IsNullOrWhiteSpace(actualPath) && File.Exists(actualPath))
+                {
+                    try { preview.Source = AvatarImageLoader.Load(actualPath, 420); currentExpression = state; }
+                    catch (Exception exception) { store.Log("Avatar", "No se pudo actualizar la previsualización (" + exception.GetType().Name + ")."); }
+                }
+            }
+        }));
+        chatReactions.ResultChanged += liveCenterReactionHandler;
         Grid.SetColumn(publicDetails, 1);
         publicGrid.Children.Add(publicDetails);
         publicPanel.Children.Add(publicGrid);
@@ -80,6 +105,8 @@ public partial class MainWindow
         var connectionStatus = Label(twitch.IsConnected ? "Twitch: conectado" : "Twitch: desconectado", 12, "#98A4BE");
         var avatarStatus = Label(!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath) ? "Avatar: perfil con imagen base" : "Avatar: falta imagen base", 12, "#98A4BE");
         var queueStatus = Label($"Cola de reacciones: {chatReactions.PendingCount}", 12, "#98A4BE");
+        liveCenterQueueHandler = pending => Dispatcher.BeginInvoke(new Action(() => queueStatus.Text = $"Cola de reacciones: {pending}"));
+        chatReactions.QueueChanged += liveCenterQueueHandler;
         privatePanel.Children.Add(connectionStatus);
         privatePanel.Children.Add(avatarStatus);
         privatePanel.Children.Add(queueStatus);
