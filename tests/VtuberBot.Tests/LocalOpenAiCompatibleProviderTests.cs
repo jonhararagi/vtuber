@@ -75,6 +75,35 @@ public sealed class LocalOpenAiCompatibleProviderTests
         Assert.Equal("InputTooLong", tooLong.Status);
     }
 
+    [Fact]
+    public async Task GenerationTimeoutIsReportedWithoutInventingAResponse()
+    {
+        var handler = new FakeHandler(async (_, token) =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3), token);
+            return JsonResponse("{\"choices\":[{\"message\":{\"content\":\"late\"}}]}");
+        });
+        using var http = new HttpClient(handler);
+        using var provider = new LocalOpenAiCompatibleProvider(http);
+        var result = await provider.GenerateAsync(new ChatIntelligenceOptions(Model: "m", TimeoutSeconds: 1), [new("user", "hola")], TestContext.Current.CancellationToken);
+        Assert.Equal("Timeout", result.Status);
+    }
+
+    [Fact]
+    public async Task CallerCancellationPropagatesInsteadOfBeingReportedAsProviderFailure()
+    {
+        var handler = new FakeHandler(async (_, token) =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10), token);
+            return JsonResponse("{}");
+        });
+        using var http = new HttpClient(handler);
+        using var provider = new LocalOpenAiCompatibleProvider(http);
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        cancel.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => provider.GenerateAsync(
+            new ChatIntelligenceOptions(Model: "m"), [new("user", "hola")], cancel.Token));
+    }
     private static HttpResponseMessage JsonResponse(string body) => new(HttpStatusCode.OK)
     { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
