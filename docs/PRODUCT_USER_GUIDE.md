@@ -104,6 +104,14 @@ Estas limitaciones se mantienen explícitas: no se marca el producto como defini
 En **Voz y audio**, importá archivos WAV o MP3 propios. VTuberBot los copia a la carpeta local `sounds`, guarda la biblioteca en SQLite y permite reproducir/detener un efecto o quitarlo de la lista sin borrar el archivo. Los sonidos usan la salida de audio predeterminada de Windows; la selección de salida SAPI es independiente y se aplica a la voz sintetizada. Las copias de seguridad SQLite no incluyen los archivos de audio.
 
 
+### Descargar y ejecutar el paquete de Windows
+
+1. Abrí [Windows CI](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml?query=branch%3Aproduct%2Fcomplete-vtuber-experience).
+2. Entrá en la ejecución de la rama `product/complete-vtuber-experience` cuyo **Head SHA sea idéntico al commit que vas a probar**.
+3. En **Artifacts**, descargá `VTuberBot-Product-Candidate-win-x64-<SHA>` y extraé el ZIP; no lo ejecutes dentro del ZIP.
+4. Abrí `VtuberBot.App.exe` y consultá `BUILD-INFO.txt` para confirmar SHA, runtime y fecha.
+5. El paquete es self-contained para Windows x64, no una release oficial. El artefacto temporal tiene retención de 14 días; las integraciones de Streamer.bot, PNGTuber Plus, Twitch y OBS requieren su propia configuración y no vienen incluidas en el ZIP.
+
 ## Validación global de un candidato
 
 Cuando se solicite la validación integrada, seguí una sola vez la lista [Validación global del candidato de producto](PRODUCT-CANDIDATE-MANUAL-VALIDATION.md). Descargá únicamente el artefacto de la ejecución Windows CI cuyo **Head SHA coincida exactamente** con el HEAD de la rama; no uses una descarga histórica como sustituto. Marcá los servicios que no puedas probar por falta de cuenta o dispositivo como **BLOQUEADOS**, no como aprobados. No hace falta ejecutar comandos Git ni compilar localmente.
@@ -140,4 +148,4 @@ La prueba automatizada de protocolo utiliza un servidor simulado; antes de consi
 **Seguridad y límites:** la pausa global impide automatizaciones disparadas por eventos, pero no sustituye las acciones manuales existentes. Se aplican límites por regla y globales y una cola acotada; en caso de saturación algunos eventos se descartan y se registra una advertencia. Cuando los proveedores no comparten un identificador común, no puede garantizarse deduplicación entre EventSub y Streamer.bot; evitá crear reglas equivalentes en ambas fuentes.
 ### Nota de validación de automatizaciones
 
-La validación automatizada del SHA `2e3fedc7be40f4ac17bc59dc7c3cbbbd8258cf75` está completada: [Windows CI #423](https://github.com/jonhararagi/vtuber/actions/runs/38330331610) ejecutó restore, build Release, 423/423 pruebas y publicó el artefacto win-x64 del mismo SHA. Las pruebas manuales con Streamer.bot, Twitch, OBS y PNGTuber Plus siguen pendientes. Antes de distribuir, descargá solo el artefacto de ese run y realizá la lista de validación manual.
+La última base verificada antes de la auditoría final fue el SHA `dc55ca9bb68dfbb5ff35c024931e930c34730fe5`: [Windows CI #427](https://github.com/jonhararagi/vtuber/actions/runs/38382027364) completó restore, build Release sin advertencias/errores, 423/423 pruebas y publicación del artefacto win-x64 de ese mismo SHA. La auditoría final añadió una corrección de seguridad en la carga de reglas dañadas y una prueba de regresión; esa nueva revisión necesita su propia ejecución CI y no hereda el resultado de #427. Las pruebas manuales con Streamer.bot, Twitch, OBS y PNGTuber Plus siguen pendientes.
