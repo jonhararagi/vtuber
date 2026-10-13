@@ -116,6 +116,195 @@ public sealed class StreamerBotWebSocketTests
         Assert.Equal(StreamerBotConnectionState.ConfiguredDisconnected, client.Snapshot.State);
     }
 
+    [Fact]
+    public async Task AuthenticationMayBeDisabledWhenServerDoesNotRequestIt()
+    {
+        var port = ReservePort();
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
+        var server = Task.Run(async () =>
+        {
+            var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
+            await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"no-auth","name":"Test","version":"1","os":"windows"}}""");
+            await Task.Delay(500);
+        });
+        await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
+        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), null);
+        Assert.Equal(StreamerBotConnectionState.Connected, client.Snapshot.State);
+        await client.DisconnectAsync();
+        await server.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task IncorrectAuthenticationIsRejectedAndReported()
+    {
+        var port = ReservePort();
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
+        var server = Task.Run(async () =>
+        {
+            var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
+            await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"auth","name":"Test","version":"1","os":"windows"},"authentication":{"salt":"salt","challenge":"challenge"}}""");
+            using var request = await ReceiveJsonAsync(socket);
+            Assert.Equal("Authenticate", request.RootElement.GetProperty("request").GetString());
+            var id = request.RootElement.GetProperty("id").GetString();
+            await SendTextAsync(socket, JsonSerializer.Serialize(new { request = "Authenticate", status = "error", id, error = "Authentication failed" }));
+            await Task.Delay(200);
+        });
+        await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
+        await Assert.ThrowsAsync<StreamerBotAuthenticationException>(() =>
+            client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), "wrong-password"));
+        Assert.Equal(StreamerBotConnectionState.AuthenticationError, client.Snapshot.State);
+        await server.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task ConcurrentRequestsAreMatchedWhenResponsesArriveOutOfOrder()
+    {
+        var port = ReservePort();
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
+        var server = Task.Run(async () =>
+        {
+            var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
+            await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"order","name":"Test","version":"1","os":"windows"}}""");
+            using var first = await ReceiveJsonAsync(socket);
+            using var second = await ReceiveJsonAsync(socket);
+            var requests = new[] { first.RootElement.Clone(), second.RootElement.Clone() };
+            foreach (var request in requests.Reverse())
+            {
+                var name = request.GetProperty("request").GetString();
+                var id = request.GetProperty("id").GetString();
+                var response = name == "GetActions"
+                    ? JsonSerializer.Serialize(new { request = name, status = "ok", id, actions = new[] { new { id = "a0ff6f91-a51e-4b7d-948b-5e03ff4a82f0", name = "Raid Action", enabled = true } } })
+                    : JsonSerializer.Serialize(new { request = name, status = "ok", id, events = new Dictionary<string, string[]> { ["twitch"] = ["Raid"] } });
+                await SendTextAsync(socket, response);
+            }
+            await Task.Delay(150);
+        });
+        await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
+        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port));
+        var actionsTask = client.GetActionsAsync();
+        var eventsTask = client.GetEventsAsync();
+        await Task.WhenAll(actionsTask, eventsTask);
+        Assert.Equal("Raid Action", Assert.Single(await actionsTask).Name);
+        Assert.Contains("Raid", (await eventsTask)["Twitch"]);
+        await server.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task RequestTimeoutIsExplicitAndDoesNotPretendSuccess()
+    {
+        var port = ReservePort();
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
+        var server = Task.Run(async () =>
+        {
+            var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
+            await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"timeout","name":"Test","version":"1","os":"windows"}}""");
+            using var request = await ReceiveJsonAsync(socket);
+            Assert.Equal("GetActions", request.RootElement.GetProperty("request").GetString());
+            await Task.Delay(500);
+        });
+        await using var client = new StreamerBotWebSocketClient(TimeSpan.FromMilliseconds(150));
+        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port));
+        await Assert.ThrowsAsync<TimeoutException>(() => client.GetActionsAsync());
+        Assert.Equal(StreamerBotConnectionState.Connected, client.Snapshot.State);
+        await client.DisconnectAsync();
+        await server.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task RequestCancellationPropagatesWithoutReportingAcceptance()
+    {
+        var port = ReservePort();
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
+        var requestSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var server = Task.Run(async () =>
+        {
+            var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
+            await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"cancel","name":"Test","version":"1","os":"windows"}}""");
+            using var request = await ReceiveJsonAsync(socket);
+            requestSeen.TrySetResult();
+            await Task.Delay(500);
+        });
+        await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
+        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port));
+        using var cts = new CancellationTokenSource();
+        var operation = client.GetActionsAsync(cts.Token);
+        await requestSeen.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation);
+        await client.DisconnectAsync();
+        await server.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task InvalidJsonMovesConnectionToProtocolError()
+    {
+        var port = ReservePort();
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
+        var server = Task.Run(async () =>
+        {
+            var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
+            await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"json","name":"Test","version":"1","os":"windows"}}""");
+            await SendTextAsync(socket, "{this is not json");
+            await Task.Delay(200);
+        });
+        await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
+        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port));
+        await WaitForStateAsync(client, StreamerBotConnectionState.ProtocolError);
+        Assert.Equal(StreamerBotConnectionState.ProtocolError, client.Snapshot.State);
+        await server.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task UnexpectedServerDisconnectIsReported()
+    {
+        var port = ReservePort();
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
+        var server = Task.Run(async () =>
+        {
+            var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
+            await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"disconnect","name":"Test","version":"1","os":"windows"}}""");
+            await Task.Delay(100);
+            await socket.CloseOutputAsync(WebSocketCloseStatus.EndpointUnavailable, "test disconnect", CancellationToken.None);
+        });
+        await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
+        var stateChanged = new TaskCompletionSource<StreamerBotConnectionState>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.StateChanged += state => { if (state.State == StreamerBotConnectionState.UnexpectedDisconnect) stateChanged.TrySetResult(state.State); };
+        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port));
+        Assert.Equal(StreamerBotConnectionState.UnexpectedDisconnect, await stateChanged.Task.WaitAsync(TimeSpan.FromSeconds(3)));
+        await server.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    private static int ReservePort()
+    {
+        using var reservation = new TcpListener(IPAddress.Loopback, 0);
+        reservation.Start();
+        return ((IPEndPoint)reservation.LocalEndpoint).Port;
+    }
+
+    private static async Task WaitForStateAsync(IStreamerBotClient client, StreamerBotConnectionState state)
+    {
+        if (client.Snapshot.State == state) return;
+        var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Handler(StreamerBotConnectionSnapshot snapshot) { if (snapshot.State == state) changed.TrySetResult(); }
+        client.StateChanged += Handler;
+        try { await changed.Task.WaitAsync(TimeSpan.FromSeconds(3)); }
+        finally { client.StateChanged -= Handler; }
+    }
+
     private static async Task<JsonDocument> ReceiveJsonAsync(WebSocket socket)
     {
         var buffer = new byte[4096];
