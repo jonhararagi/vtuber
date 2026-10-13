@@ -39,6 +39,7 @@ public partial class MainWindow : Window
     private ChatReactionService chatReactions = null!;
     private Action<ChatReactionResult>? liveCenterReactionHandler;
     private Action<int>? liveCenterQueueHandler;
+    private Action<bool>? liveCenterConnectionHandler;
     private AvatarOverlayWindow? overlay;
     private string? avatarPath;
     private WaveInEvent? microphone;
