@@ -157,7 +157,8 @@ public sealed class ChatReactionServiceTests
         Assert.True(service.OnChatMessage("alice", "hola chat", "msg-1"));
         await effects.SendEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
         effects.SendRelease.TrySetResult(true);
-        await effects.SpeechEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);\n        await effects.ExpressionEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        await effects.SpeechEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        await effects.ExpressionEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
 
         Assert.Equal(1, effects.Sends);
         Assert.Equal("¡Hola alice!", effects.LastMessage);
