@@ -12,6 +12,7 @@ VTuberBot está pensado para ser un programa de escritorio completo para gestion
 - [Prompt oficial para GPT Obrero — implementación integral](PROMPTS.md)
 - [Registro central de continuidad](docs/CONTINUIDAD_PROYECTO.md)
 - [Guía de configuración del candidato integral](docs/PRODUCT_USER_GUIDE.md)
+- [Referencias visuales de VTubers y catálogo de cabello/ropa/accesorios por separado](docs/VTUBER_REFERENCIA_Y_BIBLIOTECA_MODULAR.md)
 - [ChatSpeak Studio: voz aguda estilo anime, IA remota y modos manual/automático](docs/CHATSPEAK-STUDIO.md)
 - [Guía sencilla para emitir en Twitch y YouTube](docs/STREAMING-YOUTUBE-TWITCH.md)
 
