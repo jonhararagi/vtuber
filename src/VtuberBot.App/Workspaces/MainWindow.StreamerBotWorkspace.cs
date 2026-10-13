@@ -19,6 +19,7 @@ public partial class MainWindow
 
     private UIElement BuildStreamerBotWorkspace()
     {
+        streamerBotEventChecks.Clear();
         var root = new StackPanel();
         root.Children.Add(Label("Conexión directa al servidor WebSocket de Streamer.bot. La presencia del ejecutable no indica conectividad. No se ejecutan acciones ni se activan atajos al recibir eventos.", 13, "#98A4BE"));
 
@@ -143,13 +144,22 @@ public partial class MainWindow
             try
             {
                 var available = await streamerBot.GetEventsAsync();
+                var manualSelection = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                try
+                {
+                    var savedManual = JsonSerializer.Deserialize<Dictionary<string, string[]>>(
+                        store.GetSetting("integrations.streamerBot.ws.manualSubscriptions", "")) ?? [];
+                    foreach (var pair in savedManual)
+                        foreach (var eventName in pair.Value ?? []) manualSelection.Add(pair.Key + "." + eventName);
+                }
+                catch (JsonException) { store.Log("Streamer.bot", "La selección manual guardada está dañada; se mostrará vacía."); }
                 eventsList.Children.Clear(); streamerBotEventChecks.Clear();
                 foreach (var category in available.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
                 {
                     var group = Panel(category.Key);
                     foreach (var name in category.Value)
                     {
-                        var check = new CheckBox { Content = name, Tag = category.Key + "." + name, IsChecked = false, Foreground = Brush("#D8DEEE"), Margin = new Thickness(0, 2, 12, 2) };
+                        var check = new CheckBox { Content = name, Tag = category.Key + "." + name, IsChecked = manualSelection.Contains(category.Key + "." + name), Foreground = Brush("#D8DEEE"), Margin = new Thickness(0, 2, 12, 2) };
                         streamerBotEventChecks.Add(check); group.Children.Add(check);
                     }
                     eventsList.Children.Add(group);
