@@ -163,15 +163,9 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         string streamKey,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(streamKey) || streamKey.Trim().Length > 8192)
-            throw new ArgumentException("Pegá una clave de transmisión válida.", nameof(streamKey));
-
-        var server = platform.Trim().ToLowerInvariant() switch
-        {
-            "twitch" => "rtmps://live.twitch.tv:443/app",
-            "youtube" => "rtmps://a.rtmp.youtube.com:443/live2",
-            _ => throw new ArgumentOutOfRangeException(nameof(platform), "Elegí Twitch o YouTube.")
-        };
+        var normalizedKey = ObsStreamingDestinationPolicy.ValidateAndNormalizeStreamKey(streamKey);
+        var normalizedPlatform = ObsStreamingDestinationPolicy.NormalizePlatform(platform);
+        var server = ObsStreamingDestinationPolicy.GetServer(normalizedPlatform);
 
         if (await IsStreamingAsync(cancellationToken).ConfigureAwait(false))
             throw new InvalidOperationException("Detené la transmisión actual de OBS antes de cambiar el destino.");
@@ -181,7 +175,7 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
             new
             {
                 streamServiceType = "rtmp_custom",
-                streamServiceSettings = new { server, key = streamKey.Trim() }
+                streamServiceSettings = new { server, key = normalizedKey }
             },
             cancellationToken).ConfigureAwait(false);
 
