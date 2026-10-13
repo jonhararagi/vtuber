@@ -61,3 +61,18 @@ El espacio **Automatizaciones** coordina eventos de la conexión WebSocket real 
 
 Las ejecuciones #380, #390, #397 y #415 fallaron en SHA anteriores; sus causas y correcciones se registran en continuidad. La ejecución de auditoría [run #435](https://github.com/jonhararagi/vtuber/actions/runs/38384321638) validó el SHA `0609de270aa045912f487c5117c429bce8a25b30` con 424/424 pruebas y publicación del ZIP. Para una revisión posterior, verificá siempre el run y artefacto cuyo `head_sha` coincida con el HEAD exacto. La validación manual de aplicaciones externas sigue pendiente.
 Windows CI run [#415](https://github.com/jonhararagi/vtuber/actions/runs/38329915472) compiled successfully but failed one of 422 tests due to a fixed delay in an asynchronous assertion. The test was changed to wait for the expected activity with a bounded timeout; this is now verified by run [#423](https://github.com/jonhararagi/vtuber/actions/runs/38330331610), where all 423 tests passed on SHA `2e3fedc7be40f4ac17bc59dc7c3cbbbd8258cf75`.
+
+
+## Bot social: lectura TTS y conversación local (implementación en validación)
+
+La sección **Bot social** reutiliza el cliente IRC/TLS de Twitch ya existente y `LocalSpeechQueue` / Windows SAPI. No crea una segunda conexión de Twitch ni una segunda cola de audio.
+
+- La lectura de chat está desactivada por defecto. Si no se activa explícitamente «Leer TODOS los mensajes», se limita a menciones y activaciones permitidas; los filtros de comandos, enlaces, longitud y usuarios ignorados siguen aplicándose.
+- La voz, velocidad, volumen y salida se eligen en **Voz y audio**. La nueva sección permite encolar una frase de prueba, detener la frase actual y vaciar la cola pendiente.
+- Las respuestas automáticas, la publicación en Twitch y la voz de respuestas están desactivadas por defecto y se configuran por separado. Solo se responde a una mención `@Nombre` o al comando configurado (por defecto `!bot`).
+- La inferencia utiliza un endpoint compatible con OpenAI Chat Completions servido localmente. Por privacidad, el proveedor rechaza hosts que no sean `localhost` o una IP loopback. No se envía chat a proveedores remotos.
+- Para probarlo, instala por separado un servidor local compatible (por ejemplo, `llama.cpp` con su servidor HTTP), descarga y configura un modelo GGUF compatible, indica la URL local y el ID que el servidor publica en `/v1/models`, y usa **Comprobar servidor y modelo**.
+- El botón de prueba genera texto local sin publicarlo. Activar respuestas automáticas muestra una confirmación. Configura el login real de la cuenta bot para excluir su propio eco; por defecto se usa el canal configurado como fallback.
+- Las colas y los límites son acotados. Una respuesta generada no se considera publicada hasta que el cliente Twitch acepta el envío; esto tampoco confirma que los espectadores la hayan leído.
+
+**Estado de verificación:** el código y las pruebas simuladas no sustituyen la prueba manual con Twitch autenticado, Windows SAPI y un modelo local instalado. No declarar la integración en tiempo real como validada hasta revisar Windows CI del SHA final y realizar esas pruebas manuales.
