@@ -1292,3 +1292,11 @@ Esta sección supersede el estado de implementación descrito en la sección 4, 
 - Run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040), SHA `127320c4e03a7786a19e5426cdd9525d3b7fe010`: restauración y compilación Release correctas; 433/434 pruebas pasaron. Falló `LocalOpenAiCompatibleProviderTests.ReportsEmptyAndMalformedResponsesInsteadOfInventingText`: el JSON malformado devolvía el estado genérico `Unavailable` en lugar de `InvalidResponse`.
 - Corrección aplicada en `LocalOpenAiCompatibleProvider.cs`: se separó el tratamiento de `JsonException` para reportar `InvalidResponse`; también se exige que el ID del modelo exista y se expone el límite de contexto en la UI.
 - Se añadieron pruebas `SocialBotServiceTests.cs` para defaults desactivados, disparador por mención/comando, procesamiento asíncrono y prevención del eco propio. La aceptación sigue pendiente del run correspondiente al SHA final tras estas correcciones.
+
+## Corrección de ciclo de vida del bot social (2026-10-13)
+
+- `TwitchChatClient` expone `ConnectionStateChanged` tipado; solo cambia a conectado tras el ACK de JOIN. `SocialBotService` invalida la sesión de conversación y cancela inferencias automáticas al perder una conexión previamente activa.
+- `SetAutomaticRepliesEnabled` coordina el estado persistido y el ciclo de vida: al pausar incrementa el epoch, drena la cola acotada y cancela generaciones conversacionales; las tareas antiguas no se reutilizan al reactivar.
+- La generación valida de nuevo el epoch/estado tras la inferencia y antes de publicar o encolar voz. La lectura TTS entrante permanece separada de la IA.
+- Pruebas añadidas para cancelación de inferencia bloqueada, descarte de cola pendiente, independencia del TTS entrante y ausencia de voz conversacional tras una pausa.
+- Límite: no se puede retirar de forma garantizada un mensaje que Twitch ya haya aceptado antes de que llegue la solicitud de pausa. Aún requiere ejecución Windows CI para el SHA final y prueba manual de desconexión/reconexión con Twitch real y llama.cpp/GGUF.
