@@ -334,7 +334,7 @@ public sealed class ChatReactionService : IAsyncDisposable
                     lock (gate)
                         if (paused || item.Epoch != connectionEpoch || !twitchConnected || !isConnected())
                             throw new OperationCanceledException("sesión invalidada antes del envío", activeOperation.Token);
-                    var sent = await sendChat(response, operation.Token).ConfigureAwait(false);
+                    var sent = await sendChat(response, activeOperation.Token).ConfigureAwait(false);
                     if (!sent)
                     {
                         Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Envío fallido", "Twitch rechazó el envío; no se activaron voz ni expresión.", false));
@@ -352,7 +352,7 @@ public sealed class ChatReactionService : IAsyncDisposable
                     }
                     if (item.Rule.Expression.Length > 0)
                     {
-                        var expressionSet = setExpression(item.Rule.Expression, operation.Token);
+                        var expressionSet = setExpression(item.Rule.Expression, activeOperation.Token);
                         details.Add(expressionSet ? "expresión aplicada" : "expresión no aplicada (sprite, overlay o sesión no disponible)");
                     }
                     if (item.Rule.Speak)
