@@ -122,6 +122,9 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
     private readonly Queue<DateTimeOffset> globalExecutions = new();
     private readonly Queue<EventActionActivity> activity = new();
     private readonly List<string> startupWarnings = [];
+    private int automationsPaused;
+    private int automaticPngtuberHotkeysAllowed;
+    private int globalMaxExecutionsPerMinute;
     private int disposed;
 
     public event Action<EventActionActivity>? ActivityChanged;
@@ -144,6 +147,11 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
             throw new ArgumentOutOfRangeException(nameof(options), "La capacidad de cola debe estar entre 1 y 10000.");
         if (this.options.GlobalMaxExecutionsPerMinute is < 1 or > 1000)
             throw new ArgumentOutOfRangeException(nameof(options), "El límite global debe estar entre 1 y 1000.");
+        automationsPaused = settings.GetSetting(PausedSettingKey, "true") != "false" ? 1 : 0;
+        automaticPngtuberHotkeysAllowed = settings.GetSetting(PngtuberAutomaticHotkeysSettingKey, "false") == "true" ? 1 : 0;
+        globalMaxExecutionsPerMinute = int.TryParse(settings.GetSetting(GlobalLimitSettingKey,
+            this.options.GlobalMaxExecutionsPerMinute.ToString(System.Globalization.CultureInfo.InvariantCulture)), out var configuredLimit)
+            ? Math.Clamp(configuredLimit, 1, 1000) : this.options.GlobalMaxExecutionsPerMinute;
         queue = Channel.CreateBounded<NormalizedBotEvent>(new BoundedChannelOptions(this.options.QueueCapacity)
         {
             SingleReader = true, SingleWriter = false, FullMode = BoundedChannelFullMode.Wait,
@@ -155,24 +163,32 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
 
     public bool AutomationsPaused
     {
-        get => settings.GetSetting(PausedSettingKey, "true") != "false";
-        set => settings.SetSetting(PausedSettingKey, value ? "true" : "false");
+        get => Volatile.Read(ref automationsPaused) != 0;
+        set
+        {
+            settings.SetSetting(PausedSettingKey, value ? "true" : "false");
+            Volatile.Write(ref automationsPaused, value ? 1 : 0);
+        }
     }
 
     public bool AutomaticPngtuberHotkeysAllowed
     {
-        get => settings.GetSetting(PngtuberAutomaticHotkeysSettingKey, "false") == "true";
-        set => settings.SetSetting(PngtuberAutomaticHotkeysSettingKey, value ? "true" : "false");
+        get => Volatile.Read(ref automaticPngtuberHotkeysAllowed) != 0;
+        set
+        {
+            settings.SetSetting(PngtuberAutomaticHotkeysSettingKey, value ? "true" : "false");
+            Volatile.Write(ref automaticPngtuberHotkeysAllowed, value ? 1 : 0);
+        }
     }
 
     public int GlobalMaxExecutionsPerMinute
     {
-        get => int.TryParse(settings.GetSetting(GlobalLimitSettingKey, options.GlobalMaxExecutionsPerMinute.ToString()), out var value)
-            ? Math.Clamp(value, 1, 1000) : options.GlobalMaxExecutionsPerMinute;
+        get => Volatile.Read(ref globalMaxExecutionsPerMinute);
         set
         {
             if (value is < 1 or > 1000) throw new ArgumentOutOfRangeException(nameof(value));
             settings.SetSetting(GlobalLimitSettingKey, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Volatile.Write(ref globalMaxExecutionsPerMinute, value);
         }
     }
 
