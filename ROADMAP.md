@@ -262,3 +262,7 @@ Se añadió `product_schema_meta` para registrar la versión del esquema de func
 - **Destinos:** acciones habilitadas revalidadas mediante `GetActions` y atajos registrados de PNGTuber Plus. La autorización de atajos es explícita y está desactivada por defecto; una respuesta aceptada o una tecla enviada no confirma el efecto posterior.
 - **Suscripciones:** selección manual sin valores preseleccionados y reconciliación con los eventos requeridos por reglas habilitadas mediante `Subscribe`/`UnSubscribe`.
 - **No marcar como aceptado todavía:** falta demostrar restore/build/tests/publish de Windows CI para el SHA final exacto y hacer pruebas manuales con las aplicaciones reales. El CI anterior que falló no es evidencia de la versión actual.
+### Seguimiento de CI — Orden 4
+
+- Runs públicos revisados: [#380](https://github.com/jonhararagi/vtuber/actions/runs/38328651554) falló por un literal de carácter inválido; [#390](https://github.com/jonhararagi/vtuber/actions/runs/38328971940) falló por imports y variables del wizard; [#397](https://github.com/jonhararagi/vtuber/actions/runs/38329277301) falló por diagnósticos de cancelación xUnit. Las correcciones correspondientes ya están en commits posteriores a esos SHA.
+- No se reutilizan estos runs como prueba de éxito. La aceptación requiere una nueva ejecución verde asociada al SHA final exacto y un artefacto de validación win-x64 de ese mismo run.
