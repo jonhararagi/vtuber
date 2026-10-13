@@ -12,7 +12,7 @@ public enum EventActionDestination { StreamerBot, PngtuberPlus }
 public enum EventActionOutcome
 {
     EventReceived, DuplicateDiscarded, RuleDisabled, AutomationsPaused, ConditionNotMet,
-    ActionQueued, RequestAccepted, ActionRejected, OutcomeUnknown, HotkeySent,
+    ActionQueued, ActionSent, RequestAccepted, ActionRejected, OutcomeUnknown, HotkeySent,
     InternalError, QueueSaturated, InvalidDestination, Cooldown, RateLimited, CausalDepthLimit
 }
 
@@ -65,7 +65,8 @@ public sealed record EventActionRule(
 public sealed record EventActionExecutionResult(
     EventActionOutcome Outcome,
     string Message,
-    string? ProviderRequestId = null);
+    string? ProviderRequestId = null,
+    bool RequestSent = false);
 
 public sealed record EventActionActivity(
     DateTimeOffset At,
@@ -385,6 +386,8 @@ public sealed class EventActionCoordinator : INormalizedEventPublisher, IAsyncDi
             {
                 result = new(EventActionOutcome.InternalError, "El adaptador falló (" + ex.GetType().Name + ").");
             }
+            if (result.RequestSent)
+                RecordActivity(rule, evt, EventActionOutcome.ActionSent, "El adaptador envió la solicitud; todavía no implica que el efecto posterior haya ocurrido.");
             if (result.Outcome is EventActionOutcome.RequestAccepted or EventActionOutcome.ActionRejected or
                 EventActionOutcome.OutcomeUnknown or EventActionOutcome.HotkeySent)
             {
