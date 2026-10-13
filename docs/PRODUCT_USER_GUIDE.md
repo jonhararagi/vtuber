@@ -34,6 +34,16 @@ El Dashboard muestra CPU y RAM reales del proceso cada dos segundos mientras est
 4. Los sprites de demostración se generan localmente la primera vez. No hace falta descargar arte, configurar una API ni sobrescribir tus perfiles propios. Al pulsar de nuevo un ejemplo ya creado, se activa el perfil existente sin borrar tus cambios.
 5. **Configurar PNGTuber Plus externo** abre su página de configuración. PNGTuber Plus es otra aplicación y necesita instalarse aparte; el botón de ejemplo integrado no pretende simular que esa aplicación ya está instalada.
 
+### Modo local lento y seguro: separar una ilustración
+
+En Avatar Studio, abrí **Modo local lento y seguro — IA sin subir tu imagen** y pulsá **Elegir imagen y separar localmente**. Se admiten PNG, JPG/JPEG y BMP de hasta 25 MB. La primera vez el programa descarga un modelo de unos 8,7 MB; después la inferencia se realiza localmente y la imagen no se envía a un servidor.
+
+- La IA se ejecuta en un proceso separado, solo en CPU, con un hilo de inferencia, prioridad baja, una fecha límite de 10 minutos y un límite de memoria de proceso de 2 GiB aplicado por Windows Job Object. Si el sistema no permite imponer ese límite, el trabajo no se inicia. Podés cancelar sin cerrar el bot.
+- El modelo intenta separar **piel/cuerpo, ropa y cabello**. Los píxeles cercanos que no entran en esas zonas se conservan en una capa de **detalles y contorno**. Al finalizar se crea un perfil nuevo con las capas PNG transparentes.
+- Es un modelo experimental: su autor advierte que la precisión en ilustraciones puede ser limitada. Puede clasificar mal pelo/ropa/piel, dejar huecos o fallar con fondos complejos. No reconstruye de manera generativa el reverso de una prenda, no detecta de forma independiente cada ojo/accesorio y no crea automáticamente expresiones distintas.
+- El límite de 2 GiB se aplica al **proceso de IA**, no a la suma de VTuberBot, OBS y otros programas. La primera descarga requiere internet; después se puede procesar sin conexión, siempre que el modelo ya esté descargado.
+- El modelo proviene de [Skin-Clothes-Hair-Segmentation-using-SMP](https://github.com/Kazuhito00/Skin-Clothes-Hair-Segmentation-using-SMP), publicado con licencia MIT. El programa verifica el tamaño y la huella del archivo antes de ejecutarlo. Ver [avisos de terceros](THIRD_PARTY_NOTICES.md).
+
 ### Crear una VTuber desde una sola imagen
 
 Avatar Studio tiene una sección **Crear una VTuber desde una sola imagen** con dos accesos directos:
