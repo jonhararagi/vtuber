@@ -141,6 +141,7 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel x:Name="NavigationPanel">
             <Button Content="◈  Inicio" Tag="Inicio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+            <Button Content="◉  Centro de directo" Tag="Centro de directo" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="✧  Avatar Studio" Tag="Avatar Studio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="◈  Avatar externo" Tag="Avatar externo" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Button Content="⇄  Streamer.bot" Tag="Streamer.bot" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
