@@ -411,7 +411,7 @@ public sealed class ChatReactionService : IAsyncDisposable
             !Enum.IsDefined(rule.MatchType) ||
             rule.GlobalCooldownSeconds is < 0 or > 3600 || rule.UserCooldownSeconds is < 0 or > 3600 ||
             rule.MaxPerMinute is < 1 or > 60 ||
-            (rule.Expression ?? "").Length > 30 || (!string.IsNullOrEmpty(rule.Expression) && rule.Expression is not ("Idle" or "Talking" or "Blink" or "Happy" or "Surprised"))
+            (rule.Expression ?? "").Length > 30 || (!string.IsNullOrEmpty(rule.Expression) && rule.Expression is not ("Idle" or "Talking" or "Blink" or "Happy" or "Surprised")))
         {
             error = "Campos fuera de rango o tipo de coincidencia/expresión no permitido.";
             return false;
