@@ -22,9 +22,12 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
     public VoicevoxSpeechSession(Func<string>? baseUrl = null) =>
         this.baseUrl = baseUrl ?? (() => DefaultBaseUrl);
 
-    public static bool IsVoiceId(string? id) =>
-        id?.StartsWith(VoiceIdPrefix, StringComparison.OrdinalIgnoreCase) == true &&
-        int.TryParse(id[VoiceIdPrefix.Length..], out var speakerId) && speakerId >= 0;
+    public static bool IsVoiceId(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id) || !id.StartsWith(VoiceIdPrefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+        return int.TryParse(id[VoiceIdPrefix.Length..], out var speakerId) && speakerId >= 0;
+    }
 
     public static IReadOnlyList<LocalSpeechVoice> GetInstalledVoices(string? configuredBaseUrl = null)
     {
