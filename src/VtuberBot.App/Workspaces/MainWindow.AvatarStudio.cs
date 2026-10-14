@@ -84,15 +84,19 @@ public partial class MainWindow
     {
         var root = new StackPanel();
 
-        // The old generated chibi sample gallery was removed from the user-facing workflow.
-        var beginnerPanel = Panel("Crear y personalizar tu personaje");
+        var beginnerPanel = Panel("Crear, importar y personalizar tu personaje");
         beginnerPanel.Margin = new Thickness(0, 0, 0, 14);
         beginnerPanel.Children.Add(Label(
-            "Creá tu personaje base en VRoid Studio y usá el mini estudio 3D integrado para explorar la personalización. No se muestran los antiguos modelos de muestra.",
+            "Para usar un personaje de BotImagen, exportá su PNG transparente de 512×768 y elegí «Importar personaje de BotImagen / crear PNGTuber». Podés añadir una segunda imagen con la boca abierta para alternar al hablar. También podés importar imágenes propias.",
             12, "#98A4BE"));
 
+        var presetGallery = new WrapPanel { Margin = new Thickness(0, 8, 0, 10) };
+        foreach (var preset in ChibiAvatarPresets)
+            presetGallery.Children.Add(BuildChibiPresetButton(preset));
+        beginnerPanel.Children.Add(presetGallery);
+
         beginnerPanel.Children.Add(Label(
-            "El mini estudio 3D se abre dentro de VTuberBot y permite probar un editor de avatares VRM. Esta primera integración necesita Internet; la importación de ropa depende de la compatibilidad del modelo y los recursos. El overlay de VTuberBot todavía requiere su propia integración VRM.",
+            "El mini estudio 3D se abre dentro de VTuberBot y permite probar un editor de avatares VRM. Requiere Internet. Importar un VRM al overlay animado de VTuberBot todavía no está implementado; el flujo PNGTuber sí permite usar los PNG exportados de BotImagen.",
             12, "#98A4BE"));
 
         Button startLocalSegmentation = null!;
@@ -111,7 +115,7 @@ public partial class MainWindow
         };
 
         var beginnerActions = new WrapPanel();
-        beginnerActions.Children.Add(ActionButton("Crear PNGTuber con mis imágenes", (_, _) =>
+        beginnerActions.Children.Add(ActionButton("Importar personaje de BotImagen / crear PNGTuber", (_, _) =>
             CreateSimplePngTuber(), true));
         startLocalSegmentation = ActionButton("2 · 2.5D con IA local (experimental)", async (_, _) =>
             await StartLocalAvatarSegmentationAsync());
@@ -129,7 +133,7 @@ public partial class MainWindow
         beginnerPanel.Children.Add(localSegmentationProgress);
         beginnerPanel.Children.Add(localSegmentationStatus);
         root.Children.Add(beginnerPanel);
-        // The old 2D generated wardrobe panel is intentionally hidden; the 3D editor is the primary workflow.
+        root.Children.Add(BuildModularWardrobePanel());
 
         var profilePanel = Panel("Perfiles de avatar");
         profilePanel.Margin = new Thickness(0, 0, 0, 14);
@@ -286,7 +290,7 @@ public partial class MainWindow
         var demoPanel = Panel("Más ejemplos incluidos");
         demoPanel.Margin = new Thickness(0, 0, 0, 14);
         demoPanel.Children.Add(Label(
-            "Estos perfiles técnicos sirven para comprobar los estados del PNGTuber y el ejemplo 2D por capas. Para empezar con diseños artísticos realmente diferentes, usá la galería de personajes chibi de la parte superior.",
+            "Estos perfiles técnicos sirven para comprobar los estados del PNGTuber y el ejemplo 2D por capas. Para empezar, importá un PNG transparente de BotImagen; también podés elegir un personaje de la galería o combinar piezas en el armario modular de abajo.",
             12, "#98A4BE"));
         var demoActions = new WrapPanel();
         demoActions.Children.Add(ActionButton("Probar sprites técnicos de estados", (_, _) =>
