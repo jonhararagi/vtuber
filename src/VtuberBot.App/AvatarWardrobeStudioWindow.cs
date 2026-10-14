@@ -90,12 +90,12 @@ public sealed class AvatarWardrobeStudioWindow : Window
 <label for="accent">Color secundario</label><input id="accent" type="color" value="#f2d8e7">
 <label for="accessory">Accesorios</label><select id="accessory"><option value="none">Sin accesorio</option><option value="ribbon">Lazo para el pelo</option><option value="headphones">Auriculares</option><option value="star">Horquillas estrella</option><option value="halo">Aro decorativo</option></select>
 </div>
-<div class="group"><h3>05 · Tu diseño</h3><div class="actions"><button class="btn" id="save">Guardar diseño</button><button class="btn secondary" id="reset">Restablecer</button></div>
+<div class="group"><h3>05 · Tu diseño</h3><div class="actions"><button class="btn" id="save">Guardar diseño JSON</button><button class="btn secondary" id="reset">Restablecer</button></div><button class="btn" id="exportglb">Exportar modelo 3D (.glb)</button>
 <label class="btn secondary" for="loadfile" style="display:block;text-align:center">Cargar diseño guardado</label><input id="loadfile" type="file" accept=".json,application/json" hidden>
-<div class="warn">Esta versión crea una figura 3D paramétrica para editar la silueta y el estilo. Todavía no importa prendas VRM externas ni exporta un modelo VRM listo para emitir.</div></div>
+<div class="warn">El archivo GLB exporta la malla visible, pero no incluye esqueleto ni animaciones. No equivale a un VRM listo para emitir.</div></div>
 </aside><main class="stage"><canvas id="view"></canvas><div class="stagehead"><span class="pill">VISTA 3D · ARRASTRÁ PARA GIRAR</span><span class="pill" id="renderstatus">Preparando modelo…</span></div><div class="tip">Personaje base editable · pelo marrón por defecto · ojos marrones y pupilas blancas. Cambiá las opciones para reconstruir el look.</div></main></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.124.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.124.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.124.0/examples/js/controls/OrbitControls.js"></script><script src="https://cdn.jsdelivr.net/npm/three@0.124.0/examples/js/exporters/GLTFExporter.js"></script>
 <script>
 (()=> {
 const $=id=>document.getElementById(id), canvas=$('view');
@@ -183,7 +183,8 @@ function update(){ $('heightv').textContent=$('height').value+'%';make();}
 ids.forEach(id=>$(id).addEventListener('input',update));
 $('reset').addEventListener('click',()=>{const defaults={shape:'soft',height:'100',skin:'#f3c6b0',haircolor:'#70452f',eyes:'#75452f',expression:'smile',hair:'shoulder',bangs:'soft',outfit:'cardigan',cloth:'#7865ad',accent:'#f2d8e7',accessory:'none'};for(const [k,v] of Object.entries(defaults))$(k).value=v;update();});
 function settings(){return Object.fromEntries(ids.map(id=>[id,$(id).value]));}
-$('save').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'vtuberbot-avatar-look',version:1,settings:settings()},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mi-personaje-vtuberbot.json';a.click();URL.revokeObjectURL(a.href);});
+$('save').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'vtuberbot-avatar-look',version:1,settings:settings()},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='mi-personaje-vtuberbot.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+$('exportglb').addEventListener('click',()=>{if(!THREE.GLTFExporter){$('renderstatus').textContent='No se pudo cargar el exportador GLB (Internet requerida)';return;} $('renderstatus').textContent='Exportando modelo 3D…';try{new THREE.GLTFExporter().parse(avatar,result=>{const blob=new Blob([result],{type:'model/gltf-binary'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='mi-personaje-vtuberbot.glb';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);$('renderstatus').textContent='Modelo GLB exportado · sin rig ni animaciones';},error=>{$('renderstatus').textContent='Error al exportar GLB: '+(error?.message||'error desconocido');},{binary:true,onlyVisible:true});}catch(error){$('renderstatus').textContent='Error al exportar GLB: '+(error?.message||'error desconocido');}});
 $('loadfile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());const vals=data.settings||data;for(const id of ids)if(typeof vals[id]==='string')$(id).value=vals[id];update();}catch{$('renderstatus').textContent='Archivo JSON no válido';}e.target.value='';});
 function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(canvas);resize();make();
