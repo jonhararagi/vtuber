@@ -997,6 +997,19 @@ public partial class MainWindow
         var faceAccessory = Choice(ModularWardrobeFactory.FaceAccessoryOptions);
         var back = Choice(ModularWardrobeFactory.BackAccessoryOptions);
 
+        var previewPanel = Panel("Vista previa — se actualiza al cambiar opciones");
+        previewPanel.Margin = new Thickness(0, 8, 0, 12);
+        var previewCanvas = new Grid
+        {
+            Width = 176,
+            Height = 250,
+            ClipToBounds = true,
+            Background = Brush("#101525"),
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        previewPanel.Children.Add(previewCanvas);
+        panel.Children.Add(previewPanel);
+
         panel.Children.Add(Label("1 · Peinado", 12, "#F8FAFC", true));
         panel.Children.Add(hair);
         panel.Children.Add(Label("2 · Ropa / conjunto", 12, "#F8FAFC", true));
@@ -1079,6 +1092,51 @@ public partial class MainWindow
         var summary = Label("", 12, "#69E4D0", true);
         panel.Children.Add(summary);
 
+        void UpdateLivePreview()
+        {
+            if (hair.SelectedItem is not WardrobeOption selectedHair ||
+                outfit.SelectedItem is not WardrobeOption selectedOutfit ||
+                faceShape.SelectedItem is not WardrobeOption selectedFaceShape ||
+                eyes.SelectedItem is not WardrobeOption selectedEyes ||
+                skin.SelectedItem is not WardrobeOption selectedSkin ||
+                pose.SelectedItem is not WardrobeOption selectedPose ||
+                head.SelectedItem is not WardrobeOption selectedHead ||
+                faceAccessory.SelectedItem is not WardrobeOption selectedFaceAccessory ||
+                back.SelectedItem is not WardrobeOption selectedBack)
+            {
+                previewCanvas.Children.Clear();
+                return;
+            }
+
+            var assets = ModularWardrobeFactory.EnsureAssets(
+                avatarDirectory, selectedFaceShape.Id, selectedEyes.Id, selectedSkin.Id);
+            var paths = new List<string> { assets.BaseIdle };
+            if (selectedBack.Id != "none-back" && assets.BackAccessories.TryGetValue(selectedBack.Id, out var backPath))
+                paths.Add(backPath);
+            paths.Add(assets.Outfits[selectedOutfit.Id]);
+            paths.Add(assets.PoseLayers[selectedPose.Id]);
+            paths.Add(assets.Hair[selectedHair.Id]);
+            if (assets.HeadAccessories.TryGetValue(selectedHead.Id, out var headPath))
+                paths.Add(headPath);
+            if (assets.FaceAccessories.TryGetValue(selectedFaceAccessory.Id, out var facePath))
+                paths.Add(facePath);
+
+            previewCanvas.Children.Clear();
+            foreach (var path in paths)
+            {
+                previewCanvas.Children.Add(new Image
+                {
+                    Source = LoadChibiPreviewBitmap(path),
+                    Width = 176,
+                    Height = 250,
+                    Stretch = Stretch.Uniform,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    IsHitTestVisible = false
+                });
+            }
+        }
+
         void UpdateSummary()
         {
             summary.Text =
@@ -1092,6 +1150,7 @@ public partial class MainWindow
                 (head.SelectedItem as WardrobeOption)?.Name + " · " +
                 (faceAccessory.SelectedItem as WardrobeOption)?.Name + " · " +
                 (back.SelectedItem as WardrobeOption)?.Name;
+            UpdateLivePreview();
         }
 
         hair.SelectionChanged += (_, _) => UpdateSummary();
@@ -1162,6 +1221,17 @@ public partial class MainWindow
         return panel;
     }
 
+    private static BitmapImage LoadChibiPreviewBitmap(string path)
+    {
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.UriSource = new Uri(Path.GetFullPath(path), UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
+    }
+
     private Button BuildChibiPresetButton(ChibiAvatarPreset preset)
     {
         var assets = ModularWardrobeFactory.EnsureAssets(
@@ -1176,15 +1246,9 @@ public partial class MainWindow
 
         void AddPreviewLayer(string path)
         {
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.UriSource = new Uri(Path.GetFullPath(path), UriKind.Absolute);
-            bitmap.EndInit();
-            bitmap.Freeze();
             preview.Children.Add(new Image
             {
-                Source = bitmap,
+                Source = LoadChibiPreviewBitmap(path),
                 Width = 92,
                 Height = 124,
                 Stretch = Stretch.Uniform,
