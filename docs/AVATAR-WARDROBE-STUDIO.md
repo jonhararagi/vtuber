@@ -9,8 +9,9 @@ La ventana WPF/WebView2 contiene un taller paramétrico 3D integrado. La figura 
 - Silueta base: curvilínea suave, delgada o atlética; control de altura.
 - Tono de piel, color de pelo e iris; ojos marrones y pupilas blancas como valores iniciales.
 - Seis estilos de cabello: media melena, ondulado, recogido, coletas gemelas, largo y bob; tres opciones de flequillo.
-- Cinco conjuntos: cárdigan con falda, hoodie, aventurero, uniforme y gótico.
-- Colores principal/secundario y accesorios: lazo, auriculares, horquillas estrella y aro. El control **Variación de tono** rota el matiz de los dos colores del vestuario/accesorios sin alterar la piel; se puede combinar con los selectores de color.
+- Ocho estilos de vestuario generados por geometría: cárdigan con falda, hoodie, aventurero, uniforme, gótico y tres aproximaciones nuevas inspiradas en estilos comunitarios: vestido retro, pijama pastel y camiseta Y2K oversize. No son las prendas originales descargadas.
+- Colores principal/secundario y accesorios: lazo, auriculares, horquillas estrella y aro.
+- Enlaces dentro del taller a tres prendas comunitarias gratuitas para ver sus imágenes y páginas originales: [vestido retro de V.Y Atelier](https://booth.pm/en/items/5010638), [pijama pastel de Darmangy](https://booth.pm/en/items/7692844) y [camiseta Y2K de VroidDressing](https://booth.pm/en/items/6191973). Estos enlaces no descargan ni importan los archivos al modelo actual. El control **Variación de tono** rota el matiz de los dos colores del vestuario/accesorios sin alterar la piel; se puede combinar con los selectores de color.
 - Tres expresiones sencillas.
 - Restablecer el diseño, guardar/cargar los ajustes en JSON.
 - **Exportar la malla visible como GLB** para llevarla a otra herramienta 3D y continuar el trabajo.
