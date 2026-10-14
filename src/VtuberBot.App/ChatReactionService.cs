@@ -488,7 +488,11 @@ public sealed class ChatReactionService : IAsyncDisposable
             new("anime-okaeri-slash", "Anime bilingüe: Okaerinasai", "/okaerinasai", ChatReactionMatchType.Exact,
                 ["おかえりなさい！ ¡Bienvenido de vuelta, {user}!"], true, "Happy", 5, 10, 10, true),
             new("anime-okaeri-bang", "Anime bilingüe: Okaerinasai", "!okaerinasai", ChatReactionMatchType.Exact,
-                ["おかえりなさい！ ¡Bienvenido de vuelta, {user}!"], true, "Happy", 5, 10, 10, true)
+                ["おかえりなさい！ ¡Bienvenido de vuelta, {user}!"], true, "Happy", 5, 10, 10, true),
+            new("anime-soybot-slash", "Español: Soy solo un bot", "/soybot", ChatReactionMatchType.Exact,
+                ["Yo... soy solo un bot... jeje. ¡No me mires así!"], true, "Happy", 5, 10, 10, true),
+            new("anime-soybot-bang", "Español: Soy solo un bot", "!soybot", ChatReactionMatchType.Exact,
+                ["Yo... soy solo un bot... jeje. ¡No me mires así!"], true, "Happy", 5, 10, 10, true)
         ];
     }
 
