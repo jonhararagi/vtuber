@@ -129,7 +129,19 @@ public partial class MainWindow
         beginnerPanel.Children.Add(localSegmentationProgress);
         beginnerPanel.Children.Add(localSegmentationStatus);
         root.Children.Add(beginnerPanel);
-        // The old 2D generated wardrobe panel is intentionally hidden; the 3D editor is the primary workflow.
+
+        // Restore the built-in illustrated PNG layer gallery so a beginner can create a real
+        // editable avatar profile without first sourcing their own artwork.
+        var sampleGallery = Panel("Galería de personajes chibi · elegí uno para crear tu perfil");
+        sampleGallery.Margin = new Thickness(0, 0, 0, 14);
+        sampleGallery.Children.Add(Label(
+            "Son seis diseños originales de muestra, generados como PNG transparentes por capas. Al elegir uno se crea un perfil editable; después podés cambiar peinado, ropa, ojos, accesorios y expresiones, o reemplazar las capas con tus propias imágenes.",
+            12, "#98A4BE"));
+        var sampleGalleryItems = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+        foreach (var preset in ChibiAvatarPresets)
+            sampleGalleryItems.Children.Add(BuildChibiPresetButton(preset));
+        sampleGallery.Children.Add(sampleGalleryItems);
+        root.Children.Add(sampleGallery);
 
         var profilePanel = Panel("Perfiles de avatar");
         profilePanel.Margin = new Thickness(0, 0, 0, 14);
