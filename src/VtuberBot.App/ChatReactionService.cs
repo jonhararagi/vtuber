@@ -49,7 +49,7 @@ public sealed class ChatReactionService : IAsyncDisposable
     public const int MaximumMessageLength = 1000;
     private readonly ProductStore store;
     private readonly Func<string, CancellationToken, Task<bool>> sendChat;
-    private readonly Func<string, string, bool> enqueueSpeech;
+    private readonly Func<string, string, string, bool> enqueueSpeech;
     private readonly Func<string, CancellationToken, bool> setExpression;
     private readonly Func<string, CancellationToken, bool>? playClip;
     private readonly Func<bool> isConnected;
@@ -77,7 +77,7 @@ public sealed class ChatReactionService : IAsyncDisposable
     public event Action<int>? QueueChanged;
 
     public ChatReactionService(ProductStore store, Func<string, CancellationToken, Task<bool>> sendChat,
-        Func<string, string, bool> enqueueSpeech, Func<string, CancellationToken, bool> setExpression, Func<bool> isConnected,
+        Func<string, string, string, bool> enqueueSpeech, Func<string, CancellationToken, bool> setExpression, Func<bool> isConnected,
         int queueCapacity = QueueCapacity, Func<string, CancellationToken, bool>? playClip = null)
     {
         this.store = store;
@@ -386,7 +386,7 @@ public sealed class ChatReactionService : IAsyncDisposable
                             audioQueued = !paused && item.Epoch == connectionEpoch && twitchConnected && isConnected() &&
                                 !activeOperation.IsCancellationRequested &&
                                 (string.IsNullOrWhiteSpace(item.Rule.ClipAssetId)
-                                    ? enqueueSpeech(response, item.Rule.VoiceId)
+                                    ? enqueueSpeech(response, item.Rule.Language, item.Rule.VoiceId)
                                     : playClip is not null && playClip(item.Rule.ClipAssetId, activeOperation.Token));
                         }
                         details.Add(string.IsNullOrWhiteSpace(item.Rule.ClipAssetId)
