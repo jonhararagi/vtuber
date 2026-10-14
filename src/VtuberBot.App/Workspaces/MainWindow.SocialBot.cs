@@ -239,6 +239,14 @@ public partial class MainWindow
             try { Process.Start(new ProcessStartInfo("https://chatgpt.com") { UseShellExecute = true }); }
             catch (Exception exception) { MessageBox.Show(this, "No se pudo abrir el navegador: " + exception.Message, "Modo manual", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }));
+        manualPanel.Children.Add(ActionButton("Abrir Gemini web", (_, _) =>
+        {
+            try { Process.Start(new ProcessStartInfo("https://gemini.google.com/app") { UseShellExecute = true }); }
+            catch (Exception exception) { MessageBox.Show(this, "No se pudo abrir el navegador: " + exception.Message, "Modo manual", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        }));
+        manualPanel.Children.Add(Label(
+            "Modo web manual: abrí ChatGPT o Gemini, copiá el prompt y pegá la respuesta acá. VTuberBot no lee ni controla tu sesión del navegador.",
+            11, "#98A4BE"));
         manualPanel.Children.Add(ActionButton("Copiar prompt de personaje", (_, _) =>
         {
             try
