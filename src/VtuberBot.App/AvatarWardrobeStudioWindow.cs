@@ -128,7 +128,7 @@ const narrow=shape==='slim'?.86:shape==='athletic'?.95:1, hip=shape==='slim'?.40
 // legs and boots
 for(const side of [-1,1]){const x=side*.22*narrow;
 limb(avatar,skin,[x,.30,0],[x,.92,0],.105,.12);
-limb(avatar,mat('#e8cbd2'),[x,.91,0],[x,1.28,0],.115,.13);
+limb(avatar,mat('#e8cbd2'),[x,.91,0],[x,1.28,0],.115,.13);if(outfit==='pajama'||outfit==='y2k')limb(avatar,cloth,[x,.20,.015],[x,1.22,.015],.145,.16);
 ball(avatar,shoe,[x, .12,.055],[.145,.11,.25]);
 if(outfit==='goth')ball(avatar,mat('#b89bff'),[x,.15,.19],[.035,.025,.025]);
 }
