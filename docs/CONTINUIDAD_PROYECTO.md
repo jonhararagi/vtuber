@@ -1,5 +1,18 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-14 — Voz japonesa local VOICEVOX por reacción
+
+- Se agregó `src/VtuberBot.App/VoicevoxSpeechSession.cs`, adaptador de TTS local para el motor HTTP oficial de VOICEVOX. Consulta `/speakers`, sintetiza por `/audio_query` + `/synthesis`, reproduce WAV con NAudio y acepta solo destinos localhost/loopback. No requiere clave API ni envía el texto a un servicio remoto.
+- `ConfigurableSpeechSession` ahora detecta IDs `voicevox:<speakerId>` y los enruta al proveedor VOICEVOX aun cuando el TTS global esté en modo remoto. La cola de voz existente y su compuerta de audio siguen controlando la reproducción; las reglas conservan expresión, cooldown y límites del motor de reacciones.
+- `Centro de directo → Editor de reglas` agrega al selector las voces/estilos detectados en el motor local cuando se abre la página y suma **Escuchar muestra japonesa de la voz seleccionada**. La muestra es 「お兄ちゃんのばか！ なに!? おかえりなさい！」. Si el motor no está activo al abrir la página, hay que iniciarlo y reabrir Centro de directo para cargar su lista.
+- Se añadió `tests/VtuberBot.Tests/VoicevoxSpeechSessionTests.cs` para validar IDs y el enrutamiento hacia el proveedor local sin requerir un motor de voz real.
+- Descarga/uso: [sitio oficial VOICEVOX](https://voicevox.hiroshiba.jp/) y [repositorio oficial del motor/API](https://github.com/VOICEVOX/voicevox_engine). El motor no se empaqueta dentro de VTuberBot por su tamaño y por los términos específicos de cada voz/personaje; revisar atribución/licencia antes de publicar o monetizar.
+- Archivos: `src/VtuberBot.App/VoicevoxSpeechSession.cs`, `src/VtuberBot.App/RemoteSpeechSession.cs`, `src/VtuberBot.App/MainWindow.xaml.cs`, `src/VtuberBot.App/Workspaces/MainWindow.LiveCenter.cs`, `tests/VtuberBot.Tests/VoicevoxSpeechSessionTests.cs`, `docs/PRODUCT_USER_GUIDE.md`.
+- Commits de esta implementación: adaptador `47cda317b8b521f38d8d42ad5ba75abfb9c10828`; enrutamiento `f6f85b54ff1a8a8747153cde87f49af07f66d23c`; conexión desde ventana `d2de9aeda7a8fc3249ea9022576895315d8f29a2`; selector/muestra `f62e195607a7cbb7a4abd679ad324ce1de3de83d`; validación de IDs `ade42ef2754c6cc820c8b4ad2ed778d518c1214e`; guía `b250f9ba91032b666a42f2166eb04c8b9dfb738a`; pruebas `41876857661317f92521773df6e5153eff144bb1`.
+- **Validación pendiente:** todavía no se ha ejecutado Windows CI para el HEAD resultante ni probado el audio con el motor VOICEVOX real. Las pruebas añadidas son pruebas unitarias de identificación/enrutamiento, no demuestran pronunciación ni reproducción física. Verificar CI contra el SHA final después de esta actualización de continuidad.
+- Todo el trabajo permanece en `product/complete-vtuber-experience`; no tocar `main` ni cerrar/fusionar el PR #9.
+
+
 ## 2026-10-14 — Referencias de prendas gratuitas y nuevos estilos de prueba
 
 - Se amplió `src/VtuberBot.App/AvatarWardrobeStudioWindow.cs` con tres opciones geométricas de prueba: vestido retro, pijama pastel y camiseta Y2K oversize; las opciones de pijama/Y2K dibujan pantalón. Son aproximaciones visuales inspiradas en estilos publicados, no los archivos originales.
