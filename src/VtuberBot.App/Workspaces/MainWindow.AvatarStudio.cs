@@ -95,7 +95,10 @@ public partial class MainWindow
             "sharp", "gold", "warm", "crossed-arms"),
         new("bunny-cafe", "Conejita de café", "Moños dobles, orejas largas y mochila conejito.",
             "double-buns", "comfy-hoodie", "bunny-ears", "heart-choker", "bunny-backpack",
-            "round", "rose", "cocoa", "peace")
+            "round", "rose", "cocoa", "peace"),
+        new("mocha-mel", "Miel de café", "Chibi de piel morena cálida, cabello castaño con mechones interiores miel y ojos marrones.",
+            "brown-inner-light", "comfy-hoodie", "double-bows", "heart-choker", "bunny-backpack",
+            "heart", "brown", "morena", "wave")
     ];
 
     private UIElement BuildAvatarStudio()
@@ -153,7 +156,7 @@ public partial class MainWindow
         var sampleGallery = Panel("Galería de personajes chibi · elegí uno para crear tu perfil");
         sampleGallery.Margin = new Thickness(0, 0, 0, 14);
         sampleGallery.Children.Add(Label(
-            "Son seis diseños originales de muestra, generados como PNG transparentes por capas. Al elegir uno se crea un perfil editable; después podés cambiar peinado, ropa, ojos, accesorios y expresiones, o reemplazar las capas con tus propias imágenes.",
+            "Son trece diseños originales de muestra, generados como PNG transparentes por capas. Incluye una variante morena de cabello castaño con mechones interiores claros y ojos marrones. Al elegir uno se crea un perfil editable; después podés cambiar peinado, ropa, ojos, accesorios y expresiones, o reemplazar las capas con tus propias imágenes.",
             12, "#98A4BE"));
         var sampleGalleryItems = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
         foreach (var preset in ChibiAvatarPresets)
