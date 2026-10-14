@@ -188,7 +188,7 @@ const basePresets={
 'moon-apprentice':{shape:'slim',height:'96',skin:'#f0c8b5',haircolor:'#6e477c',eyes:'#8060b0',expression:'happy',hair:'twin',bangs:'soft',outfit:'goth',cloth:'#51416f',accent:'#e7c4ef',accessory:'star'},
 'jade-traveler':{shape:'soft',height:'102',skin:'#c08a64',haircolor:'#254d3f',eyes:'#5a7549',expression:'smile',hair:'shoulder',bangs:'soft',outfit:'cardigan',cloth:'#477a68',accent:'#e3d4a6',accessory:'halo'}
 };
-function applyBase(id){const p=basePresets[id];if(!p)return;for(const [k,v] of Object.entries(p))$(k).value=v;update();}
+function applyBase(id){const p=basePresets[id];if(!p)return;$('baseCharacter').value=id;for(const [k,v] of Object.entries(p))$(k).value=v;update();}
 $('baseCharacter').addEventListener('change',()=>applyBase($('baseCharacter').value));
 function update(){ $('heightv').textContent=$('height').value+'%';make();}
 ids.forEach(id=>$(id).addEventListener('input',update));
