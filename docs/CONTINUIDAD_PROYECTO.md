@@ -1,5 +1,13 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-14 — Taller 3D: inner hair y color de pupilas configurables
+
+- `src/VtuberBot.App/AvatarWardrobeStudioWindow.cs` ahora expone selectores separados para color principal del pelo, mechones interiores (`innerhair`), iris y pupilas (`pupilcolor`). El brillo blanco de los ojos permanece independiente del color de la pupila.
+- Se añadió el preset de taller **Miel de café**: piel morena cálida, pelo castaño oscuro, inner hair miel, iris marrón, pupilas marrón oscuro, pelo largo con flequillo lateral y hoodie. Los otros cuatro presets recibieron valores explícitos para que cambiar de uno a otro no arrastre colores anteriores.
+- La apariencia JSON ahora incluye los dos nuevos controles por medio del mismo catálogo de IDs. Se actualizó la guía para declarar con precisión que el GLB exportado es estático, sin rig ni animaciones, y que Three.js requiere Internet.
+- Commit de código: `ef5699d282ff79850c2c9bb8504876d042712b70`. Windows CI run [#38646725433](https://github.com/jonhararagi/vtuber/actions/runs/38646725433) está en ejecución; no declarar todavía el código 3D como validado por CI. Run previo exitoso para el preset 2D y Gemini web: [#38646027784](https://github.com/jonhararagi/vtuber/actions/runs/38646027784), SHA `a783ebabfa3bef3400ddc299460a8c05a3132a5a`, 534/534 pruebas.
+- Sigue pendiente una prueba visual real del taller y del preset 2D en Windows. No se cambió `main` ni se fusionó ningún PR.
+
 ## 2026-10-14 — Personalización chibi morena y ChatGPT/Gemini web
 
 - En `src/VtuberBot.App/ModularWardrobeFactory.cs` se añadió el tono de piel `morena` con sombras cálidas, el estilo de iris marrón y pupila marrón oscuro, y el peinado `brown-inner-light`: castaño oscuro con mechones interiores miel claros (no solo un brillo superficial). Las opciones quedan disponibles en el catálogo modular de Avatar Studio.
