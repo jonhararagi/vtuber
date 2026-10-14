@@ -10,7 +10,7 @@ La ventana WPF/WebView2 contiene un taller paramétrico 3D integrado. La figura 
 - Tono de piel, color de pelo e iris; ojos marrones y pupilas blancas como valores iniciales.
 - Seis estilos de cabello: media melena, ondulado, recogido, coletas gemelas, largo y bob; tres opciones de flequillo.
 - Cinco conjuntos: cárdigan con falda, hoodie, aventurero, uniforme y gótico.
-- Colores principal/secundario y accesorios: lazo, auriculares, horquillas estrella y aro.
+- Colores principal/secundario y accesorios: lazo, auriculares, horquillas estrella y aro. El control **Variación de tono** rota el matiz de los dos colores del vestuario/accesorios sin alterar la piel; se puede combinar con los selectores de color.
 - Tres expresiones sencillas.
 - Restablecer el diseño, guardar/cargar los ajustes en JSON.
 - **Exportar la malla visible como GLB** para llevarla a otra herramienta 3D y continuar el trabajo.
@@ -42,7 +42,7 @@ El GLB actual **no tiene esqueleto (rig), pesos de deformación, seguimiento fac
 - [M3-org/CharacterStudio](https://github.com/M3-org/CharacterStudio): investigar arquitectura y flujos glTF/VRM.
 - [M3-org/loot-assets](https://github.com/M3-org/loot-assets): posibles assets de ropa/equipo; verificar licencia por archivo.
 - [memelotsqui/character-assets](https://github.com/memelotsqui/character-assets): colección de assets; comprobar licencia y formato.
-- [VRoid Studio](https://vroid.com/en/studio): opción externa para crear un modelo canon y exportar VRM.
+- [VRoid Studio](https://vroid.com/en/studio): opción externa gratuita para crear un modelo canon y exportar VRM; no integrar sus mallas/presets dentro de un generador distribuible sin revisar la licencia aplicable. [Guías oficiales de uso](https://vroid.com/en/studio/guidelines).
 
 ## Validación pendiente
 
