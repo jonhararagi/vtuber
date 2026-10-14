@@ -4,7 +4,20 @@
 
 Primera integración de interfaz: VTuberBot abre Character Studio dentro de una ventana WPF/WebView2, sin lanzar un navegador externo. El contenido del editor se sirve desde `https://studio.m3org.com/`, por lo que esta primera versión requiere Internet y depende de la disponibilidad del sitio upstream. **No es todavía una copia local ni una integración offline.**
 
-## Flujo previsto
+## Usar personajes creados en BotImagen (PNGTuber)
+
+El flujo 2D es el camino disponible para usar ya una ilustración generada en BotImagen dentro del overlay nativo de VTuberBot:
+
+1. En BotImagen, exportar el personaje como PNG transparente (la salida actual del compositor es 512×768 RGBA).
+2. En VTuberBot, abrir **Avatar Studio → Importar personaje de BotImagen / crear PNGTuber**.
+3. Seleccionar el PNG exportado y crear un perfil con nombre propio.
+4. Cuando pregunte por la imagen de habla, elegir **Sí** y seleccionar una segunda imagen con la boca abierta si se dispone de ella; elegir **No** para reutilizar la misma imagen como estado Idle y Talking.
+5. VTuberBot copia las imágenes a su biblioteca local y activa el perfil. El overlay nativo usa Idle/Talking y puede recibir sprites adicionales de expresiones desde los controles de Avatar Studio.
+
+La importación copia la imagen a la carpeta de datos local de VTuberBot, sin modificar el archivo original de BotImagen. Cada perfil conserva su propia configuración.
+
+## Flujo 3D
+
 
 1. Crear el modelo base en VRoid Studio y exportarlo como VRM.
 2. Abrir **Avatar Studio → Mini estudio 3D integrado** dentro de VTuberBot.
