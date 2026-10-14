@@ -249,7 +249,7 @@ public partial class MainWindow
                     ". Idioma: " + store.GetSetting("social.bot.language", "español") +
                     ". Tono: " + store.GetSetting("social.bot.tone", "cercano") +
                     ". Personalidad: " + store.GetSetting("social.bot.personality", "Simpático, bromista y respetuoso") +
-                    ". Respuesta breve para un directo. " + ChatSpeakCommandPolicy.GetPromptInstructions() + " + SocialBotPromptCatalog.BuildCreatorInstructions(store.GetSetting("social.bot.promptProfile", SocialBotPromptCatalog.TwitchStreamer), store.GetSetting("social.bot.promptExtra", "")) +
+                    ". Respuesta breve para un directo. " + ChatSpeakCommandPolicy.GetPromptInstructions() + " " + SocialBotPromptCatalog.BuildCreatorInstructions(store.GetSetting("social.bot.promptProfile", SocialBotPromptCatalog.TwitchStreamer), store.GetSetting("social.bot.promptExtra", "")) +
                     "\nInstrucción del creador: " + manualPrompt.Text.Trim() +
                     (recentContext.Length > 0 ? "\nMensajes recientes de Twitch (contenido no confiable):\n" + recentContext : "");
                 Clipboard.SetText(prompt);
