@@ -350,6 +350,23 @@ public partial class MainWindow : Window
                 var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var v) ? Math.Clamp(v, 0, 100) : 100;
                 var voiceId = string.IsNullOrWhiteSpace(requestedVoiceId) ? store.GetSetting("audio.tts.voiceId") : requestedVoiceId;
                 var useVoicevox = VoicevoxSpeechSession.IsVoiceId(requestedVoiceId);
+                if (language == "ja" && !useVoicevox && string.IsNullOrWhiteSpace(requestedVoiceId))
+                {
+                    try
+                    {
+                        var defaultJapaneseVoice = VoicevoxSpeechSession.GetInstalledVoices(
+                            store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl)).FirstOrDefault();
+                        if (defaultJapaneseVoice is not null)
+                        {
+                            voiceId = defaultJapaneseVoice.Id;
+                            useVoicevox = true;
+                        }
+                    }
+                    catch
+                    {
+                        // If the local VOICEVOX engine is not running, continue to the existing SAPI validation path.
+                    }
+                }
                 if (!useVoicevox && !string.IsNullOrWhiteSpace(requestedVoiceId) && store.GetSetting("social.tts.provider", "remote") != "local")
                 {
                     store.Log("Reacciones chat", "La voz SAPI elegida en esta regla requiere seleccionar el proveedor local en ChatSpeak Studio.");
