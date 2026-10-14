@@ -4,6 +4,18 @@
 
 ChatSpeak Studio separa el trabajo de IA y voz del PC local. VTuberBot conserva Twitch IRC, el control de la cola de audio, los límites de seguridad y el avatar, mientras que los modelos y el audio se generan por servicios remotos cuando se configura y activa esa opción.
 
+## Perfiles de prompt guardados
+
+En **Bot social → Personalidad y proveedor de IA** hay un selector de perfiles y un campo de instrucciones adicionales del creador. Se guardan en la configuración local de VTuberBot y se aplican tanto a las respuestas automáticas de la IA como a la generación de prueba y al prompt copiado para el modo manual:
+
+- **Twitch streamer:** jerga de chat, GG, raid, hype, clip y memes cuando encajen; evita forzar slang o repetir emotes.
+- **Anime tsundere:** personaje original juguetón, bromas y vergüenza fingida sin volverse cruel ni repetir muletillas.
+- **Streamer tranquilo:** tono cálido y relajado.
+- **Moderador útil:** respuestas breves que aclaran dudas y desescalan conflictos, sin fingir sanciones.
+- **Personalizado:** utiliza la personalidad y las instrucciones adicionales del creador sin agregar un preset prefabricado.
+
+El campo adicional admite hasta 3000 caracteres. Para que el cambio tenga efecto en las respuestas automáticas, pulsa **Guardar toda la configuración**. El selector no conecta por sí mismo un proveedor: para modo automático todavía hace falta configurar un proveedor compatible, una clave válida cuando sea remoto y activar deliberadamente las respuestas automáticas. La integración de ChatGPT web sigue siendo manual copiar/pegar; no lee la conversación privada ni automatiza la sesión del navegador.
+
 ## Los dos modos
 
 ### Modo manual con ChatGPT web
