@@ -4,7 +4,7 @@ Esta guía corresponde al candidato integrado de VTuberBot. Las funciones extern
 
 ## Empezar: elegí tu tipo de VTuber
 
-Arriba de **Avatar Studio** hay una galería de seis personajes chibi completos: **Neko gamer**, **Brujita lunar**, **Idol estelar**, **Gótica rosa**, **Cyber neón** y **Streamer casual**. No son una misma ilustración recoloreada: cada modelo combina distinto peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al pulsar una tarjeta se crea un perfil propio y se abre el overlay; tus perfiles previos no se reemplazan.
+Arriba de **Avatar Studio** hay una galería de doce personajes chibi completos: **Neko gamer**, **Brujita lunar**, **Idol estelar**, **Gótica rosa**, **Cyber neón**, **Streamer casual**, **Zorrita de festival**, **Oráculo invernal**, **Guardiana kitsune**, **Pop celestial**, **Capitana pirata** y **Conejita de café**. No son una misma ilustración recoloreada: cada modelo combina distinto peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al pulsar una tarjeta se crea un perfil propio y se abre el overlay; tus perfiles previos no se reemplazan.
 
 Debajo de esa galería está **Crear PNGTuber con mis imágenes**. Elegí una imagen de reposo y, si ya tenés una, otra con la boca abierta para hablar. Con una sola imagen el avatar queda visualmente estático; con dos, el detector de audio alterna entre ellas.
 
