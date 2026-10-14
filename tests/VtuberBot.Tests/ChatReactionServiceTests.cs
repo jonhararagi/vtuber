@@ -118,7 +118,7 @@ public sealed class ChatReactionServiceTests
         await using var service = Create(store, effects);
 
         var rules = service.GetRules();
-        Assert.Equal(8, rules.Count);
+        Assert.Equal(10, rules.Count);
         Assert.All(rules, rule => Assert.True(rule.Enabled));
         Assert.Contains(rules, rule => rule.Trigger == "/ohayo" && rule.Responses.Any(x => x.Contains("おはよう！") && x.Contains("Buenos días")));
         Assert.Contains(rules, rule => rule.Trigger == "/baka" && rule.Responses.Any(x => x.Contains("お兄ちゃんのばか！")));
@@ -128,7 +128,9 @@ public sealed class ChatReactionServiceTests
         Assert.Contains(rules, rule => rule.Trigger == "!baka");
         Assert.Contains(rules, rule => rule.Trigger == "!nani");
         Assert.Contains(rules, rule => rule.Trigger == "!okaerinasai");
-        Assert.Equal(8, JsonSerializer.Deserialize<List<ChatReactionRule>>(store.GetSetting(ChatReactionService.RulesSettingKey))!.Count);
+        Assert.Contains(rules, rule => rule.Trigger == "/soybot" && rule.Responses.Any(x => x.Contains("soy solo un bot") && x.Contains("jeje")));
+        Assert.Contains(rules, rule => rule.Trigger == "!soybot");
+        Assert.Equal(10, JsonSerializer.Deserialize<List<ChatReactionRule>>(store.GetSetting(ChatReactionService.RulesSettingKey))!.Count);
     }
 
     [Fact]
@@ -141,7 +143,7 @@ public sealed class ChatReactionServiceTests
 
         await using (var service = Create(store, effects))
         {
-            Assert.Equal(8, service.GetRules().Count);
+            Assert.Equal(10, service.GetRules().Count);
         }
 
         // Once migrated, deleting all rules remains a user choice after restart.
