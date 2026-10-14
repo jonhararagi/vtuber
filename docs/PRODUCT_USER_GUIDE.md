@@ -4,7 +4,7 @@ Esta guía corresponde al candidato integrado de VTuberBot. Las funciones extern
 
 ## Empezar: elegí tu tipo de VTuber
 
-Arriba de **Avatar Studio** hay una galería de doce personajes chibi completos: **Neko gamer**, **Brujita lunar**, **Idol estelar**, **Gótica rosa**, **Cyber neón**, **Streamer casual**, **Zorrita de festival**, **Oráculo invernal**, **Guardiana kitsune**, **Pop celestial**, **Capitana pirata** y **Conejita de café**. No son una misma ilustración recoloreada: cada modelo combina distinto peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al pulsar una tarjeta se crea un perfil propio y se abre el overlay; tus perfiles previos no se reemplazan.
+Arriba de **Avatar Studio** hay una galería de trece personajes chibi completos: **Neko gamer**, **Brujita lunar**, **Idol estelar**, **Gótica rosa**, **Cyber neón**, **Streamer casual**, **Zorrita de festival**, **Oráculo invernal**, **Guardiana kitsune**, **Pop celestial**, **Capitana pirata**, **Conejita de café** y **Miel de café** (piel morena cálida, pelo castaño con mechones interiores miel, ojos e iris marrones y pupilas marrón oscuro). No son una misma ilustración recoloreada: cada modelo combina distinto peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al pulsar una tarjeta se crea un perfil propio y se abre el overlay; tus perfiles previos no se reemplazan.
 
 Debajo de esa galería está **Crear PNGTuber con mis imágenes**. Elegí una imagen de reposo y, si ya tenés una, otra con la boca abierta para hablar. Con una sola imagen el avatar queda visualmente estático; con dos, el detector de audio alterna entre ellas.
 
@@ -12,9 +12,9 @@ Debajo de esa galería está **Crear PNGTuber con mis imágenes**. Elegí una im
 
 El panel **Creador de personaje chibi — cambia cada parte** permite combinar independientemente:
 
-- **Peinado:** 11 siluetas, como coletas dobles, bob, ondas, trenza, pelo corto o largo.
+- **Peinado:** 12 siluetas, como coletas dobles, bob, ondas, trenza, pelo corto o largo; incluye castaño oscuro con inner hair miel claro.
 - **Ropa:** 15 diseños con formas propias, entre ellos idol, marinero, gótico, ceremonial, streetwear, fantasía, hoodie, cyber y vestidos.
-- **Rostro y ojos:** 4 formas de rostro, 7 estilos de ojos y 4 tonos de piel.
+- **Rostro y ojos:** 4 formas de rostro, 8 estilos de ojos y 5 tonos de piel, incluidos ojos marrones con pupilas marrón oscuro y piel morena cálida.
 - **Pose:** de pie, saludo, señal de paz, manos en la cintura, brazos cruzados o cantando al micrófono.
 - **Accesorios:** adornos de cabeza, joyería facial y piezas traseras como alas, capa, mochila o cristales.
 - **Colores:** tintes por zona con HEX o muestras rápidas, sin sobreescribir las imágenes originales.
