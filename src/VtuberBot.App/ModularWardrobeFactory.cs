@@ -862,13 +862,6 @@ internal static class ModularWardrobeFactory
             _ => "#FFE0C8"
         };
         var skin = Brush(skinHex);
-        var shade = Brush(skinId switch
-        {
-            "warm" => "#D89D82",
-            "cocoa" => "#7E4D48",
-            "moonlight" => "#A99BE5",
-            _ => "#EFB8A7"
-        });
         var armPen = new Pen(Brush("#352445"), 7) { LineJoin = PenLineJoin.Round, StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         var sleeve = Brush("#7660B5");
         var cuff = Brush("#F4C96B");
