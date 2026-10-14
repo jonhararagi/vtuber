@@ -158,8 +158,8 @@ if(outfit==='goth'){const collar=mat('#201a31');cylinder(avatar,collar,.16,.22,.
 // sleeves
 for(const s of [-1,1]){const shoulder=[s*.32,2.35,0], elbow=[s*.48,2.03,.02], wrist=[s*.50,1.76,.06];limb(avatar,cloth,shoulder,elbow,.13,.105);limb(avatar,cloth,elbow,wrist,.105,.075);ball(avatar,skin,[s*.50,1.72,.07],[.07,.09,.065]);if(outfit==='uniform')cylinder(avatar,trim,.105,.10,.055,[s*.48,1.98,.02]);}
 // skirt or tunic lower half
-if(outfit==='fantasy'){const skirt=mesh(new THREE.CylinderGeometry(.35,.59,.60,48,1,false),cloth,avatar,[0,1.43,0]);skirt.scale.z=.78;for(let a=0;a<12;a++){const t=a*Math.PI*2/12;const p1=[Math.sin(t)*.35,1.71,Math.cos(t)*.28],p2=[Math.sin(t)*.56,1.17,Math.cos(t)*.43];tube(avatar,[p1,p2],.012,trim);}}
-else {const length=outfit==='goth'?.70:.48;const skirt=mesh(new THREE.CylinderGeometry(.33,.51,length,48,1,false),cloth,avatar,[0,1.49-length*.5,0]);skirt.scale.z=.77;
+if(outfit==='retro'){ball(avatar,trim,[0,2.34,.35],[.075,.10,.035]);ball(avatar,trim,[-.08,2.34,.35],[.075,.07,.035]);ball(avatar,trim,[.08,2.34,.35],[.075,.07,.035]);}if(outfit==='pajama'||outfit==='y2k'){cylinder(avatar,trim,.34,.35,.06,[0,1.53,0]);if(outfit==='y2k'){for(let s of [-1,1])ball(avatar,trim,[s*.17,2.24,.34],[.025,.025,.018]);}}if(outfit==='fantasy'){const skirt=mesh(new THREE.CylinderGeometry(.35,.59,.60,48,1,false),cloth,avatar,[0,1.43,0]);skirt.scale.z=.78;for(let a=0;a<12;a++){const t=a*Math.PI*2/12;const p1=[Math.sin(t)*.35,1.71,Math.cos(t)*.28],p2=[Math.sin(t)*.56,1.17,Math.cos(t)*.43];tube(avatar,[p1,p2],.012,trim);}}
+else if(outfit!=='pajama'&&outfit!=='y2k'){const length=(outfit==='goth'||outfit==='retro')?.70:.48;const skirt=mesh(new THREE.CylinderGeometry(.33,.51,length,48,1,false),cloth,avatar,[0,1.49-length*.5,0]);skirt.scale.z=.77;
 for(let a=0;a<16;a++){const t=a*Math.PI*2/16;const r=.51; tube(avatar,[[Math.sin(t)*.32,1.49,.26*Math.cos(t)],[Math.sin(t)*r,1.49-length,Math.cos(t)*r*.77]],.008,trim);}
 cylinder(avatar,trim,.35,.35,.035,[0,1.49,0]);}
 if(outfit==='goth'){cylinder(avatar,trim,.30,.31,.025,[0,1.14,0]);}
