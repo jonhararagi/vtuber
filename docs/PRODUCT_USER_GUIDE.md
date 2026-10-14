@@ -24,7 +24,8 @@ Pulsá **Crear perfil con esta combinación** para guardar otra versión; se cre
 ### Otros modos
 
 1. **2.5D con IA local:** seleccioná una ilustración para intentar separar cabello, ropa, piel/cuerpo y detalles. La primera vez se descarga un modelo pequeño y después el procesamiento se realiza en la PC. Tiene un límite de 2 GiB para el proceso de IA y diez minutos; es experimental y puede requerir correcciones.
-2. **3D con VRoid:** abre [VRoid Studio](https://vroid.com/en/studio), un creador externo de modelos 3D. La importación y animación de VRM dentro del overlay de VTuberBot todavía no está implementada.
+2. **Taller 3D integrado:** permite cambiar silueta, tono de piel, cabello, mechones interiores (inner hair), iris, pupilas, expresión, ropa, colores y accesorios; incluye el preset **Miel de café**. Podés guardar la apariencia en JSON y exportar un modelo GLB estático. El GLB exportado no tiene rig ni animaciones, y el taller carga Three.js desde Internet.
+3. **VRoid Studio:** abre [VRoid Studio](https://vroid.com/en/studio), un creador externo de modelos 3D. La importación y animación de VRM dentro del overlay de VTuberBot todavía no está implementada.
 
 **La ruta recomendada para empezar es elegir un personaje de la galería y luego personalizarlo.** PNGTuber es lo más ligero; 2.5D sigue siendo experimental y 3D puede integrarse cuando tengamos un runtime VRM funcional.
 
