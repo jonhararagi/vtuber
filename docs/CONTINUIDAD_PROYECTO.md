@@ -1,5 +1,13 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-14 — CI de perfiles de prompt y galería chibi ampliada
+
+- La ejecución de Windows CI [#38640343084](https://github.com/jonhararagi/vtuber/actions/runs/38640343084), sobre el SHA `4bb6335b6a5a8bc8b982121d9d85ea1b423c5c2a`, terminó en `success`: Restore, Build Release, pruebas automatizadas, publicación autocontenida Windows x64 y subida de artefacto completados.
+- Resultado de pruebas: **534 aprobadas, 0 fallidas, 0 omitidas**.
+- Artefacto descargable desde la ejecución de Actions: `VTuberBot-Product-Candidate-win-x64-4bb6335b6a5a8bc8b982121d9d85ea1b423c5c2a`, 84.7 MB, vence el 28-10-2026. El SHA-256 publicado por GitHub es `2e51b840ddfc1f1c6075b2a54a0189ca117f5170e469ae77fed068a4f5a3fdba`.
+- Esto confirma compilación y pruebas automatizadas de la integración de perfiles de prompt y la galería de doce presets. No reemplaza la comprobación visual manual de la galería ni una conversación real de Gemini o una prueba de sonido en el PC del usuario.
+- Los commits posteriores que solo actualicen documentación deben identificarse como docs-only; no atribuirles una nueva validación de código sin consultar su ejecución.
+
 ## 2026-10-14 — Restauración de la galería visual de personajes chibi
 
 - Se restauró en `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs` la galería que estaba definida por seis presets y sus miniaturas pero ya no se mostraba en la interfaz. Ahora Avatar Studio vuelve a mostrar doce opciones: Neko gamer, Brujita lunar, Idol estelar, Gótica rosa, Cyber neón, Streamer casual, Zorrita de festival, Oráculo invernal, Guardiana kitsune, Pop celestial, Capitana pirata y Conejita de café.
