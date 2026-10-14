@@ -23,7 +23,7 @@ La importación copia la imagen a la carpeta de datos local de VTuberBot, sin mo
 2. Abrir **Avatar Studio → Mini estudio 3D integrado** dentro de VTuberBot.
 3. Importar el VRM y probar las opciones de personalización que Character Studio admita para ese modelo.
 4. Exportar el resultado como VRM/GLB si el editor y los recursos seleccionados lo permiten.
-5. Copiar el modelo exportado a la biblioteca de avatares de VTuberBot. La carga directa de VRM en el overlay y la aplicación automática de ropa al overlay son tareas separadas y no deben considerarse completadas por esta ventana.
+5. Copiar el modelo exportado a la biblioteca de avatares de VTuberBot. Para usar el VRM dentro de VTuberBot, volver a Avatar Studio y pulsar **Cargar VRM y abrir overlay 3D**. VTuberBot copia el archivo a su biblioteca local y abre un overlay transparente que renderiza el modelo con Three.js/three-vrm dentro de WebView2. Los estados Idle/Talking se sincronizan con el estado de voz de VTuberBot. El renderizador obtiene sus bibliotecas JavaScript desde CDN y, por tanto, necesita Internet la primera vez que carga; el archivo VRM permanece en disco local y no se sube al editor web.
 
 ## Recursos abiertos para investigar
 
@@ -37,11 +37,12 @@ La importación copia la imagen a la carpeta de datos local de VTuberBot, sin mo
 - Que un archivo sea GLB/VRM no significa que una prenda se adapte automáticamente a cualquier cuerpo. La ropa 3D normalmente necesita una malla y un esqueleto compatibles, pesos de skinning adecuados y, a veces, ajuste manual.
 - No descargar ni empaquetar automáticamente prendas de terceros sin comprobar licencia, atribución y permiso de redistribución.
 - La ventana integrada carga una aplicación web de un tercero. No enviar modelos privados hasta revisar las prácticas de privacidad del servicio. La siguiente etapa para una distribución plenamente local sería fijar una versión auditada del código y sus assets dentro del repositorio, revisar sus licencias y servirlos localmente.
-- La integración con el overlay de VTuberBot requiere un flujo de importación VRM separado y validación real en Windows. Esta ventana por sí sola no afirma que el overlay pueda renderizar VRM.
+- El overlay VRM es un renderizador WebView2 independiente del overlay PNG 2D. La carga usa versiones fijadas de Three.js y three-vrm desde CDN; no es todavía una distribución offline. El ajuste automático de ropa y la edición de mallas no forman parte del overlay.
 
 ## Pruebas pendientes
 
-- Ejecutar CI de Windows para la rama de integración.
+- Ejecutar CI de Windows para la rama de integración, incluido el nuevo renderizador VRM.
 - Abrir la ventana en Windows con WebView2 Runtime instalado.
+- Importar un VRM real y confirmar transparencia, encuadre, rendimiento y estados Idle/Talking en el overlay.
 - Comprobar carga de Character Studio, importación del VRM creado por el usuario y exportación del resultado.
 - Verificar por separado qué recursos son compatibles con el esqueleto del VRM de destino.
