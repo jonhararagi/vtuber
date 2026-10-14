@@ -20,12 +20,15 @@ public sealed class ChatReactionServiceTests
         public int Sends;
         public int Speeches;
         public int Expressions;
+        public int Clips;
+        public string LastClipId = "";
         public string LastMessage = "";
         public string LastExpression = "";
         public TaskCompletionSource<bool> SendEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource<bool> SecondSendEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource<bool> SpeechEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource<bool> ExpressionEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> ClipEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource<bool> SendRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource<bool> SendCancelled = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public bool BlockSend;
@@ -50,6 +53,7 @@ public sealed class ChatReactionServiceTests
         }
 
         public bool Speak(string text, string language, string voiceId) { Interlocked.Increment(ref Speeches); SpeechEntered.TrySetResult(true); return true; }
+        public bool PlayClip(string assetId, CancellationToken token) { if (token.IsCancellationRequested) return false; Interlocked.Increment(ref Clips); LastClipId = assetId; ClipEntered.TrySetResult(true); return true; }
         public bool Expression(string state, CancellationToken token) { if (token.IsCancellationRequested) return false; Interlocked.Increment(ref Expressions); LastExpression = state; ExpressionEntered.TrySetResult(true); return true; }
     }
 
@@ -62,7 +66,7 @@ public sealed class ChatReactionServiceTests
             speak, expression, global, user, perMinute, enabled);
 
     private static ChatReactionService Create(ProductStore store, Effects effects, int capacity = 64) =>
-        new(store, effects.Send, effects.Speak, effects.Expression, () => effects.Connected, capacity, (_, _) => true);
+        new(store, effects.Send, effects.Speak, effects.Expression, () => effects.Connected, capacity, effects.PlayClip);
 
     [Theory]
     [InlineData(ChatReactionMatchType.Exact, "¡HÓLA  CHAT!", "¡hola chat!", true)]
@@ -120,7 +124,7 @@ public sealed class ChatReactionServiceTests
         var rules = service.GetRules();
         Assert.Equal(10, rules.Count);
         Assert.All(rules, rule => Assert.True(rule.Enabled));
-        Assert.Contains(rules, rule => rule.Trigger == "/ohayo" && rule.Responses.Any(x => x.Contains("おはよう！") && x.Contains("Buenos días")));
+        Assert.Contains(rules, rule => rule.Trigger == "/ohayo" && rule.Language == "ja" && rule.Responses.Any(x => x.Contains("おはよう！") && x.Contains("Buenos días")));
         Assert.Contains(rules, rule => rule.Trigger == "/baka" && rule.Responses.Any(x => x.Contains("お兄ちゃんのばか！")));
         Assert.Contains(rules, rule => rule.Trigger == "/nani" && rule.Expression == "Surprised");
         Assert.Contains(rules, rule => rule.Trigger == "/okaerinasai" && rule.Responses.Any(x => x.Contains("{user}")));
@@ -128,9 +132,34 @@ public sealed class ChatReactionServiceTests
         Assert.Contains(rules, rule => rule.Trigger == "!baka");
         Assert.Contains(rules, rule => rule.Trigger == "!nani");
         Assert.Contains(rules, rule => rule.Trigger == "!okaerinasai");
-        Assert.Contains(rules, rule => rule.Trigger == "/soybot" && rule.Responses.Any(x => x.Contains("soy solo un bot") && x.Contains("jeje")));
+        Assert.Contains(rules, rule => rule.Trigger == "/soybot" && rule.Language == "es" && rule.Responses.Any(x => x.Contains("soy solo un bot") && x.Contains("jeje")));
         Assert.Contains(rules, rule => rule.Trigger == "!soybot");
         Assert.Equal(10, JsonSerializer.Deserialize<List<ChatReactionRule>>(store.GetSetting(ChatReactionService.RulesSettingKey))!.Count);
+    }
+
+    [Fact]
+    public async Task SelectedClipPlaysInsteadOfSynthesizingSpeech()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SetSetting(ChatReactionService.RulesSettingKey, "[]");
+        store.SetSetting("chat.reactions.bilingual-defaults.v1", "true");
+        var effects = new Effects();
+        await using var service = Create(store, effects);
+        var rule = Rule(trigger: "!nani", enabled: true, speak: true, responses: ["なに!?"])
+            with { Language = "ja", ClipAssetId = "japanese-clip-id" };
+        Assert.True(service.SaveRule(rule));
+        Assert.True(service.SetRuleEnabled(rule.Id, true));
+        service.SetTwitchConnected(true);
+
+        Assert.True(service.OnChatMessage("viewer", "!nani", "clip-message"));
+        await effects.SendEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        effects.SendRelease.TrySetResult(true);
+        await effects.ClipEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, effects.Clips);
+        Assert.Equal("japanese-clip-id", effects.LastClipId);
+        Assert.Equal(0, effects.Speeches);
     }
 
     [Fact]
