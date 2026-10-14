@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private readonly TwitchEventSubClient eventSub = new();
     private readonly ObsWebSocketClient obs = new();
     private readonly LocalSpeechQueue speechQueue;
+    private readonly SemaphoreSlim audioOutputGate = new(1, 1);
     private readonly LocalOpenAiCompatibleProvider localAiProvider = new();
     private readonly RemoteOpenAiCompatibleProvider remoteAiProvider;
     private readonly ConfiguredChatIntelligenceProvider configuredAiProvider;
@@ -264,6 +265,47 @@ public partial class MainWindow : Window
         }
     }
 
+    private sealed class GatedSpeechSession : ILocalSpeechSession
+    {
+        private readonly SemaphoreSlim gate;
+        private readonly Func<ILocalSpeechSession> createInner;
+        private ILocalSpeechSession? inner;
+
+        public GatedSpeechSession(SemaphoreSlim gate, Func<ILocalSpeechSession> createInner)
+        {
+            this.gate = gate;
+            this.createInner = createInner;
+        }
+
+        public SpeechPlaybackResult Speak(string text, string requestedVoiceId, string requestedOutputId,
+            int rate, int volume, Func<bool> cancellationRequested)
+        {
+            while (!cancellationRequested())
+            {
+                if (gate.Wait(TimeSpan.FromMilliseconds(50))) break;
+            }
+            if (cancellationRequested())
+            {
+                // A successful Wait above owns the semaphore; release it on cancellation.
+                if (gate.CurrentCount == 0) gate.Release();
+                return new SpeechPlaybackResult(false, true);
+            }
+
+            try
+            {
+                inner ??= createInner();
+                return inner.Speak(text, requestedVoiceId, requestedOutputId, rate, volume, cancellationRequested);
+            }
+            finally { gate.Release(); }
+        }
+
+        public void Dispose()
+        {
+            inner?.Dispose();
+            inner = null;
+        }
+    }
+
     public MainWindow(VtuberApplication application)
     {
         InitializeComponent();
@@ -283,7 +325,7 @@ public partial class MainWindow : Window
         remoteAiProvider = new RemoteOpenAiCompatibleProvider(() => secretStore.Read("remote-ai-api-key"));
         configuredAiProvider = new ConfiguredChatIntelligenceProvider(localAiProvider, remoteAiProvider,
             () => store.GetSetting("social.ai.provider", "remote") == "remote");
-        speechQueue = new LocalSpeechQueue(() => new ConfigurableSpeechSession(
+        speechQueue = new LocalSpeechQueue(() => new GatedSpeechSession(audioOutputGate, () => new ConfigurableSpeechSession(
             () => store.GetSetting("social.tts.provider", "remote") == "remote",
             LocalSpeechQueue.CreateSystemSpeechSession,
             () => new RemoteSpeechSession(
@@ -293,7 +335,7 @@ public partial class MainWindow : Window
                 () => store.GetSetting("social.tts.remoteVoice", "Zephyr"),
                 () => store.GetSetting("social.tts.remoteInstructions",
                     "Habla en español con una voz femenina adulta joven MUY aguda y chillona, tipo personaje anime enérgico: timbre brillante, ligeramente nasal y juguetón, tono alto, reacciones exageradas y ritmo vivaz. Debe sonar intencionalmente aguda y caricaturesca, pero mantener dicción clara sin gritar ni distorsionar; no imites a un personaje, actriz ni persona real específica."),
-                () => store.GetSetting("social.ai.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta/openai/"))));
+                () => store.GetSetting("social.ai.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta/openai/")))));
         communityCommandRouter = new CommunityCommandRouter(store);
         socialBot = new SocialBotService(store, speechQueue, twitch, configuredAiProvider, SetChatReactionExpression);
         chatReactions = new ChatReactionService(
