@@ -311,3 +311,13 @@ El candidato de producto se compiló y probó en Windows CI para la revisión de
 - **Telegram Web:** se abre en WebView2 y ofrece navegador externo como alternativa. No se valida una sesión real de Telegram en CI.
 - **Videojuegos:** VTuberBot no incluye un agente que observe y juegue videojuegos arbitrarios. Los minijuegos disponibles son interacciones del chat.
 - **Pendiente de tu entorno Windows:** revisar visualmente las seis tarjetas y combinaciones del creador chibi, transparencia y orden de capas del overlay en OBS, micrófono/SAPI reales, Twitch OAuth/IRC/EventSub, conexión/acciones de bajo riesgo en OBS y Streamer.bot, y respuesta de hotkeys en PNGTuber Plus.
+
+
+## Estado de distribución y validación — 2026-10-14
+
+- PR de integración [#13](https://github.com/jonhararagi/vtuber/pull/13) fusionado el 2026-10-14.
+- SHA actual de `main`: `9ff02c0b4c55a04b52f72be25201fb33aebd0728`.
+- Windows CI push [#638](https://github.com/jonhararagi/vtuber/actions/runs/38562319769) terminó SUCCESS para esa SHA exacta: restore y build Release correctos; 519 pruebas aprobadas, 0 fallidas y 0 omitidas; publicación self-contained win-x64 y subida del artefacto correctas.
+- Artefacto: [VTuberBot-Product-Candidate-win-x64-9ff02c0b4c55a04b52f72be25201fb33aebd0728](https://github.com/jonhararagi/vtuber/actions/runs/38562319769/artifacts/11892727298). Tamaño 84,636,013 bytes; digest `sha256:be2365df56a5c86e692607a2159250f47f52b35834fb0791fb1d38df9aef9030`; caduca el 2026-10-28. El job validó 490 entradas ZIP, incluida la aplicación y BUILD-INFO, y no encontró archivos locales de datos/credenciales prohibidos.
+- La CI es validación automatizada, no aceptación visual humana. Pendiente de prueba interactiva en Windows y de integración real con Twitch, micrófono/SAPI, OBS, Streamer.bot, PNGTuber Plus y Telegram.
+- Alcance no implementado: agente autónomo que observe y juegue videojuegos; los minijuegos disponibles son para el chat.
