@@ -4,29 +4,29 @@ Esta guía corresponde al candidato integrado publicado en `main`. Las funciones
 
 ## Empezar: elegí tu tipo de VTuber
 
-No tenés que configurar nada técnico para empezar. En **Avatar Studio**, arriba de todo está la tarjeta «Empezá por acá — elegí tu tipo de VTuber».
+Arriba de **Avatar Studio** hay una galería de seis personajes chibi completos: **Neko gamer**, **Brujita lunar**, **Idol estelar**, **Gótica rosa**, **Cyber neón** y **Streamer casual**. No son una misma ilustración recoloreada: cada modelo combina distinto peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al pulsar una tarjeta se crea un perfil propio y se abre el overlay; tus perfiles previos no se reemplazan.
 
-1. **PNGTuber (recomendado):** es la opción más sencilla y liviana. Elegí «PNGTuber de ejemplo» para probarlo enseguida o «PNGTuber con mis imágenes» para elegir una imagen de reposo y, opcionalmente, una segunda imagen con la boca abierta. Con una sola imagen queda estático al hablar; con dos el detector del micrófono alterna las imágenes.
-2. **2.5D con IA local:** elegí una ilustración y el programa intenta separar cabello, ropa, piel/cuerpo y detalles. La primera vez descarga el modelo pequeño y luego procesa la imagen localmente. Tiene un límite de 2 GiB para el proceso de IA y diez minutos; si el modelo falla o no reconoce bien las zonas, probá otra imagen o usá PNGTuber.
-3. **3D con VRoid:** abre [VRoid Studio](https://vroid.com/en/studio), un creador externo de modelos 3D. La importación y animación de VRM dentro del overlay de VTuberBot todavía no está implementada; esta opción sirve para comenzar a crear el modelo por separado, no para prometer que ya funciona dentro del bot.
+Debajo de esa galería está **Crear PNGTuber con mis imágenes**. Elegí una imagen de reposo y, si ya tenés una, otra con la boca abierta para hablar. Con una sola imagen el avatar queda visualmente estático; con dos, el detector de audio alterna entre ellas.
 
-**Nuestra ruta recomendada para la primera versión es PNGTuber.** Se configura con una o dos imágenes, funciona con el overlay 2D actual y evita depender de un rig 3D o de una IA grande. 2.5D queda como experimento opcional; 3D puede incorporarse más adelante cuando tengamos un runtime VRM y sus pruebas.
+### Crear tu propio personaje chibi
 
-Las opciones de perfiles avanzados (importar/exportar/duplicar) y el armario de ropa/colores están plegados para no abrumar. Abrí «Opciones avanzadas de perfil» o «Personalización avanzada» solamente cuando las necesites.
+El panel **Creador de personaje chibi — cambia cada parte** permite combinar independientemente:
 
-### Personalizar los colores del armario modular
+- **Peinado:** 11 siluetas, como coletas dobles, bob, ondas, trenza, pelo corto o largo.
+- **Ropa:** 15 diseños con formas propias, entre ellos idol, marinero, gótico, ceremonial, streetwear, fantasía, hoodie, cyber y vestidos.
+- **Rostro y ojos:** 4 formas de rostro, 7 estilos de ojos y 4 tonos de piel.
+- **Pose:** de pie, saludo, señal de paz, manos en la cintura, brazos cruzados o cantando al micrófono.
+- **Accesorios:** adornos de cabeza, joyería facial y piezas traseras como alas, capa, mochila o cristales.
+- **Colores:** tintes por zona con HEX o muestras rápidas, sin sobreescribir las imágenes originales.
 
-En Avatar Studio, dentro de «Armario modular», encontrarás el panel «Configurar colores por zona». Cada fila afecta solo a una categoría del nuevo perfil:
+Pulsá **Crear perfil con esta combinación** para guardar otra versión; se crean PNG transparentes separados y podés mover las capas después. El catálogo es arte vectorial original generado localmente; tiene un estilo chibi 2D estilizado y no es un rig Live2D con deformaciones óseas ni seguimiento facial.
 
-- Cabello
-- Ropa / conjunto
-- Accesorio de cabeza
-- Cara / joyería
-- Espalda / alas / capa
+### Otros modos
 
-Escribí un color HEX como #E65E78 o elegí una de las muestras. «Original» limpia ese campo. Dejando una zona vacía, conserva los colores del diseño. Al pulsar «Crear perfil con esta combinación», se crean PNG teñidos separados: las imágenes del catálogo original no se sobrescriben y tus perfiles anteriores no se modifican. Si el color no tiene seis dígitos hexadecimales, la app avisa y no crea el perfil.
+1. **2.5D con IA local:** seleccioná una ilustración para intentar separar cabello, ropa, piel/cuerpo y detalles. La primera vez se descarga un modelo pequeño y después el procesamiento se realiza en la PC. Tiene un límite de 2 GiB para el proceso de IA y diez minutos; es experimental y puede requerir correcciones.
+2. **3D con VRoid:** abre [VRoid Studio](https://vroid.com/en/studio), un creador externo de modelos 3D. La importación y animación de VRM dentro del overlay de VTuberBot todavía no está implementada.
 
-El ajuste está pensado para las piezas originales del armario modular. No es un pincel para editar libremente cualquier región de un PNG importado. Para modelos externos o una ilustración propia, prepara capas PNG con transparencia en un editor como [Krita](https://krita.org/es/) e impórtalas desde Avatar Studio; revisa siempre la licencia antes de incluirlas en un paquete distribuible.
+**La ruta recomendada para empezar es elegir un personaje de la galería y luego personalizarlo.** PNGTuber es lo más ligero; 2.5D sigue siendo experimental y 3D puede integrarse cuando tengamos un runtime VRM funcional.
 
 ## Primer inicio y datos
 
