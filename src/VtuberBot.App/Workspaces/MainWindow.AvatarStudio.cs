@@ -1036,6 +1036,7 @@ public partial class MainWindow
             12, "#98A4BE"));
 
         var colorInputs = new Dictionary<string, TextBox>(StringComparer.OrdinalIgnoreCase);
+        var summary = Label("", 12, "#69E4D0", true);
         void AddColorRow(string area, string title)
         {
             var row = new WrapPanel { Margin = new Thickness(0, 5, 0, 5), VerticalAlignment = VerticalAlignment.Center };
@@ -1097,8 +1098,6 @@ public partial class MainWindow
         AddColorRow("face", "Cara / joyería");
         AddColorRow("back", "Espalda / alas / capa");
         panel.Children.Add(colorPanel);
-
-        var summary = Label("", 12, "#69E4D0", true);
         panel.Children.Add(summary);
 
         string TintPreview(string area, string sourcePath)
