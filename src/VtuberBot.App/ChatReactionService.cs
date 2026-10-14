@@ -20,7 +20,12 @@ public sealed record ChatReactionRule(
     int GlobalCooldownSeconds,
     int UserCooldownSeconds,
     int MaxPerMinute,
-    bool Enabled);
+    bool Enabled)
+{
+    public string Language { get; init; } = "auto";
+    public string VoiceId { get; init; } = "";
+    public string ClipAssetId { get; init; } = "";
+}
 
 public sealed record ChatReactionResult(
     DateTimeOffset At,
@@ -44,8 +49,9 @@ public sealed class ChatReactionService : IAsyncDisposable
     public const int MaximumMessageLength = 1000;
     private readonly ProductStore store;
     private readonly Func<string, CancellationToken, Task<bool>> sendChat;
-    private readonly Func<string, bool> enqueueSpeech;
+    private readonly Func<string, string, bool> enqueueSpeech;
     private readonly Func<string, CancellationToken, bool> setExpression;
+    private readonly Func<string, CancellationToken, bool>? playClip;
     private readonly Func<bool> isConnected;
     private readonly Channel<WorkItem> queue;
     private readonly CancellationTokenSource lifetime = new();
@@ -71,14 +77,15 @@ public sealed class ChatReactionService : IAsyncDisposable
     public event Action<int>? QueueChanged;
 
     public ChatReactionService(ProductStore store, Func<string, CancellationToken, Task<bool>> sendChat,
-        Func<string, bool> enqueueSpeech, Func<string, CancellationToken, bool> setExpression, Func<bool> isConnected,
-        int queueCapacity = QueueCapacity)
+        Func<string, string, bool> enqueueSpeech, Func<string, CancellationToken, bool> setExpression, Func<bool> isConnected,
+        int queueCapacity = QueueCapacity, Func<string, CancellationToken, bool>? playClip = null)
     {
         this.store = store;
         this.sendChat = sendChat;
         this.enqueueSpeech = enqueueSpeech;
         this.setExpression = setExpression;
         this.isConnected = isConnected;
+        this.playClip = playClip;
         rules = LoadRules();
         paused = store.GetSetting(PausedSettingKey, "false") == "true";
         queue = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(Math.Clamp(queueCapacity, 1, QueueCapacity))
@@ -373,13 +380,18 @@ public sealed class ChatReactionService : IAsyncDisposable
                     }
                     if (item.Rule.Speak)
                     {
-                        bool spokenQueued;
+                        bool audioQueued;
                         lock (gate)
                         {
-                            spokenQueued = !paused && item.Epoch == connectionEpoch && twitchConnected && isConnected() &&
-                                !activeOperation.IsCancellationRequested && enqueueSpeech(response);
+                            audioQueued = !paused && item.Epoch == connectionEpoch && twitchConnected && isConnected() &&
+                                !activeOperation.IsCancellationRequested &&
+                                (string.IsNullOrWhiteSpace(item.Rule.ClipAssetId)
+                                    ? enqueueSpeech(response, item.Rule.VoiceId)
+                                    : playClip is not null && playClip(item.Rule.ClipAssetId, activeOperation.Token));
                         }
-                        details.Add(spokenQueued ? "voz encolada" : "voz omitida/rechazada por pausa, sesión o cola");
+                        details.Add(string.IsNullOrWhiteSpace(item.Rule.ClipAssetId)
+                            ? (audioQueued ? "voz encolada con la voz de esta regla o la predeterminada" : "voz omitida/rechazada por pausa, sesión, voz o cola")
+                            : (audioQueued ? "clip de audio encolado/reproducido" : "clip no disponible o rechazado; no se fingió una voz alternativa"));
                     }
                     Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Respuesta enviada", string.Join("; ", details), false));
                 }
@@ -508,7 +520,9 @@ public sealed class ChatReactionService : IAsyncDisposable
             !Enum.IsDefined(rule.MatchType) ||
             rule.GlobalCooldownSeconds is < 0 or > 3600 || rule.UserCooldownSeconds is < 0 or > 3600 ||
             rule.MaxPerMinute is < 1 or > 60 ||
-            (rule.Expression ?? "").Length > 30 || (!string.IsNullOrEmpty(rule.Expression) && rule.Expression is not ("Idle" or "Talking" or "Blink" or "Happy" or "Surprised")))
+            (rule.Expression ?? "").Length > 30 || (!string.IsNullOrEmpty(rule.Expression) && rule.Expression is not ("Idle" or "Talking" or "Blink" or "Happy" or "Surprised")) ||
+            (rule.Language ?? "auto") is not ("auto" or "es" or "ja") ||
+            (rule.VoiceId ?? "").Length > 500 || (rule.ClipAssetId ?? "").Length > 64)
         {
             error = "Campos fuera de rango o tipo de coincidencia/expresión no permitido.";
             return false;
@@ -516,7 +530,9 @@ public sealed class ChatReactionService : IAsyncDisposable
         var id = string.IsNullOrWhiteSpace(rule.Id) ? Guid.NewGuid().ToString("N") : rule.Id;
         if (id.Length > 64) { error = "ID de regla inválido."; return false; }
         clean = rule with { Id = id, Name = rule.Name.Trim(), Trigger = rule.Trigger.Trim(),
-            Responses = rule.Responses.Select(x => x.Trim()).ToArray(), Expression = rule.Expression?.Trim() ?? "" };
+            Responses = rule.Responses.Select(x => x.Trim()).ToArray(), Expression = rule.Expression?.Trim() ?? "",
+            Language = string.IsNullOrWhiteSpace(rule.Language) ? "auto" : rule.Language.Trim(),
+            VoiceId = rule.VoiceId?.Trim() ?? "", ClipAssetId = rule.ClipAssetId?.Trim() ?? "" };
         return true;
     }
 
