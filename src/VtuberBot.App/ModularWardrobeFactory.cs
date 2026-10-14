@@ -210,7 +210,7 @@ internal static class ModularWardrobeFactory
             foreach (var option in PoseOptions)
             {
                 var captured = option.Id;
-                result[option.Id] = PoseAsset("pose-" + captured + ".png", dc => DrawPose(dc, captured, skinId, outfitId));
+                result[option.Id] = PoseAsset("pose-" + skinId + "-" + outfitId + "-" + captured + ".png", dc => DrawPose(dc, captured, skinId, outfitId));
             }
             return result;
         }
