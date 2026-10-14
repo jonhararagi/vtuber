@@ -486,23 +486,23 @@ public sealed class ChatReactionService : IAsyncDisposable
         return
         [
             new("anime-ohayo-slash", "Anime bilingüe: Ohayō", "/ohayo", ChatReactionMatchType.Exact,
-                ["おはよう！ ¡Buenos días, chat!"], true, "Happy", 5, 10, 10, true),
+                ["おはよう！ ¡Buenos días, chat!"], true, "Happy", 5, 10, 10, true) { Language = "ja" },
             new("anime-ohayo-bang", "Anime bilingüe: Ohayō", "!ohayo", ChatReactionMatchType.Exact,
                 ["おはよう！ ¡Buenos días, chat!"], true, "Happy", 5, 10, 10, true),
             new("anime-baka-slash", "Anime bilingüe: Baka", "/baka", ChatReactionMatchType.Exact,
-                ["お兄ちゃんのばか！ ¡No seas malo conmigo!"], true, "Surprised", 5, 10, 10, true),
+                ["お兄ちゃんのばか！ ¡No seas malo conmigo!"], true, "Surprised", 5, 10, 10, true) { Language = "ja" },
             new("anime-baka-bang", "Anime bilingüe: Baka", "!baka", ChatReactionMatchType.Exact,
                 ["お兄ちゃんのばか！ ¡No seas malo conmigo!"], true, "Surprised", 5, 10, 10, true),
             new("anime-nani-slash", "Anime bilingüe: Nani", "/nani", ChatReactionMatchType.Exact,
-                ["なに!? ¿¡Nani!? ¿Qué pasó?"], true, "Surprised", 5, 10, 10, true),
+                ["なに!? ¿¡Nani!? ¿Qué pasó?"], true, "Surprised", 5, 10, 10, true) { Language = "ja" },
             new("anime-nani-bang", "Anime bilingüe: Nani", "!nani", ChatReactionMatchType.Exact,
                 ["なに!? ¿¡Nani!? ¿Qué pasó?"], true, "Surprised", 5, 10, 10, true),
             new("anime-okaeri-slash", "Anime bilingüe: Okaerinasai", "/okaerinasai", ChatReactionMatchType.Exact,
-                ["おかえりなさい！ ¡Bienvenido de vuelta, {user}!"], true, "Happy", 5, 10, 10, true),
+                ["おかえりなさい！ ¡Bienvenido de vuelta, {user}!"], true, "Happy", 5, 10, 10, true) { Language = "ja" },
             new("anime-okaeri-bang", "Anime bilingüe: Okaerinasai", "!okaerinasai", ChatReactionMatchType.Exact,
                 ["おかえりなさい！ ¡Bienvenido de vuelta, {user}!"], true, "Happy", 5, 10, 10, true),
             new("anime-soybot-slash", "Español: Soy solo un bot", "/soybot", ChatReactionMatchType.Exact,
-                ["Yo... soy solo un bot... jeje. ¡No me mires así!"], true, "Happy", 5, 10, 10, true),
+                ["Yo... soy solo un bot... jeje. ¡No me mires así!"], true, "Happy", 5, 10, 10, true) { Language = "es" } { Language = "es" },
             new("anime-soybot-bang", "Español: Soy solo un bot", "!soybot", ChatReactionMatchType.Exact,
                 ["Yo... soy solo un bot... jeje. ¡No me mires así!"], true, "Happy", 5, 10, 10, true)
         ];
