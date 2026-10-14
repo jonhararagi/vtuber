@@ -1,6 +1,6 @@
 # Guía del candidato integral de VTuberBot
 
-Esta guía corresponde al candidato integrado publicado en `main`. Las funciones externas no se consideran conectadas hasta completar la autenticación real.
+Esta guía corresponde al candidato integrado de VTuberBot. Las funciones externas no se consideran conectadas hasta completar la autenticación real. El proceso para prevenir regresiones está descrito en [Regla de Murphy y puertas de fiabilidad](REGLA_MURPHY_Y_PUERTAS_DE_FIABILIDAD.md).
 
 ## Empezar: elegí tu tipo de VTuber
 
@@ -78,7 +78,21 @@ La descomposición de una imagen plana es una reconstrucción estimada: el model
 
 Para saber qué referencias visuales se estudiaron y cómo se mapearon a categorías, consultá [Referencias visuales y biblioteca modular de VTuberBot](VTUBER_REFERENCIA_Y_BIBLIOTECA_MODULAR.md).
 
-### Personalizar el avatar
+### Buscar más diseños de personaje en la web
+
+Dentro de Avatar Studio → Creador de personaje chibi hay enlaces a herramientas públicas con estilos distintos al catálogo interno:
+
+- [Humation](https://apps.humation.app/humation): creador kawaii dibujado a mano, exporta PNG/SVG. El repositorio indica que código y 86 piezas están bajo MIT: [repositorio/licencia](https://github.com/humation-labs/humation).
+- [Open Peeps Studio](https://peepstudio.msgenie.art/): ilustraciones de cuerpo entero, poses, expresiones, cabello y ropa; exporta PNG/SVG. Está basado en las ilustraciones originales Open Peeps CC0: [fuente/licencia](https://www.openpeeps.com/).
+- [Chibi Maker](https://squarefaceicongenerator.co/pricing/chibi-maker): editor de iconos chibi con peinados, ojos y atuendos, exporta PNG. Es principalmente un icono cuadrado, no un cuerpo completo.
+
+Flujo: abrí el creador, armá el diseño, descargalo e importá la imagen en un perfil. Estas páginas no se integran automáticamente con el rig: la imagen es estática hasta asignar sprites distintos de reposo, habla y expresiones. No uses un retrato de perfil como si fuera un modelo animado de cuerpo entero. Revisá los términos de la herramienta y el modo elegido antes de distribuir o vender el arte.
+
+## Sincronizar la voz del bot con el avatar
+
+El estado visual Talking permanece activo si hay actividad del micrófono o una frase en la cola TTS de VTuberBot, y vuelve a Idle cuando ambas fuentes están inactivas. Esto es sincronización por estado, no seguimiento facial ni lip-sync por fonemas. Una imagen distinta de boca abierta para Talking hace visible el cambio; reutilizar la misma imagen en reposo y habla no anima la boca.
+
+## Personalizar el avatar
 
 1. Cada perfil conserva su propia imagen base, capas/transformaciones y sprites de expresión. Podés crear un perfil vacío, duplicar el actual o cambiar entre perfiles desde la parte superior. Eliminar un perfil no borra los archivos de imagen importados, y siempre debe quedar al menos un perfil. **Exportar perfil (.vtuberavatar)** guarda base, capas, transformaciones y expresiones juntos; al importarlo se crea otro perfil sin sobrescribir los existentes.
 2. Importá una imagen base propia si querés reemplazar el personaje de ejemplo.

@@ -1241,8 +1241,20 @@ public partial class MainWindow
                 selectedFaceShape.Id, selectedEyes.Id, selectedSkin.Id, selectedPose.Id);
         }, true));
 
+        panel.Children.Add(Label("Más estilos ilustrados desde la web", 14, "#F8FAFC", true));
         panel.Children.Add(Label(
-            "Incluye 11 peinados, 15 conjuntos de ropa, 4 formas de rostro, 7 estilos de ojos, 4 tonos de piel, 6 poses y accesorios combinables. Los colores de cabello, ropa y accesorios se ajustan por zona; también podés mover las capas. Es un chibi 2D por capas, no un rig Live2D con tracking facial.",
+            "Estos creadores tienen estilos dibujados distintos del catálogo vectorial básico. Armá tu personaje, exportá la imagen y después importala en un perfil; VTuberBot no sube tus imágenes ni los convierte automáticamente en un rig.",
+            12, "#98A4BE"));
+        var webCreatorActions = new WrapPanel();
+        webCreatorActions.Children.Add(ActionButton("Humation · kawaii dibujado (PNG/SVG)", (_, _) =>
+            OpenAvatarExternalTool("https://apps.humation.app/humation", "Humation — creador kawaii"), true));
+        webCreatorActions.Children.Add(ActionButton("Open Peeps Studio · cuerpo y poses", (_, _) =>
+            OpenAvatarExternalTool("https://peepstudio.msgenie.art/", "Open Peeps Studio")));
+        webCreatorActions.Children.Add(ActionButton("Chibi Maker · peinados y ropa", (_, _) =>
+            OpenAvatarExternalTool("https://squarefaceicongenerator.co/pricing/chibi-maker", "Chibi Maker web")));
+        panel.Children.Add(webCreatorActions);
+        panel.Children.Add(Label(
+            "Humation exporta avatares ilustrados; Open Peeps ofrece poses de cuerpo entero con un estilo distinto al anime; Chibi Maker se orienta a iconos cuadrados. Para que una imagen hable, asigná sprites distintos de reposo y habla. Ninguna de estas páginas entrega un rig Live2D listo.",
             12, "#98A4BE"));
         return panel;
     }

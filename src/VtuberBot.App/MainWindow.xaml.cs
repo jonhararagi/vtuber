@@ -45,6 +45,8 @@ public partial class MainWindow : Window
     private Action<bool>? liveCenterConnectionHandler;
     private AvatarOverlayWindow? overlay;
     private string? avatarPath;
+    private bool microphoneVoiceActive;
+    private bool speechPlaybackActive;
     private WaveInEvent? microphone;
     private WaveOutEvent? soundOutput;
     private AudioFileReader? soundReader;
@@ -99,6 +101,16 @@ public partial class MainWindow : Window
         "Inicio","Centro de directo","Avatar Studio","Avatar externo","Streamer.bot","Twitch y chat","Bot social","Comandos","Comunidad y puntos","Automatizaciones","Sorteos",
         "Minijuegos","Moderación","Voz y audio","OBS","Integraciones","Telegram Web","Actividad y diagnóstico","Ajustes"
     ];
+
+    private void UpdateAvatarTalkState()
+    {
+        var nextState = VtuberBot.Core.AvatarTalkStatePolicy.Resolve(microphoneVoiceActive, speechPlaybackActive);
+        var currentState = store.GetSetting("avatar.state", "Idle");
+        if (string.Equals(currentState, nextState, StringComparison.OrdinalIgnoreCase))
+            return;
+        store.SetSetting("avatar.state", nextState);
+        overlay?.SetState(nextState);
+    }
 
     private void OpenChatGptMiniWindow_Click(object sender, RoutedEventArgs e) => OpenChatGptMiniWindow();
 
@@ -346,6 +358,21 @@ public partial class MainWindow : Window
         eventSub.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         speechQueue.StatusChanged += (status, pending) => Dispatcher.BeginInvoke(new Action(() =>
             FooterStatus.Text = $"Voz: {status} · pendientes: {pending}"));
+        speechQueue.PlaybackStateChanged += active =>
+        {
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    speechPlaybackActive = active;
+                    UpdateAvatarTalkState();
+                }));
+            }
+            catch (InvalidOperationException)
+            {
+                // The speech worker may finish while WPF is shutting down.
+            }
+        };
         eventSub.EventReceived += HandleEventSubEvent;
         obs.StatusChanged += status => Dispatcher.BeginInvoke(new Action(() => FooterStatus.Text = status));
         streamerBot.StateChanged += HandleStreamerBotStateChanged;
