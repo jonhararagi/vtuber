@@ -280,19 +280,16 @@ public partial class MainWindow : Window
         public SpeechPlaybackResult Speak(string text, string requestedVoiceId, string requestedOutputId,
             int rate, int volume, Func<bool> cancellationRequested)
         {
+            var acquired = false;
             while (!cancellationRequested())
             {
-                if (gate.Wait(TimeSpan.FromMilliseconds(50))) break;
+                if (gate.Wait(TimeSpan.FromMilliseconds(50))) { acquired = true; break; }
             }
-            if (cancellationRequested())
-            {
-                // A successful Wait above owns the semaphore; release it on cancellation.
-                if (gate.CurrentCount == 0) gate.Release();
-                return new SpeechPlaybackResult(false, true);
-            }
+            if (!acquired) return new SpeechPlaybackResult(false, true);
 
             try
             {
+                if (cancellationRequested()) return new SpeechPlaybackResult(false, true);
                 inner ??= createInner();
                 return inner.Speak(text, requestedVoiceId, requestedOutputId, rate, volume, cancellationRequested);
             }
