@@ -311,6 +311,11 @@ public partial class MainWindow : Window
                 var voiceId = string.IsNullOrWhiteSpace(requestedVoiceId) ? store.GetSetting("audio.tts.voiceId") : requestedVoiceId;
                 if (language == "ja")
                 {
+                    if (store.GetSetting("social.tts.provider", "remote") != "local")
+                    {
+                        store.Log("Reacciones chat", "La voz configurada es remota y no garantiza pronunciación japonesa SAPI; elegí proveedor local en ChatSpeak Studio o un clip japonés para esta regla.");
+                        return false;
+                    }
                     try
                     {
                         var voices = LocalSpeechQueue.GetInstalledVoices();
