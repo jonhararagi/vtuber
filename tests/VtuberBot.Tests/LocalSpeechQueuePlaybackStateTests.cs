@@ -38,7 +38,7 @@ public sealed class LocalSpeechQueuePlaybackStateTests
         Assert.True(session.FirstCallStarted.Wait(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
         Assert.True(queue.Enqueue("Segunda frase"));
         session.ReleaseFirstCall.Set();
-        Assert.True(SpinWait.SpinUntil(() => states.Count >= 2, TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
+        Assert.True(SpinWait.SpinUntil(() => { TestContext.Current.CancellationToken.ThrowIfCancellationRequested(); return states.Count >= 2; }, TimeSpan.FromSeconds(3)));
         Assert.Equal(new[] { true, false }, states.ToArray());
         Assert.Equal(2, session.CallCount);
     }
@@ -61,8 +61,8 @@ public sealed class LocalSpeechQueuePlaybackStateTests
         var calls = 0;
         using var queue = new LocalSpeechQueue(() => new BrokenSession(() => Interlocked.Increment(ref calls)));
         Assert.True(queue.Enqueue("Primera frase"));
-        Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref calls) >= 1, TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
+        Assert.True(SpinWait.SpinUntil(() => { TestContext.Current.CancellationToken.ThrowIfCancellationRequested(); return Volatile.Read(ref calls) >= 1; }, TimeSpan.FromSeconds(3)));
         Assert.True(queue.Enqueue("Segunda frase"));
-        Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref calls) >= 2, TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
+        Assert.True(SpinWait.SpinUntil(() => { TestContext.Current.CancellationToken.ThrowIfCancellationRequested(); return Volatile.Read(ref calls) >= 2; }, TimeSpan.FromSeconds(3)));
     }
 }
