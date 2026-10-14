@@ -1,34 +1,37 @@
-# Mini estudio 3D de personaje para VTuberBot
+# Taller de personaje 3D de VTuberBot
 
-## Estado
+## Estado actual
 
-Primera integración de interfaz: VTuberBot abre Character Studio dentro de una ventana WPF/WebView2, sin lanzar un navegador externo. El contenido del editor se sirve desde `https://studio.m3org.com/`, por lo que esta primera versión requiere Internet y depende de la disponibilidad del sitio upstream. **No es todavía una copia local ni una integración offline.**
+VTuberBot ahora incluye una ventana WPF/WebView2 con un **taller 3D paramétrico propio**, en lugar de limitarse a abrir una página de terceros. El visor genera una figura anime estilizada mediante geometría 3D y permite cambiar:
 
-## Flujo previsto
+- Silueta base: curvilínea suave, delgada o atlética; control de altura.
+- Tono de piel, color de pelo y color de iris; las pupilas blancas forman parte del diseño.
+- Seis estilos de cabello: media melena, ondulado, recogido, coletas gemelas, largo y bob; además de flequillo.
+- Cinco conjuntos: cárdigan con falda, hoodie, aventurero, uniforme y gótico.
+- Colores de ropa y accesorios: lazo, auriculares, horquillas de estrella y aro decorativo.
+- Expresión facial sencilla.
+- Guardar/cargar una configuración de apariencia en JSON.
 
-1. Crear el modelo base en VRoid Studio y exportarlo como VRM.
-2. Abrir **Avatar Studio → Mini estudio 3D integrado** dentro de VTuberBot.
-3. Importar el VRM y probar las opciones de personalización que Character Studio admita para ese modelo.
-4. Exportar el resultado como VRM/GLB si el editor y los recursos seleccionados lo permiten.
-5. Copiar el modelo exportado a la biblioteca de avatares de VTuberBot. La carga directa de VRM en el overlay y la aplicación automática de ropa al overlay son tareas separadas y no deben considerarse completadas por esta ventana.
+El renderizador utiliza Three.js cargado desde CDN, por lo que esta primera versión necesita Internet. La geometría es generada por el programa; no son imágenes planas pegadas a la pantalla.
 
-## Recursos abiertos para investigar
+## Límites importantes
 
-- [M3-org/CharacterStudio](https://github.com/M3-org/CharacterStudio): editor de avatares glTF/VRM con licencia MIT; declara importación de modelos/texturas y exportación GLB/VRM.
-- [M3-org/loot-assets](https://github.com/m3-org/loot-assets): paquete de recursos usado por Character Studio. Revisar la licencia de cada recurso antes de redistribuirlo.
-- [memelotsqui/character-assets](https://github.com/memelotsqui/character-assets): ejemplos de assets para el ecosistema Character Studio. Revisar licencias y compatibilidad de cada archivo antes de incluirlo en VTuberBot.
-- [VRoid Studio](https://vroid.com/en/studio): crear el modelo base y exportarlo en un formato compatible.
+- Esto es un **prototipo de editor paramétrico**, no un sustituto completo de VRoid Studio.
+- El cuerpo, los peinados y la ropa son mallas geométricas generadas para el visor. No constituyen todavía un rig de animación completo ni un modelo VRM exportable.
+- Guardar JSON guarda las opciones de apariencia, no una malla 3D ni un archivo listo para emitir.
+- Todavía no se pueden importar prendas VRM/GLB externas ni ajustar automáticamente prendas arbitrarias al cuerpo.
+- No se afirma que este avatar ya se esté mostrando en el overlay de VTuberBot u OBS. Para ello hace falta exportar/importar un modelo riggeado y conectar el renderizador de avatar.
+- La calidad visual es una base funcional de personalización, no arte final de personaje. El siguiente paso debe reemplazar gradualmente las mallas geométricas por un cuerpo anime de alta calidad, un rig compatible y prendas con skinning correcto.
 
-## Compatibilidad y límites
+## Fuentes de recursos para la siguiente etapa
 
-- Que un archivo sea GLB/VRM no significa que una prenda se adapte automáticamente a cualquier cuerpo. La ropa 3D normalmente necesita una malla y un esqueleto compatibles, pesos de skinning adecuados y, a veces, ajuste manual.
-- No descargar ni empaquetar automáticamente prendas de terceros sin comprobar licencia, atribución y permiso de redistribución.
-- La ventana integrada carga una aplicación web de un tercero. No enviar modelos privados hasta revisar las prácticas de privacidad del servicio. La siguiente etapa para una distribución plenamente local sería fijar una versión auditada del código y sus assets dentro del repositorio, revisar sus licencias y servirlos localmente.
-- La integración con el overlay de VTuberBot requiere un flujo de importación VRM separado y validación real en Windows. Esta ventana por sí sola no afirma que el overlay pueda renderizar VRM.
+- [M3-org/CharacterStudio](https://github.com/M3-org/CharacterStudio): estudiar sus flujos de importación/exportación glTF/VRM y su arquitectura.
+- [M3-org/loot-assets](https://github.com/M3-org/loot-assets): contiene modelos de ropa y equipo 3D. Revisar la licencia de cada archivo y verificar compatibilidad con el esqueleto antes de distribuir.
+- [memelotsqui/character-assets](https://github.com/memelotsqui/character-assets): colección de assets Webaverse; comprobar licencia y formato antes de reutilizar.
+- [VRoid Studio](https://vroid.com/en/studio): crear el personaje canon y exportar el VRM base.
 
-## Pruebas pendientes
+## Validación pendiente
 
-- Ejecutar CI de Windows para la rama de integración.
-- Abrir la ventana en Windows con WebView2 Runtime instalado.
-- Comprobar carga de Character Studio, importación del VRM creado por el usuario y exportación del resultado.
-- Verificar por separado qué recursos son compatibles con el esqueleto del VRM de destino.
+- CI de Windows debe compilar y ejecutar las pruebas automatizadas.
+- Abrir el taller en Windows y verificar renderizado WebGL, controles, peinados, conjuntos y guardado/carga JSON.
+- Después de validar el prototipo, diseñar importación de VRM, gestión real de ropa y exportación compatible con el overlay.
