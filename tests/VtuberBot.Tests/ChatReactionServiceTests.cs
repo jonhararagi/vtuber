@@ -1,3 +1,4 @@
+using System.Text.Json;
 using VtuberBot.App;
 using VtuberBot.Core;
 using Xunit;
@@ -90,6 +91,7 @@ public sealed class ChatReactionServiceTests
     {
         using var temp = new TempDb();
         var store = new ProductStore(temp.DatabasePath);
+        store.SetSetting(ChatReactionService.RulesSettingKey, "[]");
         var effects = new Effects();
         var rule = Rule(responses: ["Uno", "Dos"]);
         await using (var service = Create(store, effects))
@@ -104,6 +106,28 @@ public sealed class ChatReactionServiceTests
             Assert.Equal(new[] { "Uno", "Dos" }, loaded.Responses);
             Assert.False(loaded.Enabled);
         }
+    }
+
+    [Fact]
+    public async Task FreshInstallSeedsEnabledBilingualAnimeCommands()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var effects = new Effects();
+        await using var service = Create(store, effects);
+
+        var rules = service.GetRules();
+        Assert.Equal(8, rules.Count);
+        Assert.All(rules, rule => Assert.True(rule.Enabled));
+        Assert.Contains(rules, rule => rule.Trigger == "/ohayo" && rule.Responses.Any(x => x.Contains("おはよう！") && x.Contains("Buenos días")));
+        Assert.Contains(rules, rule => rule.Trigger == "/baka" && rule.Responses.Any(x => x.Contains("お兄ちゃんのばか！")));
+        Assert.Contains(rules, rule => rule.Trigger == "/nani" && rule.Expression == "Surprised");
+        Assert.Contains(rules, rule => rule.Trigger == "/okaerinasai" && rule.Responses.Any(x => x.Contains("{user}")));
+        Assert.Contains(rules, rule => rule.Trigger == "!ohayo");
+        Assert.Contains(rules, rule => rule.Trigger == "!baka");
+        Assert.Contains(rules, rule => rule.Trigger == "!nani");
+        Assert.Contains(rules, rule => rule.Trigger == "!okaerinasai");
+        Assert.Equal(8, JsonSerializer.Deserialize<List<ChatReactionRule>>(store.GetSetting(ChatReactionService.RulesSettingKey))!.Count);
     }
 
     [Fact]
