@@ -1,5 +1,14 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-14 — Recoloración rápida del vestuario y criterio de licencias
+
+- En `src/VtuberBot.App/AvatarWardrobeStudioWindow.cs` se agregó un control **Variación de tono · ropa y accesorios** (0–360°). Rota el matiz de los colores principal/secundario del vestuario sin cambiar la geometría ni el tono de piel; los selectores de color individuales siguen disponibles. El valor se guarda/carga con el JSON de apariencia.
+- `docs/AVATAR-WARDROBE-STUDIO.md` aclara el control y registra que recolorear un asset no elimina derechos de autor ni reemplaza la licencia.
+- No se han incorporado modelos, texturas ni prendas de terceros al repositorio. La búsqueda de recursos externos debe filtrar por licencia que permita el uso previsto y, si se van a distribuir dentro de VTuberBot, redistribución y modificación. Las guías oficiales de VRoid advierten que sus contenidos no son CC0 y que las aplicaciones generadoras de modelos basadas en sus mallas/texturas pueden requerir licencia aparte: https://vroid.com/en/studio/guidelines.
+- Commits de esta tarea: código `8d47544742926c2b53f31754f7e802901761a0c7`; documentación `ac3c1c8b13e29d3ad7d13fac722c5441fa243b13`.
+- **Validación:** Windows CI anterior #657 terminó SUCCESS para SHA `9f06ff88a69fe3d2ed811d71cabd96d46f69277a`, pero es anterior al nuevo control de tono. Debe verificarse un run para el SHA final después de actualizar esta continuidad. No se ha validado manualmente el visor WebView2.
+- Se mantiene el trabajo en `product/complete-vtuber-experience`; no tocar `main` ni cerrar/fusionar el PR #9.
+
 > Registro central de continuidad para GPT Cerebro, GPT Obrero, Gemini Inspector y agentes futuros. Actualizar este archivo al finalizar cada tarea de implementación o corrección. No duplicar registros por tarea.
 >
 > **Regla de evidencia:** separar siempre cambios implementados, pruebas automatizadas, validación manual y pendientes. Un resultado solo corresponde al SHA exacto que lo produjo.
