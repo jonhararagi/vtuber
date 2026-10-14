@@ -124,7 +124,7 @@ public sealed class ChatReactionServiceTests
         var rules = service.GetRules();
         Assert.Equal(10, rules.Count);
         Assert.All(rules, rule => Assert.True(rule.Enabled));
-        Assert.Contains(rules, rule => rule.Trigger == "/ohayo" && rule.Language == "ja" && rule.Responses.Any(x => x.Contains("おはよう！") && x.Contains("Buenos días")));
+        Assert.Contains(rules, rule => rule.Trigger == "/ohayo" && rule.Language == "ja" && rule.Responses.Any(x => x == "おはよう！"));
         Assert.Contains(rules, rule => rule.Trigger == "/baka" && rule.Responses.Any(x => x.Contains("お兄ちゃんのばか！")));
         Assert.Contains(rules, rule => rule.Trigger == "/nani" && rule.Expression == "Surprised");
         Assert.Contains(rules, rule => rule.Trigger == "/okaerinasai" && rule.Responses.Any(x => x.Contains("{user}")));
