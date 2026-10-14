@@ -92,6 +92,7 @@ public sealed class ChatReactionServiceTests
         using var temp = new TempDb();
         var store = new ProductStore(temp.DatabasePath);
         store.SetSetting(ChatReactionService.RulesSettingKey, "[]");
+        store.SetSetting("chat.reactions.bilingual-defaults.v1", "true");
         var effects = new Effects();
         var rule = Rule(responses: ["Uno", "Dos"]);
         await using (var service = Create(store, effects))
@@ -128,6 +129,25 @@ public sealed class ChatReactionServiceTests
         Assert.Contains(rules, rule => rule.Trigger == "!nani");
         Assert.Contains(rules, rule => rule.Trigger == "!okaerinasai");
         Assert.Equal(8, JsonSerializer.Deserialize<List<ChatReactionRule>>(store.GetSetting(ChatReactionService.RulesSettingKey))!.Count);
+    }
+
+    [Fact]
+    public async Task ExistingReactionSettingsReceiveBilingualDefaultsOnlyOnce()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SetSetting(ChatReactionService.RulesSettingKey, "[]");
+        var effects = new Effects();
+
+        await using (var service = Create(store, effects))
+        {
+            Assert.Equal(8, service.GetRules().Count);
+        }
+
+        // Once migrated, deleting all rules remains a user choice after restart.
+        store.SetSetting(ChatReactionService.RulesSettingKey, "[]");
+        await using var restarted = Create(store, effects);
+        Assert.Empty(restarted.GetRules());
     }
 
     [Fact]
