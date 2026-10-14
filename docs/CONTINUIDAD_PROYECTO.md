@@ -1,5 +1,14 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-14 — Referencias de prendas gratuitas y nuevos estilos de prueba
+
+- Se amplió `src/VtuberBot.App/AvatarWardrobeStudioWindow.cs` con tres opciones geométricas de prueba: vestido retro, pijama pastel y camiseta Y2K oversize; las opciones de pijama/Y2K dibujan pantalón. Son aproximaciones visuales inspiradas en estilos publicados, no los archivos originales.
+- Se añadieron enlaces dentro del taller a tres recursos gratuitos para abrir sus imágenes y páginas originales: [V.Y Atelier — vestido retro](https://booth.pm/en/items/5010638), [Darmangy — pijama pastel](https://booth.pm/en/items/7692844), [VroidDressing — camiseta Y2K](https://booth.pm/en/items/6191973). No se descargaron ni copiaron sus archivos a VTuberBot, y todavía no hay importador compatible con `.vroidcustomitem`.
+- `docs/AVATAR-WARDROBE-STUDIO.md` documenta los nuevos estilos y la diferencia entre referencia visual e importación real.
+- Commits: opciones del selector `b602224acd94a06c854ea74e4446779c129ba8ed`; pantalón de prueba `92bb18d24c4487bd9be4f759dae35fe436b326d1`; parte superior holgada `21afb0c427a2172dc36575c94c64010336ee604e`; ajuste de falda/pantalón `f373413f11a144fdc6b112fdc0e77f0e13e016ce`; enlaces de referencias `d32836091abd9d1448671f606657a068b7a9a830`; documentación `94b44cce4d4d8fbb21b8a3e67db72beab0e6ea84`.
+- No se ha validado manualmente el aspecto en WebView2. El CI debe comprobarse para el SHA final después de esta actualización de continuidad.
+- Se mantuvo todo en `product/complete-vtuber-experience`; no se tocó `main` ni el estado del PR #9.
+
 ## 2026-10-14 — Recoloración rápida del vestuario y criterio de licencias
 
 - En `src/VtuberBot.App/AvatarWardrobeStudioWindow.cs` se agregó un control **Variación de tono · ropa y accesorios** (0–360°). Rota el matiz de los colores principal/secundario del vestuario sin cambiar la geometría ni el tono de piel; los selectores de color individuales siguen disponibles. El valor se guarda/carga con el JSON de apariencia.
