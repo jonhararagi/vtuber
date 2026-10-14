@@ -1,5 +1,15 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-14 — Personalización chibi morena y ChatGPT/Gemini web
+
+- En `src/VtuberBot.App/ModularWardrobeFactory.cs` se añadió el tono de piel `morena` con sombras cálidas, el estilo de iris marrón y pupila marrón oscuro, y el peinado `brown-inner-light`: castaño oscuro con mechones interiores miel claros (no solo un brillo superficial). Las opciones quedan disponibles en el catálogo modular de Avatar Studio.
+- En `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs` se agregó el preset independiente **Miel de café** con piel morena cálida, pelo castaño con inner hair claro, ojos/iris marrones y pupilas marrón oscuro. La galería queda en trece presets y no reemplaza perfiles del usuario.
+- En `src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs` se agregó **Abrir Gemini web** junto a **Abrir ChatGPT web**. Ambos reutilizan el flujo de prompt de personaje editable y copiar/pegar; no se automatiza ni se lee la sesión privada del navegador. Los perfiles de prompt guardados (Twitch streamer, anime tsundere, streamer tranquilo, moderador útil y personalizado) siguen aplicándose al prompt manual y a las respuestas automáticas.
+- Actualizados `docs/PRODUCT_USER_GUIDE.md`, `docs/CHATSPEAK-STUDIO.md` y `README.md`. El README de esta rama ahora identifica `product/complete-vtuber-experience` como rama de producto y no instruye a descargar `main` antes de cerrar la integración.
+- **CI exacta confirmada hasta ahora:** run [#38645879949](https://github.com/jonhararagi/vtuber/actions/runs/38645879949), SHA `340a3afeb10695a08b3589214095a77459c74d87`, terminó `success`: build Release, publicación Windows x64 y **534/534 pruebas aprobadas, 0 fallidas, 0 omitidas**. Este SHA valida la modificación del catálogo modular, pero es anterior al preset y al botón Gemini.
+- CI posteriores para los SHA `0062e364`, `a783ebab` y `09b9ab90` se iniciaron para las modificaciones siguientes; comprobar sus resultados antes de atribuirles éxito. La validación visual del personaje y las pruebas reales con cuentas ChatGPT/Gemini siguen sin haberse realizado en el PC del usuario.
+- No se cambió `main`, no se fusionaron PRs y no se alteró el estado de PR #9.
+
 ## 2026-10-14 — CI de perfiles de prompt y galería chibi ampliada
 
 - La ejecución de Windows CI [#38640343084](https://github.com/jonhararagi/vtuber/actions/runs/38640343084), sobre el SHA `4bb6335b6a5a8bc8b982121d9d85ea1b423c5c2a`, terminó en `success`: Restore, Build Release, pruebas automatizadas, publicación autocontenida Windows x64 y subida de artefacto completados.
