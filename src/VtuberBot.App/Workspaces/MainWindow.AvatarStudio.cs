@@ -84,19 +84,15 @@ public partial class MainWindow
     {
         var root = new StackPanel();
 
-        // A beginner should choose an avatar workflow, not configure layers/settings manually.
-        var beginnerPanel = Panel("Empezá por acá — elegí tu tipo de VTuber");
+        // The old generated chibi sample gallery was removed from the user-facing workflow.
+        var beginnerPanel = Panel("Crear y personalizar tu personaje");
         beginnerPanel.Margin = new Thickness(0, 0, 0, 14);
         beginnerPanel.Children.Add(Label(
-            "Elegí un personaje chibi completo: cada muestra cambia el peinado, el conjunto, los accesorios, el rostro, los ojos y la pose. Después podés abrir el creador de abajo y combinar cada pieza a tu gusto; los perfiles nuevos no pisan los anteriores.",
+            "Creá tu personaje base en VRoid Studio y usá el mini estudio 3D integrado para explorar la personalización. No se muestran los antiguos modelos de muestra.",
             12, "#98A4BE"));
-        var presetGallery = new WrapPanel { Margin = new Thickness(0, 8, 0, 10) };
-        foreach (var preset in ChibiAvatarPresets)
-            presetGallery.Children.Add(BuildChibiPresetButton(preset));
-        beginnerPanel.Children.Add(presetGallery);
 
         beginnerPanel.Children.Add(Label(
-            "PNGTuber es la opción más ligera para empezar. La separación 2.5D con IA local es experimental y puede necesitar correcciones. VRoid Studio abre un creador 3D externo; el modelo VRM todavía no se carga dentro del overlay de VTuberBot.",
+            "El mini estudio 3D se abre dentro de VTuberBot y permite probar un editor de avatares VRM. Esta primera integración necesita Internet; la importación de ropa depende de la compatibilidad del modelo y los recursos. El overlay de VTuberBot todavía requiere su propia integración VRM.",
             12, "#98A4BE"));
 
         Button startLocalSegmentation = null!;
@@ -120,7 +116,9 @@ public partial class MainWindow
         startLocalSegmentation = ActionButton("2 · 2.5D con IA local (experimental)", async (_, _) =>
             await StartLocalAvatarSegmentationAsync());
         beginnerActions.Children.Add(startLocalSegmentation);
-        beginnerActions.Children.Add(ActionButton("3 · Abrir creador 3D VRoid (externo)", (_, _) =>
+        beginnerActions.Children.Add(ActionButton("Abrir mini estudio 3D integrado", (_, _) =>
+            OpenAvatarWardrobeStudio(), true));
+        beginnerActions.Children.Add(ActionButton("Abrir VRoid Studio (externo)", (_, _) =>
             OpenAvatarExternalTool("https://vroid.com/en/studio", "VRoid Studio")));
         cancelLocalSegmentation = ActionButton("Cancelar IA", (_, _) =>
             activeLocalAvatarSegmentation?.Cancel());
@@ -131,7 +129,7 @@ public partial class MainWindow
         beginnerPanel.Children.Add(localSegmentationProgress);
         beginnerPanel.Children.Add(localSegmentationStatus);
         root.Children.Add(beginnerPanel);
-        root.Children.Add(BuildModularWardrobePanel());
+        // The old 2D generated wardrobe panel is intentionally hidden; the 3D editor is the primary workflow.
 
         var profilePanel = Panel("Perfiles de avatar");
         profilePanel.Margin = new Thickness(0, 0, 0, 14);
@@ -950,6 +948,12 @@ public partial class MainWindow
         }
     }
 
+
+    private void OpenAvatarWardrobeStudio()
+    {
+        var window = new AvatarWardrobeStudioWindow { Owner = this };
+        window.Show();
+    }
 
     private void OpenAvatarExternalTool(string url, string toolName)
     {
