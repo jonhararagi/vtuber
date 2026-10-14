@@ -1413,3 +1413,11 @@ Esta tabla es un análisis de ramas, no una afirmación de que las ramas enumera
 - Validación previa: la compilación de Windows de la versión del worker sin la nueva interfaz pasó CI #602, pero los commits de UX deben confirmarse por la nueva ejecución de CI antes de distribuir el ZIP. El proceso de IA no se ha medido todavía en el PC del usuario; el límite de 2 GiB es la restricción del proceso hijo, no de VTuberBot + OBS + Windows en conjunto. La precisión semántica en arte anime es baja/experimental según el autor del modelo.
 - Modelo tercero: ONNX de Skin-Clothes-Hair-Segmentation-using-SMP con licencia MIT y verificación SHA/tamaño, descrito en `docs/THIRD_PARTY_NOTICES.md`.
 
+
+
+## Entrega funcional — ventana ChatGPT y muestras PNGTuber (14/10/2026)
+
+- Se añadió **ChatGPT en ventana** a la navegación y a Bot social / IA. Es una ventana WPF con WebView2 que abre el sitio oficial en un perfil local persistente, con atrás/adelante/recargar y apertura en navegador externo como alternativa. No automatiza ni lee los mensajes privados del sitio, y no se presenta como conexión por API.
+- Se añadieron tres perfiles PNGTuber demostrativos: violeta (Hikari), azul (Aoi) y rosa (Mio). Cada tema crea sus PNG transparentes para Idle, Talking, Blink, Happy y Surprised. Las muestras comparten la ilustración vectorial base con paletas/accesorios cromáticos diferentes; no son modelos de artistas externos ni se describen como tres rigs distintos.
+- La voz hablada ya existía mediante una cola local limitada que usa Windows SAPI y las voces instaladas; el bot social puede encolar sus respuestas habladas. No requiere clave para la voz SAPI local. La voz remota de personaje es opcional y sí usa proveedor/API.
+- **Validación pendiente tras esta entrega:** Windows CI debe compilar esta versión y ejecutar las pruebas existentes. No se afirma que la nueva ventana se haya validado manualmente en el equipo del usuario.

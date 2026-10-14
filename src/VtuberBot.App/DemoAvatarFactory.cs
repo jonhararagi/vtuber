@@ -20,6 +20,23 @@ internal sealed record DemoAvatarAssets(
     string SparklesLayer);
 
 /// <summary>
+/// Palette for an original, local-only sample PNGTuber. Samples share the same base drawing,
+/// but have distinct palettes and accents; they are generated locally without downloads.
+/// </summary>
+internal sealed record DemoAvatarTheme(
+    string Id,
+    string Hair,
+    string HairLight,
+    string Coat,
+    string CoatLight,
+    string CoatDeep,
+    string Eye,
+    string Accent,
+    string Secondary,
+    string Outline,
+    string Dark);
+
+/// <summary>
 /// Creates original, local-only demonstration sprites so a fresh install can preview an avatar
 /// without downloading art or requiring the user to supply files first.
 /// </summary>
@@ -28,10 +45,24 @@ internal static class DemoAvatarFactory
     private const int CanvasWidth = 512;
     private const int CanvasHeight = 768;
 
-    public static DemoAvatarAssets EnsureAssets(string avatarDirectory)
+    private static DemoAvatarTheme ResolveTheme(string? themeId) =>
+        (themeId ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "aoi" => new DemoAvatarTheme("aoi", "#15345D", "#42B8F2", "#184B70", "#2E8EAD",
+                "#163D5C", "#1FA6E0", "#53E0FF", "#B0F6F0", "#13253D", "#10223B"),
+            "mio" => new DemoAvatarTheme("mio", "#55233B", "#C44D72", "#64213F", "#A93D66",
+                "#4B1932", "#C43F74", "#F5B95F", "#FFD4E0", "#371528", "#2A1224"),
+            "nagi" => new DemoAvatarTheme("nagi", "#25483C", "#80B78D", "#355E53", "#68A898",
+                "#29463B", "#5CA89E", "#F1D37C", "#D1FFE2", "#20362F", "#1F302B"),
+            _ => new DemoAvatarTheme("hikari", "#483078", "#9576E8", "#453B8F", "#7568C8",
+                "#5C4AA7", "#8060D6", "#FF78C8", "#69E4D0", "#352445", "#2F234B")
+        };
+
+    public static DemoAvatarAssets EnsureAssets(string avatarDirectory, string? themeId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(avatarDirectory);
-        var directory = Path.Combine(Path.GetFullPath(avatarDirectory), "builtin-demos", "hikari");
+        var theme = ResolveTheme(themeId);
+        var directory = Path.Combine(Path.GetFullPath(avatarDirectory), "builtin-demos", theme.Id);
         Directory.CreateDirectory(directory);
 
         string Asset(string fileName, Action<DrawingContext> draw)
@@ -43,18 +74,18 @@ internal static class DemoAvatarFactory
         }
 
         return new DemoAvatarAssets(
-            Asset("pngtuber-idle.png", dc => DrawCharacter(dc, "Idle", includeFrontHair: true)),
-            Asset("pngtuber-talking.png", dc => DrawCharacter(dc, "Talking", includeFrontHair: true)),
-            Asset("pngtuber-blink.png", dc => DrawCharacter(dc, "Blink", includeFrontHair: true)),
-            Asset("pngtuber-happy.png", dc => DrawCharacter(dc, "Happy", includeFrontHair: true)),
-            Asset("pngtuber-surprised.png", dc => DrawCharacter(dc, "Surprised", includeFrontHair: true)),
-            Asset("layered-idle.png", dc => DrawCharacter(dc, "Idle", includeFrontHair: false)),
-            Asset("layered-talking.png", dc => DrawCharacter(dc, "Talking", includeFrontHair: false)),
-            Asset("layered-blink.png", dc => DrawCharacter(dc, "Blink", includeFrontHair: false)),
-            Asset("layered-happy.png", dc => DrawCharacter(dc, "Happy", includeFrontHair: false)),
-            Asset("layered-surprised.png", dc => DrawCharacter(dc, "Surprised", includeFrontHair: false)),
-            Asset("layer-front-hair.png", DrawFrontHairLayer),
-            Asset("layer-sparkles.png", DrawSparklesLayer));
+            Asset("pngtuber-idle.png", dc => DrawCharacter(dc, "Idle", includeFrontHair: true, theme: theme)),
+            Asset("pngtuber-talking.png", dc => DrawCharacter(dc, "Talking", includeFrontHair: true, theme: theme)),
+            Asset("pngtuber-blink.png", dc => DrawCharacter(dc, "Blink", includeFrontHair: true, theme: theme)),
+            Asset("pngtuber-happy.png", dc => DrawCharacter(dc, "Happy", includeFrontHair: true, theme: theme)),
+            Asset("pngtuber-surprised.png", dc => DrawCharacter(dc, "Surprised", includeFrontHair: true, theme: theme)),
+            Asset("layered-idle.png", dc => DrawCharacter(dc, "Idle", includeFrontHair: false, theme: theme)),
+            Asset("layered-talking.png", dc => DrawCharacter(dc, "Talking", includeFrontHair: false, theme: theme)),
+            Asset("layered-blink.png", dc => DrawCharacter(dc, "Blink", includeFrontHair: false, theme: theme)),
+            Asset("layered-happy.png", dc => DrawCharacter(dc, "Happy", includeFrontHair: false, theme: theme)),
+            Asset("layered-surprised.png", dc => DrawCharacter(dc, "Surprised", includeFrontHair: false, theme: theme)),
+            Asset("layer-front-hair.png", dc => DrawFrontHairLayer(dc, theme)),
+            Asset("layer-sparkles.png", dc => DrawSparklesLayer(dc, theme)));
     }
 
     private static void RenderPng(string path, Action<DrawingContext> draw)
@@ -81,18 +112,18 @@ internal static class DemoAvatarFactory
             bounds.Width / 2,
             bounds.Height / 2);
 
-    private static void DrawCharacter(DrawingContext dc, string expression, bool includeFrontHair)
+    private static void DrawCharacter(DrawingContext dc, string expression, bool includeFrontHair, DemoAvatarTheme theme)
     {
-        var outline = new Pen(Brush("#352445"), 7) { LineJoin = PenLineJoin.Round };
-        var fineOutline = new Pen(Brush("#352445"), 3.5) { LineJoin = PenLineJoin.Round };
-        var hair = Brush("#483078");
-        var hairLight = Brush("#9576E8");
+        var outline = new Pen(Brush(theme.Outline), 7) { LineJoin = PenLineJoin.Round };
+        var fineOutline = new Pen(Brush(theme.Outline), 3.5) { LineJoin = PenLineJoin.Round };
+        var hair = Brush(theme.Hair);
+        var hairLight = Brush(theme.HairLight);
         var skin = Brush("#FFE0C8");
         var skinShadow = Brush("#F3BFAF");
-        var coat = Brush("#453B8F");
-        var coatLight = Brush("#7568C8");
+        var coat = Brush(theme.Coat);
+        var coatLight = Brush(theme.CoatLight);
         var cream = Brush("#FFF4E8");
-        var teal = Brush("#69E4D0");
+        var teal = Brush(theme.Secondary);
 
         // Soft ground shadow; the rest of the canvas remains transparent.
         DrawEllipse(dc, Brush("#440F172A"), null, new Rect(135, 710, 242, 28));
@@ -118,9 +149,9 @@ internal static class DemoAvatarFactory
             "M 196,383 L 256,432 L 316,383 L 300,507 L 256,551 L 212,507 Z"));
         dc.DrawGeometry(teal, fineOutline, Geometry.Parse(
             "M 242,426 L 270,426 L 281,485 L 256,523 L 231,485 Z"));
-        dc.DrawGeometry(Brush("#5C4AA7"), null, Geometry.Parse(
+        dc.DrawGeometry(Brush(theme.CoatDeep), null, Geometry.Parse(
             "M 181,552 C 215,577 295,577 331,552 L 352,688 L 160,688 Z"));
-        dc.DrawRoundedRectangle(Brush("#322650"), fineOutline, new Rect(222, 608, 68, 47), 8, 8);
+        dc.DrawRoundedRectangle(Brush(theme.Dark), fineOutline, new Rect(222, 608, 68, 47), 8, 8);
         DrawEllipse(dc, teal, fineOutline, new Rect(244, 619, 24, 24));
 
         // Neck and face.
@@ -136,7 +167,7 @@ internal static class DemoAvatarFactory
         DrawEllipse(dc, Brush("#55F08AA6"), null, new Rect(174, 278, 45, 20));
         DrawEllipse(dc, Brush("#55F08AA6"), null, new Rect(292, 278, 45, 20));
 
-        DrawEyes(dc, expression, fineOutline);
+        DrawEyes(dc, expression, fineOutline, theme);
 
         // Nose and mouth; each generated PNG has the same canvas and character alignment.
         DrawEllipse(dc, Brush("#D58B83"), null, new Rect(251, 277, 8, 5));
@@ -165,23 +196,23 @@ internal static class DemoAvatarFactory
         // Front hair is a separate transparent layer in the layered demo and baked into the
         // full PNGTuber sprites. This makes the two examples behave differently in the editor.
         if (includeFrontHair)
-            DrawFrontHairLayer(dc);
+            DrawFrontHairLayer(dc, theme);
 
         // Hair clip and outfit accents.
-        dc.DrawGeometry(Brush("#FF78C8"), fineOutline, Geometry.Parse(
+        dc.DrawGeometry(Brush(theme.Accent), fineOutline, Geometry.Parse(
             "M 319,151 C 293,126 306,104 323,115 C 337,87 361,108 348,132 C 367,145 347,165 333,154 Z"));
         DrawEllipse(dc, Brush("#FFF1AA"), null, new Rect(326, 128, 9, 9));
-        dc.DrawLine(new Pen(Brush("#B6A1FF"), 4) { StartLineCap = PenLineCap.Round },
+        dc.DrawLine(new Pen(Brush(theme.HairLight), 4) { StartLineCap = PenLineCap.Round },
             new Point(182, 179), new Point(197, 158));
-        dc.DrawLine(new Pen(Brush("#B6A1FF"), 4) { StartLineCap = PenLineCap.Round },
+        dc.DrawLine(new Pen(Brush(theme.HairLight), 4) { StartLineCap = PenLineCap.Round },
             new Point(335, 191), new Point(322, 171));
     }
 
-    private static void DrawEyes(DrawingContext dc, string expression, Pen outline)
+    private static void DrawEyes(DrawingContext dc, string expression, Pen outline, DemoAvatarTheme theme)
     {
         if (expression is "Blink" or "Happy")
         {
-            var pen = new Pen(Brush("#352445"), 7) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+            var pen = new Pen(Brush(theme.Outline), 7) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
             if (expression == "Blink")
             {
                 dc.DrawGeometry(null, pen, Geometry.Parse("M 188,247 C 202,260 218,260 231,246"));
@@ -197,27 +228,27 @@ internal static class DemoAvatarFactory
 
         var eyeHeight = expression == "Surprised" ? 54 : 47;
         DrawEllipse(dc, Brush("#FFFFFF"), outline, new Rect(184, 220, 48, eyeHeight));
-        DrawEllipse(dc, Brush("#8060D6"), null, new Rect(195, 228, 28, eyeHeight - 12));
-        DrawEllipse(dc, Brush("#2F234B"), null, new Rect(202, 234, 15, eyeHeight - 23));
+        DrawEllipse(dc, Brush(theme.Eye), null, new Rect(195, 228, 28, eyeHeight - 12));
+        DrawEllipse(dc, Brush(theme.Dark), null, new Rect(202, 234, 15, eyeHeight - 23));
         DrawEllipse(dc, Brush("#FFFFFF"), null, new Rect(199, 231, 10, 11));
         DrawEllipse(dc, Brush("#FFFFFF"), null, new Rect(213, 250, 5, 6));
 
         DrawEllipse(dc, Brush("#FFFFFF"), outline, new Rect(280, 220, 48, eyeHeight));
-        DrawEllipse(dc, Brush("#8060D6"), null, new Rect(290, 228, 28, eyeHeight - 12));
-        DrawEllipse(dc, Brush("#2F234B"), null, new Rect(297, 234, 15, eyeHeight - 23));
+        DrawEllipse(dc, Brush(theme.Eye), null, new Rect(290, 228, 28, eyeHeight - 12));
+        DrawEllipse(dc, Brush(theme.Dark), null, new Rect(297, 234, 15, eyeHeight - 23));
         DrawEllipse(dc, Brush("#FFFFFF"), null, new Rect(294, 231, 10, 11));
         DrawEllipse(dc, Brush("#FFFFFF"), null, new Rect(308, 250, 5, 6));
 
-        var brow = new Pen(Brush("#352445"), 5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+        var brow = new Pen(Brush(theme.Outline), 5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         dc.DrawGeometry(null, brow, Geometry.Parse("M 186,211 Q 207,198 228,211"));
         dc.DrawGeometry(null, brow, Geometry.Parse("M 283,211 Q 304,198 326,211"));
     }
 
-    private static void DrawFrontHairLayer(DrawingContext dc)
+    private static void DrawFrontHairLayer(DrawingContext dc, DemoAvatarTheme theme)
     {
-        var hair = Brush("#483078");
-        var outline = new Pen(Brush("#352445"), 7) { LineJoin = PenLineJoin.Round };
-        var highlight = Brush("#A98BF2");
+        var hair = Brush(theme.Hair);
+        var outline = new Pen(Brush(theme.Outline), 7) { LineJoin = PenLineJoin.Round };
+        var highlight = Brush(theme.HairLight);
         dc.DrawGeometry(hair, outline, Geometry.Parse(
             "M 151,207 C 143,151 174,107 226,105 C 282,86 343,118 362,166 C 369,183 367,203 361,224 C 341,203 323,194 304,203 L 282,237 L 270,201 L 244,247 L 221,213 L 196,237 L 181,211 L 157,232 Z"));
         dc.DrawGeometry(hair, null, Geometry.Parse(
@@ -230,13 +261,13 @@ internal static class DemoAvatarFactory
             "M 353,184 C 372,226 359,286 344,319 C 340,331 332,331 328,319 L 319,230 Z"));
     }
 
-    private static void DrawSparklesLayer(DrawingContext dc)
+    private static void DrawSparklesLayer(DrawingContext dc, DemoAvatarTheme theme)
     {
-        DrawStar(dc, new Point(106, 280), 27, Brush("#FFE6A6"));
-        DrawStar(dc, new Point(405, 206), 23, Brush("#9FEFE5"));
-        DrawStar(dc, new Point(394, 463), 16, Brush("#E9C7FF"));
-        DrawStar(dc, new Point(115, 507), 13, Brush("#B2A4FF"));
-        DrawStar(dc, new Point(365, 590), 11, Brush("#FFE6A6"));
+        DrawStar(dc, new Point(106, 280), 27, Brush(theme.Accent));
+        DrawStar(dc, new Point(405, 206), 23, Brush(theme.Secondary));
+        DrawStar(dc, new Point(394, 463), 16, Brush(theme.HairLight));
+        DrawStar(dc, new Point(115, 507), 13, Brush(theme.Eye));
+        DrawStar(dc, new Point(365, 590), 11, Brush(theme.Accent));
     }
 
     private static void DrawStar(DrawingContext dc, Point center, double radius, Brush fill)

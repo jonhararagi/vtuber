@@ -71,8 +71,12 @@ public partial class MainWindow
         };
 
         var beginnerActions = new WrapPanel();
-        beginnerActions.Children.Add(ActionButton("1 · PNGTuber de ejemplo", (_, _) =>
-            LoadDemoProfile("Ejemplo PNGTuber", layered: false), true));
+        beginnerActions.Children.Add(ActionButton("1 · PNGTuber violeta", (_, _) =>
+            LoadDemoProfile("Ejemplo PNGTuber", layered: false, themeId: "hikari"), true));
+        beginnerActions.Children.Add(ActionButton("PNGTuber azul", (_, _) =>
+            LoadDemoProfile("Ejemplo PNGTuber · Azul", layered: false, themeId: "aoi")));
+        beginnerActions.Children.Add(ActionButton("PNGTuber rosa", (_, _) =>
+            LoadDemoProfile("Ejemplo PNGTuber · Rosa", layered: false, themeId: "mio")));
         beginnerActions.Children.Add(ActionButton("PNGTuber con mis imágenes", (_, _) =>
             CreateSimplePngTuber()));
         startLocalSegmentation = ActionButton("2 · 2.5D con IA local (experimental)", async (_, _) =>
@@ -245,13 +249,17 @@ public partial class MainWindow
         var demoPanel = Panel("Más ejemplos incluidos");
         demoPanel.Margin = new Thickness(0, 0, 0, 14);
         demoPanel.Children.Add(Label(
-            "Ahora puedes probar el avatar sin buscar imágenes externas. PNGTuber integrado alterna sprites de reposo/habla con el micrófono. 2D por capas separa el flequillo y los destellos para que puedas moverlos, escalarlos y rotarlos. Son demostraciones 2D con movimiento ligero: no son un rig Live2D, no incluyen seguimiento facial ni huesos.",
+            "Podés probar tres PNGTuber de muestra sin buscar imágenes: violeta, azul y rosa. Comparten la ilustración original de VTuberBot, con paletas y detalles de color distintos, y cada perfil trae PNG separados para reposo, habla, parpadeo, alegría y sorpresa. El ejemplo 2D por capas también deja mover el flequillo y los destellos. No es un rig Live2D y no incluye seguimiento facial ni huesos.",
             12, "#98A4BE"));
         var demoActions = new WrapPanel();
-        demoActions.Children.Add(ActionButton("Probar ejemplo PNGTuber (reposo / habla)", (_, _) =>
-            LoadDemoProfile("Ejemplo PNGTuber", layered: false), true));
+        demoActions.Children.Add(ActionButton("Probar PNGTuber violeta", (_, _) =>
+            LoadDemoProfile("Ejemplo PNGTuber", layered: false, themeId: "hikari"), true));
+        demoActions.Children.Add(ActionButton("Probar PNGTuber azul", (_, _) =>
+            LoadDemoProfile("Ejemplo PNGTuber · Azul", layered: false, themeId: "aoi")));
+        demoActions.Children.Add(ActionButton("Probar PNGTuber rosa", (_, _) =>
+            LoadDemoProfile("Ejemplo PNGTuber · Rosa", layered: false, themeId: "mio")));
         demoActions.Children.Add(ActionButton("Probar ejemplo 2D por capas", (_, _) =>
-            LoadDemoProfile("Ejemplo 2D por capas", layered: true), true));
+            LoadDemoProfile("Ejemplo 2D por capas", layered: true, themeId: "hikari"), true));
         demoActions.Children.Add(ActionButton("Configurar PNGTuber Plus externo", (_, _) => Navigate("Avatar externo")));
         demoPanel.Children.Add(demoActions);
 
@@ -494,11 +502,11 @@ public partial class MainWindow
             }
         }
 
-        void LoadDemoProfile(string profileName, bool layered)
+        void LoadDemoProfile(string profileName, bool layered, string themeId = "hikari")
         {
             try
             {
-                var assets = DemoAvatarFactory.EnsureAssets(avatarDirectory);
+                var assets = DemoAvatarFactory.EnsureAssets(avatarDirectory, themeId);
                 var existing = store.GetAvatarProfiles().FirstOrDefault(profile =>
                     string.Equals(profile.Name, profileName, StringComparison.OrdinalIgnoreCase));
 

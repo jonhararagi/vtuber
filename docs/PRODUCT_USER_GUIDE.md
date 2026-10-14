@@ -277,3 +277,10 @@ No hace falta configurar OBS ni activar el bot automático para probar la voz. P
 7. El registro indica si una regla coincidió, se descartó, fue cancelada, si la cola se saturó, si la voz fue encolada o si la escritura IRC terminó. «Voz encolada» no significa que el audio ya se oyó; una escritura IRC completada tampoco confirma que los espectadores vieran el mensaje.
 
 Las reglas se guardan en SQLite local, con un máximo de 100 reglas, 8 respuestas por regla, 400 caracteres por respuesta, 64 trabajos pendientes y límites de cooldown/ejecuciones. No se permiten regex, scripts ni código del usuario. Las reglas no necesitan IA local.
+
+
+## ChatGPT en ventana propia y muestras PNGTuber (14/10/2026)
+
+El acceso **ChatGPT en ventana** abre el sitio oficial de ChatGPT en una ventana separada integrada con WebView2. Iniciá sesión con tu cuenta en esa página. Es acceso web manual: VTuberBot no extrae conversaciones ni controla la cuenta. Si la autenticación integrada no funciona o falta el runtime WebView2, la ventana incluye **Abrir navegador normal** como alternativa. Las respuestas automáticas del personaje son una función distinta y requieren configurar un proveedor de IA en Bot social / IA.
+
+En Avatar Studio hay tres perfiles PNGTuber de demostración generados localmente: **violeta (Hikari), azul (Aoi) y rosa (Mio)**. Comparten la ilustración original de ejemplo, pero usan paletas y acentos distintos y cada uno genera imágenes transparentes para reposo, habla, parpadeo, alegría y sorpresa. Se pueden probar sin descargar imágenes ni reemplazar perfiles existentes. La voz local usa SAPI y las voces instaladas en Windows; no requiere una clave de API.

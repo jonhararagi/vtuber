@@ -187,6 +187,7 @@
                 <Button Content="◉  Centro de directo" Tag="Centro de directo" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
                 <Button Content="◉  Twitch y chat" Tag="Twitch y chat" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
                 <Button Content="✦  Bot social / IA" Tag="Bot social" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="▢  ChatGPT en ventana" Click="OpenChatGptMiniWindow_Click" HorizontalContentAlignment="Left"/>
                 <Button Content="▣  OBS y transmisiones" Tag="OBS" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
               </StackPanel>
             </Expander>

@@ -50,6 +50,7 @@ public partial class MainWindow : Window
     private AudioFileReader? soundReader;
     private readonly VoiceActivityDetector voiceActivity;
     private WebView2? telegramView;
+    private ChatGptMiniWindow? chatGptMiniWindow;
     private readonly ObservableCollection<string> chatLines = [];
     private readonly DispatcherTimer automationTimer = new() { Interval = TimeSpan.FromMinutes(1) };
     private readonly DispatcherTimer twitchCredentialTimer = new() { Interval = TimeSpan.FromMinutes(5) };
@@ -98,6 +99,38 @@ public partial class MainWindow : Window
         "Inicio","Centro de directo","Avatar Studio","Avatar externo","Streamer.bot","Twitch y chat","Bot social","Comandos","Comunidad y puntos","Automatizaciones","Sorteos",
         "Minijuegos","Moderación","Voz y audio","OBS","Integraciones","Telegram Web","Actividad y diagnóstico","Ajustes"
     ];
+
+    private void OpenChatGptMiniWindow_Click(object sender, RoutedEventArgs e) => OpenChatGptMiniWindow();
+
+    private void OpenChatGptMiniWindow()
+    {
+        try
+        {
+            if (chatGptMiniWindow is null)
+            {
+                var created = new ChatGptMiniWindow(dataDirectory) { Owner = this };
+                chatGptMiniWindow = created;
+                created.Closed += (_, _) =>
+                {
+                    if (ReferenceEquals(chatGptMiniWindow, created))
+                        chatGptMiniWindow = null;
+                };
+            }
+
+            if (!chatGptMiniWindow.IsVisible)
+                chatGptMiniWindow.Show();
+            if (chatGptMiniWindow.WindowState == System.Windows.WindowState.Minimized)
+                chatGptMiniWindow.WindowState = System.Windows.WindowState.Normal;
+            chatGptMiniWindow.Activate();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this,
+                "No se pudo abrir la ventana de ChatGPT: " + exception.Message +
+                "\nPodés abrir ChatGPT en el navegador normal desde Bot social / IA.",
+                "ChatGPT", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     private void HandleEventSubEvent(string type, string summary)
     {

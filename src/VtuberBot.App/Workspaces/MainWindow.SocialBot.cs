@@ -210,7 +210,8 @@ public partial class MainWindow
         }, true);
 
         var manualPanel = Panel("Modo manual · ChatGPT web y comandos del creador");
-        manualPanel.Children.Add(Label("ChatGPT se abre en tu navegador normal. Copiá el prompt, pegalo en la web, y pegá su respuesta aquí. VTuberBot no lee cookies, DOM ni la conversación privada de esa página. Para empezar un chat web nuevo, usá el control New chat de ChatGPT.", 12, "#98A4BE"));
+        manualPanel.Children.Add(Label("La ventanita abre el sitio oficial de ChatGPT con una sesión web persistente en tu PC. Iniciá sesión con tu cuenta si hace falta. VTuberBot no lee la conversación privada ni obtiene respuestas automáticamente desde esa página; para automatizar respuestas del bot se configura un proveedor compatible en Bot social / IA.", 12, "#98A4BE"));
+        manualPanel.Children.Add(ActionButton("Abrir ChatGPT en ventanita", (_, _) => OpenChatGptMiniWindow(), true));
         var manualPrompt = TextField("Instrucción extra para la IA (modo manual)", "Comentá brevemente lo más interesante del chat y reaccioná con energía.");
         var manualResponse = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 100, MinWidth = 280, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(0, 0, 0, 8) };
         var manualPublishToTwitch = new CheckBox { Content = "Enviar también el texto natural al chat de Twitch (opcional; desactivado por defecto)", IsChecked = false, Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
