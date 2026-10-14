@@ -19,7 +19,7 @@ public sealed class LocalSpeechQueuePlaybackStateTests
             if (call == 1)
             {
                 FirstCallStarted.Set();
-                if (!ReleaseFirstCall.Wait(TimeSpan.FromSeconds(5)))
+                if (!ReleaseFirstCall.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken))
                     throw new TimeoutException("La prueba no liberó la primera frase.");
             }
             return new SpeechPlaybackResult(false, cancelled());
@@ -35,10 +35,10 @@ public sealed class LocalSpeechQueuePlaybackStateTests
         var states = new ConcurrentQueue<bool>();
         queue.PlaybackStateChanged += states.Enqueue;
         Assert.True(queue.Enqueue("Primera frase"));
-        Assert.True(session.FirstCallStarted.Wait(TimeSpan.FromSeconds(3)));
+        Assert.True(session.FirstCallStarted.Wait(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
         Assert.True(queue.Enqueue("Segunda frase"));
         session.ReleaseFirstCall.Set();
-        Assert.True(SpinWait.SpinUntil(() => states.Count >= 2, TimeSpan.FromSeconds(3)));
+        Assert.True(SpinWait.SpinUntil(() => states.Count >= 2, TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
         Assert.Equal(new[] { true, false }, states.ToArray());
         Assert.Equal(2, session.CallCount);
     }
@@ -61,8 +61,8 @@ public sealed class LocalSpeechQueuePlaybackStateTests
         var calls = 0;
         using var queue = new LocalSpeechQueue(() => new BrokenSession(() => Interlocked.Increment(ref calls)));
         Assert.True(queue.Enqueue("Primera frase"));
-        Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref calls) >= 1, TimeSpan.FromSeconds(3)));
+        Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref calls) >= 1, TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
         Assert.True(queue.Enqueue("Segunda frase"));
-        Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref calls) >= 2, TimeSpan.FromSeconds(3)));
+        Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref calls) >= 2, TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
     }
 }
