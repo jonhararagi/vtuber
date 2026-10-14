@@ -135,7 +135,7 @@ Los mensajes del chat comparten el registro local de comandos; la actividad otor
 ## Comandos, comunidad y sorteos
 
 ### Comandos de reacción anime bilingües
-En una instalación nueva, **Reacciones** incluye ocho reglas iniciales habilitadas: `/ohayo`, `/baka`, `/nani`, `/okaerinasai` y sus alias `!ohayo`, `!baka`, `!nani`, `!okaerinasai`. Cada respuesta mezcla una expresión japonesa breve con español, solicita una expresión del avatar y entra en la cola TTS local si la regla tiene activada la voz. Podés editar o desactivar las reglas desde la página de Reacciones; respetan cooldowns y límite por minuto.
+En el primer arranque tras esta actualización, **Reacciones** incorpora ocho reglas iniciales habilitadas si aún no se migraron (también se agregan a configuraciones existentes sin sobrescribir las reglas propias): `/ohayo`, `/baka`, `/nani`, `/okaerinasai` y sus alias `!ohayo`, `!baka`, `!nani`, `!okaerinasai`. Cada respuesta mezcla una expresión japonesa breve con español, solicita una expresión del avatar y entra en la cola TTS local si la regla tiene activada la voz. Podés editar o desactivar las reglas desde la página de Reacciones; respetan cooldowns y límite por minuto.
 
 Los comandos se procesan cuando el mensaje llega a la canalización de chat de VTuberBot. Algunos clientes de Twitch reservan los mensajes que empiezan por `/` como comandos propios y podrían no enviarlos al chat; en ese caso usá el alias `!`. Las frases japonesas son texto, no una voz anime incluida: la pronunciación depende de las voces SAPI instaladas en Windows. Para una voz japonesa adecuada, instalá una voz compatible o usá un clip de audio importado. La expresión solo puede cambiar si el adaptador de avatar correspondiente está conectado y acepta esa expresión.
 
