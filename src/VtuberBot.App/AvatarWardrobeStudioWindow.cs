@@ -152,7 +152,7 @@ else tube(avatar,[[-.075,2.95,faceZ+.02],[0,2.925,faceZ+.035],[.075,2.95,faceZ+.
 // Clothing upper torso: fitted tunic/cardi/hoodie. Geometry is separate so styling is truly switchable.
 const coatPts=(outfit==='hoodie'||outfit==='y2k'||outfit==='pajama')?[[.14,1.28],[.23,1.33],[.33,1.48],[hip+.05,1.57],[hip+.02,1.75],[waist+.06,1.94],[.39,2.2],[.37,2.38],[.27,2.50],[.15,2.52]]:[[.14,1.30],[.22,1.35],[.30,1.49],[hip+.015,1.57],[hip*.98,1.72],[waist+.025,1.94],[.35,2.2],[.34,2.38],[.24,2.50],[.15,2.52]];
 lathe(avatar,coatPts,cloth);
-if(outfit==='cardigan'||outfit==='uniform'){cylinder(avatar,trim,.018,.018,1.12,[0,1.94,.345]);for(let y=1.72;y<2.35;y+=.15)ball(avatar,mat('#f8e7bd'),[.025,y,.36],[.018,.018,.01]);}
+if(outfit==='cardigan'||outfit==='uniform'||outfit==='retro'){cylinder(avatar,trim,.018,.018,1.12,[0,1.94,.345]);for(let y=1.72;y<2.35;y+=.15)ball(avatar,mat('#f8e7bd'),[.025,y,.36],[.018,.018,.01]);}
 if(outfit==='hoodie'){ball(avatar,trim,[0,2.36,-.12],[.23,.25,.12]);tube(avatar,[[-.08,2.45,.32],[-.07,2.22,.36]],.012,trim);tube(avatar,[[.08,2.45,.32],[.07,2.22,.36]],.012,trim);}
 if(outfit==='fantasy'){const belt=mat('#60412e');cylinder(avatar,belt,.33,.36,.07,[0,1.68,0]);ball(avatar,trim,[0,1.68,.36],[.055,.055,.025]);}
 if(outfit==='goth'){const collar=mat('#201a31');cylinder(avatar,collar,.16,.22,.12,[0,2.48,0]);ball(avatar,trim,[0,2.30,.36],[.035,.06,.02]);}
