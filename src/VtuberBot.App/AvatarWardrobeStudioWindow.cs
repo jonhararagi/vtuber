@@ -198,7 +198,7 @@ $('save').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({for
 $('exportglb').addEventListener('click',()=>{if(!THREE.GLTFExporter){$('renderstatus').textContent='No se pudo cargar el exportador GLB (Internet requerida)';return;} $('renderstatus').textContent='Exportando modelo 3D…';try{new THREE.GLTFExporter().parse(avatar,result=>{const blob=new Blob([result],{type:'model/gltf-binary'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='mi-personaje-vtuberbot.glb';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);$('renderstatus').textContent='Modelo GLB exportado · sin rig ni animaciones';},error=>{$('renderstatus').textContent='Error al exportar GLB: '+(error?.message||'error desconocido');},{binary:true,onlyVisible:true});}catch(error){$('renderstatus').textContent='Error al exportar GLB: '+(error?.message||'error desconocido');}});
 $('loadfile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());const vals=data.settings||data;for(const id of ids)if(typeof vals[id]==='string')$(id).value=vals[id];update();}catch{$('renderstatus').textContent='Archivo JSON no válido';}e.target.value='';});
 function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
-new ResizeObserver(resize).observe(canvas);resize();make();
+new ResizeObserver(resize).observe(canvas);resize();applyBase('bronzed-adventurer');
 function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera);}animate();
 })();
 </script></body></html>
