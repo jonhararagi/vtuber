@@ -2,10 +2,10 @@
 
 ## 2026-10-14 — Restauración de la galería visual de personajes chibi
 
-- Se restauró en `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs` la galería que estaba definida por seis presets y sus miniaturas pero ya no se mostraba en la interfaz. Ahora Avatar Studio vuelve a mostrar Neko gamer, Brujita lunar, Idol estelar, Gótica rosa, Cyber neón y Streamer casual.
+- Se restauró en `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs` la galería que estaba definida por seis presets y sus miniaturas pero ya no se mostraba en la interfaz. Ahora Avatar Studio vuelve a mostrar doce opciones: Neko gamer, Brujita lunar, Idol estelar, Gótica rosa, Cyber neón, Streamer casual, Zorrita de festival, Oráculo invernal, Guardiana kitsune, Pop celestial, Capitana pirata y Conejita de café.
 - Cada tarjeta usa `BuildChibiPresetButton` y `ModularWardrobeFactory.EnsureAssets` para previsualizar las piezas PNG transparentes originales generadas localmente; al pulsarla se crea un perfil separado con cabello, ropa, accesorios, forma de cara, ojos, tono de piel y pose propios. No reemplaza los perfiles existentes.
-- El catálogo modular ya contiene 11 peinados y 15 conjuntos, además de opciones separadas para cara/ojos, poses y accesorios. Esta corrección vuelve visible una biblioteca que ya existía en el código, en lugar de fingir que se añadieron ilustraciones profesionales externas.
-- La guía de usuario ya describe la galería y el catálogo. La compilación/CI para el nuevo SHA `b5b5fae` queda pendiente; no se afirma que la galería se haya comprobado visualmente en Windows todavía.
+- El catálogo modular ya contiene 11 peinados y 15 conjuntos, además de opciones separadas para cara/ojos, poses y accesorios. Se ampliaron los presets con seis combinaciones más que reutilizan IDs ya existentes en el catálogo modular. Esta corrección vuelve visible una biblioteca que ya existía en el código, en lugar de fingir que se añadieron ilustraciones profesionales externas.
+- La guía de usuario ya describe la galería y el catálogo. La primera CI de esta serie detectó una concatenación mal formada en el prompt manual de ChatSpeak; se corrigió en `6cb4487`. La CI del código corregido y la galería ampliada debe confirmarse en el SHA final; no se afirma que la galería se haya comprobado visualmente en Windows todavía.
 - Todo sigue en `product/complete-vtuber-experience`; no se tocó `main` ni el estado del PR #9.
 
 ## 2026-10-14 — Perfiles editables de personalidad para ChatSpeak
