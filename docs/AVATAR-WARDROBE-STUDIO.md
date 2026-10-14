@@ -4,6 +4,8 @@
 
 La ventana WPF/WebView2 contiene un taller paramétrico 3D integrado. La figura se genera en el visor con Three.js y no depende de una página externa. Los controles disponibles son:
 
+- **Biblioteca de cuatro personajes base preconfigurados:** Exploradora bronceada (seleccionada por defecto), Guardiana del desierto (piel cobriza), Aprendiz lunar y Viajera de jade (piel oliva). Cada preset configura silueta, altura, piel, pelo, ojos, expresión, ropa, colores y accesorio; todos los campos quedan editables después.
+- La base recomendada utiliza tono de piel bronceado (`#b87955`), cabello marrón oscuro, iris marrones y un conjunto de aventura verde/dorado. Se genera con la geometría paramétrica ya incluida en el taller: **no es un prefab externo importado ni un modelo anime profesional descargado**.
 - Silueta base: curvilínea suave, delgada o atlética; control de altura.
 - Tono de piel, color de pelo e iris; ojos marrones y pupilas blancas como valores iniciales.
 - Seis estilos de cabello: media melena, ondulado, recogido, coletas gemelas, largo y bob; tres opciones de flequillo.
