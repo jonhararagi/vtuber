@@ -380,18 +380,17 @@ public sealed class ChatReactionService : IAsyncDisposable
                     }
                     if (item.Rule.Speak)
                     {
-                        bool audioQueued;
+                        bool mayPlayAudio;
                         lock (gate)
-                        {
-                            audioQueued = !paused && item.Epoch == connectionEpoch && twitchConnected && isConnected() &&
-                                !activeOperation.IsCancellationRequested &&
-                                (string.IsNullOrWhiteSpace(item.Rule.ClipAssetId)
-                                    ? enqueueSpeech(response, item.Rule.Language, item.Rule.VoiceId)
-                                    : playClip is not null && playClip(item.Rule.ClipAssetId, activeOperation.Token));
-                        }
+                            mayPlayAudio = !paused && item.Epoch == connectionEpoch && twitchConnected && isConnected() &&
+                                !activeOperation.IsCancellationRequested;
+                        // Never call a UI-dispatching clip player while holding the service gate.
+                        var audioQueued = mayPlayAudio && (string.IsNullOrWhiteSpace(item.Rule.ClipAssetId)
+                            ? enqueueSpeech(response, item.Rule.Language, item.Rule.VoiceId)
+                            : playClip is not null && playClip(item.Rule.ClipAssetId, activeOperation.Token));
                         details.Add(string.IsNullOrWhiteSpace(item.Rule.ClipAssetId)
                             ? (audioQueued ? "voz encolada con la voz de esta regla o la predeterminada" : "voz omitida/rechazada por pausa, sesión, voz o cola")
-                            : (audioQueued ? "clip de audio encolado/reproducido" : "clip no disponible o rechazado; no se fingió una voz alternativa"));
+                            : (audioQueued ? "clip de audio iniciado" : "clip no disponible o rechazado; no se fingió una voz alternativa"));
                     }
                     Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Respuesta enviada", string.Join("; ", details), false));
                 }
