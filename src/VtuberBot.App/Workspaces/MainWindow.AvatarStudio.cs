@@ -77,7 +77,25 @@ public partial class MainWindow
             "sharp", "emerald", "moonlight", "hands-hips"),
         new("casual-streamer", "Streamer casual", "Pelo corto, hoodie, auriculares y mochila conejito.",
             "short-spiky", "comfy-hoodie", "gamer-headset", "heart-choker", "bunny-backpack",
-            "round", "gold", "warm", "neutral")
+            "round", "gold", "warm", "neutral"),
+        new("fox-festival", "Zorrita de festival", "Yukata de verano, orejas de zorro y cola esponjosa.",
+            "side-braid", "summer-festival", "fox-ears", "neck-ribbon", "fox-tail",
+            "heart", "rose", "cocoa", "wave"),
+        new("winter-oracle", "Oráculo invernal", "Abrigo de invierno, tiara lunar y capa corta.",
+            "silver-cyan", "winter-parka", "crescent-tiara", "mask-pendant", "short-cape",
+            "sharp", "sleepy", "porcelain", "neutral"),
+        new("shrine-fox", "Guardiana kitsune", "Vestimenta ceremonial, trenza lisa y cola de zorro.",
+            "long-straight", "shrine-ceremony", "fox-ears", "neck-ribbon", "fox-tail",
+            "elf", "heterochromia", "cocoa", "hands-hips"),
+        new("celestial-pop", "Pop celestial", "Vestido estelar, halo luminoso y alas de luz.",
+            "long-waves", "celestial-gown", "star-halo", "star-earrings", "celestial-wings",
+            "heart", "ocean", "moonlight", "wave"),
+        new("pirate-captain", "Capitana pirata", "Abrigo vino, pluma, capa y pose desafiante.",
+            "mint-braid", "night-pirate", "feather-pin", "mask-pendant", "short-cape",
+            "sharp", "gold", "warm", "crossed-arms"),
+        new("bunny-cafe", "Conejita de café", "Moños dobles, orejas largas y mochila conejito.",
+            "double-buns", "comfy-hoodie", "bunny-ears", "heart-choker", "bunny-backpack",
+            "round", "rose", "cocoa", "peace")
     ];
 
     private UIElement BuildAvatarStudio()
