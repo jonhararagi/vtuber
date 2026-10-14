@@ -348,6 +348,11 @@ public partial class MainWindow : Window
                 var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var r) ? Math.Clamp(r, -10, 10) : 0;
                 var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var v) ? Math.Clamp(v, 0, 100) : 100;
                 var voiceId = string.IsNullOrWhiteSpace(requestedVoiceId) ? store.GetSetting("audio.tts.voiceId") : requestedVoiceId;
+                if (!string.IsNullOrWhiteSpace(requestedVoiceId) && store.GetSetting("social.tts.provider", "remote") != "local")
+                {
+                    store.Log("Reacciones chat", "La voz SAPI elegida en esta regla requiere seleccionar el proveedor local en ChatSpeak Studio.");
+                    return false;
+                }
                 if (language == "ja")
                 {
                     if (store.GetSetting("social.tts.provider", "remote") != "local")
