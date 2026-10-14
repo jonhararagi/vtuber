@@ -37,6 +37,7 @@ public sealed record ChatReactionResult(
 public sealed class ChatReactionService : IAsyncDisposable
 {
     public const string RulesSettingKey = "chat.reactions.rules.v1";
+    private const string BilingualDefaultsMigrationKey = "chat.reactions.bilingual-defaults.v1";
     public const string PausedSettingKey = "chat.reactions.paused";
     public const int MaximumRules = 100;
     public const int QueueCapacity = 64;
@@ -424,10 +425,12 @@ public sealed class ChatReactionService : IAsyncDisposable
     {
         const string missingSetting = "__chat_reactions_not_configured__";
         var json = store.GetSetting(RulesSettingKey, missingSetting);
+        var defaultsMigrated = store.GetSetting(BilingualDefaultsMigrationKey, "false") == "true";
         if (json == missingSetting)
         {
             var defaults = CreateBilingualAnimeCommands();
             store.SetSetting(RulesSettingKey, JsonSerializer.Serialize(defaults));
+            store.SetSetting(BilingualDefaultsMigrationKey, "true");
             store.Log("Reacciones chat", "Se instalaron comandos anime bilingües iniciales; pueden editarse o desactivarse desde Reacciones.");
             return defaults;
         }
@@ -440,12 +443,26 @@ public sealed class ChatReactionService : IAsyncDisposable
                 if (rule is not null && TryValidate(rule, out var clean, out _)) valid.Add(clean);
                 else store.Log("Reacciones chat", "Se omitió una regla persistida inválida; no se ejecutó.");
             }
+
+            if (!defaultsMigrated)
+            {
+                foreach (var builtIn in CreateBilingualAnimeCommands())
+                {
+                    if (valid.Count >= MaximumRules) break;
+                    if (valid.All(existing => !string.Equals(existing.Id, builtIn.Id, StringComparison.OrdinalIgnoreCase)))
+                        valid.Add(builtIn);
+                }
+                store.SetSetting(RulesSettingKey, JsonSerializer.Serialize(valid));
+                store.SetSetting(BilingualDefaultsMigrationKey, "true");
+                store.Log("Reacciones chat", "Se incorporaron comandos anime bilingües iniciales a la configuración existente.");
+            }
             return valid;
         }
         catch (JsonException)
         {
             store.Log("Reacciones chat", "La configuración persistida no es JSON válido; se cargó una lista vacía.");
             store.SetSetting(RulesSettingKey, "[]");
+            store.SetSetting(BilingualDefaultsMigrationKey, "true");
             return [];
         }
     }
