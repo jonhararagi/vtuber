@@ -70,27 +70,30 @@ public sealed class AvatarWardrobeStudioWindow : Window
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 "Segoe UI",sans-serif}#app{display:grid;grid-template-columns:minmax(230px,300px) 1fr;min-height:100vh}.side{padding:18px;background:var(--panel);border-right:1px solid var(--line);overflow:auto}.brand{font-size:19px;font-weight:750;letter-spacing:-.4px}.sub{color:var(--muted);font-size:12px;margin:5px 0 18px}.group{padding:13px 0;border-top:1px solid var(--line)}h3{font-size:12px;text-transform:uppercase;letter-spacing:1.1px;color:#c5b9ff;margin:0 0 10px}label{display:block;color:#d9deed;font-size:12px;margin:10px 0 5px}select,input[type=color]{width:100%;background:#0c1222;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px}input[type=range]{width:100%;accent-color:var(--accent)}.rangeval{display:flex;justify-content:space-between;color:var(--muted);font-size:11px}.btn{background:#282344;color:white;border:1px solid #55478b;border-radius:9px;padding:10px 12px;width:100%;font-weight:650;cursor:pointer;margin-top:8px}.btn.secondary{background:#1b2438;border-color:var(--line)}.btn:hover{filter:brightness(1.18)}.note{color:var(--muted);font-size:11px;margin-top:13px}.stage{position:relative;min-height:720px;background:radial-gradient(ellipse at 50% 36%,#29304b 0,#171d31 42%,#0c1020 78%);overflow:hidden}#view{position:absolute;inset:0;width:100%;height:100%;display:block}.stagehead{position:absolute;top:18px;left:20px;right:20px;display:flex;justify-content:space-between;gap:12px;pointer-events:none}.pill{background:#0b1020cc;border:1px solid #3b4560;border-radius:999px;padding:7px 11px;color:#dfe4f6;font-size:11px}.tip{position:absolute;bottom:18px;left:20px;color:#c0c8dd;font-size:12px;background:#0b1020bb;padding:9px 12px;border-radius:10px;max-width:75%}.actions{display:flex;gap:8px}.actions .btn{flex:1}.warn{color:#f1d3a2;font-size:11px;margin-top:9px}@media(max-width:800px){#app{grid-template-columns:1fr}.side{order:2;border-right:0;border-top:1px solid var(--line)}.stage{min-height:560px;order:1}}
 </style></head><body><div id="app"><aside class="side">
 <div class="brand">VTuberBot <span style="color:var(--pink)">✦</span></div><div class="sub">Taller de personaje · prototipo 3D</div>
-<div class="group"><h3>01 · Silueta base</h3>
+<div class="group"><h3>01 · Personaje base</h3>
+<label for="baseCharacter">Elegí una base preconfigurada</label><select id="baseCharacter"><option value="bronzed-adventurer" selected>Exploradora bronceada · recomendada</option><option value="desert-guardian">Guardiana del desierto · piel cobriza</option><option value="moon-apprentice">Aprendiz lunar · piel clara</option><option value="jade-traveler">Viajera de jade · piel oliva</option></select>
+<div class="note">Cada base cambia cuerpo, piel, cabello, ojos y vestuario inicial. Después podés modificar cada pieza por separado.</div></div>
+<div class="group"><h3>02 · Silueta base</h3>
 <label for="shape">Constitución</label><select id="shape"><option value="soft">Curvilínea suave</option><option value="slim">Delgada</option><option value="athletic">Atlética</option></select>
 <label for="height">Altura</label><div class="rangeval"><span>Petite</span><span id="heightv">100%</span><span>Alta</span></div><input id="height" type="range" min="88" max="112" value="100">
-<label for="skin">Tono de piel</label><input id="skin" type="color" value="#f3c6b0">
+<label for="skin">Tono de piel</label><input id="skin" type="color" value="#b87955">
 </div>
-<div class="group"><h3>02 · Cara y ojos</h3>
+<div class="group"><h3>03 · Cara y ojos</h3>
 <label for="haircolor">Color del cabello</label><input id="haircolor" type="color" value="#70452f">
 <label for="eyes">Iris</label><input id="eyes" type="color" value="#75452f">
 <label for="expression">Expresión</label><select id="expression"><option value="smile">Sonrisa suave</option><option value="neutral">Neutra</option><option value="happy">Feliz</option></select>
 <div class="note">Pupilas blancas incluidas como rasgo del diseño base.</div></div>
-<div class="group"><h3>03 · Peinados</h3>
+<div class="group"><h3>04 · Peinados</h3>
 <label for="hair">Estilo</label><select id="hair"><option value="shoulder">Media melena a los hombros</option><option value="wavy">Ondulado a los hombros</option><option value="ponytail">Media melena recogida</option><option value="twin">Coletas gemelas</option><option value="long">Largo liso</option><option value="bob">Bob corto</option></select>
 <label for="bangs">Flequillo</label><select id="bangs"><option value="soft">Flequillo suave</option><option value="side">Flequillo lateral</option><option value="none">Sin flequillo</option></select>
 </div>
-<div class="group"><h3>04 · Ropa</h3>
+<div class="group"><h3>05 · Ropa</h3>
 <label for="outfit">Conjunto</label><select id="outfit"><option value="cardigan">Cárdigan + falda plisada</option><option value="hoodie">Hoodie + falda casual</option><option value="fantasy">Vestido aventurero</option><option value="uniform">Uniforme con chaqueta</option><option value="goth">Vestido gótico</option></select>
 <label for="cloth">Color principal</label><input id="cloth" type="color" value="#7865ad">
 <label for="accent">Color secundario</label><input id="accent" type="color" value="#f2d8e7">
 <label for="accessory">Accesorios</label><select id="accessory"><option value="none">Sin accesorio</option><option value="ribbon">Lazo para el pelo</option><option value="headphones">Auriculares</option><option value="star">Horquillas estrella</option><option value="halo">Aro decorativo</option></select>
 </div>
-<div class="group"><h3>05 · Tu diseño</h3><div class="actions"><button class="btn" id="save">Guardar diseño JSON</button><button class="btn secondary" id="reset">Restablecer</button></div><button class="btn" id="exportglb">Exportar modelo 3D (.glb)</button>
+<div class="group"><h3>06 · Tu diseño</h3><div class="actions"><button class="btn" id="save">Guardar diseño JSON</button><button class="btn secondary" id="reset">Restablecer</button></div><button class="btn" id="exportglb">Exportar modelo 3D (.glb)</button>
 <label class="btn secondary" for="loadfile" style="display:block;text-align:center">Cargar diseño guardado</label><input id="loadfile" type="file" accept=".json,application/json" hidden>
 <div class="warn">El archivo GLB exporta la malla visible, pero no incluye esqueleto ni animaciones. No equivale a un VRM listo para emitir.</div></div>
 </aside><main class="stage"><canvas id="view"></canvas><div class="stagehead"><span class="pill">VISTA 3D · ARRASTRÁ PARA GIRAR</span><span class="pill" id="renderstatus">Preparando modelo…</span></div><div class="tip">Personaje base editable · pelo marrón por defecto · ojos marrones y pupilas blancas. Cambiá las opciones para reconstruir el look.</div></main></div>
@@ -178,10 +181,18 @@ if(accessory==='halo'){const ring=mesh(new THREE.TorusGeometry(.28,.025,12,48),t
 // hair shine strands
 for(const s of [-1,1])tube(avatar,[[s*.08,3.62,.20],[s*.16,3.57,.25],[s*.22,3.48,.26]],.012,mat('#d5a17d',.4));
 avatar.traverse(o=>{if(o.isMesh){o.material.side=THREE.DoubleSide;}});$('renderstatus').textContent='Modelo 3D editable';}
-const ids=['shape','height','skin','haircolor','eyes','expression','hair','bangs','outfit','cloth','accent','accessory'];
+const ids=['baseCharacter','shape','height','skin','haircolor','eyes','expression','hair','bangs','outfit','cloth','accent','accessory'];
+const basePresets={
+'bronzed-adventurer':{shape:'soft',height:'100',skin:'#b87955',haircolor:'#493025',eyes:'#75452f',expression:'smile',hair:'wavy',bangs:'side',outfit:'fantasy',cloth:'#397d69',accent:'#e8c28a',accessory:'ribbon'},
+'desert-guardian':{shape:'athletic',height:'106',skin:'#986044',haircolor:'#241b1a',eyes:'#633d29',expression:'neutral',hair:'long',bangs:'none',outfit:'uniform',cloth:'#a85d3b',accent:'#e8b96c',accessory:'headphones'},
+'moon-apprentice':{shape:'slim',height:'96',skin:'#f0c8b5',haircolor:'#6e477c',eyes:'#8060b0',expression:'happy',hair:'twin',bangs:'soft',outfit:'goth',cloth:'#51416f',accent:'#e7c4ef',accessory:'star'},
+'jade-traveler':{shape:'soft',height:'102',skin:'#c08a64',haircolor:'#254d3f',eyes:'#5a7549',expression:'smile',hair:'shoulder',bangs:'soft',outfit:'cardigan',cloth:'#477a68',accent:'#e3d4a6',accessory:'halo'}
+};
+function applyBase(id){const p=basePresets[id];if(!p)return;for(const [k,v] of Object.entries(p))$(k).value=v;update();}
+$('baseCharacter').addEventListener('change',()=>applyBase($('baseCharacter').value));
 function update(){ $('heightv').textContent=$('height').value+'%';make();}
 ids.forEach(id=>$(id).addEventListener('input',update));
-$('reset').addEventListener('click',()=>{const defaults={shape:'soft',height:'100',skin:'#f3c6b0',haircolor:'#70452f',eyes:'#75452f',expression:'smile',hair:'shoulder',bangs:'soft',outfit:'cardigan',cloth:'#7865ad',accent:'#f2d8e7',accessory:'none'};for(const [k,v] of Object.entries(defaults))$(k).value=v;update();});
+$('reset').addEventListener('click',()=>applyBase('bronzed-adventurer'));
 function settings(){return Object.fromEntries(ids.map(id=>[id,$(id).value]));}
 $('save').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'vtuberbot-avatar-look',version:1,settings:settings()},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='mi-personaje-vtuberbot.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 $('exportglb').addEventListener('click',()=>{if(!THREE.GLTFExporter){$('renderstatus').textContent='No se pudo cargar el exportador GLB (Internet requerida)';return;} $('renderstatus').textContent='Exportando modelo 3D…';try{new THREE.GLTFExporter().parse(avatar,result=>{const blob=new Blob([result],{type:'model/gltf-binary'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='mi-personaje-vtuberbot.glb';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);$('renderstatus').textContent='Modelo GLB exportado · sin rig ni animaciones';},error=>{$('renderstatus').textContent='Error al exportar GLB: '+(error?.message||'error desconocido');},{binary:true,onlyVisible:true});}catch(error){$('renderstatus').textContent='Error al exportar GLB: '+(error?.message||'error desconocido');}});
