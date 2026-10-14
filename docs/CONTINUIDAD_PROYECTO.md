@@ -1,5 +1,15 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-14 — Perfiles editables de personalidad para ChatSpeak
+
+- Se agregó `src/VtuberBot.Core/SocialBotPromptCatalog.cs` con cinco perfiles seleccionables: Twitch streamer, Anime tsundere, Streamer tranquilo, Moderador útil y Personalizado. Los perfiles predefinidos orientan el estilo; no ejecutan comandos arbitrarios ni conceden permisos.
+- `Bot social → Personalidad y proveedor de IA` ahora incluye selector de perfil y campo de instrucciones adicionales del creador (hasta 3000 caracteres), guardados en SQLite mediante las claves de configuración existentes. Las instrucciones se agregan al prompt de respuesta automática, al comentario periódico, a la prueba de IA y al prompt copiado para ChatGPT manual.
+- Se añadieron pruebas unitarias en `tests/VtuberBot.Tests/SocialBotPromptCatalogTests.cs` para los perfiles, combinación de instrucciones, límites y perfiles desconocidos.
+- `docs/CHATSPEAK-STUDIO.md` explica los perfiles y aclara que seleccionar un perfil no conecta por sí solo un proveedor. ChatGPT web sigue siendo copiar/pegar; Gemini u otro proveedor compatible requiere una clave válida para el modo automático.
+- Commits: catálogo `e2e91d0`, aplicación al runtime `9dda96e`, selector/editor UI `8bf6db8`, pruebas `134dc5d`, guía `f71183b`.
+- Validación pendiente en el momento de este registro: esperar CI de Windows en el SHA final de esta serie y confirmar el resultado; todavía no se declara una prueba manual de ChatSpeak ni una conversación real con Gemini/ChatGPT.
+- Todo sigue en `product/complete-vtuber-experience`; no se ha cambiado `main` ni el estado del PR #9.
+
 ## 2026-10-14 — Voz japonesa local VOICEVOX por reacción
 
 - Se agregó `src/VtuberBot.App/VoicevoxSpeechSession.cs`, adaptador de TTS local para el motor HTTP oficial de VOICEVOX. Consulta `/speakers`, sintetiza por `/audio_query` + `/synthesis`, reproduce WAV con NAudio y acepta solo destinos localhost/loopback. No requiere clave API ni envía el texto a un servicio remoto.
