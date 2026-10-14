@@ -10,7 +10,7 @@
 - Cada preajuste establece una combinación inicial de silueta/altura, tono de piel, pelo, iris, expresión, vestuario, colores y accesorio. Luego se pueden modificar los campos individualmente, guardar/cargar el aspecto JSON y exportar la geometría visible a GLB.
 - La base predeterminada se inicia con piel bronceada `#b87955`, cabello marrón oscuro e iris marrones. Se usa la geometría paramétrica ya implementada en el taller, no un archivo de modelo externo. No registrar esto como integración de un prefab profesional ni como modelo riggeado.
 - `docs/AVATAR-WARDROBE-STUDIO.md` actualizado con los cuatro presets y su alcance.
-- Commits: código `cdfb3896063c3349bc29f48de33821f1f6dfaa2c`, inicialización de la base predeterminada `55a0b5245aac82d337001bcf6c3a56e8b7254373`, documentación `6142409c6774a2dada48dec92fe036a05b97dcbc`.
+- Commits: código inicial `cdfb3896063c3349bc29f48de33821f1f6dfaa2c`, inicialización de la base predeterminada `55a0b5245aac82d337001bcf6c3a56e8b7254373`, documentación `6142409c6774a2dada48dec92fe036a05b97dcbc` y sincronización del selector al restablecer `a54da435291d281c4182d5e8049769c68492e053`.
 - **Validación pendiente:** el rerun de Windows CI de la ejecución anterior terminó SUCCESS, pero correspondía al SHA antiguo `a5fe0e36a33ac277a7bd1d44a1cbf44452724c3d`; no valida estos commits. La vista y la exportación GLB no se han probado manualmente en WebView2. Los presets son variaciones paramétricas y no solucionan la falta de rig/VRM ni el estilo todavía prototípico.
 
 ## 2026-10-14 — Taller 3D: exportación GLB inicial
