@@ -4,6 +4,16 @@
 >
 > **Regla de evidencia:** separar siempre cambios implementados, pruebas automatizadas, validación manual y pendientes. Un resultado solo corresponde al SHA exacto que lo produjo.
 
+## 2026-10-14 — Taller 3D: exportación GLB inicial
+
+- Se mantuvo el trabajo exclusivamente en `product/complete-vtuber-experience`; no se cambió `main` ni se modificó el estado del PR #9.
+- `src/VtuberBot.App/AvatarWardrobeStudioWindow.cs`: el taller añade el botón **Exportar modelo 3D (.glb)** usando `THREE.GLTFExporter`. Exporta la malla y materiales del personaje generado como glTF binario; el JSON de apariencia continúa disponible por separado.
+- `docs/AVATAR-WARDROBE-STUDIO.md`: documenta formato, límites y validación pendiente.
+- **Límite:** GLB no equivale a VRM. Este prototipo no incorpora rig, pesos de deformación, animaciones, tracking facial, importación de prendas externas ni integración del modelo con el overlay/OBS. Three.js y el exportador siguen cargándose desde CDN y requieren Internet.
+- **Evidencia CI anterior:** ejecución [38589295745](https://github.com/jonhararagi/vtuber/actions/runs/38589295745), para el SHA previo `a5fe0e36a33ac277a7bd1d44a1cbf44452724c3d), compiló Release correctamente, pero falló una prueba automatizada ajena al taller: `SchedulerIsolatesCallbackFailure` (timeout de espera, línea 993 de `tests/VtuberBot.Tests/Tests.cs`). La publicación del artefacto fue omitida. Se solicitó reintentar ese job; el reintento y el CI de los nuevos commits deben verificarse antes de declarar verde el estado actual.
+- **Validación manual:** no ejecutada. La descarga de GLB debe probarse en Windows/WebView2 y el archivo debe abrirse en un visor glTF.
+- Commits de esta etapa: `c63419e7812d4e5b4a42c7c4b2ca7393b51d3f27` (código GLB) y `78a4af1d31b66de0dccab2d6ed86e057c3a5f7f5` (documentación).
+
 ## 1. Estado general
 
 - **Repositorio:** https://github.com/jonhararagi/vtuber
