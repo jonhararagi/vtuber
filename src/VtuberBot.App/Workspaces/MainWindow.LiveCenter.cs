@@ -35,6 +35,63 @@ public partial class MainWindow
         }
     }
 
+    private bool PlayChatReactionClip(string assetId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Dispatcher.Invoke(() =>
+            {
+                if (cancellationToken.IsCancellationRequested || string.IsNullOrWhiteSpace(assetId)) return false;
+                List<LocalSoundAsset> assets;
+                try { assets = System.Text.Json.JsonSerializer.Deserialize<List<LocalSoundAsset>>(store.GetSetting("audio.sound.library", "[]")) ?? []; }
+                catch (System.Text.Json.JsonException) { return false; }
+                var asset = assets.FirstOrDefault(item => string.Equals(item.Id, assetId, StringComparison.Ordinal));
+                if (asset is null || !TryResolveSoundPath(asset.Path, out var path)) return false;
+
+                StopSoundPlayback();
+                var reader = new NAudio.Wave.AudioFileReader(path);
+                var output = new NAudio.Wave.WaveOutEvent();
+                output.PlaybackStopped += (_, _) =>
+                {
+                    try
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            if (!ReferenceEquals(soundOutput, output)) return;
+                            soundOutput = null;
+                            soundReader = null;
+                            output.Dispose();
+                            reader.Dispose();
+                        }));
+                    }
+                    catch (InvalidOperationException) { }
+                };
+                try
+                {
+                    output.Init(reader);
+                    soundReader = reader;
+                    soundOutput = output;
+                    output.Play();
+                    store.Log("Reacciones chat", "Se inició el clip local configurado para una reacción.");
+                    return true;
+                }
+                catch
+                {
+                    if (ReferenceEquals(soundOutput, output)) soundOutput = null;
+                    if (ReferenceEquals(soundReader, reader)) soundReader = null;
+                    output.Dispose();
+                    reader.Dispose();
+                    throw;
+                }
+            });
+        }
+        catch (Exception exception)
+        {
+            store.Log("Reacciones chat", "No se pudo iniciar el clip configurado (" + exception.GetType().Name + ").");
+            return false;
+        }
+    }
+
     private void DetachLiveCenterHandlers()
     {
         if (liveCenterReactionHandler is not null) chatReactions.ResultChanged -= liveCenterReactionHandler;
