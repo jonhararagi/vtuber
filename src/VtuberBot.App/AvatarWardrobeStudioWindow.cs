@@ -91,7 +91,7 @@ public sealed class AvatarWardrobeStudioWindow : Window
 <label for="outfit">Conjunto</label><select id="outfit"><option value="cardigan">Cárdigan + falda plisada</option><option value="hoodie">Hoodie + falda casual</option><option value="fantasy">Vestido aventurero</option><option value="uniform">Uniforme con chaqueta</option><option value="goth">Vestido gótico</option></select>
 <label for="cloth">Color principal</label><input id="cloth" type="color" value="#7865ad">
 <label for="accent">Color secundario</label><input id="accent" type="color" value="#f2d8e7">
-<label for="accessory">Accesorios</label><select id="accessory"><option value="none">Sin accesorio</option><option value="ribbon">Lazo para el pelo</option><option value="headphones">Auriculares</option><option value="star">Horquillas estrella</option><option value="halo">Aro decorativo</option></select>
+<label for="colortone">Variación de tono · ropa y accesorios</label><div class="rangeval"><span>Color original</span><span id="colortonev">0°</span><span>Otro tono</span></div><input id="colortone" type="range" min="0" max="360" step="5" value="0"><div class="note">Desplaza el tono de los dos colores del vestuario sin cambiar el diseño. La piel conserva su tono propio.</div><label for="accessory">Accesorios</label><select id="accessory"><option value="none">Sin accesorio</option><option value="ribbon">Lazo para el pelo</option><option value="headphones">Auriculares</option><option value="star">Horquillas estrella</option><option value="halo">Aro decorativo</option></select>
 </div>
 <div class="group"><h3>06 · Tu diseño</h3><div class="actions"><button class="btn" id="save">Guardar diseño JSON</button><button class="btn secondary" id="reset">Restablecer</button></div><button class="btn" id="exportglb">Exportar modelo 3D (.glb)</button>
 <label class="btn secondary" for="loadfile" style="display:block;text-align:center">Cargar diseño guardado</label><input id="loadfile" type="file" accept=".json,application/json" hidden>
@@ -123,7 +123,7 @@ function lathe(parent,points,m,pos=[0,0,0]){return mesh(new THREE.LatheGeometry(
 function limb(parent,m,a,b,r1,r2){const v1=new THREE.Vector3(...a),v2=new THREE.Vector3(...b),d=v2.clone().sub(v1);const o=mesh(new THREE.CylinderGeometry(r2,r1,d.length(),24),m,parent,v1.clone().add(v2).multiplyScalar(.5).toArray());o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());ball(parent,m,a,[r1,r1,r1]);ball(parent,m,b,[r2,r2,r2]);return o}
 function make(){scene.remove(avatar);avatar=new THREE.Group();scene.add(avatar);
 const skin=mat($('skin').value), hair=mat($('haircolor').value,.82), iris=mat($('eyes').value,.45), white=mat('#fffefc',.4), dark=mat('#30243b'), blush=mat('#ed9caa'), mouth=mat('#8e4b5c'), cloth=mat($('cloth').value), trim=mat($('accent').value), shoe=mat('#28263b'), scl=+$('height').value/100, shape=$('shape').value, outfit=$('outfit').value, hairtype=$('hair').value, bang=$('bangs').value, expr=$('expression').value, accessory=$('accessory').value;
-avatar.scale.y=scl;
+avatar.scale.y=scl;const tone=(+$('colortone').value)/360; cloth.color.offsetHSL(tone,0,0); trim.color.offsetHSL(tone,0,0);
 const narrow=shape==='slim'?.86:shape==='athletic'?.95:1, hip=shape==='slim'?.40:shape==='athletic'?.48:.56, waist=shape==='slim'?.29:shape==='athletic'?.32:.31;
 // legs and boots
 for(const side of [-1,1]){const x=side*.22*narrow;
@@ -181,7 +181,7 @@ if(accessory==='halo'){const ring=mesh(new THREE.TorusGeometry(.28,.025,12,48),t
 // hair shine strands
 for(const s of [-1,1])tube(avatar,[[s*.08,3.62,.20],[s*.16,3.57,.25],[s*.22,3.48,.26]],.012,mat('#d5a17d',.4));
 avatar.traverse(o=>{if(o.isMesh){o.material.side=THREE.DoubleSide;}});$('renderstatus').textContent='Modelo 3D editable';}
-const ids=['baseCharacter','shape','height','skin','haircolor','eyes','expression','hair','bangs','outfit','cloth','accent','accessory'];
+const ids=['baseCharacter','shape','height','skin','haircolor','eyes','expression','hair','bangs','outfit','cloth','accent','colortone','accessory'];
 const basePresets={
 'bronzed-adventurer':{shape:'soft',height:'100',skin:'#b87955',haircolor:'#493025',eyes:'#75452f',expression:'smile',hair:'wavy',bangs:'side',outfit:'fantasy',cloth:'#397d69',accent:'#e8c28a',accessory:'ribbon'},
 'desert-guardian':{shape:'athletic',height:'106',skin:'#986044',haircolor:'#241b1a',eyes:'#633d29',expression:'neutral',hair:'long',bangs:'none',outfit:'uniform',cloth:'#a85d3b',accent:'#e8b96c',accessory:'headphones'},
@@ -190,7 +190,7 @@ const basePresets={
 };
 function applyBase(id){const p=basePresets[id];if(!p)return;$('baseCharacter').value=id;for(const [k,v] of Object.entries(p))$(k).value=v;update();}
 $('baseCharacter').addEventListener('change',()=>applyBase($('baseCharacter').value));
-function update(){ $('heightv').textContent=$('height').value+'%';make();}
+function update(){ $('heightv').textContent=$('height').value+'%';$('colortonev').textContent=$('colortone').value+'°';make();}
 ids.forEach(id=>$(id).addEventListener('input',update));
 $('reset').addEventListener('click',()=>applyBase('bronzed-adventurer'));
 function settings(){return Object.fromEntries(ids.map(id=>[id,$(id).value]));}
