@@ -2,36 +2,49 @@
 
 ## Estado actual
 
-VTuberBot ahora incluye una ventana WPF/WebView2 con un **taller 3D paramétrico propio**, en lugar de limitarse a abrir una página de terceros. El visor genera una figura anime estilizada mediante geometría 3D y permite cambiar:
+La ventana WPF/WebView2 contiene un taller paramétrico 3D integrado. La figura se genera en el visor con Three.js y no depende de una página externa. Los controles disponibles son:
 
 - Silueta base: curvilínea suave, delgada o atlética; control de altura.
-- Tono de piel, color de pelo y color de iris; las pupilas blancas forman parte del diseño.
-- Seis estilos de cabello: media melena, ondulado, recogido, coletas gemelas, largo y bob; además de flequillo.
+- Tono de piel, color de pelo e iris; ojos marrones y pupilas blancas como valores iniciales.
+- Seis estilos de cabello: media melena, ondulado, recogido, coletas gemelas, largo y bob; tres opciones de flequillo.
 - Cinco conjuntos: cárdigan con falda, hoodie, aventurero, uniforme y gótico.
-- Colores de ropa y accesorios: lazo, auriculares, horquillas de estrella y aro decorativo.
-- Expresión facial sencilla.
-- Guardar/cargar una configuración de apariencia en JSON.
+- Colores principal/secundario y accesorios: lazo, auriculares, horquillas estrella y aro.
+- Tres expresiones sencillas.
+- Restablecer el diseño, guardar/cargar los ajustes en JSON.
+- **Exportar la malla visible como GLB** para llevarla a otra herramienta 3D y continuar el trabajo.
 
-El renderizador utiliza Three.js cargado desde CDN, por lo que esta primera versión necesita Internet. La geometría es generada por el programa; no son imágenes planas pegadas a la pantalla.
+## Qué exporta GLB y qué no
 
-## Límites importantes
+El botón GLB exporta la geometría visible y sus materiales como un archivo glTF binario. Es un primer formato de intercambio real, distinto del JSON de ajustes.
 
-- Esto es un **prototipo de editor paramétrico**, no un sustituto completo de VRoid Studio.
-- El cuerpo, los peinados y la ropa son mallas geométricas generadas para el visor. No constituyen todavía un rig de animación completo ni un modelo VRM exportable.
-- Guardar JSON guarda las opciones de apariencia, no una malla 3D ni un archivo listo para emitir.
-- Todavía no se pueden importar prendas VRM/GLB externas ni ajustar automáticamente prendas arbitrarias al cuerpo.
-- No se afirma que este avatar ya se esté mostrando en el overlay de VTuberBot u OBS. Para ello hace falta exportar/importar un modelo riggeado y conectar el renderizador de avatar.
-- La calidad visual es una base funcional de personalización, no arte final de personaje. El siguiente paso debe reemplazar gradualmente las mallas geométricas por un cuerpo anime de alta calidad, un rig compatible y prendas con skinning correcto.
+El GLB actual **no tiene esqueleto (rig), pesos de deformación, seguimiento facial, animaciones ni estructura VRM**. Por eso todavía no es un modelo listo para VTube Studio/OBS. La ropa y el cabello siguen siendo geometría paramétrica generada para esta figura; no son prendas externas equipadas sobre un esqueleto.
 
-## Fuentes de recursos para la siguiente etapa
+## Límites y dependencias
 
-- [M3-org/CharacterStudio](https://github.com/M3-org/CharacterStudio): estudiar sus flujos de importación/exportación glTF/VRM y su arquitectura.
-- [M3-org/loot-assets](https://github.com/M3-org/loot-assets): contiene modelos de ropa y equipo 3D. Revisar la licencia de cada archivo y verificar compatibilidad con el esqueleto antes de distribuir.
-- [memelotsqui/character-assets](https://github.com/memelotsqui/character-assets): colección de assets Webaverse; comprobar licencia y formato antes de reutilizar.
-- [VRoid Studio](https://vroid.com/en/studio): crear el personaje canon y exportar el VRM base.
+- Three.js, OrbitControls y GLTFExporter se cargan desde CDN; el taller y la exportación requieren Internet.
+- La calidad de la figura es un prototipo funcional, no arte final de personaje anime.
+- La carga de JSON aplica valores de apariencia, no reconstruye mallas importadas.
+- No hay importación de VRM/GLB, rigging, edición de topología, sistema de prendas intercambiables basado en skinning ni conexión directa de esta figura con el overlay de VTuberBot.
+- La exportación GLB no debe describirse como exportación VRM.
+
+## Próximos pasos técnicos
+
+1. Confirmar CI de Windows en el SHA que incorpora GLB y corregir cualquier fallo.
+2. Validar manualmente el visor y la exportación GLB en Windows/WebView2.
+3. Definir importación de un VRM canon con rig compatible.
+4. Construir el sistema de prendas sobre ese rig, con pesos y compatibilidad explícita, y conectar el avatar al overlay/OBS.
+5. Evaluar cada asset de terceros individualmente; verificar licencias, procedencia y compatibilidad antes de redistribuir.
+
+## Recursos para investigación (no integrados automáticamente)
+
+- [M3-org/CharacterStudio](https://github.com/M3-org/CharacterStudio): investigar arquitectura y flujos glTF/VRM.
+- [M3-org/loot-assets](https://github.com/M3-org/loot-assets): posibles assets de ropa/equipo; verificar licencia por archivo.
+- [memelotsqui/character-assets](https://github.com/memelotsqui/character-assets): colección de assets; comprobar licencia y formato.
+- [VRoid Studio](https://vroid.com/en/studio): opción externa para crear un modelo canon y exportar VRM.
 
 ## Validación pendiente
 
-- CI de Windows debe compilar y ejecutar las pruebas automatizadas.
-- Abrir el taller en Windows y verificar renderizado WebGL, controles, peinados, conjuntos y guardado/carga JSON.
-- Después de validar el prototipo, diseñar importación de VRM, gestión real de ropa y exportación compatible con el overlay.
+- CI de Windows correspondiente al commit actual: pendiente de resultado.
+- Verificar visualmente WebGL, controles, los estilos, guardado/carga JSON y descarga GLB.
+- Abrir el GLB exportado en un visor compatible y comprobar que la geometría y los materiales se conservan.
+- Validar cualquier futura integración con el overlay por separado; compilar no demuestra que el avatar aparezca en OBS.
