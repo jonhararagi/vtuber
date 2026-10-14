@@ -422,7 +422,15 @@ public sealed class ChatReactionService : IAsyncDisposable
 
     private List<ChatReactionRule> LoadRules()
     {
-        var json = store.GetSetting(RulesSettingKey, "[]");
+        const string missingSetting = "__chat_reactions_not_configured__";
+        var json = store.GetSetting(RulesSettingKey, missingSetting);
+        if (json == missingSetting)
+        {
+            var defaults = CreateBilingualAnimeCommands();
+            store.SetSetting(RulesSettingKey, JsonSerializer.Serialize(defaults));
+            store.Log("Reacciones chat", "Se instalaron comandos anime bilingües iniciales; pueden editarse o desactivarse desde Reacciones.");
+            return defaults;
+        }
         try
         {
             var loaded = JsonSerializer.Deserialize<List<ChatReactionRule>>(json) ?? [];
@@ -440,6 +448,31 @@ public sealed class ChatReactionService : IAsyncDisposable
             store.SetSetting(RulesSettingKey, "[]");
             return [];
         }
+    }
+
+    private static List<ChatReactionRule> CreateBilingualAnimeCommands()
+    {
+        // Slash aliases satisfy the requested command style. Bang aliases also work in
+        // chat clients that reserve slash-prefixed input for their own local commands.
+        return
+        [
+            new("anime-ohayo-slash", "Anime bilingüe: Ohayō", "/ohayo", ChatReactionMatchType.Exact,
+                ["おはよう！ ¡Buenos días, chat!"], true, "Happy", 5, 10, 10, true),
+            new("anime-ohayo-bang", "Anime bilingüe: Ohayō", "!ohayo", ChatReactionMatchType.Exact,
+                ["おはよう！ ¡Buenos días, chat!"], true, "Happy", 5, 10, 10, true),
+            new("anime-baka-slash", "Anime bilingüe: Baka", "/baka", ChatReactionMatchType.Exact,
+                ["お兄ちゃんのばか！ ¡No seas malo conmigo!"], true, "Surprised", 5, 10, 10, true),
+            new("anime-baka-bang", "Anime bilingüe: Baka", "!baka", ChatReactionMatchType.Exact,
+                ["お兄ちゃんのばか！ ¡No seas malo conmigo!"], true, "Surprised", 5, 10, 10, true),
+            new("anime-nani-slash", "Anime bilingüe: Nani", "/nani", ChatReactionMatchType.Exact,
+                ["なに!? ¿¡Nani!? ¿Qué pasó?"], true, "Surprised", 5, 10, 10, true),
+            new("anime-nani-bang", "Anime bilingüe: Nani", "!nani", ChatReactionMatchType.Exact,
+                ["なに!? ¿¡Nani!? ¿Qué pasó?"], true, "Surprised", 5, 10, 10, true),
+            new("anime-okaeri-slash", "Anime bilingüe: Okaerinasai", "/okaerinasai", ChatReactionMatchType.Exact,
+                ["おかえりなさい！ ¡Bienvenido de vuelta, {user}!"], true, "Happy", 5, 10, 10, true),
+            new("anime-okaeri-bang", "Anime bilingüe: Okaerinasai", "!okaerinasai", ChatReactionMatchType.Exact,
+                ["おかえりなさい！ ¡Bienvenido de vuelta, {user}!"], true, "Happy", 5, 10, 10, true)
+        ];
     }
 
     private void PersistRulesLocked() => store.SetSetting(RulesSettingKey, JsonSerializer.Serialize(rules));
