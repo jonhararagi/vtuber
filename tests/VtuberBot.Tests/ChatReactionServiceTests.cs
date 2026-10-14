@@ -49,7 +49,7 @@ public sealed class ChatReactionServiceTests
             return true;
         }
 
-        public bool Speak(string text) { Interlocked.Increment(ref Speeches); SpeechEntered.TrySetResult(true); return true; }
+        public bool Speak(string text, string language, string voiceId) { Interlocked.Increment(ref Speeches); SpeechEntered.TrySetResult(true); return true; }
         public bool Expression(string state, CancellationToken token) { if (token.IsCancellationRequested) return false; Interlocked.Increment(ref Expressions); LastExpression = state; ExpressionEntered.TrySetResult(true); return true; }
     }
 
@@ -62,7 +62,7 @@ public sealed class ChatReactionServiceTests
             speak, expression, global, user, perMinute, enabled);
 
     private static ChatReactionService Create(ProductStore store, Effects effects, int capacity = 64) =>
-        new(store, effects.Send, effects.Speak, effects.Expression, () => effects.Connected, capacity);
+        new(store, effects.Send, effects.Speak, effects.Expression, () => effects.Connected, capacity, (_, _) => true);
 
     [Theory]
     [InlineData(ChatReactionMatchType.Exact, "¡HÓLA  CHAT!", "¡hola chat!", true)]
@@ -150,6 +150,28 @@ public sealed class ChatReactionServiceTests
         store.SetSetting(ChatReactionService.RulesSettingKey, "[]");
         await using var restarted = Create(store, effects);
         Assert.Empty(restarted.GetRules());
+    }
+
+    [Fact]
+    public async Task ReactionVoiceLanguageAndClipSettingsPersistAndValidate()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SetSetting(ChatReactionService.RulesSettingKey, "[]");
+        store.SetSetting("chat.reactions.bilingual-defaults.v1", "true");
+        var effects = new Effects();
+        await using var service = Create(store, effects);
+        var rule = Rule(trigger: "!japan", responses: ["なに!?"])
+            with { Language = "ja", VoiceId = "installed-ja-voice", ClipAssetId = "clip-123" };
+
+        Assert.True(service.SaveRule(rule));
+        var saved = Assert.Single(service.GetRules());
+        Assert.Equal("ja", saved.Language);
+        Assert.Equal("installed-ja-voice", saved.VoiceId);
+        Assert.Equal("clip-123", saved.ClipAssetId);
+
+        var invalid = Rule(trigger: "!invalid") with { Language = "xx" };
+        Assert.False(service.SaveRule(invalid));
     }
 
     [Fact]
