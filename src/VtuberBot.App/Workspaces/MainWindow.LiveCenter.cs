@@ -285,7 +285,9 @@ public partial class MainWindow
         var language = new ComboBox { ItemsSource = new[] { "Automático", "Español", "Japonés" }, SelectedIndex = 0 };
         var voiceItems = new List<LocalSpeechVoice> { new(string.Empty, "Usar voz predeterminada") };
         try { voiceItems.AddRange(LocalSpeechQueue.GetInstalledVoices()); }
-        catch (Exception exception) { store.Log("Reacciones chat", "No se pudo enumerar voces para el editor (" + exception.GetType().Name + ")."); }
+        catch (Exception exception) { store.Log("Reacciones chat", "No se pudo enumerar voces SAPI para el editor (" + exception.GetType().Name + ")."); }
+        try { voiceItems.AddRange(VoicevoxSpeechSession.GetInstalledVoices(store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl))); }
+        catch (Exception exception) { store.Log("Reacciones chat", "VOICEVOX no está disponible para enumerar voces (" + exception.GetType().Name + "). Iniciá VOICEVOX y volvé a abrir Centro de directo."); }
         var voicePicker = new ComboBox { ItemsSource = voiceItems, DisplayMemberPath = nameof(LocalSpeechVoice.Name), SelectedIndex = 0 };
         var clipItems = new List<LocalSoundAsset> { new(string.Empty, "(Sin clip; usar TTS)", string.Empty) };
         try
@@ -306,10 +308,26 @@ public partial class MainWindow
         editor.Children.Add(Label("Respuestas alternativas · una por línea", 12, "#98A4BE")); editor.Children.Add(responseField);
         editor.Children.Add(speak);
         editor.Children.Add(Label("Idioma de la reacción", 12, "#98A4BE")); editor.Children.Add(language);
-        editor.Children.Add(Label("Voz instalada para esta regla", 12, "#98A4BE")); editor.Children.Add(voicePicker);
+        editor.Children.Add(Label("Voz independiente para esta regla · SAPI o VOICEVOX local", 12, "#98A4BE")); editor.Children.Add(voicePicker);
+        editor.Children.Add(ActionButton("Escuchar muestra japonesa de la voz seleccionada", (_, _) =>
+        {
+            var selectedVoice = voicePicker.SelectedItem as LocalSpeechVoice;
+            if (selectedVoice is null || !VoicevoxSpeechSession.IsVoiceId(selectedVoice.Id))
+            {
+                testResult.Text = "Para escuchar la muestra japonesa, iniciá VOICEVOX Engine y elegí una voz marcada VOICEVOX en la lista.";
+                return;
+            }
+            var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var sampleRate) ? Math.Clamp(sampleRate, -10, 10) : 0;
+            var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var sampleVolume) ? Math.Clamp(sampleVolume, 0, 100) : 100;
+            if (speechQueue.Enqueue("お兄ちゃんのばか！ なに!? おかえりなさい！", SpeechPriority.High, selectedVoice.Id, rate, volume, store.GetSetting("audio.tts.outputId")))
+                testResult.Text = "Muestra japonesa encolada. Escuchá la salida de audio de Windows.";
+            else
+                testResult.Text = "No se pudo encolar la muestra; revisá el estado de audio en el registro.";
+        }, true));
+        editor.Children.Add(Label("VOICEVOX necesita su motor local abierto. Las voces VOICEVOX se usan sin API ni enviar texto a Internet.", 11, "#98A4BE"));
         editor.Children.Add(Label("Clip opcional de la biblioteca local (si se elige, sustituye al TTS)", 12, "#98A4BE")); editor.Children.Add(clipPicker);
         editor.Children.Add(Label("Expresión del avatar", 12, "#98A4BE")); editor.Children.Add(expression);
-        editor.Children.Add(Label("Para japonés, elegí una voz SAPI identificada como japonesa o un clip importado. Si no hay voz compatible ni clip, el audio no se reproducirá; no se fingirá pronunciación japonesa.", 11, "#98A4BE"));
+        editor.Children.Add(Label("Para japonés, elegí una voz VOICEVOX, una voz SAPI identificada como japonesa o un clip importado. Si el motor VOICEVOX no está abierto, sus voces no aparecerán hasta reabrir esta página.", 11, "#98A4BE"));
         editor.Children.Add(globalCooldown); editor.Children.Add(userCooldown); editor.Children.Add(perMinute);
 
         void RefreshRules(string? selectedId = null)
