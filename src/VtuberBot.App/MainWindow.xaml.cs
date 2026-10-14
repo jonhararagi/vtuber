@@ -304,14 +304,44 @@ public partial class MainWindow : Window
                 await twitch.SendMessageAsync(store.GetSetting("twitch.channel"), message, cancellationToken).ConfigureAwait(false);
                 return true; // IRC write completed; Twitch does not acknowledge that viewers saw it.
             },
-            text =>
+            (text, language, requestedVoiceId) =>
             {
                 var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var r) ? Math.Clamp(r, -10, 10) : 0;
                 var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var v) ? Math.Clamp(v, 0, 100) : 100;
-                return speechQueue.Enqueue(text, SpeechPriority.Normal, store.GetSetting("audio.tts.voiceId"), rate, volume, store.GetSetting("audio.tts.outputId"));
+                var voiceId = string.IsNullOrWhiteSpace(requestedVoiceId) ? store.GetSetting("audio.tts.voiceId") : requestedVoiceId;
+                if (language == "ja")
+                {
+                    try
+                    {
+                        var voices = LocalSpeechQueue.GetInstalledVoices();
+                        var selectedVoice = voices.FirstOrDefault(voice => string.Equals(voice.Id, voiceId, StringComparison.OrdinalIgnoreCase));
+                        if (selectedVoice is null || !(selectedVoice.Name.Contains("Japanese", StringComparison.OrdinalIgnoreCase) ||
+                            selectedVoice.Name.Contains("ja-JP", StringComparison.OrdinalIgnoreCase) ||
+                            selectedVoice.Name.Contains("Japan", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            var japaneseVoice = voices.FirstOrDefault(voice =>
+                                voice.Name.Contains("Japanese", StringComparison.OrdinalIgnoreCase) ||
+                                voice.Name.Contains("ja-JP", StringComparison.OrdinalIgnoreCase) ||
+                                voice.Name.Contains("Japan", StringComparison.OrdinalIgnoreCase));
+                            if (japaneseVoice is null)
+                            {
+                                store.Log("Reacciones chat", "No hay una voz SAPI japonesa identificable; elegí un clip japonés en la regla o instalá una voz japonesa. No se encoló una pronunciación alternativa.");
+                                return false;
+                            }
+                            voiceId = japaneseVoice.Id;
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        store.Log("Reacciones chat", "No se pudo verificar una voz japonesa SAPI (" + exception.GetType().Name + "); elegí un clip japonés.");
+                        return false;
+                    }
+                }
+                return speechQueue.Enqueue(text, SpeechPriority.Normal, voiceId, rate, volume, store.GetSetting("audio.tts.outputId"));
             },
             SetChatReactionExpression,
-            () => twitch.IsConnected);
+            () => twitch.IsConnected,
+            playClip: PlayChatReactionClip);
         chatReactions.SetTwitchConnected(twitch.IsConnected);
         chatReactions.ResultChanged += result => Dispatcher.BeginInvoke(new Action(() =>
         {
