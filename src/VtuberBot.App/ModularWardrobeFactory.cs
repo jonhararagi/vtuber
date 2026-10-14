@@ -152,15 +152,20 @@ internal static class ModularWardrobeFactory
         string avatarDirectory,
         string faceShapeId = "round",
         string eyeStyleId = "ocean",
-        string skinId = "porcelain")
+        string skinId = "porcelain",
+        string outfitId = "comfy-hoodie")
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(avatarDirectory);
         var directory = Path.Combine(Path.GetFullPath(avatarDirectory), "builtin-demos", "wardrobe-v2");
         var variantKey = string.Join("-", new[] { skinId, faceShapeId, eyeStyleId }
             .Select(value => new string(value.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant()));
         var variantDirectory = Path.Combine(directory, "variants", variantKey);
+        var poseKey = string.Join("-", new[] { skinId, outfitId }
+            .Select(value => new string(value.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant()));
+        var poseDirectory = Path.Combine(directory, "poses", poseKey);
         Directory.CreateDirectory(directory);
         Directory.CreateDirectory(variantDirectory);
+        Directory.CreateDirectory(poseDirectory);
 
         string Asset(string fileName, Action<DrawingContext> draw)
         {
@@ -191,13 +196,21 @@ internal static class ModularWardrobeFactory
             return result;
         }
 
+        string PoseAsset(string fileName, Action<DrawingContext> draw)
+        {
+            var path = Path.Combine(poseDirectory, fileName);
+            if (!File.Exists(path) || new FileInfo(path).Length == 0)
+                RenderPng(path, draw);
+            return path;
+        }
+
         IReadOnlyDictionary<string, string> BuildPoseAssets()
         {
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var option in PoseOptions)
             {
                 var captured = option.Id;
-                result[option.Id] = VariantAsset("pose-" + captured + ".png", dc => DrawPose(dc, captured, skinId));
+                result[option.Id] = PoseAsset("pose-" + captured + ".png", dc => DrawPose(dc, captured, skinId, outfitId));
             }
             return result;
         }
@@ -852,7 +865,7 @@ internal static class ModularWardrobeFactory
     }
 
 
-    private static void DrawPose(DrawingContext dc, string poseId, string skinId)
+    private static void DrawPose(DrawingContext dc, string poseId, string skinId, string outfitId)
     {
         var skinHex = skinId switch
         {
@@ -862,11 +875,30 @@ internal static class ModularWardrobeFactory
             _ => "#FFE0C8"
         };
         var skin = Brush(skinHex);
+        var sleeveHex = outfitId switch
+        {
+            "star-idol" => "#233A82",
+            "sailor-academy" => "#233956",
+            "gothic-rose" => "#25202F",
+            "shrine-ceremony" => "#AC3356",
+            "tech-streetwear" => "#382966",
+            "night-pirate" => "#54253B",
+            "fantasy-knight" => "#667FA7",
+            "comfy-hoodie" => "#74BDB8",
+            "celestial-gown" => "#1B2C65",
+            "cyber-runner" => "#382966",
+            "idol-casual" => "#7C2D5C",
+            "summer-festival" => "#B52E52",
+            "mage-academy" => "#2F285A",
+            "royal-ballgown" => "#542A68",
+            "winter-parka" => "#266B75",
+            _ => "#7660B5"
+        };
         var armPen = new Pen(Brush("#352445"), 7) { LineJoin = PenLineJoin.Round, StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-        var sleeve = Brush("#7660B5");
+        var sleeve = Brush(sleeveHex);
         var cuff = Brush("#F4C96B");
 
-        void Arm(string geometry) => dc.DrawGeometry(skin, armPen, Geometry.Parse(geometry));
+        void Arm(string geometry) => dc.DrawGeometry(sleeve, armPen, Geometry.Parse(geometry));
         void Cuff(Point center) => dc.DrawEllipse(cuff, armPen, center, 13, 9);
         void Hand(Point center, double rx = 13, double ry = 15) => dc.DrawEllipse(skin, armPen, center, rx, ry);
         void NeutralLeft() =>
