@@ -14,14 +14,14 @@ En **Bot social → Personalidad y proveedor de IA** hay un selector de perfiles
 - **Moderador útil:** respuestas breves que aclaran dudas y desescalan conflictos, sin fingir sanciones.
 - **Personalizado:** utiliza la personalidad y las instrucciones adicionales del creador sin agregar un preset prefabricado.
 
-El campo adicional admite hasta 3000 caracteres. Para que el cambio tenga efecto en las respuestas automáticas, pulsa **Guardar toda la configuración**. El selector no conecta por sí mismo un proveedor: para modo automático todavía hace falta configurar un proveedor compatible, una clave válida cuando sea remoto y activar deliberadamente las respuestas automáticas. La integración de ChatGPT web sigue siendo manual copiar/pegar; no lee la conversación privada ni automatiza la sesión del navegador.
+El campo adicional admite hasta 3000 caracteres. Para que el cambio tenga efecto en las respuestas automáticas, pulsa **Guardar toda la configuración**. El selector no conecta por sí mismo un proveedor: para modo automático todavía hace falta configurar un proveedor compatible, una clave válida cuando sea remoto y activar deliberadamente las respuestas automáticas. La integración web de ChatGPT y Gemini es manual copiar/pegar; los botones solo abren la página oficial y no leen la conversación privada ni automatizan la sesión del navegador.
 
 ## Los dos modos
 
 ### Modo manual con ChatGPT web
 
-1. Abre ChatSpeak Studio y pulsa **Abrir ChatGPT web**.
-2. Pulsa **Copiar prompt de personaje** y pega el prompt en ChatGPT.
+1. Abre ChatSpeak Studio y pulsa **Abrir ChatGPT web** o **Abrir Gemini web**.
+2. Pulsa **Copiar prompt de personaje** y pega el prompt en el chat que elegiste.
 3. Pega la respuesta de ChatGPT en la caja manual.
 4. Pulsa **Procesar respuesta pegada** para ejecutar solamente los comandos visuales permitidos y encolar la frase para la voz.
 
