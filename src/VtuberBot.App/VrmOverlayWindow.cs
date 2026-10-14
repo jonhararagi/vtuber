@@ -59,6 +59,7 @@ public sealed class VrmOverlayWindow : Window
                 "vtuberbot.local",
                 Path.GetDirectoryName(modelPath)!,
                 CoreWebView2HostResourceAccessKind.Allow);
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName(modelPath)!, "vtuberbot-vrm-viewer.html"), RendererHtml);
             browser.NavigationCompleted += async (_, args) =>
             {
                 if (!args.IsSuccess)
@@ -72,7 +73,7 @@ public sealed class VrmOverlayWindow : Window
                     "https://vtuberbot.local/" + Uri.EscapeDataString(Path.GetFileName(modelPath))) + ")");
                 await SetStateAsync(currentState);
             };
-            browser.NavigateToString(RendererHtml);
+            browser.CoreWebView2.Navigate("https://vtuberbot.local/vtuberbot-vrm-viewer.html");
         }
         catch (Exception exception)
         {
@@ -109,6 +110,7 @@ font:12px Segoe UI,Arial,sans-serif;text-shadow:0 1px 4px #111;pointer-events:no
 </head>
 <body>
 <div id="status">Iniciando renderizador VRM…</div>
+<script type="importmap">{"imports":{"three":"https://esm.sh/three@0.170.0"}}</script>
 <script type="module">
 import * as THREE from 'https://esm.sh/three@0.170.0';
 import { GLTFLoader } from 'https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js?external=three';
