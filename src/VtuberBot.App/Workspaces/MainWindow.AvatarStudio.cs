@@ -968,10 +968,10 @@ public partial class MainWindow
 
     private UIElement BuildModularWardrobePanel()
     {
-        var panel = Panel("Armario modular — piezas originales inspiradas en estilos VTuber");
+        var panel = Panel("Creador de personaje chibi — cambia cada parte");
         panel.Margin = new Thickness(0, 0, 0, 14);
         panel.Children.Add(Label(
-            "Combina cabello, conjunto, accesorio de cabeza, accesorio facial y pieza trasera por separado. Cada opción se genera como PNG transparente independiente y se guarda como un perfil nuevo; no reemplaza tus otros avatares. Estos son diseños originales inspirados en géneros habituales —idol, gótico, marinero, fantasía, demonio, acuático y cyber—, no copias de modelos oficiales.",
+            "Elegí por separado peinado, ropa, rostro, ojos, tono de piel, pose y accesorios. Las piezas se componen como PNG transparentes y se guardan en un perfil nuevo; no reemplazan tus dibujos ni otros avatares. Son personajes originales de VTuberBot, no copias de modelos oficiales.",
             12, "#98A4BE"));
 
         ComboBox Choice(IReadOnlyList<WardrobeOption> options)
@@ -989,19 +989,31 @@ public partial class MainWindow
 
         var hair = Choice(ModularWardrobeFactory.HairOptions);
         var outfit = Choice(ModularWardrobeFactory.OutfitOptions);
+        var faceShape = Choice(ModularWardrobeFactory.FaceShapeOptions);
+        var eyes = Choice(ModularWardrobeFactory.EyeStyleOptions);
+        var skin = Choice(ModularWardrobeFactory.SkinToneOptions);
+        var pose = Choice(ModularWardrobeFactory.PoseOptions);
         var head = Choice(ModularWardrobeFactory.HeadAccessoryOptions);
-        var face = Choice(ModularWardrobeFactory.FaceAccessoryOptions);
+        var faceAccessory = Choice(ModularWardrobeFactory.FaceAccessoryOptions);
         var back = Choice(ModularWardrobeFactory.BackAccessoryOptions);
 
-        panel.Children.Add(Label("1 · Cabello", 12, "#F8FAFC", true));
+        panel.Children.Add(Label("1 · Peinado", 12, "#F8FAFC", true));
         panel.Children.Add(hair);
-        panel.Children.Add(Label("2 · Conjunto / ropa", 12, "#F8FAFC", true));
+        panel.Children.Add(Label("2 · Ropa / conjunto", 12, "#F8FAFC", true));
         panel.Children.Add(outfit);
-        panel.Children.Add(Label("3 · Accesorio de cabeza", 12, "#F8FAFC", true));
+        panel.Children.Add(Label("3 · Forma del rostro", 12, "#F8FAFC", true));
+        panel.Children.Add(faceShape);
+        panel.Children.Add(Label("4 · Ojos", 12, "#F8FAFC", true));
+        panel.Children.Add(eyes);
+        panel.Children.Add(Label("5 · Tono de piel", 12, "#F8FAFC", true));
+        panel.Children.Add(skin);
+        panel.Children.Add(Label("6 · Pose / gesto", 12, "#F8FAFC", true));
+        panel.Children.Add(pose);
+        panel.Children.Add(Label("7 · Accesorio de cabeza", 12, "#F8FAFC", true));
         panel.Children.Add(head);
-        panel.Children.Add(Label("4 · Accesorio facial / joyería", 12, "#F8FAFC", true));
-        panel.Children.Add(face);
-        panel.Children.Add(Label("5 · Espalda / capa / alas / mochila", 12, "#F8FAFC", true));
+        panel.Children.Add(Label("8 · Accesorio facial / joyería", 12, "#F8FAFC", true));
+        panel.Children.Add(faceAccessory);
+        panel.Children.Add(Label("9 · Espalda / capa / alas / mochila", 12, "#F8FAFC", true));
         panel.Children.Add(back);
 
         var colorPanel = Panel("Configurar colores por zona");
@@ -1073,15 +1085,23 @@ public partial class MainWindow
                 "Combinación: " +
                 (hair.SelectedItem as WardrobeOption)?.Name + " · " +
                 (outfit.SelectedItem as WardrobeOption)?.Name + " · " +
+                (faceShape.SelectedItem as WardrobeOption)?.Name + " · " +
+                (eyes.SelectedItem as WardrobeOption)?.Name + " · " +
+                (skin.SelectedItem as WardrobeOption)?.Name + " · " +
+                (pose.SelectedItem as WardrobeOption)?.Name + " · " +
                 (head.SelectedItem as WardrobeOption)?.Name + " · " +
-                (face.SelectedItem as WardrobeOption)?.Name + " · " +
+                (faceAccessory.SelectedItem as WardrobeOption)?.Name + " · " +
                 (back.SelectedItem as WardrobeOption)?.Name;
         }
 
         hair.SelectionChanged += (_, _) => UpdateSummary();
         outfit.SelectionChanged += (_, _) => UpdateSummary();
+        faceShape.SelectionChanged += (_, _) => UpdateSummary();
+        eyes.SelectionChanged += (_, _) => UpdateSummary();
+        skin.SelectionChanged += (_, _) => UpdateSummary();
+        pose.SelectionChanged += (_, _) => UpdateSummary();
         head.SelectionChanged += (_, _) => UpdateSummary();
-        face.SelectionChanged += (_, _) => UpdateSummary();
+        faceAccessory.SelectionChanged += (_, _) => UpdateSummary();
         back.SelectionChanged += (_, _) => UpdateSummary();
         UpdateSummary();
 
@@ -1089,11 +1109,15 @@ public partial class MainWindow
         {
             if (hair.SelectedItem is not WardrobeOption selectedHair ||
                 outfit.SelectedItem is not WardrobeOption selectedOutfit ||
+                faceShape.SelectedItem is not WardrobeOption selectedFaceShape ||
+                eyes.SelectedItem is not WardrobeOption selectedEyes ||
+                skin.SelectedItem is not WardrobeOption selectedSkin ||
+                pose.SelectedItem is not WardrobeOption selectedPose ||
                 head.SelectedItem is not WardrobeOption selectedHead ||
-                face.SelectedItem is not WardrobeOption selectedFace ||
+                faceAccessory.SelectedItem is not WardrobeOption selectedFaceAccessory ||
                 back.SelectedItem is not WardrobeOption selectedBack)
             {
-                MessageBox.Show(this, "Seleccioná una opción en cada categoría.");
+                MessageBox.Show(this, "Elegí una opción en cada categoría antes de crear el personaje.");
                 return;
             }
 
@@ -1127,13 +1151,125 @@ public partial class MainWindow
                 return;
             }
 
-            CreateModularWardrobeProfile(selectedHair, selectedOutfit, selectedHead, selectedFace, selectedBack, customTints);
+            CreateModularWardrobeProfile(
+                selectedHair, selectedOutfit, selectedHead, selectedFaceAccessory, selectedBack, customTints,
+                selectedFaceShape.Id, selectedEyes.Id, selectedSkin.Id, selectedPose.Id);
         }, true));
 
         panel.Children.Add(Label(
-            "Incluye 11 cabellos, 15 conjuntos, 14 accesorios de cabeza, 9 piezas faciales/joyería y 9 accesorios traseros. Podés cambiar por separado el color de cabello, ropa, cabeza, cara y espalda con HEX o muestras rápidas. Las piezas se recolocan desde la lista de capas. El movimiento es 2D ligero; no es un rig Live2D ni incluye tracking facial.",
+            "Incluye 11 peinados, 15 conjuntos de ropa, 4 formas de rostro, 7 estilos de ojos, 4 tonos de piel, 6 poses y accesorios combinables. Los colores de cabello, ropa y accesorios se ajustan por zona; también podés mover las capas. Es un chibi 2D por capas, no un rig Live2D con tracking facial.",
             12, "#98A4BE"));
         return panel;
+    }
+
+    private Button BuildChibiPresetButton(ChibiAvatarPreset preset)
+    {
+        var assets = ModularWardrobeFactory.EnsureAssets(
+            avatarDirectory, preset.FaceShapeId, preset.EyeStyleId, preset.SkinId);
+        var preview = new Grid
+        {
+            Width = 92,
+            Height = 124,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            ClipToBounds = true
+        };
+
+        void AddPreviewLayer(string path)
+        {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.UriSource = new Uri(Path.GetFullPath(path), UriKind.Absolute);
+            bitmap.EndInit();
+            bitmap.Freeze();
+            preview.Children.Add(new Image
+            {
+                Source = bitmap,
+                Width = 92,
+                Height = 124,
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsHitTestVisible = false
+            });
+        }
+
+        AddPreviewLayer(assets.BaseIdle);
+        if (preset.BackAccessoryId != "none-back")
+            AddPreviewLayer(assets.BackAccessories[preset.BackAccessoryId]);
+        AddPreviewLayer(assets.Outfits[preset.OutfitId]);
+        AddPreviewLayer(assets.PoseLayers[preset.PoseId]);
+        AddPreviewLayer(assets.Hair[preset.HairId]);
+        if (assets.HeadAccessories.TryGetValue(preset.HeadAccessoryId, out var headPath))
+            AddPreviewLayer(headPath);
+        if (assets.FaceAccessories.TryGetValue(preset.FaceAccessoryId, out var facePath))
+            AddPreviewLayer(facePath);
+
+        var card = new StackPanel { Width = 112 };
+        card.Children.Add(preview);
+        card.Children.Add(new TextBlock
+        {
+            Text = preset.Name,
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = Brush("#F8FAFC"),
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 2)
+        });
+        card.Children.Add(new TextBlock
+        {
+            Text = preset.Description,
+            FontSize = 10,
+            Foreground = Brush("#98A4BE"),
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+            MaxHeight = 44
+        });
+
+        var button = new Button
+        {
+            Content = card,
+            Width = 132,
+            MinHeight = 192,
+            Margin = new Thickness(3),
+            Padding = new Thickness(5),
+            Background = Brush("#101525"),
+            Foreground = Brush("#F8FAFC"),
+            BorderBrush = Brush("#39476A"),
+            BorderThickness = new Thickness(1),
+            ToolTip = preset.Description
+        };
+        button.Click += (_, _) => CreateChibiPresetProfile(preset);
+        return button;
+    }
+
+    private void CreateChibiPresetProfile(ChibiAvatarPreset preset)
+    {
+        static WardrobeOption Get(IReadOnlyList<WardrobeOption> options, string id) =>
+            options.First(option => string.Equals(option.Id, id, StringComparison.OrdinalIgnoreCase));
+
+        try
+        {
+            CreateModularWardrobeProfile(
+                Get(ModularWardrobeFactory.HairOptions, preset.HairId),
+                Get(ModularWardrobeFactory.OutfitOptions, preset.OutfitId),
+                Get(ModularWardrobeFactory.HeadAccessoryOptions, preset.HeadAccessoryId),
+                Get(ModularWardrobeFactory.FaceAccessoryOptions, preset.FaceAccessoryId),
+                Get(ModularWardrobeFactory.BackAccessoryOptions, preset.BackAccessoryId),
+                new Dictionary<string, Color?>(),
+                preset.FaceShapeId,
+                preset.EyeStyleId,
+                preset.SkinId,
+                preset.PoseId,
+                preset.Name);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this,
+                "No se pudo crear el personaje «" + preset.Name + "»: " + exception.GetBaseException().Message,
+                "Crear personaje chibi", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void CreateModularWardrobeProfile(
@@ -1142,18 +1278,24 @@ public partial class MainWindow
         WardrobeOption head,
         WardrobeOption face,
         WardrobeOption back,
-        IReadOnlyDictionary<string, Color?> customTints)
+        IReadOnlyDictionary<string, Color?> customTints,
+        string faceShapeId = "round",
+        string eyeStyleId = "ocean",
+        string skinId = "porcelain",
+        string poseId = "neutral",
+        string? requestedProfileName = null)
     {
         try
         {
-            var assets = ModularWardrobeFactory.EnsureAssets(avatarDirectory);
+            var assets = ModularWardrobeFactory.EnsureAssets(avatarDirectory, faceShapeId, eyeStyleId, skinId);
             var customColorDirectory = Path.Combine(avatarDirectory, "builtin-demos", "wardrobe-custom-colors");
             string ApplyTint(string area, string sourcePath) =>
                 customTints.TryGetValue(area, out var tint) && tint.HasValue
                     ? ModularWardrobeFactory.TintPng(sourcePath, customColorDirectory, tint.Value)
                     : sourcePath;
             var hasCustomColors = customTints.Values.Any(tint => tint.HasValue);
-            var baseName = "Armario - " + outfit.Name + (hasCustomColors ? " personalizado" : string.Empty);
+            var defaultProfileName = "Armario - " + outfit.Name + (hasCustomColors ? " personalizado" : string.Empty);
+            var baseName = string.IsNullOrWhiteSpace(requestedProfileName) ? defaultProfileName : requestedProfileName.Trim();
             var profileName = baseName;
             var existingNames = store.GetAvatarProfiles()
                 .Select(profile => profile.Name)
@@ -1177,6 +1319,8 @@ public partial class MainWindow
             if (back.Id != "none-back")
                 store.AddAvatarLayer("Fondo · " + back.Name, ApplyTint("back", assets.BackAccessories[back.Id]));
             store.AddAvatarLayer("Ropa · " + outfit.Name, ApplyTint("outfit", assets.Outfits[outfit.Id]));
+            var selectedPose = ModularWardrobeFactory.PoseOptions.First(option => option.Id == poseId);
+            store.AddAvatarLayer("Pose · " + selectedPose.Name, assets.PoseLayers[poseId]);
             store.AddAvatarLayer("Cabello · " + hair.Name, ApplyTint("hair", assets.Hair[hair.Id]));
             if (head.Id != "star-halo")
             {
