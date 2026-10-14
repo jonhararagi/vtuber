@@ -1,32 +1,32 @@
 # Guía del candidato integral de VTuberBot
 
-Esta guía corresponde al candidato integrado publicado en `main`. Las funciones externas no se consideran conectadas hasta completar la autenticación real.
+Esta guía corresponde al candidato integrado de VTuberBot. Las funciones externas no se consideran conectadas hasta completar la autenticación real. El proceso para prevenir regresiones está descrito en [Regla de Murphy y puertas de fiabilidad](REGLA_MURPHY_Y_PUERTAS_DE_FIABILIDAD.md).
 
 ## Empezar: elegí tu tipo de VTuber
 
-No tenés que configurar nada técnico para empezar. En **Avatar Studio**, arriba de todo está la tarjeta «Empezá por acá — elegí tu tipo de VTuber».
+Arriba de **Avatar Studio** hay una galería de seis personajes chibi completos: **Neko gamer**, **Brujita lunar**, **Idol estelar**, **Gótica rosa**, **Cyber neón** y **Streamer casual**. No son una misma ilustración recoloreada: cada modelo combina distinto peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al pulsar una tarjeta se crea un perfil propio y se abre el overlay; tus perfiles previos no se reemplazan.
 
-1. **PNGTuber (recomendado):** es la opción más sencilla y liviana. Elegí «PNGTuber de ejemplo» para probarlo enseguida o «PNGTuber con mis imágenes» para elegir una imagen de reposo y, opcionalmente, una segunda imagen con la boca abierta. Con una sola imagen queda estático al hablar; con dos el detector del micrófono alterna las imágenes.
-2. **2.5D con IA local:** elegí una ilustración y el programa intenta separar cabello, ropa, piel/cuerpo y detalles. La primera vez descarga el modelo pequeño y luego procesa la imagen localmente. Tiene un límite de 2 GiB para el proceso de IA y diez minutos; si el modelo falla o no reconoce bien las zonas, probá otra imagen o usá PNGTuber.
-3. **3D con VRoid:** abre [VRoid Studio](https://vroid.com/en/studio), un creador externo de modelos 3D. La importación y animación de VRM dentro del overlay de VTuberBot todavía no está implementada; esta opción sirve para comenzar a crear el modelo por separado, no para prometer que ya funciona dentro del bot.
+Debajo de esa galería está **Crear PNGTuber con mis imágenes**. Elegí una imagen de reposo y, si ya tenés una, otra con la boca abierta para hablar. Con una sola imagen el avatar queda visualmente estático; con dos, el detector de audio alterna entre ellas.
 
-**Nuestra ruta recomendada para la primera versión es PNGTuber.** Se configura con una o dos imágenes, funciona con el overlay 2D actual y evita depender de un rig 3D o de una IA grande. 2.5D queda como experimento opcional; 3D puede incorporarse más adelante cuando tengamos un runtime VRM y sus pruebas.
+### Crear tu propio personaje chibi
 
-Las opciones de perfiles avanzados (importar/exportar/duplicar) y el armario de ropa/colores están plegados para no abrumar. Abrí «Opciones avanzadas de perfil» o «Personalización avanzada» solamente cuando las necesites.
+El panel **Creador de personaje chibi — cambia cada parte** permite combinar independientemente:
 
-### Personalizar los colores del armario modular
+- **Peinado:** 11 siluetas, como coletas dobles, bob, ondas, trenza, pelo corto o largo.
+- **Ropa:** 15 diseños con formas propias, entre ellos idol, marinero, gótico, ceremonial, streetwear, fantasía, hoodie, cyber y vestidos.
+- **Rostro y ojos:** 4 formas de rostro, 7 estilos de ojos y 4 tonos de piel.
+- **Pose:** de pie, saludo, señal de paz, manos en la cintura, brazos cruzados o cantando al micrófono.
+- **Accesorios:** adornos de cabeza, joyería facial y piezas traseras como alas, capa, mochila o cristales.
+- **Colores:** tintes por zona con HEX o muestras rápidas, sin sobreescribir las imágenes originales.
 
-En Avatar Studio, dentro de «Armario modular», encontrarás el panel «Configurar colores por zona». Cada fila afecta solo a una categoría del nuevo perfil:
+Pulsá **Crear perfil con esta combinación** para guardar otra versión; se crean PNG transparentes separados y podés mover las capas después. El catálogo es arte vectorial original generado localmente; tiene un estilo chibi 2D estilizado y no es un rig Live2D con deformaciones óseas ni seguimiento facial.
 
-- Cabello
-- Ropa / conjunto
-- Accesorio de cabeza
-- Cara / joyería
-- Espalda / alas / capa
+### Otros modos
 
-Escribí un color HEX como #E65E78 o elegí una de las muestras. «Original» limpia ese campo. Dejando una zona vacía, conserva los colores del diseño. Al pulsar «Crear perfil con esta combinación», se crean PNG teñidos separados: las imágenes del catálogo original no se sobrescriben y tus perfiles anteriores no se modifican. Si el color no tiene seis dígitos hexadecimales, la app avisa y no crea el perfil.
+1. **2.5D con IA local:** seleccioná una ilustración para intentar separar cabello, ropa, piel/cuerpo y detalles. La primera vez se descarga un modelo pequeño y después el procesamiento se realiza en la PC. Tiene un límite de 2 GiB para el proceso de IA y diez minutos; es experimental y puede requerir correcciones.
+2. **3D con VRoid:** abre [VRoid Studio](https://vroid.com/en/studio), un creador externo de modelos 3D. La importación y animación de VRM dentro del overlay de VTuberBot todavía no está implementada.
 
-El ajuste está pensado para las piezas originales del armario modular. No es un pincel para editar libremente cualquier región de un PNG importado. Para modelos externos o una ilustración propia, prepara capas PNG con transparencia en un editor como [Krita](https://krita.org/es/) e impórtalas desde Avatar Studio; revisa siempre la licencia antes de incluirlas en un paquete distribuible.
+**La ruta recomendada para empezar es elegir un personaje de la galería y luego personalizarlo.** PNGTuber es lo más ligero; 2.5D sigue siendo experimental y 3D puede integrarse cuando tengamos un runtime VRM funcional.
 
 ## Primer inicio y datos
 
@@ -78,7 +78,21 @@ La descomposición de una imagen plana es una reconstrucción estimada: el model
 
 Para saber qué referencias visuales se estudiaron y cómo se mapearon a categorías, consultá [Referencias visuales y biblioteca modular de VTuberBot](VTUBER_REFERENCIA_Y_BIBLIOTECA_MODULAR.md).
 
-### Personalizar el avatar
+### Buscar más diseños de personaje en la web
+
+Dentro de Avatar Studio → Creador de personaje chibi hay enlaces a herramientas públicas con estilos distintos al catálogo interno:
+
+- [Humation](https://apps.humation.app/humation): creador kawaii dibujado a mano, exporta PNG/SVG. El repositorio indica que código y 86 piezas están bajo MIT: [repositorio/licencia](https://github.com/humation-labs/humation).
+- [Open Peeps Studio](https://peepstudio.msgenie.art/): ilustraciones de cuerpo entero, poses, expresiones, cabello y ropa; exporta PNG/SVG. Está basado en las ilustraciones originales Open Peeps CC0: [fuente/licencia](https://www.openpeeps.com/).
+- [Chibi Maker](https://squarefaceicongenerator.co/pricing/chibi-maker): editor de iconos chibi con peinados, ojos y atuendos, exporta PNG. Es principalmente un icono cuadrado, no un cuerpo completo.
+
+Flujo: abrí el creador, armá el diseño, descargalo e importá la imagen en un perfil. Estas páginas no se integran automáticamente con el rig: la imagen es estática hasta asignar sprites distintos de reposo, habla y expresiones. No uses un retrato de perfil como si fuera un modelo animado de cuerpo entero. Revisá los términos de la herramienta y el modo elegido antes de distribuir o vender el arte.
+
+## Sincronizar la voz del bot con el avatar
+
+El estado visual Talking permanece activo si hay actividad del micrófono o una frase en la cola TTS de VTuberBot, y vuelve a Idle cuando ambas fuentes están inactivas. Esto es sincronización por estado, no seguimiento facial ni lip-sync por fonemas. Una imagen distinta de boca abierta para Talking hace visible el cambio; reutilizar la misma imagen en reposo y habla no anima la boca.
+
+## Personalizar el avatar
 
 1. Cada perfil conserva su propia imagen base, capas/transformaciones y sprites de expresión. Podés crear un perfil vacío, duplicar el actual o cambiar entre perfiles desde la parte superior. Eliminar un perfil no borra los archivos de imagen importados, y siempre debe quedar al menos un perfil. **Exportar perfil (.vtuberavatar)** guarda base, capas, transformaciones y expresiones juntos; al importarlo se crea otro perfil sin sobrescribir los existentes.
 2. Importá una imagen base propia si querés reemplazar el personaje de ejemplo.
@@ -284,3 +298,16 @@ Las reglas se guardan en SQLite local, con un máximo de 100 reglas, 8 respuesta
 El acceso **ChatGPT en ventana** abre el sitio oficial de ChatGPT en una ventana separada integrada con WebView2. Iniciá sesión con tu cuenta en esa página. Es acceso web manual: VTuberBot no extrae conversaciones ni controla la cuenta. Si la autenticación integrada no funciona o falta el runtime WebView2, la ventana incluye **Abrir navegador normal** como alternativa. Las respuestas automáticas del personaje son una función distinta y requieren configurar un proveedor de IA en Bot social / IA.
 
 En Avatar Studio hay tres perfiles PNGTuber de demostración generados localmente: **violeta (Hikari), azul (Aoi) y rosa (Mio)**. Comparten la ilustración original de ejemplo, pero usan paletas y acentos distintos y cada uno genera imágenes transparentes para reposo, habla, parpadeo, alegría y sorpresa. Se pueden probar sin descargar imágenes ni reemplazar perfiles existentes. La voz local usa SAPI y las voces instaladas en Windows; no requiere una clave de API.
+
+## Estado de verificación del producto
+
+El candidato de producto se compiló y probó en Windows CI para la revisión de código `d336f0040a3b3032fde39381a5ef8cec6319a237`: [ejecución #630](https://github.com/jonhararagi/vtuber/actions/runs/38560968924). El runner informó 519 pruebas totales, ninguna fallida ni omitida, y el smoke test WPF forma parte de la suite. El [paquete win-x64](https://github.com/jonhararagi/vtuber/actions/runs/38560968924/artifacts/11891629783) incluye el ejecutable y `BUILD-INFO.txt`; este resultado no sustituye la prueba manual de audio, interfaz visual ni servicios externos.
+
+- **Twitch:** OAuth, IRC y EventSub están implementados; necesitás autorizar una cuenta y conceder los permisos indicados. La conexión real y los efectos de moderación/alertas aún deben comprobarse con tu canal.
+- **Voz:** SAPI local y cola de reproducción no requieren una API de pago. La suite prueba la lógica de la cola y el estado del avatar; todavía tenés que verificar el sonido con una voz/dispositivo instalado en Windows.
+- **Avatar:** los personajes chibi son composiciones vectoriales 2D de piezas combinables. Podés cambiar pelo, ropa, rostro, ojos, piel, pose, accesorios y tintes. No son modelos Live2D, no tienen tracking facial y las poses cambian capas/gestos, no una animación ósea.
+- **IA conversacional:** es opcional. El proveedor local compatible con OpenAI puede apuntar a un servidor local ya instalado; VTuberBot no descarga modelos grandes sin autorización. Los proveedores remotos son opcionales y pueden requerir clave.
+- **OBS / Streamer.bot / PNGTuber Plus:** configuración y clientes de protocolo/acciones existen en el código; las pruebas automatizadas usan límites simulados cuando corresponde. Confirmá conexión y efectos en las aplicaciones reales. Guardar una ruta o enviar un hotkey no demuestra por sí solo que una expresión haya cambiado.
+- **Telegram Web:** se abre en WebView2 y ofrece navegador externo como alternativa. No se valida una sesión real de Telegram en CI.
+- **Videojuegos:** VTuberBot no incluye un agente que observe y juegue videojuegos arbitrarios. Los minijuegos disponibles son interacciones del chat.
+- **Pendiente de tu entorno Windows:** revisar visualmente las seis tarjetas y combinaciones del creador chibi, transparencia y orden de capas del overlay en OBS, micrófono/SAPI reales, Twitch OAuth/IRC/EventSub, conexión/acciones de bajo riesgo en OBS y Streamer.bot, y respuesta de hotkeys en PNGTuber Plus.

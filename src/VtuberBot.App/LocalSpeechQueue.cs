@@ -305,8 +305,11 @@ public sealed class LocalSpeechQueue : IDisposable
     private bool stopping;
     private bool speaking;
     private bool cancelCurrentSpeech;
+    private bool playbackStateActive;
 
     public event Action<string, int>? StatusChanged;
+    /// <summary>Signals the lifetime of a queued speech request so the avatar follows synthetic speech.</summary>
+    public event Action<bool>? PlaybackStateChanged;
     public int PendingCount { get { lock (gate) return queue.Count; } }
 
     public static IReadOnlyList<LocalSpeechVoice> GetInstalledVoices()
@@ -408,8 +411,19 @@ public sealed class LocalSpeechQueue : IDisposable
     public void ClearPending()
     {
         int pending;
-        lock (gate) { queue.Clear(); pending = queue.Count; }
+        bool notifyPlaybackStopped = false;
+        lock (gate)
+        {
+            queue.Clear();
+            pending = queue.Count;
+            if (!speaking && playbackStateActive)
+            {
+                playbackStateActive = false;
+                notifyPlaybackStopped = true;
+            }
+        }
         signal.Set();
+        if (notifyPlaybackStopped) NotifyPlaybackStateChanged(false);
         Notify("Se vaciaron las frases pendientes. La frase que está sonando no se interrumpe.", pending);
     }
 
@@ -423,31 +437,32 @@ public sealed class LocalSpeechQueue : IDisposable
                 SpeechItem? next = null;
                 int pending;
                 bool shouldStop;
+                bool notifyPlaybackStarted = false;
                 lock (gate)
                 {
-                    if (queue.Count > 0) { next = queue.Dequeue(); speaking = true; }
+                    if (queue.Count > 0)
+                    {
+                        next = queue.Dequeue();
+                        speaking = true;
+                        if (!playbackStateActive)
+                        {
+                            playbackStateActive = true;
+                            notifyPlaybackStarted = true;
+                        }
+                    }
                     shouldStop = stopping && next is null;
                     pending = queue.Count;
                 }
 
                 if (shouldStop) break;
                 if (next is null) { signal.WaitOne(); continue; }
-
+                if (notifyPlaybackStarted) NotifyPlaybackStateChanged(true);
                 Notify("Reproduciendo frase encolada.", pending);
                 try
                 {
                     session ??= sessionFactory();
-                    var result = session.Speak(
-                        next.Text,
-                        next.VoiceId,
-                        next.OutputId,
-                        next.Rate,
-                        next.Volume,
-                        IsSpeechCancellationRequested);
-                    if (result.Cancelled)
-                    {
-                        Notify("Reproducción cancelada.", PendingCount);
-                    }
+                    var result = session.Speak(next.Text, next.VoiceId, next.OutputId, next.Rate, next.Volume, IsSpeechCancellationRequested);
+                    if (result.Cancelled) Notify("Reproducción cancelada.", PendingCount);
                     else
                     {
                         if (result.UsedFallback)
@@ -457,26 +472,50 @@ public sealed class LocalSpeechQueue : IDisposable
                 }
                 catch (Exception exception)
                 {
-                    session?.Dispose();
+                    try { session?.Dispose(); }
+                    catch (Exception disposeException)
+                    {
+                        Notify("Error al liberar el motor TTS: " + disposeException.GetBaseException().Message, PendingCount);
+                    }
                     session = null;
-                    var actual = exception is TargetInvocationException invocation
-                        ? invocation.InnerException ?? exception
-                        : exception;
-                    Notify("Error TTS local: " + actual.Message, PendingCount);
+                    var actual = exception is TargetInvocationException invocation ? invocation.InnerException ?? exception : exception;
+                    Notify("Error TTS local: " + actual.GetBaseException().Message, PendingCount);
                 }
                 finally
                 {
+                    bool notifyPlaybackStopped = false;
                     lock (gate)
                     {
                         speaking = false;
                         cancelCurrentSpeech = false;
+                        if (playbackStateActive && queue.Count == 0)
+                        {
+                            playbackStateActive = false;
+                            notifyPlaybackStopped = true;
+                        }
                     }
+                    if (notifyPlaybackStopped) NotifyPlaybackStateChanged(false);
                 }
             }
         }
         finally
         {
-            session?.Dispose();
+            bool notifyPlaybackStopped = false;
+            lock (gate)
+            {
+                speaking = false;
+                if (playbackStateActive)
+                {
+                    playbackStateActive = false;
+                    notifyPlaybackStopped = true;
+                }
+            }
+            if (notifyPlaybackStopped) NotifyPlaybackStateChanged(false);
+            try { session?.Dispose(); }
+            catch (Exception exception)
+            {
+                Notify("Error al cerrar el motor TTS: " + exception.GetBaseException().Message, PendingCount);
+            }
             Notify("Cola de voz cerrada.", PendingCount);
         }
     }
@@ -489,6 +528,9 @@ public sealed class LocalSpeechQueue : IDisposable
 
     private void Notify(string status, int pending) =>
         VtuberBot.Core.SafeEventDispatch.Invoke(StatusChanged, status, pending);
+
+    private void NotifyPlaybackStateChanged(bool isActive) =>
+        VtuberBot.Core.SafeEventDispatch.Invoke(PlaybackStateChanged, isActive);
 
     public bool StopCurrentSpeech()
     {
@@ -514,13 +556,20 @@ public sealed class LocalSpeechQueue : IDisposable
 
     public void Dispose()
     {
+        bool notifyPlaybackStopped = false;
         lock (gate)
         {
             if (stopping) return;
             stopping = true;
             cancelCurrentSpeech = true;
             queue.Clear();
+            if (!speaking && playbackStateActive)
+            {
+                playbackStateActive = false;
+                notifyPlaybackStopped = true;
+            }
         }
+        if (notifyPlaybackStopped) NotifyPlaybackStateChanged(false);
         signal.Set();
         if (worker.Join(TimeSpan.FromSeconds(2))) signal.Dispose();
     }

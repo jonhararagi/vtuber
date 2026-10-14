@@ -17,7 +17,8 @@ internal sealed record ModularWardrobeAssets(
     IReadOnlyDictionary<string, string> Outfits,
     IReadOnlyDictionary<string, string> HeadAccessories,
     IReadOnlyDictionary<string, string> FaceAccessories,
-    IReadOnlyDictionary<string, string> BackAccessories);
+    IReadOnlyDictionary<string, string> BackAccessories,
+    IReadOnlyDictionary<string, string> PoseLayers);
 
 /// <summary>
 /// Generates original, mix-and-match VTuber wardrobe parts on transparent PNG canvases.
@@ -110,15 +111,73 @@ internal static class ModularWardrobeFactory
         new("none-back", "Sin accesorio trasero", "Dejar libre la silueta.")
     ];
 
-    public static ModularWardrobeAssets EnsureAssets(string avatarDirectory)
+    public static IReadOnlyList<WardrobeOption> FaceShapeOptions { get; } =
+    [
+        new("round", "Rostro redondeado", "Mejillas suaves y forma clásica chibi."),
+        new("heart", "Rostro corazón", "Mejillas amplias y mentón más fino."),
+        new("sharp", "Rostro anguloso", "Mandíbula más estrecha y rasgos definidos."),
+        new("elf", "Rostro élfico", "Contorno fino y orejas puntiagudas.")
+    ];
+
+    public static IReadOnlyList<WardrobeOption> EyeStyleOptions { get; } =
+    [
+        new("ocean", "Azul océano", "Iris azul brillante."),
+        new("violet", "Violeta mágico", "Iris violeta."),
+        new("rose", "Rosa rubí", "Iris rosa."),
+        new("emerald", "Verde esmeralda", "Iris verde."),
+        new("gold", "Dorado solar", "Iris dorado."),
+        new("heterochromia", "Heterocromía", "Un ojo turquesa y el otro rosa."),
+        new("sleepy", "Ojos soñolientos", "Párpado más caído y expresión relajada.")
+    ];
+
+    public static IReadOnlyList<WardrobeOption> SkinToneOptions { get; } =
+    [
+        new("porcelain", "Porcelana", "Piel clara con subtono cálido."),
+        new("warm", "Durazno", "Piel media cálida."),
+        new("cocoa", "Cacao", "Piel marrón cálida."),
+        new("moonlight", "Luz lunar", "Piel fantástica de tono lavanda.")
+    ];
+
+    public static IReadOnlyList<WardrobeOption> PoseOptions { get; } =
+    [
+        new("neutral", "De pie", "Pose tranquila."),
+        new("wave", "Saludando", "Un brazo levantado para saludar."),
+        new("peace", "Señal de paz", "Una mano en V junto al rostro."),
+        new("hands-hips", "Manos en la cintura", "Pose confiada."),
+        new("crossed-arms", "Brazos cruzados", "Pose seria y segura."),
+        new("microphone", "Cantando al micro", "Brazo elevado con micrófono.")
+    ];
+
+    public static ModularWardrobeAssets EnsureAssets(
+        string avatarDirectory,
+        string faceShapeId = "round",
+        string eyeStyleId = "ocean",
+        string skinId = "porcelain",
+        string outfitId = "comfy-hoodie")
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(avatarDirectory);
-        var directory = Path.Combine(Path.GetFullPath(avatarDirectory), "builtin-demos", "wardrobe-v1");
+        var directory = Path.Combine(Path.GetFullPath(avatarDirectory), "builtin-demos", "wardrobe-v2");
+        var variantKey = string.Join("-", new[] { skinId, faceShapeId, eyeStyleId }
+            .Select(value => new string(value.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant()));
+        var variantDirectory = Path.Combine(directory, "variants", variantKey);
+        var poseKey = string.Join("-", new[] { skinId, outfitId }
+            .Select(value => new string(value.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant()));
+        var poseDirectory = Path.Combine(directory, "poses", poseKey);
         Directory.CreateDirectory(directory);
+        Directory.CreateDirectory(variantDirectory);
+        Directory.CreateDirectory(poseDirectory);
 
         string Asset(string fileName, Action<DrawingContext> draw)
         {
             var path = Path.Combine(directory, fileName);
+            if (!File.Exists(path) || new FileInfo(path).Length == 0)
+                RenderPng(path, draw);
+            return path;
+        }
+
+        string VariantAsset(string fileName, Action<DrawingContext> draw)
+        {
+            var path = Path.Combine(variantDirectory, fileName);
             if (!File.Exists(path) || new FileInfo(path).Length == 0)
                 RenderPng(path, draw);
             return path;
@@ -137,17 +196,37 @@ internal static class ModularWardrobeFactory
             return result;
         }
 
+        string PoseAsset(string fileName, Action<DrawingContext> draw)
+        {
+            var path = Path.Combine(poseDirectory, fileName);
+            if (!File.Exists(path) || new FileInfo(path).Length == 0)
+                RenderPng(path, draw);
+            return path;
+        }
+
+        IReadOnlyDictionary<string, string> BuildPoseAssets()
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var option in PoseOptions)
+            {
+                var captured = option.Id;
+                result[option.Id] = PoseAsset("pose-" + skinId + "-" + outfitId + "-" + captured + ".png", dc => DrawPose(dc, captured, skinId, outfitId));
+            }
+            return result;
+        }
+
         return new ModularWardrobeAssets(
-            Asset("base-idle.png", dc => DrawBase(dc, "Idle")),
-            Asset("base-talking.png", dc => DrawBase(dc, "Talking")),
-            Asset("base-blink.png", dc => DrawBase(dc, "Blink")),
-            Asset("base-happy.png", dc => DrawBase(dc, "Happy")),
-            Asset("base-surprised.png", dc => DrawBase(dc, "Surprised")),
+            VariantAsset("base-idle.png", dc => DrawBase(dc, "Idle", faceShapeId, eyeStyleId, skinId)),
+            VariantAsset("base-talking.png", dc => DrawBase(dc, "Talking", faceShapeId, eyeStyleId, skinId)),
+            VariantAsset("base-blink.png", dc => DrawBase(dc, "Blink", faceShapeId, eyeStyleId, skinId)),
+            VariantAsset("base-happy.png", dc => DrawBase(dc, "Happy", faceShapeId, eyeStyleId, skinId)),
+            VariantAsset("base-surprised.png", dc => DrawBase(dc, "Surprised", faceShapeId, eyeStyleId, skinId)),
             BuildAssets(HairOptions, DrawHair),
             BuildAssets(OutfitOptions, DrawOutfit),
             BuildAssets(HeadAccessoryOptions, DrawHeadAccessory),
             BuildAssets(FaceAccessoryOptions.Where(x => x.Id != "none-face"), DrawFaceAccessory),
-            BuildAssets(BackAccessoryOptions.Where(x => x.Id != "none-back"), DrawBackAccessory));
+            BuildAssets(BackAccessoryOptions.Where(x => x.Id != "none-back"), DrawBackAccessory),
+            BuildPoseAssets());
     }
 
     private static void RenderPng(string path, Action<DrawingContext> draw)
@@ -165,10 +244,17 @@ internal static class ModularWardrobeFactory
         encoder.Save(output);
     }
 
-    private static void DrawBase(DrawingContext dc, string expression)
+    private static void DrawBase(DrawingContext dc, string expression, string faceShapeId, string eyeStyleId, string skinId)
     {
-        var skin = Brush("#FFE0C8");
-        var skinShadow = Brush("#EFB8A7");
+        var skinPalette = skinId switch
+        {
+            "warm" => ("#F7CDAA", "#D89D82"),
+            "cocoa" => ("#B97965", "#7E4D48"),
+            "moonlight" => ("#D9D0FF", "#A99BE5"),
+            _ => ("#FFE0C8", "#EFB8A7")
+        };
+        var skin = Brush(skinPalette.Item1);
+        var skinShadow = Brush(skinPalette.Item2);
         var bodysuit = Brush("#F5F0F8");
         var suitShadow = Brush("#C7C0DC");
         var dark = Brush("#352445");
@@ -181,11 +267,6 @@ internal static class ModularWardrobeFactory
         dc.DrawGeometry(skin, Outline, Geometry.Parse(
             "M 320,585 C 327,614 330,664 328,708 C 328,724 307,730 293,719 L 267,617 Z"));
 
-        dc.DrawGeometry(skin, Outline, Geometry.Parse(
-            "M 193,384 C 164,390 148,420 144,457 L 132,562 C 130,585 141,600 156,597 C 169,594 174,579 175,562 L 199,461 Z"));
-        dc.DrawGeometry(skin, Outline, Geometry.Parse(
-            "M 319,384 C 348,390 364,420 368,457 L 380,562 C 382,585 371,600 356,597 C 343,594 338,579 337,562 L 313,461 Z"));
-
         dc.DrawGeometry(bodysuit, Outline, Geometry.Parse(
             "M 197,378 C 172,387 156,411 159,452 L 171,596 C 174,626 195,642 256,642 C 317,642 338,626 341,596 L 353,452 C 356,411 340,387 315,378 L 256,414 Z"));
         dc.DrawGeometry(suitShadow, null, Geometry.Parse(
@@ -197,14 +278,38 @@ internal static class ModularWardrobeFactory
         dc.DrawEllipse(teal, FineOutline, new Point(256, 473), 9, 9);
 
         dc.DrawRoundedRectangle(skinShadow, null, new Rect(222, 338, 68, 76), 20, 20);
-        dc.DrawEllipse(skin, Outline, new Point(151, 248), 20, 31);
-        dc.DrawEllipse(skin, FineOutline, new Point(361, 248), 20, 31);
-        dc.DrawEllipse(skin, Outline, new Point(256, 253), 105, 132);
+        if (faceShapeId == "elf")
+        {
+            dc.DrawGeometry(skin, Outline, Geometry.Parse("M 173,262 L 115,220 L 141,298 Z"));
+            dc.DrawGeometry(skin, Outline, Geometry.Parse("M 339,262 L 397,220 L 371,298 Z"));
+        }
+        else
+        {
+            dc.DrawEllipse(skin, Outline, new Point(151, 248), 20, 31);
+            dc.DrawEllipse(skin, FineOutline, new Point(361, 248), 20, 31);
+        }
+
+        switch (faceShapeId)
+        {
+            case "heart":
+                dc.DrawGeometry(skin, Outline, Geometry.Parse("M 256,121 C 316,121 357,169 359,226 C 362,279 324,344 275,374 C 263,382 249,382 237,374 C 188,344 150,279 153,226 C 155,169 196,121 256,121 Z"));
+                break;
+            case "sharp":
+                dc.DrawGeometry(skin, Outline, Geometry.Parse("M 256,119 C 317,119 359,164 354,232 C 350,294 313,347 256,379 C 199,347 162,294 158,232 C 153,164 195,119 256,119 Z"));
+                break;
+            case "elf":
+                dc.DrawGeometry(skin, Outline, Geometry.Parse("M 256,119 C 316,119 354,165 350,231 C 348,294 306,355 256,382 C 206,355 164,294 162,231 C 158,165 196,119 256,119 Z"));
+                break;
+            default:
+                dc.DrawEllipse(skin, Outline, new Point(256, 253), 105, 132);
+                break;
+        }
+
         dc.DrawEllipse(Brush("#FFFFEBDD"), null, new Point(256, 256), 84, 113);
         dc.DrawEllipse(Brush("#55F08AA6"), null, new Point(198, 289), 21, 9);
         dc.DrawEllipse(Brush("#55F08AA6"), null, new Point(314, 289), 21, 9);
 
-        DrawEyes(dc, expression);
+        DrawEyes(dc, expression, eyeStyleId);
         dc.DrawEllipse(Brush("#D58B83"), null, new Point(256, 281), 4, 2.5);
         switch (expression)
         {
@@ -228,7 +333,7 @@ internal static class ModularWardrobeFactory
         }
     }
 
-    private static void DrawEyes(DrawingContext dc, string expression)
+    private static void DrawEyes(DrawingContext dc, string expression, string eyeStyleId)
     {
         if (expression is "Blink" or "Happy")
         {
@@ -246,13 +351,23 @@ internal static class ModularWardrobeFactory
             return;
         }
 
-        var eyeHeight = expression == "Surprised" ? 52 : 44;
+        var eyes = eyeStyleId switch
+        {
+            "violet" => ("#9B68F1", "#9B68F1"),
+            "rose" => ("#E45E9C", "#E45E9C"),
+            "emerald" => ("#3EBB9A", "#3EBB9A"),
+            "gold" => ("#D7A63F", "#D7A63F"),
+            "heterochromia" => ("#41C8DB", "#D56AB8"),
+            "sleepy" => ("#70A0C8", "#70A0C8"),
+            _ => ("#5A87E8", "#5A87E8")
+        };
+        var eyeHeight = expression == "Surprised" ? 52 : eyeStyleId == "sleepy" ? 30 : 44;
         dc.DrawEllipse(Brush("#FFFFFF"), FineOutline, new Point(211, 247), 22, eyeHeight / 2);
-        dc.DrawEllipse(Brush("#5A87E8"), null, new Point(211, 254), 12, eyeHeight / 2 - 7);
+        dc.DrawEllipse(Brush(eyes.Item1), null, new Point(211, 254), 12, eyeHeight / 2 - 7);
         dc.DrawEllipse(Brush("#2F234B"), null, new Point(215, 256), 7, eyeHeight / 2 - 11);
         dc.DrawEllipse(Brush("#FFFFFF"), null, new Point(207, 244), 5, 6);
         dc.DrawEllipse(Brush("#FFFFFF"), FineOutline, new Point(301, 247), 22, eyeHeight / 2);
-        dc.DrawEllipse(Brush("#5A87E8"), null, new Point(301, 254), 12, eyeHeight / 2 - 7);
+        dc.DrawEllipse(Brush(eyes.Item2), null, new Point(301, 254), 12, eyeHeight / 2 - 7);
         dc.DrawEllipse(Brush("#2F234B"), null, new Point(305, 256), 7, eyeHeight / 2 - 11);
         dc.DrawEllipse(Brush("#FFFFFF"), null, new Point(297, 244), 5, 6);
         var brow = new Pen(Brush("#352445"), 5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
@@ -749,6 +864,104 @@ internal static class ModularWardrobeFactory
         }
     }
 
+
+    private static void DrawPose(DrawingContext dc, string poseId, string skinId, string outfitId)
+    {
+        var skinHex = skinId switch
+        {
+            "warm" => "#F7CDAA",
+            "cocoa" => "#B97965",
+            "moonlight" => "#D9D0FF",
+            _ => "#FFE0C8"
+        };
+        var skin = Brush(skinHex);
+        var sleeveHex = outfitId switch
+        {
+            "star-idol" => "#233A82",
+            "sailor-academy" => "#233956",
+            "gothic-rose" => "#25202F",
+            "shrine-ceremony" => "#AC3356",
+            "tech-streetwear" => "#382966",
+            "night-pirate" => "#54253B",
+            "fantasy-knight" => "#667FA7",
+            "comfy-hoodie" => "#74BDB8",
+            "celestial-gown" => "#1B2C65",
+            "cyber-runner" => "#382966",
+            "idol-casual" => "#7C2D5C",
+            "summer-festival" => "#B52E52",
+            "mage-academy" => "#2F285A",
+            "royal-ballgown" => "#542A68",
+            "winter-parka" => "#266B75",
+            _ => "#7660B5"
+        };
+        var armPen = new Pen(Brush("#352445"), 7) { LineJoin = PenLineJoin.Round, StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+        var sleeve = Brush(sleeveHex);
+        var cuff = Brush("#F4C96B");
+
+        void Arm(string geometry) => dc.DrawGeometry(sleeve, armPen, Geometry.Parse(geometry));
+        void Cuff(Point center) => dc.DrawEllipse(cuff, armPen, center, 13, 9);
+        void Hand(Point center, double rx = 13, double ry = 15) => dc.DrawEllipse(skin, armPen, center, rx, ry);
+        void NeutralLeft() =>
+            Arm("M 193,384 C 164,390 148,420 144,457 L 132,562 C 130,585 141,600 156,597 C 169,594 174,579 175,562 L 199,461 Z");
+        void NeutralRight() =>
+            Arm("M 319,384 C 348,390 364,420 368,457 L 380,562 C 382,585 371,600 356,597 C 343,594 338,579 337,562 L 313,461 Z");
+
+        switch (poseId)
+        {
+            case "wave":
+                NeutralLeft();
+                Arm("M 319,390 C 342,374 356,344 365,315 L 374,288 C 378,273 392,273 398,286 C 403,297 396,320 391,337 L 381,371 C 371,409 349,438 326,457 Z");
+                Cuff(new Point(358, 342));
+                Hand(new Point(393, 276), 14, 17);
+                dc.DrawLine(armPen, new Point(385, 263), new Point(380, 244));
+                dc.DrawLine(armPen, new Point(394, 262), new Point(397, 241));
+                dc.DrawLine(armPen, new Point(402, 267), new Point(413, 250));
+                break;
+            case "peace":
+                NeutralLeft();
+                Arm("M 319,390 C 341,378 348,354 348,333 L 349,310 C 349,296 361,291 370,302 C 378,312 374,331 370,346 L 366,371 C 362,399 345,419 326,442 Z");
+                Cuff(new Point(349, 342));
+                Hand(new Point(359, 296), 16, 17);
+                dc.DrawLine(armPen, new Point(352, 289), new Point(343, 265));
+                dc.DrawLine(armPen, new Point(362, 288), new Point(365, 261));
+                dc.DrawLine(armPen, new Point(373, 294), new Point(383, 277));
+                break;
+            case "hands-hips":
+                Arm("M 193,384 C 167,400 163,425 184,449 L 222,480 L 238,463 L 208,425 Z");
+                Arm("M 319,384 C 345,400 349,425 328,449 L 290,480 L 274,463 L 304,425 Z");
+                Cuff(new Point(220, 474));
+                Cuff(new Point(292, 474));
+                Hand(new Point(230, 484), 12, 12);
+                Hand(new Point(282, 484), 12, 12);
+                break;
+            case "crossed-arms":
+                Arm("M 193,387 C 172,405 169,434 192,451 L 274,486 C 287,491 301,484 300,471 C 299,460 288,455 276,450 L 215,414 Z");
+                Arm("M 319,387 C 340,405 343,434 320,451 L 238,486 C 225,491 211,484 212,471 C 213,460 224,455 236,450 L 297,414 Z");
+                Hand(new Point(297, 451), 12, 12);
+                Hand(new Point(215, 451), 12, 12);
+                break;
+            case "microphone":
+                NeutralLeft();
+                Arm("M 319,388 C 341,375 346,353 335,335 L 304,317 C 294,310 296,296 308,290 C 318,285 330,293 340,302 L 370,330 C 391,350 370,390 329,433 Z");
+                Cuff(new Point(337, 349));
+                Hand(new Point(303, 304), 12, 13);
+                dc.DrawRoundedRectangle(Brush("#2D254A"), armPen, new Rect(289, 282, 16, 28), 7, 7);
+                dc.DrawEllipse(Brush("#E86AA6"), null, new Point(297, 286), 5, 4);
+                break;
+            default:
+                NeutralLeft();
+                NeutralRight();
+                Cuff(new Point(155, 567));
+                Cuff(new Point(357, 567));
+                Hand(new Point(153, 588), 12, 14);
+                Hand(new Point(359, 588), 12, 14);
+                break;
+        }
+
+        // Small sleeve accents make pose layers read as clothing rather than disconnected skin shapes.
+        dc.DrawEllipse(sleeve, null, new Point(191, 414), 10, 17);
+        dc.DrawEllipse(sleeve, null, new Point(321, 414), 10, 17);
+    }
 
     /// <summary>
     /// Recolors the mid-tones of a transparent PNG while preserving its alpha, dark outlines and light highlights.

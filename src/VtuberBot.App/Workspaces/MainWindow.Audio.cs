@@ -135,15 +135,16 @@ public partial class MainWindow
                                 (snapshot.IsActive ? "actividad acústica detectada" : "silencio / debajo del umbral");
                             if (!snapshot.StateChanged) return;
 
-                            var state = snapshot.IsActive ? "Talking" : "Idle";
-                            store.SetSetting("avatar.state", state);
-                            overlay?.SetState(state);
+                            microphoneVoiceActive = snapshot.IsActive;
+                            UpdateAvatarTalkState();
                             FooterStatus.Text = snapshot.IsActive
                                 ? "Actividad acústica detectada; el overlay activa su estado Talking."
-                                : "Actividad acústica finalizada; el overlay vuelve a Idle.";
+                                : speechPlaybackActive
+                                    ? "El micrófono está en silencio, pero la voz del bot sigue hablando."
+                                    : "Actividad acústica finalizada; el overlay vuelve a Idle.";
                             store.Log("Audio", snapshot.IsActive
                                 ? "Señal de entrada por encima del umbral; cue Talking activado."
-                                : "Señal de entrada por debajo del umbral durante el tiempo de retención; cue Idle activado.");
+                                : "Señal de entrada por debajo del umbral durante el tiempo de retención; el avatar solo vuelve a Idle si no habla la voz sintética.");
                         }));
                     }
                     catch (InvalidOperationException)
@@ -500,11 +501,8 @@ public partial class MainWindow
         microphone = null;
         try { capture?.StopRecording(); } catch (InvalidOperationException) { }
         try { capture?.Dispose(); } catch (InvalidOperationException) { }
-        if (voiceActivity.IsActive)
-        {
-            voiceActivity.Reset();
-            store.SetSetting("avatar.state", "Idle");
-            overlay?.SetState("Idle");
-        }
+        voiceActivity.Reset();
+        microphoneVoiceActive = false;
+        UpdateAvatarTalkState();
     }
 }
