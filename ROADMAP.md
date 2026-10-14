@@ -11,7 +11,7 @@ Aplicación Windows local-first para uso real como VTuber Bot, con una interfaz 
 ## Estado de la base
 
 - C# / .NET 10 / WPF / SQLite: base tecnológica vigente.
-- V0.2.3 stabilization PR #9: trabajo técnico que sigue abierto y no fusionado. Su CI verde solo prueba compilación y tests automatizados del commit exacto; no demuestra que el producto final esté listo.
+- V0.2.3 stabilization PR #9: hito histórico fusionado el 2026-10-13. Su CI verde solo prueba el commit correspondiente; no demuestra por sí mismo que el producto final esté listo.
 - Nueva línea de producto: rama product/complete-vtuber-experience, basada en el candidato de PR #9, para materializar el alcance completo y evitar seguir consumiendo rondas manuales en la interfaz mínima.
 - No fusionar PR #9 de forma automática ni borrar el historial existente.
 
@@ -327,3 +327,12 @@ El run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040) so
 - La selección/cambio de destino requiere detener la transmisión actual. Iniciar/parar continúa verificándose mediante el estado real de OBS.
 - La emisión simultánea sigue siendo opcional y depende de un complemento multi-RTMP externo compatible. VTuberBot no instala plugins, no controla su panel y no presenta una doble salida como validada por CI.
 - Pendiente de validación manual en Windows: confirmar cada plataforma con claves reales, probar una emisión privada/no listada y confirmar compatibilidad de complemento si se necesita simultaneidad.
+
+
+## Auditoría de alcance y cierre Windows — 2026-10-14
+
+- **Corrección validada:** [commit d336f004](https://github.com/jonhararagi/vtuber/commit/d336f0040a3b3032fde39381a5ef8cec6319a237) arregla tres llamadas inválidas a `SpinWait.SpinUntil`; la cancelación se comprueba en el predicado y se mantiene la API compatible.
+- **Windows CI push #630:** [SUCCESS](https://github.com/jonhararagi/vtuber/actions/runs/38560968924), SHA exacta `d336f0040a3b3032fde39381a5ef8cec6319a237`. Restore, build Release, pruebas y publicación/subida de paquete correctos. Runner: 519 tests, 0 fallidas, 0 omitidas. ZIP: [artefacto 11891629783](https://github.com/jonhararagi/vtuber/actions/runs/38560968924/artifacts/11891629783), 84,636,025 bytes según metadatos de GitHub, digest SHA-256 `b30c874548279dd503750f946b518482794deb4758926e279f5eb815b23f4872`.
+- **Clasificación real del alcance:** implementados con pruebas automatizadas: Core/persistencia, cola de voz y política Talking/Idle, creador chibi por piezas, rutas locales de comandos/sorteos/puntos y políticas. Implementados pero pendientes de validación manual/externa: OAuth/IRC/EventSub de Twitch, salida SAPI real, OBS WebSocket, Streamer.bot WebSocket, PNGTuber Plus/hotkeys, Telegram Web. Parciales: arte vectorial chibi 2D y poses por capas (sin rig Live2D ni tracking facial), separación 2.5D por IA local (experimental), integración externa por acciones/estados sin confirmar el efecto final en otra aplicación. No implementado: agente que observe un videojuego, decida y ejecute acciones en un videojuego compatible; los minijuegos existentes son para la comunidad/chat.
+- **Errores históricos:** [#627](https://github.com/jonhararagi/vtuber/actions/runs/38520985811) y [#629](https://github.com/jonhararagi/vtuber/actions/runs/38526431105) fallaron por xUnit1051; [#628](https://github.com/jonhararagi/vtuber/actions/runs/38525799452) falló por CS1501. No se desactivaron pruebas ni se añadieron excepciones al analizador.
+- **Pendiente para cierre completo:** verificar la fusión autorizada del PR #13 y la CI/artefacto del SHA resultante de `main`. Las pruebas manuales con dispositivos, cuentas y aplicaciones externas requieren un Windows interactivo configurado.
