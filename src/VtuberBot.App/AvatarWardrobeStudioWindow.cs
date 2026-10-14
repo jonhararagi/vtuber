@@ -94,8 +94,8 @@ public sealed class AvatarWardrobeStudioWindow : Window
 <label class="btn secondary" for="loadfile" style="display:block;text-align:center">Cargar diseño guardado</label><input id="loadfile" type="file" accept=".json,application/json" hidden>
 <div class="warn">Esta versión crea una figura 3D paramétrica para editar la silueta y el estilo. Todavía no importa prendas VRM externas ni exporta un modelo VRM listo para emitir.</div></div>
 </aside><main class="stage"><canvas id="view"></canvas><div class="stagehead"><span class="pill">VISTA 3D · ARRASTRÁ PARA GIRAR</span><span class="pill" id="renderstatus">Preparando modelo…</span></div><div class="tip">Personaje base editable · pelo marrón por defecto · ojos marrones y pupilas blancas. Cambiá las opciones para reconstruir el look.</div></main></div>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.124.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.124.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 (()=> {
 const $=id=>document.getElementById(id), canvas=$('view');
@@ -103,7 +103,7 @@ if(!window.THREE){$('renderstatus').textContent='No se pudo cargar Three.js (Int
 const scene=new THREE.Scene();scene.background=null;
 const camera=new THREE.PerspectiveCamera(32,1,.1,100);camera.position.set(0,2.4,9.5);
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
+renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
 scene.add(new THREE.HemisphereLight(0xe4e9ff,0x49364e,2.1));
 const key=new THREE.DirectionalLight(0xffe4d6,3.2);key.position.set(-3,7,6);key.castShadow=true;scene.add(key);
 const rim=new THREE.DirectionalLight(0xb7a5ff,2.4);rim.position.set(4,4,-4);scene.add(rim);
