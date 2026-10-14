@@ -37,65 +37,90 @@ public partial class MainWindow
 
     private bool PlayChatReactionClip(string assetId, CancellationToken cancellationToken)
     {
+        var gateReleased = 0;
+        void ReleaseAudioGate()
+        {
+            if (Interlocked.Exchange(ref gateReleased, 1) == 0) audioOutputGate.Release();
+        }
+
         try
         {
-            // A clip is serialized behind already queued TTS instead of overlapping it.
+            // Acquire the same gate used by TTS so speech enqueued later cannot overlap this clip.
             var waitUntil = DateTime.UtcNow + TimeSpan.FromSeconds(90);
-            while (!cancellationToken.IsCancellationRequested &&
-                (speechQueue.PendingCount > 0 || speechQueue.IsPlaybackActive || speechPlaybackActive) && DateTime.UtcNow < waitUntil)
-                Thread.Sleep(30);
-            if (cancellationToken.IsCancellationRequested || speechQueue.PendingCount > 0 || speechQueue.IsPlaybackActive || speechPlaybackActive)
+            var acquired = false;
+            while (!cancellationToken.IsCancellationRequested && DateTime.UtcNow < waitUntil)
             {
-                store.Log("Reacciones chat", "El clip se omitió porque la cola TTS no quedó libre a tiempo o la reacción fue cancelada.");
+                if (speechQueue.PendingCount == 0 && !speechQueue.IsPlaybackActive && !speechPlaybackActive &&
+                    audioOutputGate.Wait(0))
+                {
+                    acquired = true;
+                    break;
+                }
+                Thread.Sleep(30);
+            }
+            if (!acquired)
+            {
+                store.Log("Reacciones chat", "El clip se omitió porque no pudo obtener el turno de audio antes del límite o la reacción fue cancelada.");
                 return false;
             }
 
-            return Dispatcher.Invoke(() =>
+            var started = false;
+            try
             {
-                if (cancellationToken.IsCancellationRequested || speechQueue.PendingCount > 0 || speechQueue.IsPlaybackActive || speechPlaybackActive ||
-                    string.IsNullOrWhiteSpace(assetId)) return false;
-                List<LocalSoundAsset> assets;
-                try { assets = System.Text.Json.JsonSerializer.Deserialize<List<LocalSoundAsset>>(store.GetSetting("audio.sound.library", "[]")) ?? []; }
-                catch (System.Text.Json.JsonException) { return false; }
-                var asset = assets.FirstOrDefault(item => string.Equals(item.Id, assetId, StringComparison.Ordinal));
-                if (asset is null || !TryResolveSoundPath(asset.Path, out var path)) return false;
-
-                StopSoundPlayback();
-                var reader = new NAudio.Wave.AudioFileReader(path);
-                var output = new NAudio.Wave.WaveOutEvent();
-                output.PlaybackStopped += (_, _) =>
+                started = Dispatcher.Invoke(() =>
                 {
+                    if (cancellationToken.IsCancellationRequested || string.IsNullOrWhiteSpace(assetId)) return false;
+                    List<LocalSoundAsset> assets;
+                    try { assets = System.Text.Json.JsonSerializer.Deserialize<List<LocalSoundAsset>>(store.GetSetting("audio.sound.library", "[]")) ?? []; }
+                    catch (System.Text.Json.JsonException) { return false; }
+                    var asset = assets.FirstOrDefault(item => string.Equals(item.Id, assetId, StringComparison.Ordinal));
+                    if (asset is null || !TryResolveSoundPath(asset.Path, out var soundPath)) return false;
+
+                    StopSoundPlayback();
+                    var reader = new NAudio.Wave.AudioFileReader(soundPath);
+                    var output = new NAudio.Wave.WaveOutEvent();
+                    output.PlaybackStopped += (_, _) =>
+                    {
+                        try
+                        {
+                            Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                if (ReferenceEquals(soundOutput, output))
+                                {
+                                    soundOutput = null;
+                                    soundReader = null;
+                                    output.Dispose();
+                                    reader.Dispose();
+                                }
+                            }));
+                        }
+                        catch (InvalidOperationException) { }
+                        finally { ReleaseAudioGate(); }
+                    };
                     try
                     {
-                        Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            if (!ReferenceEquals(soundOutput, output)) return;
-                            soundOutput = null;
-                            soundReader = null;
-                            output.Dispose();
-                            reader.Dispose();
-                        }));
+                        output.Init(reader);
+                        soundReader = reader;
+                        soundOutput = output;
+                        output.Play();
+                        store.Log("Reacciones chat", "Se inició el clip local configurado para una reacción.");
+                        return true;
                     }
-                    catch (InvalidOperationException) { }
-                };
-                try
-                {
-                    output.Init(reader);
-                    soundReader = reader;
-                    soundOutput = output;
-                    output.Play();
-                    store.Log("Reacciones chat", "Se inició el clip local configurado para una reacción.");
-                    return true;
-                }
-                catch
-                {
-                    if (ReferenceEquals(soundOutput, output)) soundOutput = null;
-                    if (ReferenceEquals(soundReader, reader)) soundReader = null;
-                    output.Dispose();
-                    reader.Dispose();
-                    throw;
-                }
-            });
+                    catch
+                    {
+                        if (ReferenceEquals(soundOutput, output)) soundOutput = null;
+                        if (ReferenceEquals(soundReader, reader)) soundReader = null;
+                        output.Dispose();
+                        reader.Dispose();
+                        throw;
+                    }
+                });
+                return started;
+            }
+            finally
+            {
+                if (!started) ReleaseAudioGate();
+            }
         }
         catch (Exception exception)
         {
