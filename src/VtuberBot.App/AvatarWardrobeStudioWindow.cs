@@ -71,7 +71,7 @@ public sealed class AvatarWardrobeStudioWindow : Window
 </style></head><body><div id="app"><aside class="side">
 <div class="brand">VTuberBot <span style="color:var(--pink)">✦</span></div><div class="sub">Taller de personaje · prototipo 3D</div>
 <div class="group"><h3>01 · Personaje base</h3>
-<label for="baseCharacter">Elegí una base preconfigurada</label><select id="baseCharacter"><option value="bronzed-adventurer" selected>Exploradora bronceada · recomendada</option><option value="desert-guardian">Guardiana del desierto · piel cobriza</option><option value="moon-apprentice">Aprendiz lunar · piel clara</option><option value="jade-traveler">Viajera de jade · piel oliva</option></select>
+<label for="baseCharacter">Elegí una base preconfigurada</label><select id="baseCharacter"><option value="bronzed-adventurer" selected>Exploradora bronceada · recomendada</option><option value="desert-guardian">Guardiana del desierto · piel cobriza</option><option value="moon-apprentice">Aprendiz lunar · piel clara</option><option value="jade-traveler">Viajera de jade · piel oliva</option><option value="mocha-miel">Miel de café · morena, castaño y miel</option></select>
 <div class="note">Cada base cambia cuerpo, piel, cabello, ojos y vestuario inicial. Después podés modificar cada pieza por separado.</div></div>
 <div class="group"><h3>02 · Silueta base</h3>
 <label for="shape">Constitución</label><select id="shape"><option value="soft">Curvilínea suave</option><option value="slim">Delgada</option><option value="athletic">Atlética</option></select>
@@ -79,10 +79,12 @@ public sealed class AvatarWardrobeStudioWindow : Window
 <label for="skin">Tono de piel</label><input id="skin" type="color" value="#b87955">
 </div>
 <div class="group"><h3>03 · Cara y ojos</h3>
-<label for="haircolor">Color del cabello</label><input id="haircolor" type="color" value="#70452f">
+<label for="haircolor">Color principal del cabello</label><input id="haircolor" type="color" value="#493025">
+<label for="innerhair">Inner hair / mechones interiores</label><input id="innerhair" type="color" value="#D8B27A">
 <label for="eyes">Iris</label><input id="eyes" type="color" value="#75452f">
+<label for="pupilcolor">Pupilas</label><input id="pupilcolor" type="color" value="#3A2418">
 <label for="expression">Expresión</label><select id="expression"><option value="smile">Sonrisa suave</option><option value="neutral">Neutra</option><option value="happy">Feliz</option></select>
-<div class="note">Pupilas blancas incluidas como rasgo del diseño base.</div></div>
+<div class="note">El brillo blanco del ojo es independiente del color configurable de la pupila.</div></div>
 <div class="group"><h3>04 · Peinados</h3>
 <label for="hair">Estilo</label><select id="hair"><option value="shoulder">Media melena a los hombros</option><option value="wavy">Ondulado a los hombros</option><option value="ponytail">Media melena recogida</option><option value="twin">Coletas gemelas</option><option value="long">Largo liso</option><option value="bob">Bob corto</option></select>
 <label for="bangs">Flequillo</label><select id="bangs"><option value="soft">Flequillo suave</option><option value="side">Flequillo lateral</option><option value="none">Sin flequillo</option></select>
@@ -123,7 +125,7 @@ function tube(parent,points,r,m){const curve=new THREE.CatmullRomCurve3(points.m
 function lathe(parent,points,m,pos=[0,0,0]){return mesh(new THREE.LatheGeometry(points.map(p=>new THREE.Vector2(p[0],p[1])),48),m,parent,pos)}
 function limb(parent,m,a,b,r1,r2){const v1=new THREE.Vector3(...a),v2=new THREE.Vector3(...b),d=v2.clone().sub(v1);const o=mesh(new THREE.CylinderGeometry(r2,r1,d.length(),24),m,parent,v1.clone().add(v2).multiplyScalar(.5).toArray());o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());ball(parent,m,a,[r1,r1,r1]);ball(parent,m,b,[r2,r2,r2]);return o}
 function make(){scene.remove(avatar);avatar=new THREE.Group();scene.add(avatar);
-const skin=mat($('skin').value), hair=mat($('haircolor').value,.82), iris=mat($('eyes').value,.45), white=mat('#fffefc',.4), dark=mat('#30243b'), blush=mat('#ed9caa'), mouth=mat('#8e4b5c'), cloth=mat($('cloth').value), trim=mat($('accent').value), shoe=mat('#28263b'), scl=+$('height').value/100, shape=$('shape').value, outfit=$('outfit').value, hairtype=$('hair').value, bang=$('bangs').value, expr=$('expression').value, accessory=$('accessory').value;
+const skin=mat($('skin').value), hair=mat($('haircolor').value,.82), innerHair=mat($('innerhair').value,.82), iris=mat($('eyes').value,.45), pupil=mat($('pupilcolor').value,.45), white=mat('#fffefc',.4), dark=mat('#30243b'), blush=mat('#ed9caa'), mouth=mat('#8e4b5c'), cloth=mat($('cloth').value), trim=mat($('accent').value), shoe=mat('#28263b'), scl=+$('height').value/100, shape=$('shape').value, outfit=$('outfit').value, hairtype=$('hair').value, bang=$('bangs').value, expr=$('expression').value, accessory=$('accessory').value;
 avatar.scale.y=scl;const tone=(+$('colortone').value)/360; cloth.color.offsetHSL(tone,0,0); trim.color.offsetHSL(tone,0,0);
 const narrow=shape==='slim'?.86:shape==='athletic'?.95:1, hip=shape==='slim'?.40:shape==='athletic'?.48:.56, waist=shape==='slim'?.29:shape==='athletic'?.32:.31;
 // legs and boots
@@ -143,7 +145,7 @@ const faceZ=.306;
 // ears
 for(const s of [-1,1])ball(avatar,skin,[s*.392,3.08,0],[.075,.12,.055]);
 // eye sockets/eyes; white pupils are intentional defining feature
-for(const s of [-1,1]){ball(avatar,mat('#f7e9e8'),[s*.15,3.17,faceZ],[.105,.115,.035]);ball(avatar,iris,[s*.15,3.165,faceZ+.029],[.067,.078,.025]);ball(avatar,white,[s*.15,3.16,faceZ+.05],[.032,.043,.014]);ball(avatar,white,[s*.175,3.195,faceZ+.052],[.014,.016,.008]);tube(avatar,[[s*.25,3.23,faceZ+.01],[s*.17,3.275,faceZ+.018],[s*.07,3.24,faceZ+.015]],.012,dark);
+for(const s of [-1,1]){ball(avatar,mat('#f7e9e8'),[s*.15,3.17,faceZ],[.105,.115,.035]);ball(avatar,iris,[s*.15,3.165,faceZ+.029],[.067,.078,.025]);ball(avatar,pupil,[s*.15,3.16,faceZ+.05],[.032,.043,.014]);ball(avatar,white,[s*.175,3.195,faceZ+.052],[.014,.016,.008]);tube(avatar,[[s*.25,3.23,faceZ+.01],[s*.17,3.275,faceZ+.018],[s*.07,3.24,faceZ+.015]],.012,dark);
 ball(avatar,blush,[s*.25,3.02,faceZ+.005],[.07,.027,.012]);}
 ball(avatar,skin,[0,3.075,faceZ+.008],[.035,.045,.025]);
 if(expr==='neutral')tube(avatar,[[-.07,2.94,faceZ+.025],[0,2.935,faceZ+.03],[.07,2.94,faceZ+.025]],.009,mouth);
@@ -179,15 +181,17 @@ if(accessory==='ribbon'){ball(avatar,trim,[-.29,3.48,.03],[.12,.07,.04]);ball(av
 if(accessory==='star'){for(const s of [-1,1]){const star=mesh(new THREE.OctahedronGeometry(.07),trim,avatar,[s*.31,3.38,.28]);star.scale.set(.8,1.2,.35);}}
 if(accessory==='headphones'){for(const s of [-1,1]){ball(avatar,trim,[s*.42,3.15,0],[.075,.13,.075]);}tube(avatar,[[-.39,3.20,-.01],[-.34,3.50,-.02],[0,3.64,-.03],[.34,3.50,-.02],[.39,3.20,-.01]],.045,trim);}
 if(accessory==='halo'){const ring=mesh(new THREE.TorusGeometry(.28,.025,12,48),trim,avatar,[0,3.86,0]);ring.rotation.x=Math.PI/2;}
-// hair shine strands
+// Independently colorable inner-hair strands; white eye shine remains separate.
+for(const s of [-1,1]){tube(avatar,[[s*.31,3.35,.075],[s*.34,3.10,.09],[s*.32,2.88,.10],[s*.31,3.39-backLength,.095]],.023,innerHair);}
 for(const s of [-1,1])tube(avatar,[[s*.08,3.62,.20],[s*.16,3.57,.25],[s*.22,3.48,.26]],.012,mat('#d5a17d',.4));
 avatar.traverse(o=>{if(o.isMesh){o.material.side=THREE.DoubleSide;}});$('renderstatus').textContent='Modelo 3D editable';}
-const ids=['baseCharacter','shape','height','skin','haircolor','eyes','expression','hair','bangs','outfit','cloth','accent','colortone','accessory'];
+const ids=['baseCharacter','shape','height','skin','haircolor','innerhair','eyes','pupilcolor','expression','hair','bangs','outfit','cloth','accent','colortone','accessory'];
 const basePresets={
-'bronzed-adventurer':{shape:'soft',height:'100',skin:'#b87955',haircolor:'#493025',eyes:'#75452f',expression:'smile',hair:'wavy',bangs:'side',outfit:'fantasy',cloth:'#397d69',accent:'#e8c28a',accessory:'ribbon'},
-'desert-guardian':{shape:'athletic',height:'106',skin:'#986044',haircolor:'#241b1a',eyes:'#633d29',expression:'neutral',hair:'long',bangs:'none',outfit:'uniform',cloth:'#a85d3b',accent:'#e8b96c',accessory:'headphones'},
-'moon-apprentice':{shape:'slim',height:'96',skin:'#f0c8b5',haircolor:'#6e477c',eyes:'#8060b0',expression:'happy',hair:'twin',bangs:'soft',outfit:'goth',cloth:'#51416f',accent:'#e7c4ef',accessory:'star'},
-'jade-traveler':{shape:'soft',height:'102',skin:'#c08a64',haircolor:'#254d3f',eyes:'#5a7549',expression:'smile',hair:'shoulder',bangs:'soft',outfit:'cardigan',cloth:'#477a68',accent:'#e3d4a6',accessory:'halo'}
+'bronzed-adventurer':{shape:'soft',height:'100',skin:'#b87955',haircolor:'#493025',innerhair:'#D8B27A',eyes:'#75452f',pupilcolor:'#3A2418',expression:'smile',hair:'wavy',bangs:'side',outfit:'fantasy',cloth:'#397d69',accent:'#e8c28a',accessory:'ribbon'},
+'desert-guardian':{shape:'athletic',height:'106',skin:'#986044',haircolor:'#241b1a',innerhair:'#C58A52',eyes:'#633d29',pupilcolor:'#301B12',expression:'neutral',hair:'long',bangs:'none',outfit:'uniform',cloth:'#a85d3b',accent:'#e8b96c',accessory:'headphones'},
+'moon-apprentice':{shape:'slim',height:'96',skin:'#f0c8b5',haircolor:'#6e477c',innerhair:'#D9B5E8',eyes:'#8060b0',pupilcolor:'#30243b',expression:'happy',hair:'twin',bangs:'soft',outfit:'goth',cloth:'#51416f',accent:'#e7c4ef',accessory:'star'},
+'jade-traveler':{shape:'soft',height:'102',skin:'#c08a64',haircolor:'#254d3f',innerhair:'#A7D6A8',eyes:'#5a7549',pupilcolor:'#24382B',expression:'smile',hair:'shoulder',bangs:'soft',outfit:'cardigan',cloth:'#477a68',accent:'#e3d4a6',accessory:'halo'},
+'mocha-miel':{shape:'soft',height:'100',skin:'#A96D52',haircolor:'#3B241B',innerhair:'#D8B27A',eyes:'#81502D',pupilcolor:'#3A2418',expression:'smile',hair:'long',bangs:'side',outfit:'hoodie',cloth:'#7A513C',accent:'#D8B27A',accessory:'ribbon'}
 };
 function applyBase(id){const p=basePresets[id];if(!p)return;$('baseCharacter').value=id;for(const [k,v] of Object.entries(p))$(k).value=v;$('colortone').value='0';update();}
 $('baseCharacter').addEventListener('change',()=>applyBase($('baseCharacter').value));
