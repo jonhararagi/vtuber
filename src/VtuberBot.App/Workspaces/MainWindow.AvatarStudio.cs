@@ -1058,6 +1058,7 @@ public partial class MainWindow
                 ToolTip = "Escribí #RRGGBB o dejalo vacío para usar el color original."
             };
             colorInputs[area] = input;
+            input.LostFocus += (_, _) => UpdateSummary();
             row.Children.Add(input);
 
             foreach (var hex in new[] { "#E65E78", "#D85CA8", "#9576DF", "#3B82F6", "#42B9B0", "#E8C35D" })
@@ -1074,11 +1075,19 @@ public partial class MainWindow
                     BorderThickness = new Thickness(1),
                     ToolTip = hex
                 };
-                swatch.Click += (_, _) => input.Text = hex;
+                swatch.Click += (_, _) =>
+                {
+                    input.Text = hex;
+                    UpdateSummary();
+                };
                 row.Children.Add(swatch);
             }
 
-            row.Children.Add(ActionButton("Original", (_, _) => input.Clear()));
+            row.Children.Add(ActionButton("Original", (_, _) =>
+            {
+                input.Clear();
+                UpdateSummary();
+            }));
             colorPanel.Children.Add(row);
         }
 
@@ -1091,6 +1100,24 @@ public partial class MainWindow
 
         var summary = Label("", 12, "#69E4D0", true);
         panel.Children.Add(summary);
+
+        string TintPreview(string area, string sourcePath)
+        {
+            if (!colorInputs.TryGetValue(area, out var input))
+                return sourcePath;
+            var raw = input.Text.Trim();
+            if (string.IsNullOrWhiteSpace(raw))
+                return sourcePath;
+            var hex = raw.StartsWith('#') ? raw[1..] : raw;
+            if (hex.Length != 6 || !hex.All(Uri.IsHexDigit))
+                return sourcePath;
+            var tint = Color.FromRgb(
+                Convert.ToByte(hex[..2], 16),
+                Convert.ToByte(hex.Substring(2, 2), 16),
+                Convert.ToByte(hex.Substring(4, 2), 16));
+            var tintDirectory = Path.Combine(avatarDirectory, "builtin-demos", "wardrobe-custom-colors");
+            return ModularWardrobeFactory.TintPng(sourcePath, tintDirectory, tint);
+        }
 
         void UpdateLivePreview()
         {
@@ -1109,17 +1136,17 @@ public partial class MainWindow
             }
 
             var assets = ModularWardrobeFactory.EnsureAssets(
-                avatarDirectory, selectedFaceShape.Id, selectedEyes.Id, selectedSkin.Id);
+                avatarDirectory, selectedFaceShape.Id, selectedEyes.Id, selectedSkin.Id, selectedOutfit.Id);
             var paths = new List<string> { assets.BaseIdle };
             if (selectedBack.Id != "none-back" && assets.BackAccessories.TryGetValue(selectedBack.Id, out var backPath))
-                paths.Add(backPath);
-            paths.Add(assets.Outfits[selectedOutfit.Id]);
-            paths.Add(assets.PoseLayers[selectedPose.Id]);
-            paths.Add(assets.Hair[selectedHair.Id]);
+                paths.Add(TintPreview("back", backPath));
+            paths.Add(TintPreview("outfit", assets.Outfits[selectedOutfit.Id]));
+            paths.Add(TintPreview("outfit", assets.PoseLayers[selectedPose.Id]));
+            paths.Add(TintPreview("hair", assets.Hair[selectedHair.Id]));
             if (assets.HeadAccessories.TryGetValue(selectedHead.Id, out var headPath))
-                paths.Add(headPath);
+                paths.Add(TintPreview("head", headPath));
             if (assets.FaceAccessories.TryGetValue(selectedFaceAccessory.Id, out var facePath))
-                paths.Add(facePath);
+                paths.Add(TintPreview("face", facePath));
 
             previewCanvas.Children.Clear();
             foreach (var path in paths)
@@ -1235,7 +1262,7 @@ public partial class MainWindow
     private Button BuildChibiPresetButton(ChibiAvatarPreset preset)
     {
         var assets = ModularWardrobeFactory.EnsureAssets(
-            avatarDirectory, preset.FaceShapeId, preset.EyeStyleId, preset.SkinId);
+            avatarDirectory, preset.FaceShapeId, preset.EyeStyleId, preset.SkinId, preset.OutfitId);
         var preview = new Grid
         {
             Width = 92,
@@ -1351,7 +1378,7 @@ public partial class MainWindow
     {
         try
         {
-            var assets = ModularWardrobeFactory.EnsureAssets(avatarDirectory, faceShapeId, eyeStyleId, skinId);
+            var assets = ModularWardrobeFactory.EnsureAssets(avatarDirectory, faceShapeId, eyeStyleId, skinId, outfit.Id);
             var customColorDirectory = Path.Combine(avatarDirectory, "builtin-demos", "wardrobe-custom-colors");
             string ApplyTint(string area, string sourcePath) =>
                 customTints.TryGetValue(area, out var tint) && tint.HasValue
@@ -1384,7 +1411,7 @@ public partial class MainWindow
                 store.AddAvatarLayer("Fondo · " + back.Name, ApplyTint("back", assets.BackAccessories[back.Id]));
             store.AddAvatarLayer("Ropa · " + outfit.Name, ApplyTint("outfit", assets.Outfits[outfit.Id]));
             var selectedPose = ModularWardrobeFactory.PoseOptions.First(option => option.Id == poseId);
-            store.AddAvatarLayer("Pose · " + selectedPose.Name, assets.PoseLayers[poseId]);
+            store.AddAvatarLayer("Pose · " + selectedPose.Name, ApplyTint("outfit", assets.PoseLayers[poseId]));
             store.AddAvatarLayer("Cabello · " + hair.Name, ApplyTint("hair", assets.Hair[hair.Id]));
             if (head.Id != "star-halo")
             {
