@@ -332,7 +332,8 @@ public partial class MainWindow : Window
                 () => store.GetSetting("social.tts.remoteVoice", "Zephyr"),
                 () => store.GetSetting("social.tts.remoteInstructions",
                     "Habla en español con una voz femenina adulta joven MUY aguda y chillona, tipo personaje anime enérgico: timbre brillante, ligeramente nasal y juguetón, tono alto, reacciones exageradas y ritmo vivaz. Debe sonar intencionalmente aguda y caricaturesca, pero mantener dicción clara sin gritar ni distorsionar; no imites a un personaje, actriz ni persona real específica."),
-                () => store.GetSetting("social.ai.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta/openai/")))));
+                () => store.GetSetting("social.ai.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta/openai/")),
+            () => new VoicevoxSpeechSession(() => store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl)))));
         communityCommandRouter = new CommunityCommandRouter(store);
         socialBot = new SocialBotService(store, speechQueue, twitch, configuredAiProvider, SetChatReactionExpression);
         chatReactions = new ChatReactionService(
@@ -348,12 +349,13 @@ public partial class MainWindow : Window
                 var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var r) ? Math.Clamp(r, -10, 10) : 0;
                 var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var v) ? Math.Clamp(v, 0, 100) : 100;
                 var voiceId = string.IsNullOrWhiteSpace(requestedVoiceId) ? store.GetSetting("audio.tts.voiceId") : requestedVoiceId;
-                if (!string.IsNullOrWhiteSpace(requestedVoiceId) && store.GetSetting("social.tts.provider", "remote") != "local")
+                var useVoicevox = VoicevoxSpeechSession.IsVoiceId(requestedVoiceId);
+                if (!useVoicevox && !string.IsNullOrWhiteSpace(requestedVoiceId) && store.GetSetting("social.tts.provider", "remote") != "local")
                 {
                     store.Log("Reacciones chat", "La voz SAPI elegida en esta regla requiere seleccionar el proveedor local en ChatSpeak Studio.");
                     return false;
                 }
-                if (language == "ja")
+                if (language == "ja" && !useVoicevox)
                 {
                     if (store.GetSetting("social.tts.provider", "remote") != "local")
                     {
