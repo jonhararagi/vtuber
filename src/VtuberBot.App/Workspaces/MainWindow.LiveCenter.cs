@@ -39,9 +39,21 @@ public partial class MainWindow
     {
         try
         {
+            // A clip is serialized behind already queued TTS instead of overlapping it.
+            var waitUntil = DateTime.UtcNow + TimeSpan.FromSeconds(90);
+            while (!cancellationToken.IsCancellationRequested &&
+                (speechQueue.PendingCount > 0 || speechPlaybackActive) && DateTime.UtcNow < waitUntil)
+                Thread.Sleep(30);
+            if (cancellationToken.IsCancellationRequested || speechQueue.PendingCount > 0 || speechPlaybackActive)
+            {
+                store.Log("Reacciones chat", "El clip se omitió porque la cola TTS no quedó libre a tiempo o la reacción fue cancelada.");
+                return false;
+            }
+
             return Dispatcher.Invoke(() =>
             {
-                if (cancellationToken.IsCancellationRequested || string.IsNullOrWhiteSpace(assetId)) return false;
+                if (cancellationToken.IsCancellationRequested || speechQueue.PendingCount > 0 || speechPlaybackActive ||
+                    string.IsNullOrWhiteSpace(assetId)) return false;
                 List<LocalSoundAsset> assets;
                 try { assets = System.Text.Json.JsonSerializer.Deserialize<List<LocalSoundAsset>>(store.GetSetting("audio.sound.library", "[]")) ?? []; }
                 catch (System.Text.Json.JsonException) { return false; }
