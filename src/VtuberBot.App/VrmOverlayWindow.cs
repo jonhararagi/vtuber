@@ -50,6 +50,11 @@ public sealed class VrmOverlayWindow : Window
             await browser.EnsureCoreWebView2Async();
             browser.CoreWebView2.Settings.AreDevToolsEnabled = false;
             browser.CoreWebView2.Settings.IsStatusBarEnabled = false;
+            browser.CoreWebView2.WebMessageReceived += (_, args) =>
+            {
+                if (string.Equals(args.TryGetWebMessageAsString(), "toggle-topmost", StringComparison.Ordinal))
+                    Topmost = !Topmost;
+            };
             browser.CoreWebView2.SetVirtualHostNameToFolderMapping(
                 "vtuberbot.local",
                 Path.GetDirectoryName(modelPath)!,
