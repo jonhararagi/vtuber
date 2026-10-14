@@ -1,0 +1,133 @@
+using System.Net;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using NAudio.Wave;
+
+namespace VtuberBot.App;
+
+/// <summary>
+/// Offline Japanese TTS adapter for a locally running VOICEVOX Engine.
+/// It talks only to loopback addresses and never sends text to a cloud service.
+/// </summary>
+public sealed class VoicevoxSpeechSession : ILocalSpeechSession
+{
+    public const string VoiceIdPrefix = "voicevox:";
+    public const string DefaultBaseUrl = "http://127.0.0.1:50021";
+    private const int MaximumInputCharacters = 2000;
+    private const int MaximumAudioBytes = 12 * 1024 * 1024;
+    private readonly Func<string> baseUrl;
+    private readonly HttpClient http = new() { Timeout = Timeout.InfiniteTimeSpan };
+    private bool disposed;
+
+    public VoicevoxSpeechSession(Func<string>? baseUrl = null) =>
+        this.baseUrl = baseUrl ?? (() => DefaultBaseUrl);
+
+    public static bool IsVoiceId(string? id) =>
+        id?.StartsWith(VoiceIdPrefix, StringComparison.OrdinalIgnoreCase) == true &&
+        int.TryParse(id[VoiceIdPrefix.Length..], out var speakerId) && speakerId >= 0;
+
+    public static IReadOnlyList<LocalSpeechVoice> GetInstalledVoices(string? configuredBaseUrl = null)
+    {
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+        var endpoint = BuildEndpoint(configuredBaseUrl ?? DefaultBaseUrl, "speakers");
+        using var response = client.GetAsync(endpoint).GetAwaiter().GetResult();
+        response.EnsureSuccessStatusCode();
+        using var document = JsonDocument.Parse(response.Content.ReadAsStream());
+        var voices = new List<LocalSpeechVoice>();
+        foreach (var speaker in document.RootElement.EnumerateArray())
+        {
+            var speakerName = speaker.TryGetProperty("name", out var nameElement) ? nameElement.GetString() ?? "VOICEVOX" : "VOICEVOX";
+            if (!speaker.TryGetProperty("styles", out var styles) || styles.ValueKind != JsonValueKind.Array) continue;
+            foreach (var style in styles.EnumerateArray())
+            {
+                if (!style.TryGetProperty("id", out var idElement) || !idElement.TryGetInt32(out var id)) continue;
+                var styleName = style.TryGetProperty("name", out var styleElement) ? styleElement.GetString() ?? "Normal" : "Normal";
+                voices.Add(new LocalSpeechVoice(VoiceIdPrefix + id, $"{speakerName} — {styleName} (VOICEVOX)"));
+            }
+        }
+        return voices.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
+    }
+
+    public SpeechPlaybackResult Speak(string text, string requestedVoiceId, string requestedOutputId,
+        int rate, int volume, Func<bool> cancellationRequested)
+    {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        if (string.IsNullOrWhiteSpace(text) || text.Length > MaximumInputCharacters)
+            throw new InvalidOperationException("VOICEVOX admite pruebas y reacciones de hasta 2000 caracteres.");
+        if (!IsVoiceId(requestedVoiceId) || !int.TryParse(requestedVoiceId[VoiceIdPrefix.Length..], out var speakerId))
+            throw new InvalidOperationException("Seleccioná una voz de VOICEVOX válida en la regla de reacción.");
+
+        using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        var synthesis = SynthesizeAsync(text, speakerId, rate, cancel.Token);
+        while (!synthesis.IsCompleted)
+        {
+            if (cancellationRequested())
+            {
+                cancel.Cancel();
+                try { synthesis.GetAwaiter().GetResult(); } catch { }
+                return new(false, true);
+            }
+            Thread.Sleep(35);
+        }
+        var audio = synthesis.GetAwaiter().GetResult();
+        if (cancellationRequested()) return new(false, true);
+        if (audio.Length is <= 0 or > MaximumAudioBytes)
+            throw new InvalidOperationException("VOICEVOX devolvió audio vacío o superior a 12 MB.");
+
+        using var stream = new MemoryStream(audio, writable: false);
+        using var reader = new WaveFileReader(stream);
+        using var output = new WaveOutEvent();
+        output.Volume = Math.Clamp(volume, 0, 100) / 100f;
+        Exception? playbackError = null;
+        output.PlaybackStopped += (_, eventArgs) => playbackError = eventArgs.Exception;
+        output.Init(reader);
+        output.Play();
+        while (output.PlaybackState == PlaybackState.Playing)
+        {
+            if (cancellationRequested())
+            {
+                output.Stop();
+                return new(false, true);
+            }
+            Thread.Sleep(35);
+        }
+        if (playbackError is not null)
+            throw new InvalidOperationException("No se pudo reproducir el audio de VOICEVOX.", playbackError);
+        return new(false, false);
+    }
+
+    private async Task<byte[]> SynthesizeAsync(string text, int speakerId, int rate, CancellationToken cancellationToken)
+    {
+        var queryEndpoint = BuildEndpoint(baseUrl(), $"audio_query?speaker={speakerId}&text={Uri.EscapeDataString(text)}");
+        using var queryResponse = await http.PostAsync(queryEndpoint, content: null, cancellationToken).ConfigureAwait(false);
+        queryResponse.EnsureSuccessStatusCode();
+        var queryJson = await queryResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var query = JsonNode.Parse(queryJson) ?? throw new InvalidOperationException("VOICEVOX devolvió una consulta de audio vacía.");
+        query["speedScale"] = Math.Clamp(1.0 + Math.Clamp(rate, -10, 10) * 0.06, 0.5, 2.0);
+        using var request = new StringContent(query.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+        var synthesisEndpoint = BuildEndpoint(baseUrl(), $"synthesis?speaker={speakerId}");
+        using var response = await http.PostAsync(synthesisEndpoint, request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        var audio = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        if (audio.Length > MaximumAudioBytes)
+            throw new InvalidOperationException("VOICEVOX devolvió un audio superior a 12 MB.");
+        return audio;
+    }
+
+    private static Uri BuildEndpoint(string configuredBaseUrl, string relativePath)
+    {
+        if (!Uri.TryCreate(configuredBaseUrl, UriKind.Absolute, out var baseUri) ||
+            (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps) ||
+            !(baseUri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+              (IPAddress.TryParse(baseUri.Host, out var address) && IPAddress.IsLoopback(address))))
+            throw new InvalidOperationException("VOICEVOX debe apuntar a localhost o una dirección IP de loopback; no se permiten destinos remotos.");
+        return new Uri(baseUri.AbsoluteUri.TrimEnd('/') + "/" + relativePath.TrimStart('/'));
+    }
+
+    public void Dispose()
+    {
+        if (disposed) return;
+        disposed = true;
+        http.Dispose();
+    }
+}
