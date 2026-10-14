@@ -281,16 +281,22 @@ public sealed class RemoteSpeechSession : ILocalSpeechSession
 
 /// <summary>Switches between existing Windows SAPI and remote speech without altering the queue semantics.</summary>
 public sealed class ConfigurableSpeechSession(Func<bool> useRemote, Func<ILocalSpeechSession> localFactory,
-    Func<ILocalSpeechSession> remoteFactory) : ILocalSpeechSession
+    Func<ILocalSpeechSession> remoteFactory, Func<ILocalSpeechSession>? voicevoxFactory = null) : ILocalSpeechSession
 {
     private ILocalSpeechSession? local;
     private ILocalSpeechSession? remote;
+    private ILocalSpeechSession? voicevox;
     private bool disposed;
 
     public SpeechPlaybackResult Speak(string text, string requestedVoiceId, string requestedOutputId, int rate, int volume,
         Func<bool> cancellationRequested)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
+        if (VoicevoxSpeechSession.IsVoiceId(requestedVoiceId))
+        {
+            voicevox ??= (voicevoxFactory ?? throw new InvalidOperationException("No se configuró el adaptador local de VOICEVOX."))();
+            return voicevox.Speak(text, requestedVoiceId, requestedOutputId, rate, volume, cancellationRequested);
+        }
         if (useRemote())
         {
             remote ??= remoteFactory();
@@ -306,5 +312,6 @@ public sealed class ConfigurableSpeechSession(Func<bool> useRemote, Func<ILocalS
         disposed = true;
         local?.Dispose();
         remote?.Dispose();
+        voicevox?.Dispose();
     }
 }
