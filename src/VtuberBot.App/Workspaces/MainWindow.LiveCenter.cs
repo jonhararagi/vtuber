@@ -244,7 +244,20 @@ public partial class MainWindow
         var triggerField = TextField("Palabra o frase activadora", "");
         var matchType = new ComboBox { ItemsSource = new[] { "Mensaje exacto", "Palabra completa", "Frase contenida" }, SelectedIndex = 1 };
         var responseField = new TextBox { Text = "", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, MaxHeight = 140, ToolTip = "Una respuesta alternativa por línea. Admite {user}." };
-        var speak = new CheckBox { Content = "Encolar respuesta en voz local", IsChecked = false, Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
+        var speak = new CheckBox { Content = "Reproducir audio de esta reacción", IsChecked = false, Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
+        var language = new ComboBox { ItemsSource = new[] { "Automático", "Español", "Japonés" }, SelectedIndex = 0 };
+        var voiceItems = new List<LocalSpeechVoice> { new(string.Empty, "Usar voz predeterminada") };
+        try { voiceItems.AddRange(LocalSpeechQueue.GetInstalledVoices()); }
+        catch (Exception exception) { store.Log("Reacciones chat", "No se pudo enumerar voces para el editor (" + exception.GetType().Name + ")."); }
+        var voicePicker = new ComboBox { ItemsSource = voiceItems, DisplayMemberPath = nameof(LocalSpeechVoice.Name), SelectedIndex = 0 };
+        var clipItems = new List<LocalSoundAsset> { new(string.Empty, "(Sin clip; usar TTS)", string.Empty) };
+        try
+        {
+            clipItems.AddRange((System.Text.Json.JsonSerializer.Deserialize<List<LocalSoundAsset>>(store.GetSetting("audio.sound.library", "[]")) ?? [])
+                .Where(asset => TryResolveSoundPath(asset.Path, out _)));
+        }
+        catch (System.Text.Json.JsonException exception) { store.Log("Reacciones chat", "La biblioteca de clips no se pudo cargar (" + exception.GetType().Name + ")."); }
+        var clipPicker = new ComboBox { ItemsSource = clipItems, DisplayMemberPath = nameof(LocalSoundAsset.Name), SelectedIndex = 0 };
         var expression = new ComboBox { ItemsSource = new[] { "(Sin expresión)", "Idle", "Talking", "Blink", "Happy", "Surprised" }, SelectedIndex = 0 };
         var globalCooldown = TextField("Cooldown global en segundos (0–3600)", "5");
         var userCooldown = TextField("Cooldown por usuario en segundos (0–3600)", "15");
@@ -255,7 +268,11 @@ public partial class MainWindow
         editor.Children.Add(Label("Tipo de coincidencia", 12, "#98A4BE")); editor.Children.Add(matchType);
         editor.Children.Add(Label("Respuestas alternativas · una por línea", 12, "#98A4BE")); editor.Children.Add(responseField);
         editor.Children.Add(speak);
+        editor.Children.Add(Label("Idioma de la reacción", 12, "#98A4BE")); editor.Children.Add(language);
+        editor.Children.Add(Label("Voz instalada para esta regla", 12, "#98A4BE")); editor.Children.Add(voicePicker);
+        editor.Children.Add(Label("Clip opcional de la biblioteca local (si se elige, sustituye al TTS)", 12, "#98A4BE")); editor.Children.Add(clipPicker);
         editor.Children.Add(Label("Expresión del avatar", 12, "#98A4BE")); editor.Children.Add(expression);
+        editor.Children.Add(Label("Para japonés, elegí una voz SAPI identificada como japonesa o un clip importado. Si no hay voz compatible ni clip, el audio no se reproducirá; no se fingirá pronunciación japonesa.", 11, "#98A4BE"));
         editor.Children.Add(globalCooldown); editor.Children.Add(userCooldown); editor.Children.Add(perMinute);
 
         void RefreshRules(string? selectedId = null)
@@ -275,6 +292,9 @@ public partial class MainWindow
             matchType.SelectedIndex = rule.MatchType switch { ChatReactionMatchType.Exact => 0, ChatReactionMatchType.WholeWord => 1, _ => 2 };
             responseField.Text = string.Join(Environment.NewLine, rule.Responses);
             speak.IsChecked = rule.Speak;
+            language.SelectedItem = rule.Language switch { "es" => "Español", "ja" => "Japonés", _ => "Automático" };
+            voicePicker.SelectedItem = voiceItems.FirstOrDefault(voice => string.Equals(voice.Id, rule.VoiceId, StringComparison.OrdinalIgnoreCase)) ?? voiceItems[0];
+            clipPicker.SelectedItem = clipItems.FirstOrDefault(clip => string.Equals(clip.Id, rule.ClipAssetId, StringComparison.Ordinal)) ?? clipItems[0];
             expression.SelectedItem = string.IsNullOrEmpty(rule.Expression) ? "(Sin expresión)" : rule.Expression;
             globalCooldown.Text = rule.GlobalCooldownSeconds.ToString();
             userCooldown.Text = rule.UserCooldownSeconds.ToString();
@@ -284,7 +304,7 @@ public partial class MainWindow
         {
             rulesList.SelectedItem = null;
             nameField.Text = ""; triggerField.Text = ""; responseField.Text = "";
-            matchType.SelectedIndex = 1; speak.IsChecked = false; expression.SelectedIndex = 0;
+            matchType.SelectedIndex = 1; speak.IsChecked = false; language.SelectedIndex = 0; voicePicker.SelectedIndex = 0; clipPicker.SelectedIndex = 0; expression.SelectedIndex = 0;
             globalCooldown.Text = "5"; userCooldown.Text = "15"; perMinute.Text = "6";
         }));
         editor.Children.Add(ActionButton("Guardar regla", (_, _) =>
@@ -300,9 +320,13 @@ public partial class MainWindow
             var responses = responseField.Text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             var selectedMatch = matchType.SelectedIndex switch { 0 => ChatReactionMatchType.Exact, 1 => ChatReactionMatchType.WholeWord, _ => ChatReactionMatchType.Contains };
             var selectedExpression = expression.SelectedItem?.ToString() ?? "(Sin expresión)";
+            var selectedLanguage = language.SelectedItem?.ToString() switch { "Español" => "es", "Japonés" => "ja", _ => "auto" };
+            var selectedVoiceId = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? string.Empty;
+            var selectedClipId = (clipPicker.SelectedItem as LocalSoundAsset)?.Id ?? string.Empty;
             var rule = new ChatReactionRule(selected?.Id ?? Guid.NewGuid().ToString("N"), nameField.Text, triggerField.Text,
                 selectedMatch, responses, speak.IsChecked == true, selectedExpression == "(Sin expresión)" ? "" : selectedExpression,
-                global, user, minute, selected?.Enabled ?? false);
+                global, user, minute, selected?.Enabled ?? false)
+                { Language = selectedLanguage, VoiceId = selectedVoiceId, ClipAssetId = selectedClipId };
             if (!chatReactions.SaveRule(rule, selected?.Id))
             {
                 MessageBox.Show(this, "No se guardó la regla. Revisá los campos, las alternativas y el máximo de 100 reglas.", "Regla no guardada", MessageBoxButton.OK, MessageBoxImage.Warning);
