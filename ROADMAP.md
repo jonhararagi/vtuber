@@ -336,3 +336,13 @@ El run [#459](https://github.com/jonhararagi/vtuber/actions/runs/38399709040) so
 - **Clasificación real del alcance:** implementados con pruebas automatizadas: Core/persistencia, cola de voz y política Talking/Idle, creador chibi por piezas, rutas locales de comandos/sorteos/puntos y políticas. Implementados pero pendientes de validación manual/externa: OAuth/IRC/EventSub de Twitch, salida SAPI real, OBS WebSocket, Streamer.bot WebSocket, PNGTuber Plus/hotkeys, Telegram Web. Parciales: arte vectorial chibi 2D y poses por capas (sin rig Live2D ni tracking facial), separación 2.5D por IA local (experimental), integración externa por acciones/estados sin confirmar el efecto final en otra aplicación. No implementado: agente que observe un videojuego, decida y ejecute acciones en un videojuego compatible; los minijuegos existentes son para la comunidad/chat.
 - **Errores históricos:** [#627](https://github.com/jonhararagi/vtuber/actions/runs/38520985811) y [#629](https://github.com/jonhararagi/vtuber/actions/runs/38526431105) fallaron por xUnit1051; [#628](https://github.com/jonhararagi/vtuber/actions/runs/38525799452) falló por CS1501. No se desactivaron pruebas ni se añadieron excepciones al analizador.
 - **Pendiente para cierre completo:** verificar la fusión autorizada del PR #13 y la CI/artefacto del SHA resultante de `main`. Las pruebas manuales con dispositivos, cuentas y aplicaciones externas requieren un Windows interactivo configurado.
+
+
+## Estado tras integrar el candidato completo en main — 2026-10-14
+
+- PR de integración [#13](https://github.com/jonhararagi/vtuber/pull/13) fusionado el 2026-10-14.
+- SHA actual de `main`: `9ff02c0b4c55a04b52f72be25201fb33aebd0728`.
+- Windows CI push [#638](https://github.com/jonhararagi/vtuber/actions/runs/38562319769) terminó SUCCESS para esa SHA exacta: restore y build Release correctos; 519 pruebas aprobadas, 0 fallidas y 0 omitidas; publicación self-contained win-x64 y subida del artefacto correctas.
+- Artefacto: [VTuberBot-Product-Candidate-win-x64-9ff02c0b4c55a04b52f72be25201fb33aebd0728](https://github.com/jonhararagi/vtuber/actions/runs/38562319769/artifacts/11892727298). Tamaño 84,636,013 bytes; digest `sha256:be2365df56a5c86e692607a2159250f47f52b35834fb0791fb1d38df9aef9030`; caduca el 2026-10-28. El job validó 490 entradas ZIP, incluida la aplicación y BUILD-INFO, y no encontró archivos locales de datos/credenciales prohibidos.
+- La CI es validación automatizada, no aceptación visual humana. Pendiente de prueba interactiva en Windows y de integración real con Twitch, micrófono/SAPI, OBS, Streamer.bot, PNGTuber Plus y Telegram.
+- Alcance no implementado: agente autónomo que observe y juegue videojuegos; los minijuegos disponibles son para el chat.
