@@ -44,6 +44,42 @@ public partial class MainWindow
         double Scale,
         double RotationDegrees);
 
+    private sealed record ChibiAvatarPreset(
+        string Id,
+        string Name,
+        string Description,
+        string HairId,
+        string OutfitId,
+        string HeadAccessoryId,
+        string FaceAccessoryId,
+        string BackAccessoryId,
+        string FaceShapeId,
+        string EyeStyleId,
+        string SkinId,
+        string PoseId);
+
+    private static readonly IReadOnlyList<ChibiAvatarPreset> ChibiAvatarPresets =
+    [
+        new("neko-gamer", "Neko gamer", "Chibi con coletas, orejas de gato, streetwear y pose de paz.",
+            "twin-tails", "tech-streetwear", "cat-ears", "cheek-stars", "mechanical-pack",
+            "round", "rose", "warm", "peace"),
+        new("lunar-witch", "Brujita lunar", "Maga de fantasía con rizos, sombrero y cristales.",
+            "royal-curls", "mage-academy", "witch-hat", "round-glasses", "crystal-orbit",
+            "elf", "violet", "moonlight", "microphone"),
+        new("star-idol", "Idol estelar", "Cantante con coleta alta, lazos y alas luminosas.",
+            "high-ponytail", "star-idol", "double-bows", "star-earrings", "celestial-wings",
+            "heart", "ocean", "porcelain", "wave"),
+        new("gothic-rose", "Gótica rosa", "Vestido gótico, cuernos y alas oscuras.",
+            "long-waves", "gothic-rose", "small-horns", "star-eyepatch", "bat-wings",
+            "sharp", "heterochromia", "cocoa", "crossed-arms"),
+        new("cyber-neon", "Cyber neón", "Bob futurista, visor y conjunto tecnológico.",
+            "soft-bob", "cyber-runner", "robo-visor", "mic-headset", "mechanical-pack",
+            "sharp", "emerald", "moonlight", "hands-hips"),
+        new("casual-streamer", "Streamer casual", "Pelo corto, hoodie, auriculares y mochila conejito.",
+            "short-spiky", "comfy-hoodie", "gamer-headset", "heart-choker", "bunny-backpack",
+            "round", "gold", "warm", "neutral")
+    ];
+
     private UIElement BuildAvatarStudio()
     {
         var root = new StackPanel();
@@ -52,7 +88,15 @@ public partial class MainWindow
         var beginnerPanel = Panel("Empezá por acá — elegí tu tipo de VTuber");
         beginnerPanel.Margin = new Thickness(0, 0, 0, 14);
         beginnerPanel.Children.Add(Label(
-            "Recomendado: PNGTuber. Es la forma más sencilla y liviana de empezar. Podés usar un ejemplo o tus propias imágenes. El modo 2.5D intenta separar una imagen con IA local y puede necesitar correcciones. El modo 3D crea el modelo en VRoid Studio externo; aún no se carga directamente en el overlay de VTuberBot.",
+            "Elegí un personaje chibi completo: cada muestra cambia el peinado, el conjunto, los accesorios, el rostro, los ojos y la pose. Después podés abrir el creador de abajo y combinar cada pieza a tu gusto; los perfiles nuevos no pisan los anteriores.",
+            12, "#98A4BE"));
+        var presetGallery = new WrapPanel { Margin = new Thickness(0, 8, 0, 10) };
+        foreach (var preset in ChibiAvatarPresets)
+            presetGallery.Children.Add(BuildChibiPresetButton(preset));
+        beginnerPanel.Children.Add(presetGallery);
+
+        beginnerPanel.Children.Add(Label(
+            "PNGTuber es la opción más ligera para empezar. La separación 2.5D con IA local es experimental y puede necesitar correcciones. VRoid Studio abre un creador 3D externo; el modelo VRM todavía no se carga dentro del overlay de VTuberBot.",
             12, "#98A4BE"));
 
         Button startLocalSegmentation = null!;
@@ -71,14 +115,8 @@ public partial class MainWindow
         };
 
         var beginnerActions = new WrapPanel();
-        beginnerActions.Children.Add(ActionButton("1 · PNGTuber violeta", (_, _) =>
-            LoadDemoProfile("Ejemplo PNGTuber", layered: false, themeId: "hikari"), true));
-        beginnerActions.Children.Add(ActionButton("PNGTuber azul", (_, _) =>
-            LoadDemoProfile("Ejemplo PNGTuber · Azul", layered: false, themeId: "aoi")));
-        beginnerActions.Children.Add(ActionButton("PNGTuber rosa", (_, _) =>
-            LoadDemoProfile("Ejemplo PNGTuber · Rosa", layered: false, themeId: "mio")));
-        beginnerActions.Children.Add(ActionButton("PNGTuber con mis imágenes", (_, _) =>
-            CreateSimplePngTuber()));
+        beginnerActions.Children.Add(ActionButton("Crear PNGTuber con mis imágenes", (_, _) =>
+            CreateSimplePngTuber(), true));
         startLocalSegmentation = ActionButton("2 · 2.5D con IA local (experimental)", async (_, _) =>
             await StartLocalAvatarSegmentationAsync());
         beginnerActions.Children.Add(startLocalSegmentation);
@@ -93,6 +131,7 @@ public partial class MainWindow
         beginnerPanel.Children.Add(localSegmentationProgress);
         beginnerPanel.Children.Add(localSegmentationStatus);
         root.Children.Add(beginnerPanel);
+        root.Children.Add(BuildModularWardrobePanel());
 
         var profilePanel = Panel("Perfiles de avatar");
         profilePanel.Margin = new Thickness(0, 0, 0, 14);
@@ -249,17 +288,13 @@ public partial class MainWindow
         var demoPanel = Panel("Más ejemplos incluidos");
         demoPanel.Margin = new Thickness(0, 0, 0, 14);
         demoPanel.Children.Add(Label(
-            "Podés probar tres PNGTuber de muestra sin buscar imágenes: violeta, azul y rosa. Comparten la ilustración original de VTuberBot, con paletas y detalles de color distintos, y cada perfil trae PNG separados para reposo, habla, parpadeo, alegría y sorpresa. El ejemplo 2D por capas también deja mover el flequillo y los destellos. No es un rig Live2D y no incluye seguimiento facial ni huesos.",
+            "Estos perfiles técnicos sirven para comprobar los estados del PNGTuber y el ejemplo 2D por capas. Para empezar con diseños artísticos realmente diferentes, usá la galería de personajes chibi de la parte superior.",
             12, "#98A4BE"));
         var demoActions = new WrapPanel();
-        demoActions.Children.Add(ActionButton("Probar PNGTuber violeta", (_, _) =>
-            LoadDemoProfile("Ejemplo PNGTuber", layered: false, themeId: "hikari"), true));
-        demoActions.Children.Add(ActionButton("Probar PNGTuber azul", (_, _) =>
-            LoadDemoProfile("Ejemplo PNGTuber · Azul", layered: false, themeId: "aoi")));
-        demoActions.Children.Add(ActionButton("Probar PNGTuber rosa", (_, _) =>
-            LoadDemoProfile("Ejemplo PNGTuber · Rosa", layered: false, themeId: "mio")));
+        demoActions.Children.Add(ActionButton("Probar sprites técnicos de estados", (_, _) =>
+            LoadDemoProfile("Ejemplo PNGTuber técnico", layered: false, themeId: "hikari"), true));
         demoActions.Children.Add(ActionButton("Probar ejemplo 2D por capas", (_, _) =>
-            LoadDemoProfile("Ejemplo 2D por capas", layered: true, themeId: "hikari"), true));
+            LoadDemoProfile("Ejemplo 2D por capas", layered: true, themeId: "hikari")));
         demoActions.Children.Add(ActionButton("Configurar PNGTuber Plus externo", (_, _) => Navigate("Avatar externo")));
         demoPanel.Children.Add(demoActions);
 
@@ -286,7 +321,6 @@ public partial class MainWindow
         var advancedTools = new StackPanel();
         advancedTools.Children.Add(demoPanel);
         advancedTools.Children.Add(imageToAvatarPanel);
-        advancedTools.Children.Add(BuildModularWardrobePanel());
         root.Children.Add(new Expander
         {
             Header = "Personalización avanzada (capas, ropa, colores y herramientas externas)",
