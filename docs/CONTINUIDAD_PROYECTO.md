@@ -1,3 +1,23 @@
+# Estado prioritario del repositorio — 2026-10-15
+
+## Protección del trabajo y sincronización de ramas
+
+- Rama de trabajo y fuente de verdad del producto: `product/complete-vtuber-experience`.
+- `main` está divergida: comparación GitHub `main...product/complete-vtuber-experience` informa **79 commits exclusivos de producto y 8 commits exclusivos de main**, con base común `797d43ecee3eddd4c95f1c8d8f19669febfdd6a2`. No se debe describir `main` como una copia actual del producto.
+- PR #18 es la vía de integración existente: https://github.com/jonhararagi/vtuber/pull/18. No se fusiona automáticamente ni se debe reemplazar la historia de `main` sin revisar primero los ocho commits exclusivos, conflictos y el CI postintegración.
+- Regla operativa: seguir desarrollando en la rama de producto; antes de cualquier merge, comparar las dos puntas, conservar cambios exclusivos de ambos lados, resolver conflictos explícitamente y validar el SHA resultante. No borrar ramas ni commits para “limpiar” el historial.
+- Próximo hito de integración: revisar la mergeabilidad/conflictos de PR #18 y preparar una integración segura de ambas líneas de trabajo; confirmar CI post-merge antes de afirmar que `main` ya contiene todo. Hasta entonces, no asumir que un ZIP de `main` contiene las últimas funciones.
+
+## Validación Windows CI más reciente comprobada
+
+- Windows CI [run #872](https://github.com/jonhararagi/vtuber/actions/runs/38738742940) terminó **success** para el SHA exacto `8a9198539c4130ea593f42dd48c67a9b2a2f2462` en `product/complete-vtuber-experience`.
+- Pasaron Restore, Build Release, pruebas automatizadas y publicación autocontenida Windows x64; el artefacto se subió correctamente.
+- Artefacto: [VTuberBot-Product-Candidate-win-x64-8a9198539c4130ea593f42dd48c67a9b2a2f2462](https://github.com/jonhararagi/vtuber/actions/runs/38738742940), SHA-256 `ff44a582e5d12cb9acbe7746b04448c305768391035b92758f3d635c41e13bf1`, vence el 29-10-2026.
+- Esta CI demuestra que ese SHA compila, pasa las pruebas automatizadas y genera un paquete Windows. **No** demuestra conexión real con cuentas Twitch, Streamer.bot u OBS ni validación visual/manual en la PC del usuario. Esta nota genera un SHA nuevo y deberá revisarse su propio CI.
+- No se ha modificado `main` ni fusionado PR #18 en esta actualización.
+
+---
+
 ## 2026-10-15 — Automatizaciones directas de OBS y avatar
 
 - Se amplió `EventActionDestination` con destinos directos `ObsScene` y `AvatarExpression`; el resto del coordinador de eventos sigue compartido, acotado y con reglas persistentes.
