@@ -1724,3 +1724,53 @@ El árbol contiene **10 archivos de imagen** y **ningún archivo de audio** (no 
 
 - Esta auditoría solo documenta lo encontrado; no cambia código ni assets.
 - Se trabajó exclusivamente en `product/complete-vtuber-experience`; no se modificó `main`, no se fusionó ni cerró ningún PR.
+
+## 2026-10-15 — Plan de ampliación real de recursos artísticos (propuesta; aún no implementada)
+
+**Objetivo:** pasar de una galería mayormente paramétrica y dos muestras PNG provisionales a un conjunto de personajes visualmente distintos, empaquetados y utilizables en el Avatar Studio. Esta sección es un plan de trabajo, no una afirmación de que los recursos ya existan.
+
+### Regla para no confundir tipos de recurso
+
+Cada elemento del catálogo debe mostrar su tipo y estado por separado:
+
+- **Ilustración raster incluida:** archivo PNG transparente versionado, con licencia/procedencia documentada, incorporado explícitamente al paquete y cargable desde la aplicación.
+- **Sprite multestado incluido:** imágenes reales para Idle/Talking/Blink/Happy/Surprised; no basta con renombrar una imagen ni cambiarle el color. Si un estado no tiene arte propio, debe indicarse como no disponible y usarse el fallback aprobado.
+- **Piezas modulares raster:** archivos separados para cabello, rostro, ropa y accesorios, compatibles por plantilla y anclajes definidos. No etiquetar un preset que solo selecciona IDs/códigos como una ilustración terminada.
+- **Diseño paramétrico generado por código:** modelo 3D geométrico o composición vectorial generada en runtime. Se muestra como “paramétrico”, no como imagen preincluida ni como modelo dibujado a mano.
+- **Importación del usuario / recurso externo:** se guarda la ruta y los metadatos, pero no cuenta como contenido incluido de VTuberBot.
+- **Referencia externa:** solo inspira o enlaza; no cuenta como asset utilizable ni se redistribuye sin permiso.
+
+### Entrega artística propuesta para la primera ampliación
+
+Objetivo inicial sugerido, sujeto a la fase de diseño y a la capacidad real de generar/validar las imágenes:
+
+1. **6 personajes raster originales con estilos y siluetas diferentes**, no simples recoloraciones de una misma base:
+   - chibi streamer casual de piel morena, cabello castaño con mechones interiores miel, iris marrones y pupilas marrón oscuro;
+   - idol pop con coleta alta y vestuario escénico;
+   - maga fantasy con capa, sombrero y accesorios;
+   - personaje gótico/rock con silueta, peinado y ropa propios;
+   - aventurera cyberpunk con chaqueta técnica y accesorios;
+   - kitsune/festival con vestimenta inspirada en folklore japonés.
+2. Para cada personaje, un PNG transparente de reposo utilizable como fallback. Como objetivo preferido, preparar estados separados de reposo, habla, parpadeo y al menos dos expresiones adicionales; no afirmar que el habla tiene sincronización fonética real.
+3. **2–3 personajes** de esa colección, priorizados primero, con una estructura por capas que permita cambiar al menos cabello, ojos/rostro, ropa y accesorios sin regenerar toda la imagen. La estructura debe probarse en el compositor real antes de extenderla a los seis.
+4. **Piezas adicionales** que amplíen combinaciones de verdad: siluetas de cabello (corto, largo liso, ondulado, coletas, trenzas, rizado), ropa (casual, hoodie, idol, fantasy, gótica, formal, cyberpunk, festival), y accesorios de cabeza/rostro/espalda. Las piezas deben tener anclajes y límites de compatibilidad definidos, no ser solo nombres nuevos en un selector.
+5. Mantener las muestras CrystalGirl y Marmalade en la categoría “muestra externa/provisional” hasta que se integre y valide su carga en el runtime. No presentarlas como los personajes nuevos originales.
+
+### Pipeline de producción e integración
+
+1. **Diseño y derechos:** aprobar una ficha por personaje (silueta, paleta, piel, cara, pelo, ropa, accesorios, estados, resolución y uso previsto). Crear arte original o usar recursos cuya licencia permita expresamente el uso previsto. No copiar modelos oficiales de VTubers ni asumir que “gratis” significa redistribuible.
+2. **Registro de procedencia obligatorio:** para cada archivo, registrar autor/creador, URL de origen cuando corresponda, licencia exacta, uso comercial permitido, permiso de modificación, permiso de redistribución, atribución requerida y fecha de revisión. Si no hay evidencia, bloquear su distribución y marcar “pendiente de revisión”.
+3. **Formato:** PNG con alfa para sprites y capas, nombres estables y dimensiones coherentes por personaje. Evitar convertir una sola imagen a ocho nombres para simular estados. Añadir miniaturas únicamente como derivados y conservar el original.
+4. **Manifiesto de catálogo:** un manifiesto por personaje enumera archivos existentes, capas, orden, anclajes, estados disponibles, versión y licencia. El validador debe rechazar rutas inexistentes, estados duplicados sin declaración explícita y recursos sin metadatos.
+5. **Empaquetado explícito:** añadir los assets aprobados como contenido de la aplicación mediante reglas explícitas del proyecto .NET; comprobar en CI que el paquete Windows contiene los archivos esperados y que sus hashes coinciden. No inferir inclusión en el paquete a partir de su presencia en Git.
+6. **Integración del runtime:** conectar los personajes a la galería de Avatar Studio, previsualización, cambio de estado, importación/exportación de perfiles y fallback cuando falte un estado. El usuario debe poder distinguir “incluido”, “importado” y “paramétrico”.
+7. **Pruebas:** pruebas automatizadas para manifiestos, metadatos, recursos faltantes, compatibilidad de capas y resolución de rutas; prueba de renderizado WPF en Windows; comprobar transparencia, escala, encuadre, estados y consumo de memoria con imágenes reales.
+8. **Criterio de aceptación:** la ficha del personaje solo dice “incluido y listo para usar” cuando los archivos existen en el repositorio, la licencia está registrada, se incluyen en el artefacto Windows y se cargan en la aplicación. CI verde por sí solo no confirma calidad artística ni experiencia visual.
+
+### Alcance y límites
+
+- Esta propuesta no genera ni añade imágenes por sí sola; no convierte referencias web en recursos incluidos.
+- La generación de arte con un proveedor externo o la creación de archivos raster debe ser una tarea explícita posterior. Los resultados deben revisarse visualmente y guardarse en el repositorio con licencias y metadatos antes de anunciarse como parte del producto.
+- La primera prioridad es **calidad y variedad verificables**, no inflar el contador de presets. Es preferible entregar dos personajes realmente distintos y probados que declarar veinte presets que solo cambian color o nombre.
+- No incluye modelos de voz ni voces pregrabadas; eso sigue siendo un trabajo separado.
+- Esta planificación solo modifica documentación en `product/complete-vtuber-experience`. No modifica `main`, no fusiona ni cierra PRs.
