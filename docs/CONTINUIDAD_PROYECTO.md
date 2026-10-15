@@ -1,5 +1,13 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Simulador de reglas y análisis de Morphy
+
+- Se añadió `docs/ANALISIS-MORPHY.md` con un análisis del espacio de trabajo Morphy y recomendaciones de proceso: roles separados de auditor/implementador/revisor, GitHub como fuente de verdad y evidencia de CI por SHA. Morphy no se añade como dependencia de ejecución del bot.
+- Se agregó en `src/VtuberBot.App/Workspaces/MainWindow.EventActionWorkspace.cs` un simulador de condiciones JSON para reglas de automatización. Usa el evaluador existente `EventActionCoordinator.MatchesConditions`, valida el JSON y no invoca al dispatcher; por diseño no envía acciones ni hotkeys.
+- La guía `docs/PRODUCT_USER_GUIDE.md` explica cómo usar el simulador.
+- El preset `Miel de café` ya presente en la galería de 13 personajes cubre la preferencia visual expresada: piel morena, pelo castaño con inner hair claro y ojos/pupilas marrones. El catálogo sigue siendo arte chibi vectorial generado localmente; no equivale a un rig Live2D.
+- CI pendiente para el nuevo código: no afirmar éxito hasta que la ejecución de Windows termine sobre el SHA exacto del simulador. Las pruebas de integraciones reales requieren además un entorno Windows interactivo con cuentas y aplicaciones configuradas.
+
 ## 2026-10-15 — Cierre de integración en main y validación Windows
 
 - **Rama principal:** `main`. El commit de código integrado es `5407b5b5902851bef3641741e501f8fda8144fb2`, merge de PR #17. La rama de producto integrada en PR #16 aporta perfiles editables de prompts, voz japonesa local VOICEVOX y galería chibi ampliada; PR #12 aporta imágenes PNG de muestra con licencias documentadas; PR #17 aporta importación local de VRM y overlay 3D transparente con estados Idle/Talking.
