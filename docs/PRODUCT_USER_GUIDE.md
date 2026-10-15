@@ -8,9 +8,10 @@ En la página **OBS**, VTuberBot ofrece **Abrir OBS Studio**, **Elegir ubicació
 
 - **Abrir OBS automáticamente al iniciar VTuberBot**: activado por defecto. Si OBS está instalado en una ubicación estándar, VTuberBot intenta abrirlo sin bloquear el arranque. Si no lo encuentra, permite seleccionar `obs64.exe`.
 - **Modo ligero: iniciar OBS sin plugins de terceros**: activado por defecto. Al iniciar OBS, VTuberBot pasa `--only-bundled-plugins`, una opción de inicio que omite plugins externos durante esa sesión. No desinstala ni borra archivos. Desactivala si tus escenas usan plugins de terceros.
+- **Aplicar perfil 720p / 30 FPS**: al confirmarlo, VTuberBot envía a OBS el lienzo y la salida 1280×720 a 30 FPS, y lee de vuelta los valores para comprobarlos. No se informa éxito si OBS rechaza el cambio o devuelve valores distintos. El ajuste afecta a la configuración global de vídeo y puede cambiar cómo se ven todas las escenas.
 - **Conexión automática**: después de guardar por primera vez host, puerto y contraseña de WebSocket desde la página OBS, VTuberBot intenta autenticarse al arrancar. Si la contraseña no existe, el puerto no responde o la autenticación falla, la app sigue funcionando y deja un estado/registro; no simula una conexión.
 
-**Límite importante:** el modo ligero no garantiza por sí solo menor uso de CPU/GPU y no reemplaza una medición real. No cambia automáticamente resolución, FPS, bitrate, codificador ni escenas. La optimización específica para Ryzen 5 5600G/16 GB todavía requiere un asistente separado y pruebas de carga en el equipo. La compilación y CI deben comprobarse en el SHA más reciente antes de distribuir este cambio.
+**Límite importante:** omitir plugins externos y usar 720p30 puede reducir carga en algunos escenarios, pero no garantiza menor uso de CPU/GPU. El perfil no cambia bitrate, codificador, filtros de escenas, fuentes ni calidad de salida de Twitch. La optimización específica para Ryzen 5 5600G/16 GB todavía requiere mediciones de carga y ajustes adicionales en el equipo. La compilación y CI deben comprobarse en el SHA más reciente antes de distribuir este cambio.
 
 
 ## Biblioteca local de arte
