@@ -99,6 +99,24 @@ public partial class MainWindow
         new("bunny-cafe", "Conejita de café", "Moños dobles, orejas largas y mochila conejito.",
             "double-buns", "comfy-hoodie", "bunny-ears", "heart-choker", "bunny-backpack",
             "round", "rose", "cocoa", "peace"),
+        new("ocean-pop-inspiration", "Océano pop · referencia marina", "Inspiración general en VTubers de temática tiburón/mar; diseño propio, no copia de un modelo oficial.",
+            "soft-bob", "sailor-academy", "shark-cap", "star-earrings", "fin-ornament",
+            "round", "ocean", "warm", "peace"),
+        new("reaper-rock-inspiration", "Reaper rock · referencia gótica", "Inspiración general en idols de estética reaper/rock; paleta y silueta editables, sin reutilizar arte ajeno.",
+            "long-waves", "gothic-rose", "small-horns", "star-eyepatch", "bat-wings",
+            "sharp", "rose", "cocoa", "microphone"),
+        new("stellar-singer-inspiration", "Cantante estelar · referencia idol", "Inspiración en VTubers musicales y diseños celestes; combinación original para personalizar.",
+            "high-ponytail", "star-idol", "star-halo", "star-earrings", "starlight-ribbons",
+            "heart", "ocean", "morena", "wave"),
+        new("cyber-dragon-inspiration", "Dragona cyber · referencia neón", "Inspiración general en VTubers dragón y cyberpunk; no reproduce un personaje existente.",
+            "silver-cyan", "cyber-runner", "small-horns", "mic-headset", "mechanical-pack",
+            "sharp", "emerald", "cocoa", "hands-hips"),
+        new("demon-gamer-inspiration", "Demonio gamer · referencia streamer", "Inspiración en siluetas gamer demoníacas con colores propios y piezas intercambiables.",
+            "short-spiky", "tech-streetwear", "small-horns", "cheek-stars", "short-cape",
+            "round", "brown", "morena", "peace"),
+        new("kitsune-idol-inspiration", "Kitsune idol · referencia japonesa", "Inspiración en folklore kitsune e idols japonesas; vestuario y rasgos originales.",
+            "long-straight", "shrine-ceremony", "fox-ears", "neck-ribbon", "fox-tail",
+            "heart", "brown", "morena", "wave")
     ];
 
     private UIElement BuildAvatarStudio()
@@ -165,6 +183,41 @@ public partial class MainWindow
             sampleGalleryItems.Children.Add(BuildChibiPresetButton(preset));
         sampleGallery.Children.Add(sampleGalleryItems);
         root.Children.Add(sampleGallery);
+
+        var referencePanel = Panel("Referencias públicas · buscá estilos para inspirarte");
+        referencePanel.Margin = new Thickness(0, 0, 0, 14);
+        referencePanel.Children.Add(Label(
+            "Buscá un VTuber conocido para estudiar su paleta, silueta, peinado y accesorios. La búsqueda abre el navegador; no descarga ni copia automáticamente su arte. Después aplicá una plantilla de inspiración de la galería y personalizá cada pieza.",
+            12, "#98A4BE"));
+        var referenceSearchRow = new WrapPanel { Margin = new Thickness(0, 8, 0, 4) };
+        var referenceSearch = new TextBox
+        {
+            Width = 300,
+            MinHeight = 34,
+            Margin = new Thickness(0, 0, 8, 8),
+            Padding = new Thickness(8, 5, 8, 5),
+            Text = "Gawr Gura, Ironmouse, Suisei, Shylily..."
+        };
+        referenceSearch.GotKeyboardFocus += (_, _) =>
+        {
+            if (referenceSearch.Text == "Gawr Gura, Ironmouse, Suisei, Shylily...")
+                referenceSearch.Clear();
+        };
+        referenceSearchRow.Children.Add(referenceSearch);
+        referenceSearchRow.Children.Add(ActionButton("Buscar referencia en la web", (_, _) =>
+        {
+            var query = referenceSearch.Text.Trim();
+            if (string.IsNullOrWhiteSpace(query) || query == "Gawr Gura, Ironmouse, Suisei, Shylily...")
+                query = "famous VTuber character design hair eyes accessories";
+            OpenAvatarExternalTool(
+                "https://www.google.com/search?q=" + Uri.EscapeDataString(query + " VTuber character design reference"),
+                "Búsqueda de referencias VTuber");
+        }, true));
+        referencePanel.Children.Add(referenceSearchRow);
+        referencePanel.Children.Add(Label(
+            "Plantillas de inspiración originales: Océano pop, Reaper rock, Cantante estelar, Dragona cyber, Demonio gamer y Kitsune idol. No son modelos oficiales ni contienen ilustraciones descargadas de terceros.",
+            12, "#98A4BE"));
+        root.Children.Add(referencePanel);
 
         var profilePanel = Panel("Perfiles de avatar");
         profilePanel.Margin = new Thickness(0, 0, 0, 14);
