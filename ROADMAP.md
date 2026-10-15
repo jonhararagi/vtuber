@@ -1,5 +1,13 @@
 # ROADMAP — VTuberBot producto completo
 
+## 2026-10-15 — Auditoría adicional y simulador seguro de reglas
+
+- Se añadió un simulador local a **Automatizaciones**: permite probar las condiciones de la regla actual con un payload JSON sin enviar eventos, llamar a Streamer.bot ni ejecutar hotkeys. Rechaza JSON inválido, raíces que no sean objeto, condiciones mal formadas y payloads superiores a 65.536 caracteres.
+- La galería chibi de 13 presets incluye **Miel de café**: piel morena cálida, cabello castaño con mechones interiores miel y ojos/pupilas marrones. Las capas de muestra se generan localmente; el aspecto es ilustración vectorial de referencia, no un modelo Live2D profesional ni tracking facial.
+- La documentación de Morphy quedó en `docs/ANALISIS-MORPHY.md`. Morphy se evalúa como entorno de trabajo con agentes de IA, no como dependencia de VTuberBot.
+- Prioridad de cierre: comprobar el candidato en Windows con Twitch, OBS WebSocket, Streamer.bot, PNGTuber Plus, salida SAPI/VOICEVOX y el overlay; los servicios sin credenciales o aplicaciones instaladas deben quedar marcados como bloqueados, no aprobados.
+- El último SHA con Windows CI completa antes de este bloque es `797d43ecee3eddd4c95f1c8d8f19669febfdd6a2`. La nueva CI del código del simulador debe verificarse por SHA antes de afirmar que compila.
+
 Este roadmap prioriza terminar una aplicación coherente y útil, no detener al usuario en cada etapa técnica. El CI y los tests se ejecutan internamente durante el desarrollo, pero la validación manual del usuario se concentra en un candidato global integrado.
 
 Especificación canónica de producto, UI, arquitectura, carpetas, referencias y flujos: [docs/PRODUCT_BLUEPRINT.md](docs/PRODUCT_BLUEPRINT.md).
