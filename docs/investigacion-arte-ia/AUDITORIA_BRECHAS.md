@@ -38,3 +38,7 @@ La carpeta docs/investigacion-arte-ia/ contiene el catálogo de PixAI, NovelAI, 
 ## Criterio de cierre
 
 Una fila solo se marca como completada cuando hay evidencia reproducible: código revisado, pruebas relevantes y, para integraciones externas, resultado de prueba real. CI verde no prueba por sí sola Twitch, OBS, audio físico, Telegram, VOICEVOX, Streamer.bot, PNGTuber Plus ni un modelo VRM concreto.
+
+### Validación técnica — 2026-10-15
+
+La primera ejecución de Windows CI sobre `3378c0933b7abf304208d8a22a86bd8cdc2391e7` falló en compilación por referencias de `System.IO` no importadas en la nueva biblioteca y un acceso al catálogo de roles desde el ámbito incorrecto. Se corrigieron ambos puntos en `6e7f48ed27e6b9082d433689d6e259d466d6a8c2`. El resultado del CI del SHA corregido sigue pendiente; no se declara éxito hasta ver compilación y pruebas terminadas.
