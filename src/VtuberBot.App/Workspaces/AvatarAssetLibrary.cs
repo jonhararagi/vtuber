@@ -28,7 +28,7 @@ public sealed class AvatarAssetLibrary
 {
     private const long MaxAssetBytes = 25L * 1024 * 1024;
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".png", ".jpg", ".jpeg", ".bmp", ".webp" };
+        { ".png", ".jpg", ".jpeg", ".bmp" };
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private readonly string rootDirectory;
     private readonly string assetsDirectory;
@@ -85,7 +85,7 @@ public sealed class AvatarAssetLibrary
             throw new InvalidDataException("Cada imagen debe existir y ocupar entre 1 byte y 25 MB.");
         var extension = source.Extension.ToLowerInvariant();
         if (!SupportedExtensions.Contains(extension))
-            throw new InvalidDataException("Formato no admitido. Usá PNG, JPG, JPEG, BMP o WebP.");
+            throw new InvalidDataException("Formato no admitido. Usá PNG, JPG, JPEG o BMP.");
         var cleanCategory = CleanField(category, 80);
         if (cleanCategory.Length == 0)
             throw new InvalidDataException("La categoría no puede quedar vacía.");
@@ -306,7 +306,7 @@ public partial class MainWindow
             var dialog = new OpenFileDialog
             {
                 Title = "Importar assets a la biblioteca local",
-                Filter = "Imágenes compatibles|*.png;*.jpg;*.jpeg;*.bmp;*.webp",
+                Filter = "Imágenes compatibles|*.png;*.jpg;*.jpeg;*.bmp",
                 Multiselect = true
             };
             if (dialog.ShowDialog(this) != true) return;
