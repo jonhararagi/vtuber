@@ -2,6 +2,15 @@
 
 Esta guía corresponde al candidato integrado de VTuberBot. Las funciones externas no se consideran conectadas hasta completar la autenticación real. El proceso para prevenir regresiones está descrito en [Regla de Murphy y puertas de fiabilidad](REGLA_MURPHY_Y_PUERTAS_DE_FIABILIDAD.md).
 
+## Perfiles reales de bots de Twitch
+
+En **Twitch y chat** podés guardar varios perfiles, por ejemplo **Mode-chan**, con su login real, canal de destino, Client ID y credenciales OAuth. El catálogo solo contiene metadatos; los tokens de acceso/renovación de cada perfil se cifran con DPAPI de Windows para el usuario actual.
+
+- Para crear un perfil, iniciá sesión/autorizá la cuenta bot correcta con Twitch OAuth, completá el login real de esa cuenta y el canal de destino, y elegí **Guardar perfil actual**.
+- Para usarlo, seleccioná el perfil y elegí **Activar perfil seleccionado**. VTuberBot desconecta la sesión IRC anterior y conecta la cuenta autorizada al canal elegido. El login enviado en `NICK` es distinto del canal al que se une con `JOIN`; el token debe pertenecer a esa cuenta bot o Twitch rechazará la conexión.
+- Solo un perfil de chat nativo puede estar conectado a la vez en esta versión. Los perfiles no crean cuentas de Twitch, no inventan identidades ni cambian el nombre visible de una cuenta: cada cuenta bot debe crearse y autorizarse en Twitch por separado.
+- El bot usa los comandos y automatizaciones existentes de VTuberBot; guardar un perfil no inventa comandos ni publica mensajes. Para enviar mensajes necesita una sesión autenticada real.
+
 ## OBS Studio: inicio automático y modo ligero
 
 En la página **OBS**, VTuberBot ofrece **Abrir OBS Studio**, **Elegir ubicación de OBS**, y dos preferencias persistentes:
