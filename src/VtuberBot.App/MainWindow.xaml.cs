@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     private Action<int>? liveCenterQueueHandler;
     private Action<bool>? liveCenterConnectionHandler;
     private AvatarOverlayWindow? overlay;
+    private VrmOverlayWindow? vrmOverlay;
     private string? avatarPath;
     private bool microphoneVoiceActive;
     private bool speechPlaybackActive;
@@ -111,6 +112,7 @@ public partial class MainWindow : Window
             return;
         store.SetSetting("avatar.state", nextState);
         overlay?.SetState(nextState);
+        vrmOverlay?.SetState(nextState);
     }
 
     private void OpenChatGptMiniWindow_Click(object sender, RoutedEventArgs e) => OpenChatGptMiniWindow();
@@ -523,6 +525,8 @@ public partial class MainWindow : Window
         catch (Exception exception) { LogShutdownFailure("cola de voz", exception); }
         try { overlay?.Close(); }
         catch (Exception exception) { LogShutdownFailure("overlay", exception); }
+        try { vrmOverlay?.Close(); }
+        catch (Exception exception) { LogShutdownFailure("overlay VRM", exception); }
 
         // Dispose each client independently so one failed network shutdown does not
         // prevent cleanup of the remaining clients.
