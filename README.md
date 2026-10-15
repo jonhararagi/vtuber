@@ -44,7 +44,7 @@ dotnet run --project src/VtuberBot.App --configuration Release
 
 ## Descargar el candidato de Windows
 
-No hace falta clonar ni compilar el repositorio para probar el paquete. Abrí [Windows CI de la rama de producto](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml?query=branch%3Aproduct%2Fcomplete-vtuber-experience), elegí la ejecución cuyo **Head SHA coincide exactamente** con el commit que querés probar, y descargá el ZIP en la sección **Artifacts**. Extraelo a una carpeta normal y ejecutá `VtuberBot.App.exe`. Revisá `BUILD-INFO.txt` dentro del paquete. El artefacto es temporal (retención configurada de 14 días); no es una release pública. Streamer.bot, PNGTuber Plus y otras aplicaciones externas se instalan por separado.
+No hace falta clonar ni compilar el repositorio para probar el paquete. Abrí [Windows CI de `main`](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml?query=branch%3Amain), elegí la ejecución más reciente con estado **success** y verificá que **Head SHA** sea el commit de `main` que querés probar. Descargá el ZIP en la sección **Artifacts**, extraelo a una carpeta normal y ejecutá `VtuberBot.App.exe`. Revisá `BUILD-INFO.txt` dentro del paquete y compará el SHA de origen con el SHA de la ejecución; no mezcles artefactos de ejecuciones distintas. El artefacto es temporal (retención configurada de 14 días); no es una release pública. Streamer.bot, PNGTuber Plus y otras aplicaciones externas se instalan por separado.
 
 ## Criterio de finalización
 
