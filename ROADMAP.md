@@ -4,6 +4,12 @@ Este roadmap prioriza terminar una aplicación coherente y útil, no detener al 
 
 Especificación canónica de producto, UI, arquitectura, carpetas, referencias y flujos: [docs/PRODUCT_BLUEPRINT.md](docs/PRODUCT_BLUEPRINT.md).
 
+## Ajuste de personalización de avatar — 2026-10-15
+
+- Se añadió el tono **Morena profunda** como opción independiente del tono **Morena cálida**, para ofrecer una paleta marrón más oscura sin cambiar perfiles existentes.
+- **Miel de café** ahora usa piel marrón medio-profunda, cabello castaño con inner hair miel claro e iris/pupilas marrones. La guía de usuario está actualizada.
+- CI exacta pendiente para los commits de código `057d8f2` y `ceec469`; no declarar aceptación visual sin inspección en Windows.
+
 ## Objetivo final
 
 Aplicación Windows local-first para uso real como VTuber Bot, con una interfaz moderna, avatar visible y configurable, voz/audio local, Twitch, comandos, comunidad, sorteos, minijuegos, moderación, automatizaciones, OBS, Telegram Web, persistencia y diagnósticos.
