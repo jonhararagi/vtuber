@@ -200,7 +200,7 @@ Los comandos se procesan cuando el mensaje llega a la canalización de chat de V
 
 ## Automatizaciones por eventos reales
 
-La página **Automatizaciones** permite crear reglas que escuchan eventos de Streamer.bot o notificaciones EventSub ya recibidas por VTuberBot. Cada regla combina fuente, categoría, tipo exacto, condiciones JSON opcionales, cooldown y límite por minuto. Las reglas nuevas nacen desactivadas y las automatizaciones arrancan pausadas.
+La página **Automatizaciones** permite crear reglas que escuchan eventos de Streamer.bot, notificaciones EventSub o mensajes reales del chat IRC de Twitch. Para chat, elegí la fuente `Twitch.IRC`: VTuberBot completa `Twitch.ChatMessage` y expone los campos `userName`, `message`, `messageId`, `isCommand`, `command` y `arguments` para condiciones como `message|contains|!escena`. Estos eventos se publican después de la política de moderación que suprime efectos de mensajes sancionados. Cada regla combina fuente, categoría, tipo exacto, condiciones JSON opcionales, cooldown y límite por minuto. Las reglas nuevas nacen desactivadas y las automatizaciones arrancan pausadas.
 
 Destinos disponibles:
 - **Streamer.bot:** seleccioná una acción existente de `GetActions`; antes de activar una regla se confirma el ID exacto y, al ejecutarla, se vuelve a validar que siga habilitada. Una respuesta aceptada significa que Streamer.bot aceptó la solicitud, no que el efecto final en OBS esté garantizado.
