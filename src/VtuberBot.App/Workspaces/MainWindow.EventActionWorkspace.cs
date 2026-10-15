@@ -308,6 +308,75 @@ public partial class MainWindow
             await ReconcileStreamerBotSubscriptionsAsync();
         }));
         editor.Children.Add(ruleButtons);
+
+        var simulationPanel = Panel("Simulador seguro de condiciones");
+        simulationPanel.Margin = new Thickness(0, 10, 0, 0);
+        simulationPanel.Children.Add(Label(
+            "Probá las condiciones de la regla con un evento JSON de ejemplo. Esta simulación es local: no llama a Streamer.bot, no envía teclas y no ejecuta acciones.",
+            12, "#98A4BE"));
+        var simulationPayload = new TextBox
+        {
+            Text = "{\"message\":\"hola chat\",\"userName\":\"viewer\"}",
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            MinHeight = 82,
+            MaxHeight = 180,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Background = Brush("#101525"),
+            Foreground = Brush("#F8FAFC"),
+            Padding = new Thickness(8),
+            Margin = new Thickness(0, 6, 0, 8)
+        };
+        var simulationResult = Label("Todavía no se ejecutó una simulación.", 12, "#98A4BE");
+        simulationPanel.Children.Add(Label("Payload JSON de ejemplo", 12, "#98A4BE"));
+        simulationPanel.Children.Add(simulationPayload);
+        simulationPanel.Children.Add(ActionButton("Simular condiciones (sin ejecutar acciones)", (_, _) =>
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(category.Text) || string.IsNullOrWhiteSpace(eventType.Text))
+                    throw new ArgumentException("Elegí la categoría y el tipo de evento antes de simular.");
+                if (simulationPayload.Text.Length > 65536)
+                    throw new ArgumentException("El payload de ejemplo no puede superar 65536 caracteres.");
+                using var document = JsonDocument.Parse(simulationPayload.Text);
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                    throw new ArgumentException("El payload debe ser un objeto JSON, por ejemplo {\"message\":\"hola\"}.");
+
+                var conditions = new List<EventActionCondition>();
+                foreach (var line in conditionsEditor.Text.Split(new[] { '\\r', '\\n' },
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var fields = line.Split('|', 3, StringSplitOptions.None);
+                    if (fields.Length < 2 || string.IsNullOrWhiteSpace(fields[0]))
+                        throw new ArgumentException("Cada condición debe tener el formato campo|eq|valor, campo|contains|texto o campo|present|.");
+                    var operation = fields[1].Trim();
+                    if (operation is not ("eq" or "contains" or "present"))
+                        throw new ArgumentException("Operador no permitido: " + operation);
+                    if (operation != "present" && fields.Length < 3)
+                        throw new ArgumentException("La condición " + fields[0] + " necesita un valor después del operador.");
+                    conditions.Add(new EventActionCondition(fields[0].Trim(), operation, fields.Length > 2 ? fields[2] : ""));
+                }
+
+                var evt = NormalizedBotEvent.Create(
+                    source.SelectedItem?.ToString() ?? "",
+                    category.Text.Trim(),
+                    eventType.Text.Trim(),
+                    document.RootElement,
+                    origin: NormalizedEventOrigin.Internal);
+                var matched = conditions.Count == 0 || EventActionCoordinator.MatchesConditions(evt, conditions);
+                simulationResult.Text = matched
+                    ? "COINCIDE: el payload satisface todas las condiciones. No se ejecutó ninguna acción."
+                    : "NO COINCIDE: falta un campo o una condición no se cumple. No se ejecutó ninguna acción.";
+                simulationResult.Foreground = Brush(matched ? "#86EFAC" : "#FCD34D");
+            }
+            catch (Exception ex) when (ex is ArgumentException or JsonException or InvalidOperationException)
+            {
+                simulationResult.Text = "No se pudo simular: " + ex.Message;
+                simulationResult.Foreground = Brush("#FCA5A5");
+            }
+        }));
+        simulationPanel.Children.Add(simulationResult);
+        editor.Children.Add(simulationPanel);
         root.Children.Add(editor);
 
         var activityPanel = Panel("Actividad real de automatizaciones");
