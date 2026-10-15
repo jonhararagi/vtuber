@@ -241,6 +241,16 @@ Configuración de rutas, apertura y estados de PNGTuber Plus y Streamer.bot: [Ce
 El estado `status=ok` de `DoAction` confirma la respuesta de Streamer.bot, no que OBS o el avatar hayan realizado el efecto final. Para un servidor remoto, tené presente que `ws://` no cifra el tráfico. VTuberBot no cambia el firewall ni abre puertos automáticamente.
 
 La prueba automatizada de protocolo utiliza un servidor simulado; antes de considerar validada la integración completa, hace falta probar la conexión y los eventos contra tu instancia real de Streamer.bot en Windows, junto con OBS y PNGTuber Plus.
+## Simulador seguro de reglas de automatización
+
+En **Automatizaciones**, al editar una regla, encontrás **Simulador seguro de condiciones** debajo de los botones de la regla. Pegá un objeto JSON de ejemplo, por ejemplo:
+
+```json
+{"message":"hola chat","userName":"viewer"}
+```
+
+Pulsá **Simular condiciones (sin ejecutar acciones)**. El simulador usa la categoría, tipo y fuente que estén seleccionados y evalúa las condiciones actuales contra el JSON. No llama a Streamer.bot, no envía hotkeys, no modifica reglas ni ejecuta acciones externas. Si la simulación no coincide, revisá el nombre exacto de cada campo y el operador `eq`, `contains` o `present`.
+
 ## Automatizaciones por eventos (candidato de producto)
 
 1. Abrí **Automatizaciones** y mantené activada la pausa global mientras configurás.
