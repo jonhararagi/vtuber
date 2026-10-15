@@ -1,3 +1,13 @@
+## 2026-10-15 — Inicio automático y modo ligero de OBS (implementación inicial)
+
+**Rama:** `product/complete-vtuber-experience`
+
+- Añadido `src/VtuberBot.App/ObsStartupCoordinator.cs`: detecta procesos OBS, busca `obs64.exe` en rutas estándar o en la ruta elegida por el usuario, abre OBS y puede solicitar modo ligero con `--only-bundled-plugins`. El inicio automático no bloquea la apertura de VTuberBot si OBS falta o falla.
+- `MainWindow.xaml.cs` programa la coordinación durante el evento `Loaded`; la contraseña WebSocket guardada se reutiliza solo para intentar autenticación local. Se hacen intentos limitados y con timeout; no se registra la contraseña.
+- `Workspaces/MainWindow.Integrations.cs` añade preferencias persistentes para inicio automático/modo ligero, botón para abrir OBS y selector de `obs64.exe`. El botón de conexión se presenta como configuración inicial/fallback; una conexión solo se informa como correcta tras autenticar y consultar la versión.
+- `docs/PRODUCT_USER_GUIDE.md` documenta los límites: el modo ligero omite plugins de terceros en esa sesión, no los desinstala y no garantiza menor CPU/GPU. No se ha implementado todavía ajuste automático de resolución/FPS/bitrate ni una prueba de rendimiento en Ryzen 5 5600G.
+- **Validación pendiente:** estos cambios se escribieron en GitHub, pero todavía no se ha confirmado CI para el SHA final de este bloque. No declarar compilación correcta ni funcionamiento en Windows hasta que el run del SHA exacto termine. Tampoco se ha probado OBS instalado, credenciales reales o escenas que dependan de plugins externos.
+
 # Continuidad del proyecto — VTuberBot
 
 ## 2026-10-15 — Auditoría de capacidades IA existentes (evidencia de código)
