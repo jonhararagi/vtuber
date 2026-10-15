@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -296,7 +297,7 @@ public partial class MainWindow
         panel.Children.Add(status);
         var assignRole = new ComboBox
         {
-            ItemsSource = AvatarArtPromptCatalog.Roles, SelectedIndex = 0,
+            ItemsSource = new[] { "Personaje base", "Fondo", "Objeto / capa", "Idle", "Talking", "Blink", "Happy", "Surprised", "Angry", "LeftEyeClose" }, SelectedIndex = 0,
             MinWidth = 200, Margin = new Thickness(0, 4, 8, 4)
         };
         var actions = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
