@@ -26,7 +26,9 @@ public partial class MainWindow
     private UIElement BuildTwitchPage()
     {
         var root=new StackPanel();var panel=Panel("Conexión de Twitch");root.Children.Add(panel);
-        var channel=TextField("Nombre del canal",store.GetSetting("twitch.channel"));
+        var channel=TextField("Canal donde actuará el bot",store.GetSetting("twitch.channel"));
+        var botLogin=TextField("Login real de la cuenta bot (ej. mode_chan)",store.GetSetting("twitch.bot_login",store.GetSetting("twitch.channel","")));
+        panel.Children.Add(Label("Cuenta bot",12,"#98A4BE"));panel.Children.Add(botLogin);
         var clientId=TextField("Twitch Application Client ID",store.GetSetting("twitch.client_id"));
         var token=new PasswordBox{Password=LoadTwitchToken(),Background=Brush("#101525"),Foreground=Brush("#F8FAFC"),BorderBrush=Brush("#34415E"),Padding=new Thickness(10),Margin=new Thickness(0,0,0,8)};
         twitchTokenBox = token;
@@ -59,12 +61,115 @@ public partial class MainWindow
         panel.Children.Add(Label("Si la opción está activa, las alertas EventSub se agregan a la cola TTS local con prioridad alta; el audio actual no se interrumpe.", 12, "#98A4BE"));
         var actions=new WrapPanel();
         actions.Children.Add(ActionButton("Autorizar con Twitch",async (_,_)=>{try{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());FooterStatus.Text="Esperando autorización de Twitch en el navegador…";var credentials=await TwitchOAuth.AuthorizeCredentialsAsync(clientId.Text.Trim());SaveTwitchCredentials(credentials);token.Password=credentials.AccessToken;FooterStatus.Text="OAuth completado. Access y refresh token cifrados localmente; renovación automática habilitada cuando Twitch entrega refresh token.";store.Log("Twitch","Flujo OAuth completado; los tokens no se registran.");}catch(Exception ex){FooterStatus.Text=$"OAuth no completado: {ex.Message}";MessageBox.Show(this,$"No se pudo completar OAuth. Confirmá que el Client ID sea válido y que la URL de redirección registrada sea {TwitchOAuth.RedirectUri}\n\nDetalle: {ex.Message}");}}));
-        actions.Children.Add(ActionButton("Guardar configuración segura",(_,_)=>{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());var saved=LoadTwitchCredentials();if(string.IsNullOrWhiteSpace(token.Password))SaveTwitchToken("");else if(saved is null||!string.Equals(saved.AccessToken,token.Password.Trim(),StringComparison.Ordinal))SaveTwitchToken(token.Password);FooterStatus.Text="Canal y credenciales guardados localmente; aún no conectado.";store.Log("Twitch","Configuración local guardada sin registrar tokens.");},true));
-        actions.Children.Add(ActionButton("Conectar",async (_,_)=>{try{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());var credentials=await EnsureValidTwitchCredentialsAsync(clientId.Text,token.Password);token.Password=credentials.AccessToken;twitchChatDesired=true;await twitch.ConnectAsync(channel.Text,credentials.AccessToken);}catch(Exception ex){twitchChatDesired=false;FooterStatus.Text=$"Twitch: {ex.Message}";store.Log("Twitch",$"Falló conexión: {ex.GetType().Name}; revisá configuración y permisos.");MessageBox.Show(this,$"No se pudo conectar a Twitch. Revisá canal, Client ID, token OAuth, permisos y conexión a Internet.\n\nDetalle: {ex.Message}");}}));
+        actions.Children.Add(ActionButton("Guardar configuración segura",(_,_)=>{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());store.SetSetting("twitch.bot_login",botLogin.Text.Trim());var saved=LoadTwitchCredentials();if(string.IsNullOrWhiteSpace(token.Password))SaveTwitchToken("");else if(saved is null||!string.Equals(saved.AccessToken,token.Password.Trim(),StringComparison.Ordinal))SaveTwitchToken(token.Password);FooterStatus.Text="Canal y credenciales guardados localmente; aún no conectado.";store.Log("Twitch","Configuración local guardada sin registrar tokens.");},true));
+        actions.Children.Add(ActionButton("Conectar",async (_,_)=>{try{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());store.SetSetting("twitch.bot_login",botLogin.Text.Trim());var credentials=await EnsureValidTwitchCredentialsAsync(clientId.Text,token.Password);token.Password=credentials.AccessToken;twitchChatDesired=true;await twitch.ConnectAsync(botLogin.Text.Trim(),channel.Text.Trim(),credentials.AccessToken);}catch(Exception ex){twitchChatDesired=false;FooterStatus.Text=$"Twitch: {ex.Message}";store.Log("Twitch",$"Falló conexión: {ex.GetType().Name}; revisá configuración y permisos.");MessageBox.Show(this,$"No se pudo conectar a Twitch. Revisá canal, Client ID, token OAuth, permisos y conexión a Internet.\n\nDetalle: {ex.Message}");}}));
         actions.Children.Add(ActionButton("Conectar EventSub (alertas)",async (_,_)=>{try{store.SetSetting("twitch.client_id",clientId.Text.Trim());store.SetSetting("twitch.channel",channel.Text.Trim());var credentials=await EnsureValidTwitchCredentialsAsync(clientId.Text,token.Password);token.Password=credentials.AccessToken;await eventSub.ConnectAsync(clientId.Text.Trim(),credentials.AccessToken,channel.Text.Trim());twitchEventSubDesired=true;}catch(Exception ex){twitchEventSubDesired=false;FooterStatus.Text="EventSub no conectado: "+ex.Message;MessageBox.Show(this,"No se pudieron registrar los eventos oficiales. Si el token ya existía, volvé a autorizar para aceptar los scopes adicionales.\n\n"+ex.Message);}}));
         actions.Children.Add(ActionButton("Desconectar EventSub",async (_,_)=>{twitchEventSubDesired=false;await eventSub.DisconnectAsync();}));
         actions.Children.Add(ActionButton("Desconectar",async (_,_)=>{twitchChatDesired=false;await twitch.DisconnectAsync();}));
         panel.Children.Add(actions);
+
+        var botProfilesPanel = Panel("Perfiles de bots de Twitch");
+        botProfilesPanel.Margin = new Thickness(0, 14, 0, 0);
+        botProfilesPanel.Children.Add(Label("Guardá varias configuraciones de cuentas reales, por ejemplo «Mode-chan». Cada cuenta debe existir en Twitch y autorizarse por separado. El nombre del perfil es una etiqueta interna; el login y el token autorizan la identidad real. Solo un perfil de chat puede estar conectado a la vez.", 12, "#98A4BE"));
+        var profileName = TextField("Nombre interno del perfil (ej. Mode-chan)", store.GetSetting("twitch.botProfile.lastName", "Mode-chan"));
+        botProfilesPanel.Children.Add(profileName);
+        var profileStore = new TwitchBotProfileStore(dataDirectory, secretDirectory);
+        var profilePicker = new ComboBox { MinWidth = 280, Margin = new Thickness(0, 4, 8, 8), DisplayMemberPath = nameof(TwitchBotProfile.Name) };
+        void RefreshBotProfiles(string? selectId = null)
+        {
+            try
+            {
+                profilePicker.ItemsSource = profileStore.List();
+                if (profilePicker.ItemsSource is IEnumerable<TwitchBotProfile> entries)
+                    profilePicker.SelectedItem = entries.FirstOrDefault(item => item.Id == selectId) ?? entries.FirstOrDefault();
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudieron leer los perfiles de bots: " + exception.Message;
+            }
+        }
+        RefreshBotProfiles();
+        var profileActions = new WrapPanel();
+        profileActions.Children.Add(ActionButton("Guardar perfil actual", async (_, _) =>
+        {
+            try
+            {
+                var profileLabel = profileName.Text.Trim();
+                var botAccount = botLogin.Text.Trim();
+                var targetChannel = channel.Text.Trim();
+                var appClientId = clientId.Text.Trim();
+                if (string.IsNullOrWhiteSpace(profileLabel) || string.IsNullOrWhiteSpace(botAccount) ||
+                    string.IsNullOrWhiteSpace(targetChannel) || string.IsNullOrWhiteSpace(appClientId))
+                    throw new InvalidOperationException("Completá nombre de perfil, login del bot, canal y Client ID.");
+                var credentials = await EnsureValidTwitchCredentialsAsync(appClientId, token.Password);
+                var profile = new TwitchBotProfile(Guid.NewGuid().ToString("N"), profileLabel, botAccount,
+                    targetChannel, appClientId, DateTimeOffset.UtcNow);
+                profileStore.Save(profile, credentials);
+                store.SetSetting("twitch.botProfile.lastName", profileLabel);
+                RefreshBotProfiles(profile.Id);
+                FooterStatus.Text = "Perfil guardado. El token OAuth está protegido por DPAPI y no se guardó en el catálogo JSON.";
+                store.Log("Twitch bots", "Perfil guardado: " + profileLabel + " · cuenta " + botAccount + " · canal " + targetChannel + ".");
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo guardar el perfil: " + exception.Message;
+                MessageBox.Show(this, exception.Message, "Perfiles de bots Twitch", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }, true));
+        profileActions.Children.Add(ActionButton("Activar perfil seleccionado", async (_, _) =>
+        {
+            try
+            {
+                if (profilePicker.SelectedItem is not TwitchBotProfile profile)
+                    throw new InvalidOperationException("Primero guardá o seleccioná un perfil.");
+                var credentials = profileStore.LoadCredentials(profile);
+                if (twitch.IsConnected)
+                    await twitch.DisconnectAsync();
+                twitchChatDesired = false;
+                store.SetSetting("twitch.client_id", profile.ClientId);
+                store.SetSetting("twitch.channel", profile.Channel);
+                store.SetSetting("twitch.bot_login", profile.BotLogin);
+                SaveTwitchCredentials(credentials);
+                channel.Text = profile.Channel;
+                botLogin.Text = profile.BotLogin;
+                clientId.Text = profile.ClientId;
+                token.Password = credentials.AccessToken;
+                var validated = await EnsureValidTwitchCredentialsAsync(profile.ClientId, credentials.AccessToken);
+                await twitch.ConnectAsync(profile.BotLogin, profile.Channel, validated.AccessToken);
+                twitchChatDesired = true;
+                FooterStatus.Text = "Bot conectado como " + profile.BotLogin + " en #" + profile.Channel + ".";
+                store.Log("Twitch bots", "Perfil activado y conexión IRC autenticada: " + profile.Name + ".");
+            }
+            catch (Exception exception)
+            {
+                twitchChatDesired = false;
+                FooterStatus.Text = "No se pudo activar el bot: " + exception.Message;
+                store.Log("Twitch bots", "Falló la activación de un perfil (" + exception.GetType().Name + ").");
+                MessageBox.Show(this, exception.Message, "Perfiles de bots Twitch", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }, true));
+        profileActions.Children.Add(ActionButton("Eliminar perfil guardado", (_, _) =>
+        {
+            if (profilePicker.SelectedItem is not TwitchBotProfile profile)
+                return;
+            if (MessageBox.Show(this, "Se eliminará la configuración guardada y su token protegido. Si ya está conectado, la sesión actual no se cerrará. ¿Continuar?",
+                    "Eliminar perfil de bot", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+            try
+            {
+                profileStore.Delete(profile);
+                RefreshBotProfiles();
+                FooterStatus.Text = "Perfil eliminado del almacenamiento local.";
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo eliminar el perfil: " + exception.Message;
+            }
+        }));
+        botProfilesPanel.Children.Add(profilePicker);
+        botProfilesPanel.Children.Add(profileActions);
+        root.Children.Add(botProfilesPanel);
+
         var chatPanel=Panel("Chat en directo");chatPanel.Margin=new Thickness(0,16,0,0);
         var list=new ListBox{ItemsSource=chatLines,Height=260};chatPanel.Children.Add(list);
         var send=TextField("Escribí un mensaje para el chat…");var sendRow=new DockPanel();DockPanel.SetDock(sendRow, Dock.Left);sendRow.Children.Add(send);
