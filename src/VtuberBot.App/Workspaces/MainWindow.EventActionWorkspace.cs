@@ -262,7 +262,14 @@ public partial class MainWindow
                     throw new ArgumentException("El cooldown debe estar entre 0 y 86400 segundos.");
                 if (!int.TryParse(perRuleLimit.Text, out var maxPerMinute) || maxPerMinute is < 1 or > 100)
                     throw new ArgumentException("El límite por regla debe estar entre 1 y 100 por minuto.");
-                var dest = Equals(destination.SelectedItem, "Streamer.bot") ? EventActionDestination.StreamerBot : EventActionDestination.PngtuberPlus;
+                var dest = destination.SelectedItem?.ToString() switch
+                {
+                    "Streamer.bot" => EventActionDestination.StreamerBot,
+                    "PNGTuber Plus" => EventActionDestination.PngtuberPlus,
+                    "OBS · cambiar escena" => EventActionDestination.ObsScene,
+                    "Avatar · expresión" => EventActionDestination.AvatarExpression,
+                    _ => throw new InvalidOperationException("Seleccioná un destino válido.")
+                };
                 if (dest == EventActionDestination.StreamerBot)
                 {
                     if (!Guid.TryParse(targetId, out var selectedActionId))
