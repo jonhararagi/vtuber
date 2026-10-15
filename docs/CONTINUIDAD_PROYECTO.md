@@ -1,3 +1,13 @@
+## 2026-10-15 — Automatizaciones directas de OBS y avatar
+
+- Se amplió `EventActionDestination` con destinos directos `ObsScene` y `AvatarExpression`; el resto del coordinador de eventos sigue compartido, acotado y con reglas persistentes.
+- La pantalla Automatizaciones consulta la lista real de escenas desde OBS autenticado y ofrece solo expresiones del avatar cuyo recurso existe. Al guardar y al ejecutar, la escena/expresión se valida de nuevo; no se cambia nada al seleccionar o guardar el destino.
+- El despachador usa `ObsWebSocketClient.SetCurrentSceneAsync` para solicitar el cambio de escena y el callback del renderizador del avatar para solicitar un estado. La actividad no afirma que OBS cambió visualmente la salida: diferencia la aceptación de la solicitud del efecto visual final.
+- Las reglas nuevas continúan desactivadas; automatizaciones pausadas por defecto; las acciones Streamer.bot mantienen confirmación por ID y los atajos PNGTuber Plus siguen con autorización global separada.
+- Se agregó una prueba de persistencia para distinguir los nuevos destinos en el Core.
+- **Validación pendiente:** los commits de código/documentación disparan una nueva ejecución de Windows CI. Debe comprobarse el SHA final después de los cambios; no se afirma compilación ni pruebas verdes para esta ampliación todavía.
+- No se modificó `main` ni se fusionó el PR #18.
+
 ## 2026-10-15 — Perfiles reales de bots Twitch
 
 - Añadido `TwitchBotProfileStore.cs`: catálogo local de perfiles, credenciales OAuth separadas cifradas con DPAPI y detección de catálogo/credenciales dañadas sin registrar tokens.
