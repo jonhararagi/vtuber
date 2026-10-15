@@ -5,8 +5,9 @@
 - La pantalla Automatizaciones consulta la lista real de escenas desde OBS autenticado y ofrece solo expresiones del avatar cuyo recurso existe. Al guardar y al ejecutar, la escena/expresión se valida de nuevo; no se cambia nada al seleccionar o guardar el destino.
 - El despachador usa `ObsWebSocketClient.SetCurrentSceneAsync` para solicitar el cambio de escena y el callback del renderizador del avatar para solicitar un estado. La actividad no afirma que OBS cambió visualmente la salida: diferencia la aceptación de la solicitud del efecto visual final.
 - Las reglas nuevas continúan desactivadas; automatizaciones pausadas por defecto; las acciones Streamer.bot mantienen confirmación por ID y los atajos PNGTuber Plus siguen con autorización global separada.
-- Se agregó una prueba de persistencia para distinguir los nuevos destinos en el Core.
-- **Validación pendiente:** no se encontró una ejecución de Windows CI asociada al SHA final durante esta consulta. La última CI verde disponible es anterior a estas modificaciones, por lo que no valida los nuevos destinos ni sus pruebas. Antes de distribuir, obtener una ejecución de Windows CI para el HEAD exacto y corregir cualquier fallo.
+- Se agregó una prueba de persistencia para distinguir los nuevos destinos en el Core y otra para asegurar que los destinos directos no heredan la confirmación de acciones externas de Streamer.bot.
+- La UI ahora incluye un constructor de condiciones por menús (campo, operador y valor) y mantiene el editor de líneas para casos avanzados.
+- **Validación observada:** Windows CI #868 para el SHA `4a4566f451fe5ccceba39cc25086b2b31b71cb15` terminó `success`, incluyendo Build Release, pruebas automatizadas, publicación del paquete Windows x64 y subida del artefacto. Este run valida los destinos directos OBS/avatar y la fuente de chat IRC, pero es anterior al último commit `e0aa7e7433fd0e7206c649a420c28a36d2891ec0`, que añade el constructor de condiciones. Debe comprobarse el run asociado al HEAD más reciente antes de declarar validado ese último cambio.
 - No se modificó `main` ni se fusionó el PR #18.
 
 ## 2026-10-15 — Perfiles reales de bots Twitch
