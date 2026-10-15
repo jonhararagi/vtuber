@@ -5,7 +5,7 @@
 - El despachador usa `ObsWebSocketClient.SetCurrentSceneAsync` para solicitar el cambio de escena y el callback del renderizador del avatar para solicitar un estado. La actividad no afirma que OBS cambió visualmente la salida: diferencia la aceptación de la solicitud del efecto visual final.
 - Las reglas nuevas continúan desactivadas; automatizaciones pausadas por defecto; las acciones Streamer.bot mantienen confirmación por ID y los atajos PNGTuber Plus siguen con autorización global separada.
 - Se agregó una prueba de persistencia para distinguir los nuevos destinos en el Core.
-- **Validación pendiente:** los commits de código/documentación disparan una nueva ejecución de Windows CI. Debe comprobarse el SHA final después de los cambios; no se afirma compilación ni pruebas verdes para esta ampliación todavía.
+- **Validación pendiente:** no se encontró una ejecución de Windows CI asociada al SHA final durante esta consulta. La última CI verde disponible es anterior a estas modificaciones, por lo que no valida los nuevos destinos ni sus pruebas. Antes de distribuir, obtener una ejecución de Windows CI para el HEAD exacto y corregir cualquier fallo.
 - No se modificó `main` ni se fusionó el PR #18.
 
 ## 2026-10-15 — Perfiles reales de bots Twitch
