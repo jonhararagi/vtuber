@@ -1661,3 +1661,66 @@ Esta tabla es un análisis de ramas, no una afirmación de que las ramas enumera
 
 - **Ajuste de idioma de las frases predeterminadas:** las cuatro reacciones anime usan texto japonés corto para evitar pasar una oración española entera a una voz japonesa. `/soybot` conserva el texto español.
 - **Validación pendiente:** la voz SAPI japonesa no se ha probado en el equipo del usuario. El código solo acepta voz SAPI local identificable como japonesa o clip explícito; el proveedor remoto no se presenta como voz japonesa. La prueba automatizada valida la selección del callback y no el audio físico.
+
+## 2026-10-15 — Auditoría de recursos artísticos y voces realmente presentes en el repositorio
+
+**Alcance de esta auditoría:** inspección del árbol Git recursivo y de los archivos fuente en `product/complete-vtuber-experience`, HEAD `01fcfd762404cf8592eb61607ba5f11bdf70fdfc`. Se distinguen archivos versionados, gráficos construidos por código, servicios externos y recursos del paquete publicado. La inspección del árbol no equivale a inspeccionar el ZIP publicado ni a probar la interfaz en Windows.
+
+### Inventario exacto de archivos visuales binarios versionados
+
+El árbol contiene **10 archivos de imagen** y **ningún archivo de audio** (no aparecen WAV, MP3, OGG, FLAC, M4A ni otros formatos de audio habituales):
+
+1. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_NeutralIdle.png` — 1,045,151 bytes.
+2. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_NeutralTalk.png` — 1,047,298 bytes.
+3. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_BlinkIdle.png` — 1,021,800 bytes.
+4. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_BlinkTalk.png` — 1,024,124 bytes.
+5. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_HappyIdle.png` — 1,024,577 bytes.
+6. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_HappyTalk.png` — 1,026,960 bytes.
+7. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_SadIdle.png` — 1,038,374 bytes.
+8. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_SadTalk.png` — 1,040,192 bytes.
+9. `src/VtuberBot.App/Assets/Avatars/test-sample/marmalade-pngtuber-model.png` — 536,863 bytes.
+10. `src/VtuberBot.App/from-PixAI-2066979593223430727-0.png` — 1,515,145 bytes.
+
+**Cómo interpretar las muestras:**
+- CrystalGirl son ocho fotogramas completos de 735×1388, no piezas independientes. Su README dice explícitamente que la carpeta es una muestra provisional y que el runtime WPF todavía no la carga ni la muestra. Su `LICENSES.md` registra la licencia CC0 declarada por el autor para esos ocho PNG.
+- Marmalade es una única imagen aplanada de 1346×1392. `src/VtuberBot.App/Assets/Avatars/test-sample/README.md` la documenta como muestra estática provisional, no conectada al runtime. `src/VtuberBot.App/Assets/Avatars/test-sample/LICENSES.md` registra CC0 y su procedencia.
+- El archivo `from-PixAI-2066979593223430727-0.png` sí está versionado, pero en el árbol inspeccionado no encontré un registro de licencia/procedencia asociado que permita confirmar sus permisos. No debe anunciarse como arte original propio ni redistribuirse fuera del repositorio sin aclarar ese estado.
+- No se encontraron paquetes de audio, música, efectos sonoros, grabaciones de voz ni voces pregrabadas versionadas.
+
+### Arte generado por código y catálogos paramétricos
+
+- Avatar Studio declara **18 perfiles/presets chibi en el código actual** de `MainWindow.AvatarStudio.cs`. Son combinaciones de identificadores de cabello, ropa, accesorio de cabeza, accesorio facial, elemento trasero, forma de rostro, estilo de ojos, piel y pose. No son 18 ilustraciones PNG únicas ya dibujadas.
+- El armario modular define piezas y paletas por identificadores; partes del aspecto se construyen mediante código/vectorización y composición. La cantidad de opciones del catálogo no equivale a una colección equivalente de ilustraciones profesionales independientes.
+- El taller 3D (`AvatarWardrobeStudioWindow.cs`) construye una figura paramétrica en HTML/JavaScript dentro de WebView2. No contiene un archivo de modelo 3D de personaje listo para usar: genera la vista a partir del código. Necesita conexión a Internet para descargar Three.js y no exporta un avatar animado/riggeado; el GLB exportado es estático.
+- La biblioteca local de arte (`AvatarAssetLibrary.cs`) es un **gestor vacío hasta que se importen imágenes**: crea el catálogo y la carpeta de assets en los datos locales del usuario. No descarga automáticamente imágenes de PixAI, NovelAI, Tensor.Art, SeaArt ni Civitai, ni genera imágenes con IA.
+- Las imágenes mostradas anteriormente mediante búsquedas/referencias visuales en respuestas no son prueba de que esos archivos estén incluidos en el repositorio.
+
+### Voz, audio y modelos
+
+- **No hay archivos de voz incluidos.** El proyecto incorpora código y dependencias para reproducir/generar audio, no una biblioteca de voces pregrabadas.
+- Windows SAPI usa las voces instaladas en Windows; la disponibilidad y calidad dependen del sistema del usuario.
+- VOICEVOX se conecta a un motor local externo en `http://127.0.0.1:50021`; el motor, las voces y sus términos/licencias deben instalarse y verificarse aparte. No están empaquetados por el repositorio.
+- Gemini TTS es una opción remota: requiere Internet y una clave API válida, con cuotas y condiciones del proveedor. El preset de voz y las instrucciones de estilo no garantizan una altura o calidad idéntica en todas las ejecuciones.
+- Los clips WAV/MP3 pueden importarse desde el equipo del usuario, pero no se encontró una carpeta de clips de ejemplo versionada.
+- La dependencia NuGet NAudio (`VtuberBot.App.csproj`) proporciona infraestructura de audio; no contiene voces. WebView2 y ONNX Runtime tampoco son assets artísticos o modelos de voz. No se encontraron pesos de TTS/STT/LLM ni archivos ONNX de segmentación en el árbol inspeccionado.
+
+### ¿Qué entra realmente en el paquete Windows?
+
+- `VtuberBot.App.csproj` no contiene declaraciones explícitas `Content`/`Resource` para los diez PNG listados. Los dos README de muestras advierten que esas imágenes no están conectadas al runtime. Por tanto, **no doy por confirmado que los PNG se incluyan en el artefacto autocontenido ni que aparezcan en la aplicación publicada**; esto requiere revisar el contenido del artefacto de Windows y probarlo.
+- El árbol confirma archivos versionados, no que se hayan cargado desde la aplicación ni que el paquete final los distribuya. El código del taller paramétrico sí está dentro de la aplicación, pero parte de su vista depende de bibliotecas CDN.
+- Esta auditoría no reemplaza la validación de Windows CI del SHA final ni una inspección manual del paquete instalado.
+
+### Faltantes concretos detectados
+
+1. Una galería amplia de arte terminado y listo para usar, con personajes visualmente distintos y archivos de licencia/procedencia comprobables para cada recurso.
+2. Más sprites realmente incluidos y conectados al runtime para reposo/habla/parpadeo/expresiones; las muestras CrystalGirl/Marmalade actuales son provisionales y no están conectadas.
+3. Recursos visuales separados por capas (cuerpo, cara, pelo, ojos, boca, ropa y accesorios) para los ejemplos importados; los dos modelos PNG de prueba están aplanados.
+4. Una biblioteca de audio de muestra con licencia clara y voces incluidas no existe; las voces actuales dependen de SAPI/VOICEVOX instalados o TTS remoto.
+5. Modelos/pesos locales de voz, transcripción o conversación no vienen en el repositorio.
+6. Confirmar/regularizar la licencia y procedencia de `from-PixAI-2066979593223430727-0.png`.
+7. Inspeccionar el artefacto Windows generado por CI para confirmar qué imágenes se empaquetan y hacer una prueba visual real en Windows.
+
+**Conclusión para evitar sorpresas:** el programa no carece de toda capacidad artística —tiene un armario paramétrico y perfiles generados por código—, pero **no incluye una gran galería de ilustraciones ni voces de anime pregrabadas**. Hay diez PNG en el árbol, de los cuales ocho pertenecen a una sola muestra multestado, uno es un modelo estático y uno requiere aclaración de licencia. Hay cero archivos de audio versionados. La disponibilidad de voces depende de Windows, de instalar VOICEVOX o de configurar un proveedor remoto.
+
+- Esta auditoría solo documenta lo encontrado; no cambia código ni assets.
+- Se trabajó exclusivamente en `product/complete-vtuber-experience`; no se modificó `main`, no se fusionó ni cerró ningún PR.
