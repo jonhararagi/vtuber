@@ -376,6 +376,35 @@ public partial class MainWindow
         if (skipMessageSideEffects)
             return;
 
+        // Publish only after moderation has decided that this message may cause side effects.
+        // This lets user-authored automation rules react to real IRC chat without bypassing
+        // the existing sanction/suppression policy or inventing a provider event.
+        try
+        {
+            var eventSeparator = text.IndexOf(' ');
+            var eventCommand = text.StartsWith('!')
+                ? (eventSeparator < 0 ? text : text[..eventSeparator]).Trim().ToLowerInvariant()
+                : string.Empty;
+            var eventArguments = eventSeparator < 0 ? string.Empty : text[(eventSeparator + 1)..].Trim();
+            using var payload = JsonDocument.Parse(JsonSerializer.Serialize(new
+            {
+                userName = username,
+                message = text,
+                messageId,
+                isCommand = eventCommand.Length > 0,
+                command = eventCommand,
+                arguments = eventArguments
+            }));
+            eventActionCoordinator?.TryPublish(NormalizedBotEvent.Create(
+                "Twitch.IRC", "Twitch", "ChatMessage", payload.RootElement,
+                providerEventId: string.IsNullOrWhiteSpace(messageId) ? null : messageId,
+                origin: NormalizedEventOrigin.External));
+        }
+        catch (Exception exception) when (exception is ArgumentException or JsonException or InvalidOperationException)
+        {
+            store.Log("Automatizaciones", "Se descartó un evento de chat no válido (" + exception.GetType().Name + ").");
+        }
+
         var now = DateTimeOffset.UtcNow;
         if (!lastPointAward.TryGetValue(username, out var last) || now - last >= TimeSpan.FromMinutes(5))
         {
