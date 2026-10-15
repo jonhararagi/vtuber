@@ -1,3 +1,10 @@
+## 2026-10-15 — Simulador seguro de reglas y reconciliación de documentación
+
+- Se portó desde `main` el simulador local de condiciones a **Automatizaciones** en la rama de producto. Evalúa el JSON de ejemplo con el evaluador existente, limita el payload a 65.536 caracteres, rechaza JSON inválido, raíces que no sean objetos y condiciones mal formadas; no llama a Streamer.bot, no envía hotkeys y no ejecuta acciones.
+- Se conservan las capacidades nuevas de producto: constructor visual de condiciones, fuente Twitch IRC, destinos OBS/avatar y selección validada de recursos reales. El simulador usa la misma lista de condiciones del editor para evitar que el preview pruebe una regla distinta.
+- Se preservó `docs/ANALISIS-MORPHY.md` desde `main` y se corregió el texto del taller de avatar para que no describa las pupilas marrones como blancas.
+- La documentación de uso y continuidad se sincroniza con el simulador. La aceptación de este bloque depende de Windows CI del SHA final y no sustituye pruebas manuales de OBS/Twitch/Streamer.bot.
+
 # ROADMAP — VTuberBot producto completo
 
 Este roadmap prioriza terminar una aplicación coherente y útil, no detener al usuario en cada etapa técnica. El CI y los tests se ejecutan internamente durante el desarrollo, pero la validación manual del usuario se concentra en un candidato global integrado.
