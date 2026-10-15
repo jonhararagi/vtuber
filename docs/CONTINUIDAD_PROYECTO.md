@@ -1,5 +1,10 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Ajuste de formatos admitidos
+
+- Se limitó la biblioteca a PNG/JPG/JPEG/BMP, alineándola con el decodificador y la ruta de asignación de imágenes ya usados por Avatar Studio. WebP se retiró del selector para no prometer un formato que la ruta actual no garantiza.
+- Commit: `63456ac17515af09dcd23431d2d2c7d9ca55a580`. El CI de la corrección de compilación se estaba ejecutando mientras se registró este ajuste; hay que comprobar el estado del SHA más reciente y no inferir éxito del run anterior.
+
 ## 2026-10-15 — Corrección del primer fallo de Windows CI
 
 - Se revisó el job de Windows CI para el SHA `3378c0933b7abf304208d8a22a86bd8cdc2391e7`. El restore terminó correctamente, pero `Build Release` falló al compilar `AvatarAssetLibrary.cs`: faltaba importar `System.IO` y el panel usaba `AvatarArtPromptCatalog.Roles` desde una clase distinta a la que lo expone.
