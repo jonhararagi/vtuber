@@ -378,3 +378,18 @@ El candidato de producto se compiló y probó en Windows CI para la revisión de
 - **Telegram Web:** se abre en WebView2 y ofrece navegador externo como alternativa. No se valida una sesión real de Telegram en CI.
 - **Videojuegos:** VTuberBot no incluye un agente que observe y juegue videojuegos arbitrarios. Los minijuegos disponibles son interacciones del chat.
 - **Pendiente de tu entorno Windows:** revisar visualmente las seis tarjetas y combinaciones del creador chibi, transparencia y orden de capas del overlay en OBS, micrófono/SAPI reales, Twitch OAuth/IRC/EventSub, conexión/acciones de bajo riesgo en OBS y Streamer.bot, y respuesta de hotkeys en PNGTuber Plus.
+
+## Galería de personajes chibi
+
+En **Avatar Studio** hay una galería de trece personajes chibi completos. Incluye **Miel de café** (piel morena cálida, cabello castaño con mechones interiores miel claro, iris marrones y pupilas marrón oscuro), además de Neko gamer, Brujita lunar, Idol estelar, Gótica rosa, Cyber neón, Streamer casual, Zorrita de festival, Oráculo invernal, Guardiana kitsune, Pop celestial, Capitana pirata y Conejita de café. Cada preset combina peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al elegir una tarjeta se crea un perfil propio; no reemplaza los perfiles anteriores. Son ilustraciones chibi generadas localmente, no un rig Live2D profesional.
+
+## Simulador seguro de reglas de automatización
+
+En **Automatizaciones**, al editar una regla, usá **Simulador seguro de condiciones**. Pegá un objeto JSON de ejemplo, por ejemplo:
+
+```json
+{"message":"hola chat","userName":"viewer"}
+```
+
+Pulsá **Simular condiciones (sin ejecutar acciones)**. Se usa la fuente, categoría, tipo y las condiciones actuales. El simulador no llama a Streamer.bot, no envía hotkeys, no modifica reglas ni ejecuta acciones externas. Si no coincide, revisá los nombres de los campos y el operador `eq`, `contains` o `present`. Los payloads se limitan a 65.536 caracteres.
+
