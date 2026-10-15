@@ -1,5 +1,14 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Overlay VRM implementado y CI aprobada
+
+- Se creó la rama `feature/vrm-overlay-complete` desde `main` tras fusionar PR #16. Se añadió `VrmOverlayWindow.cs` y un botón de Avatar Studio para importar un `.vrm` local, copiarlo a una carpeta única y abrir una ventana transparente WebView2 con Three.js/three-vrm.
+- El estado Idle/Talking se sincroniza con el estado de voz de VTuberBot y el overlay se cierra durante el apagado. Se limita el tamaño del archivo a 200 MB. El archivo permanece local; las bibliotecas JS se descargan de CDN.
+- Se actualizó `PRODUCT_USER_GUIDE.md` y se añadió `docs/VRM-OVERLAY.md`. El taller paramétrico que ya está en main sigue exportando GLB estático; no se anuncia como exportador VRM.
+- Windows CI [#38675822258](https://github.com/jonhararagi/vtuber/actions/runs/38675822258) terminó `success` para el SHA `9a9699ec8f63ddb78139acca19e43cfc17e2283f`: Restore, Build Release, **534 pruebas aprobadas, 0 fallidas, 0 omitidas**, publicación autocontenida win-x64 y artefacto completados. Artefacto `VTuberBot-Product-Candidate-win-x64-d6f5a9d44b70ec68c267c4554fa71f7bb79a538e`, 84,679,374 bytes, SHA-256 `961db4c4dc5abab609ab184c5ce95f52aefd0b2568c29ffc6ff47cff50a85282`. Esta ejecución valida el port sobre la versión actual de `main`.
+- Pendiente de validación manual: abrir un VRM real en Windows y revisar transparencia, encuadre, rendimiento y cambios Idle/Talking. No se afirma que el overlay haya sido probado visualmente.
+- PR #16 ya está fusionado en `main` (merge SHA `7fd81b2898fb1596d88387a61f06124320f6a683`). PR #17 contiene el port VRM y está listo para integrarse tras esta CI aprobada; la CI posterior al merge de `main` será la verificación final de la rama principal.
+
 ## 2026-10-14/15 — Cierre de la actualización visual y precisión del alcance 3D
 
 - Se colocó **Miel de café** como primer personaje de la galería para que el estilo pedido no quede perdido al final. El preset conserva piel morena cálida, cabello castaño oscuro con mechones interiores miel, iris marrones y pupilas marrón oscuro; usa el peinado modular `brown-inner-light`, no un simple brillo superficial. La guía de usuario refleja el nuevo orden.

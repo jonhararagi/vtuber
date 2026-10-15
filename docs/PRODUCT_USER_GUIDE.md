@@ -8,6 +8,15 @@ Arriba de **Avatar Studio** hay una galería de trece personajes chibi completos
 
 Debajo de esa galería está **Crear PNGTuber con mis imágenes**. Elegí una imagen de reposo y, si ya tenés una, otra con la boca abierta para hablar. Con una sola imagen el avatar queda visualmente estático; con dos, el detector de audio alterna entre ellas.
 
+### Abrir un modelo VRM en el overlay 3D
+
+1. Creá o exportá un archivo `.vrm` en VRoid Studio u otra herramienta compatible. El taller paramétrico integrado exporta GLB estático, no VRM.
+2. En **Avatar Studio**, pulsá **Cargar modelo VRM y abrir overlay 3D** y elegí el archivo.
+3. VTuberBot valida que el archivo exista y pese menos de 200 MB, copia el modelo a una carpeta propia bajo los datos locales y abre una ventana transparente siempre visible.
+4. El overlay refleja los estados **Idle/Talking** de VTuberBot. Podés mover y redimensionar la ventana; el modelo permanece local y no se sube a un editor web.
+
+El renderizador usa WebView2 y descarga Three.js/three-vrm desde CDN; necesita Microsoft Edge WebView2 Runtime e Internet. No incluye tracking facial, lip-sync por fonemas, edición de malla ni ajuste automático de ropa. Probalo en Windows con tu propio modelo antes de usarlo en una transmisión.
+
 ### Crear tu propio personaje chibi
 
 El panel **Creador de personaje chibi — cambia cada parte** permite combinar independientemente:
@@ -25,9 +34,9 @@ Pulsá **Crear perfil con esta combinación** para guardar otra versión; se cre
 
 1. **2.5D con IA local:** seleccioná una ilustración para intentar separar cabello, ropa, piel/cuerpo y detalles. La primera vez se descarga un modelo pequeño y después el procesamiento se realiza en la PC. Tiene un límite de 2 GiB para el proceso de IA y diez minutos; es experimental y puede requerir correcciones.
 2. **Taller 3D integrado:** permite cambiar silueta, tono de piel, cabello, mechones interiores (inner hair), iris, pupilas, expresión, ropa, colores y accesorios; incluye el preset **Miel de café**. Podés guardar la apariencia en JSON y exportar un modelo GLB estático. El GLB exportado no tiene rig ni animaciones, y el taller carga Three.js desde Internet.
-3. **VRoid Studio:** abre [VRoid Studio](https://vroid.com/en/studio), un creador externo de modelos 3D. La importación y animación de VRM dentro del overlay de VTuberBot todavía no está implementada.
+3. **VRoid Studio:** abre [VRoid Studio](https://vroid.com/en/studio), un creador externo de modelos 3D. También podés cargar un archivo `.vrm` propio desde Avatar Studio para abrirlo en un overlay 3D transparente. El overlay sincroniza Idle/Talking con la voz, pero no tiene tracking facial ni animación avanzada de expresiones.
 
-**La ruta recomendada para empezar es elegir un personaje de la galería y luego personalizarlo.** PNGTuber es lo más ligero; 2.5D sigue siendo experimental y 3D puede integrarse cuando tengamos un runtime VRM funcional.
+**La ruta recomendada para empezar es elegir un personaje de la galería y luego personalizarlo.** PNGTuber es lo más ligero; 2.5D sigue siendo experimental. Para VRM animado, creá/exportá un modelo `.vrm` con VRoid u otra herramienta y cargalo desde el botón de Avatar Studio.
 
 ## Primer inicio y datos
 

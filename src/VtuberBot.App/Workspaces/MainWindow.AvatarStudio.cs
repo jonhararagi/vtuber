@@ -142,6 +142,8 @@ public partial class MainWindow
         beginnerActions.Children.Add(startLocalSegmentation);
         beginnerActions.Children.Add(ActionButton("Abrir mini estudio 3D integrado", (_, _) =>
             OpenAvatarWardrobeStudio(), true));
+        beginnerActions.Children.Add(ActionButton("Cargar modelo VRM y abrir overlay 3D", (_, _) =>
+            ImportVrmAndOpenOverlay(), true));
         beginnerActions.Children.Add(ActionButton("Abrir VRoid Studio (externo)", (_, _) =>
             OpenAvatarExternalTool("https://vroid.com/en/studio", "VRoid Studio")));
         cancelLocalSegmentation = ActionButton("Cancelar IA", (_, _) =>
@@ -989,6 +991,49 @@ public partial class MainWindow
     {
         var window = new AvatarWardrobeStudioWindow { Owner = this };
         window.Show();
+    }
+
+    private void ImportVrmAndOpenOverlay()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Elegí el modelo 3D VRM para tu VTuber",
+            Filter = "Modelos VRM (*.vrm)|*.vrm",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            var info = new FileInfo(dialog.FileName);
+            if (!info.Exists || info.Length <= 0 || info.Length > 200L * 1024 * 1024)
+                throw new InvalidDataException("El modelo debe existir y ocupar menos de 200 MB.");
+
+            // Each imported model gets its own folder, so the renderer HTML can never
+            // overwrite another user's model or a file with the same name.
+            var modelFolder = Path.Combine(avatarDirectory, "models",
+                "vrm-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(modelFolder);
+            var destination = Path.Combine(modelFolder, "avatar.vrm");
+            File.Copy(dialog.FileName, destination, overwrite: false);
+            store.SetSetting("avatar.vrm.path", destination);
+
+            vrmOverlay?.Close();
+            vrmOverlay = new VrmOverlayWindow(destination);
+            vrmOverlay.Closed += (_, _) => vrmOverlay = null;
+            vrmOverlay.Show();
+            vrmOverlay.SetState(store.GetSetting("avatar.state", "Idle"));
+            FooterStatus.Text = "Modelo VRM copiado a la biblioteca local. El overlay 3D se está iniciando.";
+            store.Log("Avatar VRM", "Modelo local importado: " + Path.GetFileName(dialog.FileName) + ".");
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this,
+                "No se pudo importar o abrir el modelo VRM: " + exception.GetBaseException().Message,
+                "Importar modelo VRM", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void OpenAvatarExternalTool(string url, string toolName)
