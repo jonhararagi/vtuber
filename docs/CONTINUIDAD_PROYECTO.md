@@ -1,5 +1,15 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Cierre de integración en main y validación Windows
+
+- **Rama principal:** `main`. El commit de código integrado es `5407b5b5902851bef3641741e501f8fda8144fb2`, merge de PR #17. La rama de producto integrada en PR #16 aporta perfiles editables de prompts, voz japonesa local VOICEVOX y galería chibi ampliada; PR #12 aporta imágenes PNG de muestra con licencias documentadas; PR #17 aporta importación local de VRM y overlay 3D transparente con estados Idle/Talking.
+- **Windows CI post-merge:** [run #38676241070](https://github.com/jonhararagi/vtuber/actions/runs/38676241070) terminó `success` para el SHA exacto `5407b5b5902851bef3641741e501f8fda8144fb2`: Restore y Build Release correctos, **534 pruebas aprobadas, 0 fallidas, 0 omitidas**, publicación autocontenida Windows x64 y subida de artefacto completadas.
+- **Artefacto candidato:** `VTuberBot-Product-Candidate-win-x64-5407b5b5902851bef3641741e501f8fda8144fb2`, 84,679,377 bytes. SHA-256 `b65b328c146277aa3c4e10818536f33df4165d2e28a7628c8cf035c65fc6e590`. Descarga desde [la ejecución de Windows CI](https://github.com/jonhararagi/vtuber/actions/runs/38676241070).
+- **Estado de PR:** #16, #12 y #17 fusionados. #10 y #14 se cerraron como supersedidos porque sus correcciones/documentación ya están presentes o quedaron obsoletas; #15 se cerró como supersedido porque su ruta de overlay VRM se portó a #17 y se conservó el taller paramétrico actual. No quedan PR abiertos en el repositorio.
+- **Funciones de avatar:** 13 presets chibi, incluido **Miel de café** (piel morena cálida, pelo castaño con mechones interiores miel, iris marrones y pupilas marrón oscuro); editor modular de pelo/ropa/rostro/ojos/accesorios; taller paramétrico 3D con exportación GLB estática; importación de modelos VRM propios en overlay transparente.
+- **Límites que siguen siendo honestos:** el overlay VRM requiere WebView2 e Internet para cargar Three.js/three-vrm; no incorpora tracking facial, edición de mallas ni ajuste automático de ropa. El taller paramétrico exporta GLB estático, no VRM. VOICEVOX requiere instalar/iniciar el motor localmente y revisar las condiciones de cada voz. No se ha hecho una prueba manual en el PC del usuario de audio físico, un modelo VRM real, Twitch OAuth, OBS, Streamer.bot, PNGTuber Plus ni Telegram; la CI no sustituye esas pruebas.
+- **Pruebas de concurrencia:** se ampliaron a 3 segundos dos límites de espera en pruebas de liveness que fallaron intermitentemente con runners Windows ocupados. El CI final de `main` confirma 534/534 pruebas aprobadas.
+
 ## 2026-10-15 — Overlay VRM implementado y CI aprobada
 
 - Se creó la rama `feature/vrm-overlay-complete` desde `main` tras fusionar PR #16. Se añadió `VrmOverlayWindow.cs` y un botón de Avatar Studio para importar un `.vrm` local, copiarlo a una carpeta única y abrir una ventana transparente WebView2 con Three.js/three-vrm.
