@@ -23,8 +23,8 @@ public partial class MainWindow
     {
         var settings = new WindowProductSettingsStore(key => store.GetSetting(key), (key, value) => store.SetSetting(key, value));
         eventActionHotkeys = new PngtuberHotkeyRegistry(settings, new WindowsPngtuberHotkeySender());
-        var dispatcher = new WindowEventActionDispatcher(streamerBot, settings, eventActionHotkeys,
-            () => store.GetSetting("integrations.pngTuberPlus.path"));
+        var dispatcher = new WindowEventActionDispatcher(streamerBot, obs, settings, eventActionHotkeys,
+            () => store.GetSetting("integrations.pngTuberPlus.path"), SetChatReactionExpression);
         var coordinator = new EventActionCoordinator(settings, dispatcher);
         eventActionCoordinator = coordinator;
         coordinator.ActivityChanged += _ =>
@@ -116,10 +116,10 @@ public partial class MainWindow
 
         var editor = Panel("Crear o editar regla");
         var name = TextField("Nombre de la regla");
-        var source = new ComboBox { MinWidth = 250, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "Streamer.bot", "VTuberBot.EventSub" }, SelectedIndex = 0 };
+        var source = new ComboBox { MinWidth = 250, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "Streamer.bot", "VTuberBot.EventSub", "Twitch.IRC" }, SelectedIndex = 0 };
         var category = TextField("Categoría real (por ejemplo, Twitch)");
         var eventType = TextField("Tipo de evento real");
-        var destination = new ComboBox { MinWidth = 250, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "Streamer.bot", "PNGTuber Plus" }, SelectedIndex = 0 };
+        var destination = new ComboBox { MinWidth = 250, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "Streamer.bot", "PNGTuber Plus", "OBS · cambiar escena", "Avatar · expresión" }, SelectedIndex = 0 };
         var target = new ComboBox { MinWidth = 360, Margin = new Thickness(0, 0, 8, 8), DisplayMemberPath = "Content" };
         var conditionsEditor = new TextBox
         {
@@ -128,12 +128,59 @@ public partial class MainWindow
             ToolTip = "Una condición por línea: campo|eq|valor, campo|contains|texto o campo|present|",
             Background = Brush("#101525"), Foreground = Brush("#F8FAFC"), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 8)
         };
+        var conditionField = new ComboBox
+        {
+            ItemsSource = new[] { "message", "command", "arguments", "userName", "messageId", "isCommand", "type", "summary" },
+            SelectedIndex = 0, MinWidth = 150, Margin = new Thickness(0, 0, 8, 8)
+        };
+        var conditionOperator = new ComboBox
+        {
+            ItemsSource = new[] { "contains", "eq", "present" },
+            SelectedIndex = 0, MinWidth = 120, Margin = new Thickness(0, 0, 8, 8)
+        };
+        var conditionExpected = TextField("Valor que debe coincidir");
+        conditionExpected.MinWidth = 200;
+        conditionOperator.SelectionChanged += (_, _) =>
+        {
+            conditionExpected.IsEnabled = !Equals(conditionOperator.SelectedItem, "present");
+            if (!conditionExpected.IsEnabled) conditionExpected.Text = "";
+        };
+        var status = Label("Consultá el catálogo real para seleccionar un evento/acción existente.", 12, "#98A4BE");
+        var conditionBuilder = new WrapPanel();
+        conditionBuilder.Children.Add(conditionField);
+        conditionBuilder.Children.Add(conditionOperator);
+        conditionBuilder.Children.Add(conditionExpected);
+        conditionBuilder.Children.Add(ActionButton("Agregar condición", (_, _) =>
+        {
+            var field = conditionField.SelectedItem?.ToString()?.Trim() ?? "";
+            var operation = conditionOperator.SelectedItem?.ToString() ?? "";
+            var expected = conditionExpected.Text.Trim();
+            if (string.IsNullOrWhiteSpace(field) || operation is not ("eq" or "contains" or "present") ||
+                operation != "present" && string.IsNullOrWhiteSpace(expected))
+            {
+                status.Text = "Elegí campo, operador y valor. Para comprobar solo existencia, usá «present».";
+                return;
+            }
+            conditionsEditor.AppendText(field + "|" + operation + "|" + expected + Environment.NewLine);
+            status.Text = "Condición agregada; podés combinar varias y todas deben cumplirse.";
+            if (operation != "present") conditionExpected.Clear();
+        }));
+        editor.Children.Add(Label("Constructor de condiciones (todas deben cumplirse)", 12, "#98A4BE"));
+        editor.Children.Add(conditionBuilder);
         var cooldown = TextField("Cooldown en segundos", "0"); cooldown.Width = 110;
         var perRuleLimit = TextField("Máximo por minuto", "10"); perRuleLimit.Width = 110;
         var enabled = new CheckBox { Content = "Activada (solo al guardar expresamente)", IsChecked = false, Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
-        var status = Label("Consultá el catálogo real para seleccionar un evento/acción existente.", 12, "#98A4BE");
         Guid? editingId = null;
         EventActionRule? selectedRule = null;
+        source.SelectionChanged += (_, _) =>
+        {
+            if (Equals(source.SelectedItem, "Twitch.IRC"))
+            {
+                category.Text = "Twitch";
+                eventType.Text = "ChatMessage";
+                status.Text = "El chat IRC publica mensajes reales después de la política de moderación; las condiciones pueden usar userName, message, command, arguments, messageId e isCommand.";
+            }
+        };
 
         editor.Children.Add(Label("Nombre", 12, "#98A4BE")); editor.Children.Add(name);
         editor.Children.Add(Label("Fuente (no se mezclan automáticamente proveedores)", 12, "#98A4BE")); editor.Children.Add(source);
@@ -170,12 +217,29 @@ public partial class MainWindow
                         target.Items.Add(new ComboBoxItem { Content = $"{action.Name} · {action.Id}", Tag = action.Id });
                     status.Text = $"Catálogo real: {eventActionStreamerBotActions.Count} acciones; solo se ofrecen acciones habilitadas.";
                 }
-                else
+                else if (Equals(destination.SelectedItem, "PNGTuber Plus"))
                 {
                     var entries = eventActionHotkeys?.Load() ?? [];
                     foreach (var hotkey in entries.Where(h => h.Enabled))
                         target.Items.Add(new ComboBoxItem { Content = $"{hotkey.Name} · tecla {hotkey.Key}", Tag = hotkey.Id.ToString("D") });
                     status.Text = $"Registro real de PNGTuber Plus: {entries.Count} atajos; no se han enviado teclas.";
+                }
+                else if (Equals(destination.SelectedItem, "OBS · cambiar escena"))
+                {
+                    var scenes = await obs.GetScenesAsync();
+                    foreach (var scene in scenes)
+                        target.Items.Add(new ComboBoxItem { Content = scene, Tag = scene });
+                    status.Text = $"Escenas recibidas desde OBS autenticado: {scenes.Count}. Seleccionar no cambia la escena.";
+                }
+                else
+                {
+                    var expressions = new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" }
+                        .Where(state => AvatarExpressionAvailabilityPolicy.IsAvailable(
+                            state, !string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath),
+                            File.Exists(store.GetAvatarExpression(state) ?? "")));
+                    foreach (var expressionName in expressions)
+                        target.Items.Add(new ComboBoxItem { Content = expressionName, Tag = expressionName });
+                    status.Text = "Estados del avatar con recursos disponibles. No se ha cambiado la expresión.";
                 }
                 if (target.Items.Count > 0) target.SelectedIndex = 0;
             }
@@ -185,129 +249,11 @@ public partial class MainWindow
         editor.Children.Add(Label("Destino", 12, "#98A4BE"));
         destination.SelectionChanged += (_, _) => { target.Items.Clear(); status.Text = "Actualizá destinos para consultar el catálogo real."; };
         editor.Children.Add(destination); editor.Children.Add(target);
-        editor.Children.Add(Label("Condiciones opcionales (una por línea; rutas JSON simples, sin expresiones ni código)", 12, "#98A4BE"));
+        editor.Children.Add(Label("Condiciones opcionales (una por línea; rutas JSON simples, sin expresiones ni código). Podés usar el constructor de arriba o editar las líneas directamente.", 12, "#98A4BE"));
         editor.Children.Add(Label("Formato: campo|eq|valor · campo|contains|texto · campo|present|", 11, "#98A4BE"));
         editor.Children.Add(conditionsEditor);
         var limitsRow = new WrapPanel(); limitsRow.Children.Add(cooldown); limitsRow.Children.Add(perRuleLimit); editor.Children.Add(limitsRow);
         editor.Children.Add(enabled); editor.Children.Add(status);
-
-        var rulesList = new ListBox { MinHeight = 150, MaxHeight = 240, Background = Brush("#101525"), Foreground = Brush("#F1F5F9"), Margin = new Thickness(0, 0, 0, 10) };
-        void ReloadRules()
-        {
-            rulesList.Items.Clear();
-            foreach (var rule in coordinator.GetRules())
-                rulesList.Items.Add(new ListBoxItem
-                {
-                    Tag = rule,
-                    Content = $"{(rule.Enabled ? "●" : "○")} {rule.Name} · {rule.Source}/{rule.Category}.{rule.EventType} → {rule.Destination} · {(rule.Enabled ? "activada" : "desactivada")}",
-                    Foreground = Brush("#F1F5F9")
-                });
-        }
-        void ResetEditor()
-        {
-            editingId = null; selectedRule = null;
-            name.Text = ""; source.SelectedItem = "Streamer.bot"; category.Text = ""; eventType.Text = "";
-            destination.SelectedItem = "Streamer.bot"; target.Items.Clear(); conditionsEditor.Text = "";
-            cooldown.Text = "0"; perRuleLimit.Text = "10"; enabled.IsChecked = false;
-            status.Text = "Regla nueva desactivada. No se ejecutará hasta habilitarla expresamente.";
-        }
-        rulesList.SelectionChanged += (_, _) =>
-        {
-            if (rulesList.SelectedItem is not ListBoxItem { Tag: EventActionRule rule }) return;
-            editingId = rule.Id; selectedRule = rule; name.Text = rule.Name;
-            source.SelectedItem = rule.Source; category.Text = rule.Category; eventType.Text = rule.EventType;
-            destination.SelectedItem = rule.Destination == EventActionDestination.StreamerBot ? "Streamer.bot" : "PNGTuber Plus";
-            conditionsEditor.Text = string.Join(Environment.NewLine, rule.Conditions.Select(condition =>
-                condition.FieldPath + "|" + condition.Operator + "|" + condition.ExpectedValue));
-            cooldown.Text = rule.CooldownSeconds.ToString(); perRuleLimit.Text = rule.MaxExecutionsPerMinute.ToString();
-            enabled.IsChecked = rule.Enabled; target.Items.Clear();
-            target.Items.Add(new ComboBoxItem { Content = rule.TargetId + " · destino guardado (volvé a validar)", Tag = rule.TargetId });
-            target.SelectedIndex = 0;
-            status.Text = "Regla cargada. Antes de activarla, volvé a validar que el destino siga existiendo.";
-        };
-        editor.Children.Add(Label("Reglas guardadas", 12, "#98A4BE")); editor.Children.Add(rulesList);
-        var ruleButtons = new WrapPanel();
-        ruleButtons.Children.Add(ActionButton("Nueva regla", (_, _) => { rulesList.SelectedItem = null; ResetEditor(); }));
-        ruleButtons.Children.Add(ActionButton("Guardar regla", async (_, _) =>
-        {
-            try
-            {
-                if (target.SelectedItem is not ComboBoxItem { Tag: string targetId })
-                    throw new InvalidOperationException("Seleccioná un destino del catálogo real antes de guardar.");
-                if (!int.TryParse(cooldown.Text, out var cooldownSeconds) || cooldownSeconds is < 0 or > 86400)
-                    throw new ArgumentException("El cooldown debe estar entre 0 y 86400 segundos.");
-                if (!int.TryParse(perRuleLimit.Text, out var maxPerMinute) || maxPerMinute is < 1 or > 100)
-                    throw new ArgumentException("El límite por regla debe estar entre 1 y 100 por minuto.");
-                var dest = Equals(destination.SelectedItem, "Streamer.bot") ? EventActionDestination.StreamerBot : EventActionDestination.PngtuberPlus;
-                if (dest == EventActionDestination.StreamerBot)
-                {
-                    if (!Guid.TryParse(targetId, out var selectedActionId))
-                        throw new InvalidOperationException("El destino Streamer.bot no tiene un GUID válido.");
-                    var currentActions = await streamerBot.GetActionsAsync();
-                    if (!currentActions.Any(a => a.Enabled && Guid.TryParse(a.Id, out var id) && id == selectedActionId))
-                        throw new InvalidOperationException("La acción no está disponible/habilitada en el catálogo actual. Actualizá destinos.");
-                }
-                else
-                {
-                    if (!Guid.TryParse(targetId, out var selectedHotkeyId) ||
-                        !(eventActionHotkeys?.Load() ?? []).Any(h => h.Enabled && h.Id == selectedHotkeyId))
-                        throw new InvalidOperationException("El atajo no existe en el registro actual o está deshabilitado.");
-                }
-                var shouldEnable = enabled.IsChecked == true;
-                var confirmed = selectedRule?.ExternalActionConfirmed == true &&
-                    string.Equals(selectedRule.ConfirmedTargetId, targetId, StringComparison.OrdinalIgnoreCase);
-                string? confirmedTargetId = confirmed ? targetId : null;
-                if (shouldEnable && dest == EventActionDestination.StreamerBot && !confirmed)
-                {
-                    var targetName = target.SelectedItem is ComboBoxItem item ? item.Content?.ToString() : targetId;
-                    var answer = MessageBox.Show($"Esta regla podrá solicitar una acción externa de Streamer.bot:\n\n{targetName}\n\nEl efecto posterior en OBS no está garantizado. ¿Confirmás este destino para automatización?", "Confirmar acción externa", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (answer != MessageBoxResult.Yes) { enabled.IsChecked = false; return; }
-                    confirmed = true;
-                    confirmedTargetId = targetId;
-                }
-                var conditions = new List<EventActionCondition>();
-                foreach (var line in conditionsEditor.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                {
-                    var fields = line.Split('|', 3, StringSplitOptions.None);
-                    if (fields.Length < 2 || fields.Length == 2 && fields[1] != "present")
-                        throw new ArgumentException("Cada condición debe ser campo|eq|valor, campo|contains|texto o campo|present|.");
-                    var operation = fields[1].Trim();
-                    var expected = fields.Length > 2 ? fields[2] : "";
-                    if (operation is not ("eq" or "contains" or "present"))
-                        throw new ArgumentException("Operador de condición no permitido: " + operation);
-                    conditions.Add(new EventActionCondition(fields[0].Trim(), operation, expected));
-                }
-                var selectedSource = source.SelectedItem?.ToString() ?? "";
-                if (selectedSource == "Streamer.bot")
-                {
-                    var available = await streamerBot.GetEventsAsync();
-                    if (!available.TryGetValue(category.Text.Trim(), out var names) || !names.Contains(eventType.Text.Trim(), StringComparer.OrdinalIgnoreCase))
-                        throw new InvalidOperationException("La categoría/tipo no aparece en GetEvents. Actualizá el catálogo y elegí un evento real.");
-                }
-                else if (!coordinator.GetRecentActivity().Any(a => a.Source == "VTuberBot.EventSub" &&
-                    a.EventType.Equals(category.Text.Trim() + "." + eventType.Text.Trim(), StringComparison.OrdinalIgnoreCase)))
-                    throw new InvalidOperationException("Este tipo interno todavía no se ha observado en un evento EventSub real; no se puede validar todavía.");
-                var saved = coordinator.SaveRule(new EventActionRule(editingId ?? Guid.NewGuid(), name.Text,
-                    shouldEnable, selectedSource, category.Text, eventType.Text, conditions,
-                    dest, targetId, cooldownSeconds, maxPerMinute, confirmed, confirmedTargetId));
-                selectedRule = saved; editingId = saved.Id;
-                ReloadRules();
-                status.Text = "Regla guardada en SQLite. No se envió ninguna tecla ni se ejecutó una acción al guardar.";
-                if (saved.Enabled && selectedSource == "Streamer.bot" && dest == EventActionDestination.StreamerBot)
-                    status.Text += " Advertencia de posible ciclo: una acción externa podría producir nuevos eventos; mantené cooldown y límites conservadores.";
-                await ReconcileStreamerBotSubscriptionsAsync();
-                FooterStatus.Text = "Regla guardada: " + saved.Name;
-            }
-            catch (Exception ex) { status.Text = "No se guardó la regla: " + ex.Message; }
-        }, true));
-        ruleButtons.Children.Add(ActionButton("Eliminar regla seleccionada", async (_, _) =>
-        {
-            if (rulesList.SelectedItem is not ListBoxItem { Tag: EventActionRule rule }) return;
-            if (MessageBox.Show($"¿Eliminar la regla «{rule.Name}»?", "Eliminar regla", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-            coordinator.RemoveRule(rule.Id); ResetEditor(); ReloadRules(); status.Text = "Regla eliminada.";
-            await ReconcileStreamerBotSubscriptionsAsync();
-        }));
-        editor.Children.Add(ruleButtons);
 
         var simulationPanel = Panel("Simulador seguro de condiciones");
         simulationPanel.Margin = new Thickness(0, 10, 0, 0);
@@ -377,6 +323,159 @@ public partial class MainWindow
         }));
         simulationPanel.Children.Add(simulationResult);
         editor.Children.Add(simulationPanel);
+
+        var rulesList = new ListBox { MinHeight = 150, MaxHeight = 240, Background = Brush("#101525"), Foreground = Brush("#F1F5F9"), Margin = new Thickness(0, 0, 0, 10) };
+        void ReloadRules()
+        {
+            rulesList.Items.Clear();
+            foreach (var rule in coordinator.GetRules())
+                rulesList.Items.Add(new ListBoxItem
+                {
+                    Tag = rule,
+                    Content = $"{(rule.Enabled ? "●" : "○")} {rule.Name} · {rule.Source}/{rule.Category}.{rule.EventType} → {rule.Destination} · {(rule.Enabled ? "activada" : "desactivada")}",
+                    Foreground = Brush("#F1F5F9")
+                });
+        }
+        void ResetEditor()
+        {
+            editingId = null; selectedRule = null;
+            name.Text = ""; source.SelectedItem = "Streamer.bot"; category.Text = ""; eventType.Text = "";
+            destination.SelectedItem = "Streamer.bot"; target.Items.Clear(); conditionsEditor.Text = "";
+            cooldown.Text = "0"; perRuleLimit.Text = "10"; enabled.IsChecked = false;
+            status.Text = "Regla nueva desactivada. No se ejecutará hasta habilitarla expresamente.";
+        }
+        rulesList.SelectionChanged += (_, _) =>
+        {
+            if (rulesList.SelectedItem is not ListBoxItem { Tag: EventActionRule rule }) return;
+            editingId = rule.Id; selectedRule = rule; name.Text = rule.Name;
+            source.SelectedItem = rule.Source; category.Text = rule.Category; eventType.Text = rule.EventType;
+            destination.SelectedItem = rule.Destination switch
+            {
+                EventActionDestination.StreamerBot => "Streamer.bot",
+                EventActionDestination.PngtuberPlus => "PNGTuber Plus",
+                EventActionDestination.ObsScene => "OBS · cambiar escena",
+                EventActionDestination.AvatarExpression => "Avatar · expresión",
+                _ => "Streamer.bot"
+            };
+            conditionsEditor.Text = string.Join(Environment.NewLine, rule.Conditions.Select(condition =>
+                condition.FieldPath + "|" + condition.Operator + "|" + condition.ExpectedValue));
+            cooldown.Text = rule.CooldownSeconds.ToString(); perRuleLimit.Text = rule.MaxExecutionsPerMinute.ToString();
+            enabled.IsChecked = rule.Enabled; target.Items.Clear();
+            target.Items.Add(new ComboBoxItem { Content = rule.TargetId + " · destino guardado (volvé a validar)", Tag = rule.TargetId });
+            target.SelectedIndex = 0;
+            status.Text = "Regla cargada. Antes de activarla, volvé a validar que el destino siga existiendo.";
+        };
+        editor.Children.Add(Label("Reglas guardadas", 12, "#98A4BE")); editor.Children.Add(rulesList);
+        var ruleButtons = new WrapPanel();
+        ruleButtons.Children.Add(ActionButton("Nueva regla", (_, _) => { rulesList.SelectedItem = null; ResetEditor(); }));
+        ruleButtons.Children.Add(ActionButton("Guardar regla", async (_, _) =>
+        {
+            try
+            {
+                if (target.SelectedItem is not ComboBoxItem { Tag: string targetId })
+                    throw new InvalidOperationException("Seleccioná un destino del catálogo real antes de guardar.");
+                if (!int.TryParse(cooldown.Text, out var cooldownSeconds) || cooldownSeconds is < 0 or > 86400)
+                    throw new ArgumentException("El cooldown debe estar entre 0 y 86400 segundos.");
+                if (!int.TryParse(perRuleLimit.Text, out var maxPerMinute) || maxPerMinute is < 1 or > 100)
+                    throw new ArgumentException("El límite por regla debe estar entre 1 y 100 por minuto.");
+                var dest = destination.SelectedItem?.ToString() switch
+                {
+                    "Streamer.bot" => EventActionDestination.StreamerBot,
+                    "PNGTuber Plus" => EventActionDestination.PngtuberPlus,
+                    "OBS · cambiar escena" => EventActionDestination.ObsScene,
+                    "Avatar · expresión" => EventActionDestination.AvatarExpression,
+                    _ => throw new InvalidOperationException("Seleccioná un destino válido.")
+                };
+                if (dest == EventActionDestination.StreamerBot)
+                {
+                    if (!Guid.TryParse(targetId, out var selectedActionId))
+                        throw new InvalidOperationException("El destino Streamer.bot no tiene un GUID válido.");
+                    var currentActions = await streamerBot.GetActionsAsync();
+                    if (!currentActions.Any(a => a.Enabled && Guid.TryParse(a.Id, out var id) && id == selectedActionId))
+                        throw new InvalidOperationException("La acción no está disponible/habilitada en el catálogo actual. Actualizá destinos.");
+                }
+                else if (dest == EventActionDestination.PngtuberPlus)
+                {
+                    if (!Guid.TryParse(targetId, out var selectedHotkeyId) ||
+                        !(eventActionHotkeys?.Load() ?? []).Any(h => h.Enabled && h.Id == selectedHotkeyId))
+                        throw new InvalidOperationException("El atajo no existe en el registro actual o está deshabilitado.");
+                }
+                else if (dest == EventActionDestination.ObsScene)
+                {
+                    if (!obs.IsConnected)
+                        throw new InvalidOperationException("OBS no está autenticado. Conectalo antes de guardar una regla de escena.");
+                    var scenes = await obs.GetScenesAsync();
+                    if (!scenes.Contains(targetId, StringComparer.Ordinal))
+                        throw new InvalidOperationException("La escena ya no aparece en OBS. Actualizá destinos.");
+                }
+                else if (dest == EventActionDestination.AvatarExpression)
+                {
+                    if (targetId is not ("Idle" or "Talking" or "Blink" or "Happy" or "Surprised") ||
+                        !AvatarExpressionAvailabilityPolicy.IsAvailable(targetId,
+                            !string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath),
+                            File.Exists(store.GetAvatarExpression(targetId) ?? "")))
+                        throw new InvalidOperationException("El estado seleccionado no tiene un recurso de avatar disponible.");
+                }
+                var shouldEnable = enabled.IsChecked == true;
+                var confirmed = selectedRule?.ExternalActionConfirmed == true &&
+                    string.Equals(selectedRule.ConfirmedTargetId, targetId, StringComparison.OrdinalIgnoreCase);
+                string? confirmedTargetId = confirmed ? targetId : null;
+                if (shouldEnable && dest == EventActionDestination.StreamerBot && !confirmed)
+                {
+                    var targetName = target.SelectedItem is ComboBoxItem item ? item.Content?.ToString() : targetId;
+                    var answer = MessageBox.Show($"Esta regla podrá solicitar una acción externa de Streamer.bot:\n\n{targetName}\n\nEl efecto posterior en OBS no está garantizado. ¿Confirmás este destino para automatización?", "Confirmar acción externa", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    if (answer != MessageBoxResult.Yes) { enabled.IsChecked = false; return; }
+                    confirmed = true;
+                    confirmedTargetId = targetId;
+                }
+                var conditions = new List<EventActionCondition>();
+                foreach (var line in conditionsEditor.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var fields = line.Split('|', 3, StringSplitOptions.None);
+                    if (fields.Length < 2 || fields.Length == 2 && fields[1] != "present")
+                        throw new ArgumentException("Cada condición debe ser campo|eq|valor, campo|contains|texto o campo|present|.");
+                    var operation = fields[1].Trim();
+                    var expected = fields.Length > 2 ? fields[2] : "";
+                    if (operation is not ("eq" or "contains" or "present"))
+                        throw new ArgumentException("Operador de condición no permitido: " + operation);
+                    conditions.Add(new EventActionCondition(fields[0].Trim(), operation, expected));
+                }
+                var selectedSource = source.SelectedItem?.ToString() ?? "";
+                if (selectedSource == "Streamer.bot")
+                {
+                    var available = await streamerBot.GetEventsAsync();
+                    if (!available.TryGetValue(category.Text.Trim(), out var names) || !names.Contains(eventType.Text.Trim(), StringComparer.OrdinalIgnoreCase))
+                        throw new InvalidOperationException("La categoría/tipo no aparece en GetEvents. Actualizá el catálogo y elegí un evento real.");
+                }
+                else if (selectedSource == "VTuberBot.EventSub" &&
+                    !coordinator.GetRecentActivity().Any(a => a.Source == "VTuberBot.EventSub" &&
+                    a.EventType.Equals(category.Text.Trim() + "." + eventType.Text.Trim(), StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("Este tipo interno todavía no se ha observado en un evento EventSub real; no se puede validar todavía.");
+                else if (selectedSource == "Twitch.IRC" &&
+                    !(category.Text.Trim().Equals("Twitch", StringComparison.OrdinalIgnoreCase) &&
+                      eventType.Text.Trim().Equals("ChatMessage", StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("El evento de chat IRC admitido es Twitch.ChatMessage; seleccioná Twitch.IRC para autocompletar categoría y tipo.");
+                var saved = coordinator.SaveRule(new EventActionRule(editingId ?? Guid.NewGuid(), name.Text,
+                    shouldEnable, selectedSource, category.Text, eventType.Text, conditions,
+                    dest, targetId, cooldownSeconds, maxPerMinute, confirmed, confirmedTargetId));
+                selectedRule = saved; editingId = saved.Id;
+                ReloadRules();
+                status.Text = "Regla guardada en SQLite. No se envió ninguna tecla ni se ejecutó una acción al guardar.";
+                if (saved.Enabled && selectedSource == "Streamer.bot" && dest == EventActionDestination.StreamerBot)
+                    status.Text += " Advertencia de posible ciclo: una acción externa podría producir nuevos eventos; mantené cooldown y límites conservadores.";
+                await ReconcileStreamerBotSubscriptionsAsync();
+                FooterStatus.Text = "Regla guardada: " + saved.Name;
+            }
+            catch (Exception ex) { status.Text = "No se guardó la regla: " + ex.Message; }
+        }, true));
+        ruleButtons.Children.Add(ActionButton("Eliminar regla seleccionada", async (_, _) =>
+        {
+            if (rulesList.SelectedItem is not ListBoxItem { Tag: EventActionRule rule }) return;
+            if (MessageBox.Show($"¿Eliminar la regla «{rule.Name}»?", "Eliminar regla", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            coordinator.RemoveRule(rule.Id); ResetEditor(); ReloadRules(); status.Text = "Regla eliminada.";
+            await ReconcileStreamerBotSubscriptionsAsync();
+        }));
+        editor.Children.Add(ruleButtons);
         root.Children.Add(editor);
 
         var activityPanel = Panel("Actividad real de automatizaciones");
@@ -493,9 +592,11 @@ public partial class MainWindow
 
     private sealed class WindowEventActionDispatcher(
         IStreamerBotClient streamerBot,
+        ObsWebSocketClient obs,
         IProductSettingsStore settings,
         PngtuberHotkeyRegistry hotkeys,
-        Func<string> executablePath) : IEventActionDispatcher
+        Func<string> executablePath,
+        Func<string, CancellationToken, bool> setAvatarExpression) : IEventActionDispatcher
     {
         public async Task<EventActionExecutionResult> DispatchAsync(EventActionRule rule, NormalizedBotEvent evt, CancellationToken cancellationToken)
         {
@@ -526,6 +627,34 @@ public partial class MainWindow
                 {
                     return new(EventActionOutcome.OutcomeUnknown, "La conexión falló durante la solicitud; el resultado es desconocido (" + ex.GetType().Name + ").", null, true);
                 }
+            }
+
+            if (rule.Destination == EventActionDestination.ObsScene)
+            {
+                if (!obs.IsConnected)
+                    return new(EventActionOutcome.InvalidDestination, "OBS no está autenticado; no se cambió ninguna escena.");
+                try
+                {
+                    var scenes = await obs.GetScenesAsync().ConfigureAwait(false);
+                    if (!scenes.Contains(rule.TargetId, StringComparer.Ordinal))
+                        return new(EventActionOutcome.InvalidDestination, "La escena guardada ya no existe en OBS.");
+                    await obs.SetCurrentSceneAsync(rule.TargetId).ConfigureAwait(false);
+                    return new(EventActionOutcome.RequestAccepted,
+                        "OBS aceptó el cambio a la escena «" + rule.TargetId + "». No se ha verificado visualmente la salida.", null, true);
+                }
+                catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Net.WebSockets.WebSocketException or TimeoutException or System.Text.Json.JsonException)
+                {
+                    return new(EventActionOutcome.OutcomeUnknown,
+                        "No se pudo confirmar el resultado del cambio de escena (" + ex.GetType().Name + ").", null, true);
+                }
+            }
+
+            if (rule.Destination == EventActionDestination.AvatarExpression)
+            {
+                var applied = setAvatarExpression(rule.TargetId, cancellationToken);
+                return applied
+                    ? new(EventActionOutcome.RequestAccepted, "Estado del avatar «" + rule.TargetId + "» solicitado; la salida visual depende del overlay y sus recursos.")
+                    : new(EventActionOutcome.ActionRejected, "No se pudo aplicar el estado del avatar; verificá que el recurso siga disponible.");
             }
 
             if (settings.GetSetting(EventActionCoordinator.PngtuberAutomaticHotkeysSettingKey, "false") != "true")

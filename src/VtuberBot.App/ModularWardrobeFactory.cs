@@ -138,6 +138,7 @@ internal static class ModularWardrobeFactory
         new("warm", "Durazno", "Piel media cálida."),
         new("cocoa", "Cacao", "Piel marrón cálida."),
         new("morena", "Morena cálida", "Piel morena de subtono cálido, con sombras naturales."),
+        new("brown", "Morena profunda", "Piel marrón medio-profunda con sombras cálidas."),
         new("moonlight", "Luz lunar", "Piel fantástica de tono lavanda.")
     ];
 
@@ -254,6 +255,7 @@ internal static class ModularWardrobeFactory
             "warm" => ("#F7CDAA", "#D89D82"),
             "cocoa" => ("#B97965", "#7E4D48"),
             "morena" => ("#A96D52", "#704333"),
+            "brown" => ("#8D573D", "#593625"),
             "moonlight" => ("#D9D0FF", "#A99BE5"),
             _ => ("#FFE0C8", "#EFB8A7")
         };

@@ -2,9 +2,44 @@
 
 Esta guía corresponde al candidato integrado de VTuberBot. Las funciones externas no se consideran conectadas hasta completar la autenticación real. El proceso para prevenir regresiones está descrito en [Regla de Murphy y puertas de fiabilidad](REGLA_MURPHY_Y_PUERTAS_DE_FIABILIDAD.md).
 
+## Perfiles reales de bots de Twitch
+
+En **Twitch y chat** podés guardar varios perfiles, por ejemplo **Mode-chan**, con su login real, canal de destino, Client ID y credenciales OAuth. El catálogo solo contiene metadatos; los tokens de acceso/renovación de cada perfil se cifran con DPAPI de Windows para el usuario actual.
+
+- Para crear un perfil, iniciá sesión/autorizá la cuenta bot correcta con Twitch OAuth, completá el login real de esa cuenta y el canal de destino, y elegí **Guardar perfil actual**.
+- Para usarlo, seleccioná el perfil y elegí **Activar perfil seleccionado**. VTuberBot desconecta la sesión IRC anterior y conecta la cuenta autorizada al canal elegido. El login enviado en `NICK` es distinto del canal al que se une con `JOIN`; el token debe pertenecer a esa cuenta bot o Twitch rechazará la conexión.
+- Solo un perfil de chat nativo puede estar conectado a la vez en esta versión. Los perfiles no crean cuentas de Twitch, no inventan identidades ni cambian el nombre visible de una cuenta: cada cuenta bot debe crearse y autorizarse en Twitch por separado.
+- El bot usa los comandos y automatizaciones existentes de VTuberBot; guardar un perfil no inventa comandos ni publica mensajes. Para enviar mensajes necesita una sesión autenticada real.
+
+## OBS Studio: inicio automático y modo ligero
+
+En la página **OBS**, VTuberBot ofrece **Abrir OBS Studio**, **Elegir ubicación de OBS**, y dos preferencias persistentes:
+
+- **Abrir OBS automáticamente al iniciar VTuberBot**: activado por defecto. Si OBS está instalado en una ubicación estándar, VTuberBot intenta abrirlo sin bloquear el arranque. Si no lo encuentra, permite seleccionar `obs64.exe`.
+- **Modo ligero: iniciar OBS sin plugins de terceros**: activado por defecto. Al iniciar OBS, VTuberBot pasa `--only-bundled-plugins`, una opción de inicio que omite plugins externos durante esa sesión. No desinstala ni borra archivos. Desactivala si tus escenas usan plugins de terceros.
+- **Aplicar perfil 720p / 30 FPS**: al confirmarlo, VTuberBot envía a OBS el lienzo y la salida 1280×720 a 30 FPS, y lee de vuelta los valores para comprobarlos. No se informa éxito si OBS rechaza el cambio o devuelve valores distintos. El ajuste afecta a la configuración global de vídeo y puede cambiar cómo se ven todas las escenas.
+- **Conexión automática**: después de guardar por primera vez host, puerto y contraseña de WebSocket desde la página OBS, VTuberBot intenta autenticarse al arrancar. Si la contraseña no existe, el puerto no responde o la autenticación falla, la app sigue funcionando y deja un estado/registro; no simula una conexión.
+
+**Límite importante:** omitir plugins externos y usar 720p30 puede reducir carga en algunos escenarios, pero no garantiza menor uso de CPU/GPU. El perfil no cambia bitrate, codificador, filtros de escenas, fuentes ni calidad de salida de Twitch. La optimización específica para Ryzen 5 5600G/16 GB todavía requiere mediciones de carga y ajustes adicionales en el equipo. La compilación y CI deben comprobarse en el SHA más reciente antes de distribuir este cambio.
+
+
+## Biblioteca local de arte
+
+En **Avatar Studio**, debajo de las referencias públicas, está la biblioteca local de assets. Importá una o varias imágenes propias o generadas con una herramienta externa. Podés buscar por nombre, categoría, etiquetas y estado de licencia; filtrar favoritos; ver una miniatura del asset seleccionado; y guardar categoría, etiquetas, URL de procedencia y estado de licencia. La app no descarga automáticamente ilustraciones ni verifica por sí sola las condiciones de PixAI u otros servicios.
+
+Cada importación empieza con **Pendiente de revisar**. Cambiá el estado solo después de comprobar la licencia de la imagen y las condiciones del modelo/servicio de origen. Las imágenes se copian al directorio local de datos de VTuberBot. Seleccioná un asset y un rol para asignarlo al perfil activo; la copia asignada no elimina el original de la biblioteca. Se admiten PNG, JPG/JPEG y BMP hasta 25 MB por archivo.
+
 ## Empezar: elegí tu tipo de VTuber
 
-Arriba de **Avatar Studio** hay una galería de trece personajes chibi completos. El primero es **Miel de café** (piel morena cálida, pelo castaño con mechones interiores miel, iris marrones y pupilas marrón oscuro), seguido de **Neko gamer**, **Brujita lunar**, **Idol estelar**, **Gótica rosa**, **Cyber neón**, **Streamer casual**, **Zorrita de festival**, **Oráculo invernal**, **Guardiana kitsune**, **Pop celestial**, **Capitana pirata** y **Conejita de café**. Cada uno combina peinado, ropa, accesorios, rostro, ojos, tono de piel y pose distintos. No son una misma ilustración recoloreada: cada modelo combina distinto peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al pulsar una tarjeta se crea un perfil propio y se abre el overlay; tus perfiles previos no se reemplazan.
+Arriba de **Avatar Studio** hay una galería de diecinueve personajes chibi completos. El primero es **Miel de café** (piel marrón medio-profunda, pelo castaño con mechones interiores miel claro, iris marrones y pupilas marrón oscuro), seguido de **Neko gamer**, **Brujita lunar**, **Idol estelar**, **Gótica rosa**, **Cyber neón**, **Streamer casual**, **Zorrita de festival**, **Oráculo invernal**, **Guardiana kitsune**, **Pop celestial**, **Capitana pirata** y **Conejita de café**. Cada uno combina peinado, ropa, accesorios, rostro, ojos, tono de piel y pose distintos. No son una misma ilustración recoloreada: cada modelo combina distinto peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al pulsar una tarjeta se crea un perfil propio y se abre el overlay; tus perfiles previos no se reemplazan.
+
+### Buscar referencias de VTubers conocidos sin copiar su arte
+
+Debajo de la galería aparece **Referencias públicas**. Escribí un nombre (por ejemplo, Gawr Gura, Ironmouse, Hoshimachi Suisei o Shylily) y pulsá **Buscar referencia en la web**. La búsqueda abre el navegador para estudiar silueta, paleta, peinado, ojos y accesorios; VTuberBot no descarga ni corta automáticamente el arte oficial.
+
+Después podés partir de seis combinaciones originales: **Océano pop**, **Reaper rock**, **Cantante estelar**, **Dragona cyber**, **Demonio gamer** y **Kitsune idol**. Son plantillas editables inspiradas en arquetipos visuales, no reproducciones exactas ni modelos oficiales. Cambiá cabello, ropa, ojos, tono de piel y accesorios con el armario modular, y guardá tu propia combinación. Para importar ilustraciones de terceros, verificá la licencia y respetá la atribución.
+
+Cada retrato de la galería muestra la etiqueta visual **VTUBERBOT · REFERENCIA**. Es una superposición de la interfaz: no se graba en los PNG ni altera el recurso original. El enlace **Ver PNG original sin marca ↗** abre el PNG base local con el visor predeterminado del sistema. La galería está compuesta por recursos generados por el propio programa; por eso no muestra un enlace a una supuesta fuente oficial externa. Si importás arte de terceros, conservá su autoría y licencia y obtené permiso cuando corresponda. Una marca de agua ayuda a identificar el contexto del recurso, pero por sí sola no concede derechos ni evita una infracción de copyright.
 
 Debajo de esa galería está **Crear PNGTuber con mis imágenes**. Elegí una imagen de reposo y, si ya tenés una, otra con la boca abierta para hablar. Con una sola imagen el avatar queda visualmente estático; con dos, el detector de audio alterna entre ellas.
 
@@ -23,7 +58,7 @@ El panel **Creador de personaje chibi — cambia cada parte** permite combinar i
 
 - **Peinado:** 12 siluetas, como coletas dobles, bob, ondas, trenza, pelo corto o largo; incluye castaño oscuro con inner hair miel claro.
 - **Ropa:** 15 diseños con formas propias, entre ellos idol, marinero, gótico, ceremonial, streetwear, fantasía, hoodie, cyber y vestidos.
-- **Rostro y ojos:** 4 formas de rostro, 8 estilos de ojos y 5 tonos de piel, incluidos ojos marrones con pupilas marrón oscuro y piel morena cálida.
+- **Rostro y ojos:** 4 formas de rostro, 8 estilos de ojos y 6 tonos de piel, incluida la nueva opción **Morena profunda**, además de ojos marrones con pupilas marrón oscuro.
 - **Pose:** de pie, saludo, señal de paz, manos en la cintura, brazos cruzados o cantando al micrófono.
 - **Accesorios:** adornos de cabeza, joyería facial y piezas traseras como alas, capa, mochila o cristales.
 - **Colores:** tintes por zona con HEX o muestras rápidas, sin sobreescribir las imágenes originales.
@@ -163,6 +198,18 @@ Los comandos se procesan cuando el mensaje llega a la canalización de chat de V
 - La eliminación automática de mensajes usa el endpoint oficial [Delete Chat Messages](https://dev.twitch.tv/docs/api/reference#delete-chat-messages), necesita `moderator:manage:chat_messages` y solo envía el ID de mensaje exacto recibido desde las etiquetas IRC; nunca hace una solicitud vacía que pudiera borrar todo el chat.
 - **Automatizaciones:** los mensajes programados respetan un intervalo mínimo de cinco minutos y solo se envían cuando Twitch está conectado. Si está desconectado, la omisión queda registrada.
 
+## Automatizaciones por eventos reales
+
+La página **Automatizaciones** permite crear reglas que escuchan eventos de Streamer.bot, notificaciones EventSub o mensajes reales del chat IRC de Twitch. Para chat, elegí la fuente `Twitch.IRC`: VTuberBot completa `Twitch.ChatMessage` y expone los campos `userName`, `message`, `messageId`, `isCommand`, `command` y `arguments` para condiciones como `message|contains|!escena`. Estos eventos se publican después de la política de moderación que suprime efectos de mensajes sancionados. Cada regla combina fuente, categoría, tipo exacto, condiciones JSON opcionales, cooldown y límite por minuto. Las reglas nuevas nacen desactivadas y las automatizaciones arrancan pausadas.
+
+Destinos disponibles:
+- **Streamer.bot:** seleccioná una acción existente de `GetActions`; antes de activar una regla se confirma el ID exacto y, al ejecutarla, se vuelve a validar que siga habilitada. Una respuesta aceptada significa que Streamer.bot aceptó la solicitud, no que el efecto final en OBS esté garantizado.
+- **PNGTuber Plus:** seleccioná un atajo previamente registrado. El envío automático requiere autorización global explícita; enviar la tecla no demuestra que la expresión haya cambiado.
+- **OBS · cambiar escena:** requiere OBS WebSocket autenticado. La lista se obtiene de las escenas reales de OBS y se vuelve a validar al guardar y ejecutar. La actividad informa que OBS aceptó la solicitud; no equivale a una comprobación visual de la salida.
+- **Avatar · expresión:** solo ofrece estados con recursos disponibles en el perfil actual (Idle, Talking, Blink, Happy o Surprised). Si falta la imagen, la acción se rechaza en vez de fingir un cambio.
+
+La cola, las condiciones y los límites evitan bloquear al productor de eventos y reducen ciclos. La actividad distingue acciones rechazadas, límites, timeouts y solicitudes aceptadas. No uses dos proveedores que emitan el mismo evento para la misma regla si no comparten un ID de deduplicación.
+
 ## Voz y audio
 
 - Seleccioná el micrófono disponible e iniciá la captura real.
@@ -241,16 +288,6 @@ Configuración de rutas, apertura y estados de PNGTuber Plus y Streamer.bot: [Ce
 El estado `status=ok` de `DoAction` confirma la respuesta de Streamer.bot, no que OBS o el avatar hayan realizado el efecto final. Para un servidor remoto, tené presente que `ws://` no cifra el tráfico. VTuberBot no cambia el firewall ni abre puertos automáticamente.
 
 La prueba automatizada de protocolo utiliza un servidor simulado; antes de considerar validada la integración completa, hace falta probar la conexión y los eventos contra tu instancia real de Streamer.bot en Windows, junto con OBS y PNGTuber Plus.
-## Simulador seguro de reglas de automatización
-
-En **Automatizaciones**, al editar una regla, encontrás **Simulador seguro de condiciones** debajo de los botones de la regla. Pegá un objeto JSON de ejemplo, por ejemplo:
-
-```json
-{"message":"hola chat","userName":"viewer"}
-```
-
-Pulsá **Simular condiciones (sin ejecutar acciones)**. El simulador usa la categoría, tipo y fuente que estén seleccionados y evalúa las condiciones actuales contra el JSON. No llama a Streamer.bot, no envía hotkeys, no modifica reglas ni ejecuta acciones externas. Si la simulación no coincide, revisá el nombre exacto de cada campo y el operador `eq`, `contains` o `present`.
-
 ## Automatizaciones por eventos (candidato de producto)
 
 1. Abrí **Automatizaciones** y mantené activada la pausa global mientras configurás.
@@ -341,3 +378,18 @@ El candidato de producto se compiló y probó en Windows CI para la revisión de
 - **Telegram Web:** se abre en WebView2 y ofrece navegador externo como alternativa. No se valida una sesión real de Telegram en CI.
 - **Videojuegos:** VTuberBot no incluye un agente que observe y juegue videojuegos arbitrarios. Los minijuegos disponibles son interacciones del chat.
 - **Pendiente de tu entorno Windows:** revisar visualmente las seis tarjetas y combinaciones del creador chibi, transparencia y orden de capas del overlay en OBS, micrófono/SAPI reales, Twitch OAuth/IRC/EventSub, conexión/acciones de bajo riesgo en OBS y Streamer.bot, y respuesta de hotkeys en PNGTuber Plus.
+
+## Galería de personajes chibi
+
+En **Avatar Studio** hay una galería de trece personajes chibi completos. Incluye **Miel de café** (piel morena cálida, cabello castaño con mechones interiores miel claro, iris marrones y pupilas marrón oscuro), además de Neko gamer, Brujita lunar, Idol estelar, Gótica rosa, Cyber neón, Streamer casual, Zorrita de festival, Oráculo invernal, Guardiana kitsune, Pop celestial, Capitana pirata y Conejita de café. Cada preset combina peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al elegir una tarjeta se crea un perfil propio; no reemplaza los perfiles anteriores. Son ilustraciones chibi generadas localmente, no un rig Live2D profesional.
+
+## Simulador seguro de reglas de automatización
+
+En **Automatizaciones**, al editar una regla, usá **Simulador seguro de condiciones**. Pegá un objeto JSON de ejemplo, por ejemplo:
+
+```json
+{"message":"hola chat","userName":"viewer"}
+```
+
+Pulsá **Simular condiciones (sin ejecutar acciones)**. Se usa la fuente, categoría, tipo y las condiciones actuales. El simulador no llama a Streamer.bot, no envía hotkeys, no modifica reglas ni ejecuta acciones externas. Si no coincide, revisá los nombres de los campos y el operador `eq`, `contains` o `present`. Los payloads se limitan a 65.536 caracteres.
+

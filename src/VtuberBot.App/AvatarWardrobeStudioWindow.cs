@@ -99,7 +99,7 @@ public sealed class AvatarWardrobeStudioWindow : Window
 <div class="group"><h3>07 · Tu diseño</h3><div class="actions"><button class="btn" id="save">Guardar diseño JSON</button><button class="btn secondary" id="reset">Restablecer</button></div><button class="btn" id="exportglb">Exportar modelo 3D (.glb)</button>
 <label class="btn secondary" for="loadfile" style="display:block;text-align:center">Cargar diseño guardado</label><input id="loadfile" type="file" accept=".json,application/json" hidden>
 <div class="warn">El archivo GLB exporta la malla visible, pero no incluye esqueleto ni animaciones. No equivale a un VRM listo para emitir.</div></div>
-</aside><main class="stage"><canvas id="view"></canvas><div class="stagehead"><span class="pill">VISTA 3D · ARRASTRÁ PARA GIRAR</span><span class="pill" id="renderstatus">Preparando modelo…</span></div><div class="tip">Personaje base editable · pelo marrón por defecto · ojos marrones y pupilas blancas. Cambiá las opciones para reconstruir el look.</div></main></div>
+</aside><main class="stage"><canvas id="view"></canvas><div class="stagehead"><span class="pill">VISTA 3D · ARRASTRÁ PARA GIRAR</span><span class="pill" id="renderstatus">Preparando modelo…</span></div><div class="tip">Personaje base editable · cabello castaño, inner hair miel claro, iris y pupilas marrones. El brillo blanco del ojo es un reflejo, no el color de la pupila.</div></main></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.124.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.124.0/examples/js/controls/OrbitControls.js"></script><script src="https://cdn.jsdelivr.net/npm/three@0.124.0/examples/js/exporters/GLTFExporter.js"></script>
 <script>

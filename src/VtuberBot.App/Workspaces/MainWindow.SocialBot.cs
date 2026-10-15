@@ -11,8 +11,8 @@ public partial class MainWindow
     private UIElement BuildSocialBotPage()
     {
         var root = new StackPanel();
-        root.Children.Add(Label("ChatSpeak Studio · IA remota y voz de personaje", 22, "#F8FAFC", true));
-        root.Children.Add(Label("Modo manual con ChatGPT web (copiar/pegar) y modo bot con proveedor remoto compatible. El bot nunca lee la sesión privada del navegador. Las respuestas automáticas empiezan desactivadas.", 12, "#98A4BE"));
+        root.Children.Add(Label("ChatSpeak Studio · IA local y voz opcional", 22, "#F8FAFC", true));
+        root.Children.Add(Label("Modo bot: generación local por defecto y proveedor remoto solo si lo seleccionás. SAPI de Windows es la voz predeterminada; TTS remoto es opcional. ChatGPT web funciona por copiar/pegar: el bot nunca lee la sesión privada del navegador. Las respuestas automáticas empiezan desactivadas.", 12, "#98A4BE"));
 
         var speechPanel = Panel("Lectura del chat");
         var readEnabled = new CheckBox { Content = "Activar lectura de chat", IsChecked = store.GetSetting("social.tts.enabled", "false") == "true", Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
@@ -67,7 +67,7 @@ public partial class MainWindow
         var aiProvider = new ComboBox
         {
             ItemsSource = new[] { "Remoto (API HTTPS)", "Local (solo localhost)" },
-            SelectedIndex = store.GetSetting("social.ai.provider", "remote") == "local" ? 1 : 0,
+            SelectedIndex = ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.ai.provider", "local")) ? 0 : 1,
             MinWidth = 280, Margin = new Thickness(0, 0, 0, 8)
         };
         var baseUrl = TextField("Servidor local compatible OpenAI", store.GetSetting("social.ai.baseUrl", "http://127.0.0.1:8080/v1"));
@@ -114,7 +114,7 @@ public partial class MainWindow
         var speechProvider = new ComboBox
         {
             ItemsSource = new[] { "Remoto (voz de personaje)", "Local (voces de Windows)" },
-            SelectedIndex = store.GetSetting("social.tts.provider", "remote") == "local" ? 1 : 0,
+            SelectedIndex = ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.tts.provider", "local")) ? 0 : 1,
             MinWidth = 280, Margin = new Thickness(0, 0, 0, 8)
         };
         var remoteTtsBaseUrl = TextField("URL base TTS remoto (HTTPS)", store.GetSetting("social.tts.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta"));

@@ -60,9 +60,9 @@ public partial class MainWindow
 
     private static readonly IReadOnlyList<ChibiAvatarPreset> ChibiAvatarPresets =
     [
-        new("mocha-mel", "Miel de café", "Chibi de piel morena cálida, cabello castaño con mechones interiores miel y ojos marrones.",
+        new("mocha-mel", "Miel de café", "Chibi de piel marrón medio-profunda, cabello castaño con inner hair miel claro, iris marrones y pupilas marrón oscuro.",
             "brown-inner-light", "comfy-hoodie", "double-bows", "heart-choker", "bunny-backpack",
-            "heart", "brown", "morena", "wave"),
+            "heart", "brown", "brown", "wave"),
         new("neko-gamer", "Neko gamer", "Chibi con coletas, orejas de gato, streetwear y pose de paz.",
             "twin-tails", "tech-streetwear", "cat-ears", "cheek-stars", "mechanical-pack",
             "round", "rose", "warm", "peace"),
@@ -99,8 +99,23 @@ public partial class MainWindow
         new("bunny-cafe", "Conejita de café", "Moños dobles, orejas largas y mochila conejito.",
             "double-buns", "comfy-hoodie", "bunny-ears", "heart-choker", "bunny-backpack",
             "round", "rose", "cocoa", "peace"),
-        new("mocha-mel", "Miel de café", "Chibi de piel morena cálida, cabello castaño con mechones interiores miel y ojos marrones.",
-            "brown-inner-light", "comfy-hoodie", "double-bows", "heart-choker", "bunny-backpack",
+        new("ocean-pop-inspiration", "Océano pop · referencia marina", "Inspiración general en VTubers de temática tiburón/mar; diseño propio, no copia de un modelo oficial.",
+            "soft-bob", "sailor-academy", "shark-cap", "star-earrings", "fin-ornament",
+            "round", "ocean", "warm", "peace"),
+        new("reaper-rock-inspiration", "Reaper rock · referencia gótica", "Inspiración general en idols de estética reaper/rock; paleta y silueta editables, sin reutilizar arte ajeno.",
+            "long-waves", "gothic-rose", "small-horns", "star-eyepatch", "bat-wings",
+            "sharp", "rose", "cocoa", "microphone"),
+        new("stellar-singer-inspiration", "Cantante estelar · referencia idol", "Inspiración en VTubers musicales y diseños celestes; combinación original para personalizar.",
+            "high-ponytail", "star-idol", "star-halo", "star-earrings", "starlight-ribbons",
+            "heart", "ocean", "morena", "wave"),
+        new("cyber-dragon-inspiration", "Dragona cyber · referencia neón", "Inspiración general en VTubers dragón y cyberpunk; no reproduce un personaje existente.",
+            "silver-cyan", "cyber-runner", "small-horns", "mic-headset", "mechanical-pack",
+            "sharp", "emerald", "cocoa", "hands-hips"),
+        new("demon-gamer-inspiration", "Demonio gamer · referencia streamer", "Inspiración en siluetas gamer demoníacas con colores propios y piezas intercambiables.",
+            "short-spiky", "tech-streetwear", "small-horns", "cheek-stars", "short-cape",
+            "round", "brown", "morena", "peace"),
+        new("kitsune-idol-inspiration", "Kitsune idol · referencia japonesa", "Inspiración en folklore kitsune e idols japonesas; vestuario y rasgos originales.",
+            "long-straight", "shrine-ceremony", "fox-ears", "neck-ribbon", "fox-tail",
             "heart", "brown", "morena", "wave")
     ];
 
@@ -168,6 +183,42 @@ public partial class MainWindow
             sampleGalleryItems.Children.Add(BuildChibiPresetButton(preset));
         sampleGallery.Children.Add(sampleGalleryItems);
         root.Children.Add(sampleGallery);
+
+        var referencePanel = Panel("Referencias públicas · buscá estilos para inspirarte");
+        referencePanel.Margin = new Thickness(0, 0, 0, 14);
+        referencePanel.Children.Add(Label(
+            "Buscá un VTuber conocido para estudiar su paleta, silueta, peinado y accesorios. La búsqueda abre el navegador; no descarga ni copia automáticamente su arte. Después aplicá una plantilla de inspiración de la galería y personalizá cada pieza.",
+            12, "#98A4BE"));
+        var referenceSearchRow = new WrapPanel { Margin = new Thickness(0, 8, 0, 4) };
+        var referenceSearch = new TextBox
+        {
+            Width = 300,
+            MinHeight = 34,
+            Margin = new Thickness(0, 0, 8, 8),
+            Padding = new Thickness(8, 5, 8, 5),
+            Text = "Gawr Gura, Ironmouse, Suisei, Shylily..."
+        };
+        referenceSearch.GotKeyboardFocus += (_, _) =>
+        {
+            if (referenceSearch.Text == "Gawr Gura, Ironmouse, Suisei, Shylily...")
+                referenceSearch.Clear();
+        };
+        referenceSearchRow.Children.Add(referenceSearch);
+        referenceSearchRow.Children.Add(ActionButton("Buscar referencia en la web", (_, _) =>
+        {
+            var query = referenceSearch.Text.Trim();
+            if (string.IsNullOrWhiteSpace(query) || query == "Gawr Gura, Ironmouse, Suisei, Shylily...")
+                query = "famous VTuber character design hair eyes accessories";
+            OpenAvatarExternalTool(
+                "https://www.google.com/search?q=" + Uri.EscapeDataString(query + " VTuber character design reference"),
+                "Búsqueda de referencias VTuber");
+        }, true));
+        referencePanel.Children.Add(referenceSearchRow);
+        referencePanel.Children.Add(Label(
+            "Plantillas de inspiración originales: Océano pop, Reaper rock, Cantante estelar, Dragona cyber, Demonio gamer y Kitsune idol. No son modelos oficiales ni contienen ilustraciones descargadas de terceros.",
+            12, "#98A4BE"));
+        root.Children.Add(referencePanel);
+        root.Children.Add(BuildAvatarAssetLibraryPanel());
 
         var profilePanel = Panel("Perfiles de avatar");
         profilePanel.Margin = new Thickness(0, 0, 0, 14);
@@ -1392,6 +1443,22 @@ public partial class MainWindow
         if (assets.FaceAccessories.TryGetValue(preset.FaceAccessoryId, out var facePath))
             AddPreviewLayer(facePath);
 
+        // This badge is a UI-only overlay: it never edits or bakes into the underlying PNG.
+        preview.Children.Add(new TextBlock
+        {
+            Text = "VTUBERBOT · REFERENCIA",
+            FontSize = 7,
+            FontWeight = FontWeights.Bold,
+            Foreground = Brushes.White,
+            Background = new SolidColorBrush(Color.FromArgb(205, 22, 28, 45)),
+            Padding = new Thickness(3, 2, 3, 2),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(1, 0, 1, 2),
+            TextAlignment = TextAlignment.Center,
+            IsHitTestVisible = false
+        });
+
         var card = new StackPanel { Width = 112 };
         card.Children.Add(preview);
         card.Children.Add(new TextBlock
@@ -1413,6 +1480,31 @@ public partial class MainWindow
             TextWrapping = TextWrapping.Wrap,
             MaxHeight = 44
         });
+        var originalAssetLink = new TextBlock
+        {
+            Text = "Ver PNG original sin marca ↗",
+            FontSize = 9,
+            Foreground = Brush("#8BC5FF"),
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 5, 0, 0),
+            Cursor = System.Windows.Input.Cursors.Hand,
+            ToolTip = "Abre el archivo PNG local sin la marca superpuesta de la vista previa."
+        };
+        originalAssetLink.MouseLeftButtonUp += (_, eventArgs) =>
+        {
+            eventArgs.Handled = true;
+            try
+            {
+                Process.Start(new ProcessStartInfo(Path.GetFullPath(assets.BaseIdle)) { UseShellExecute = true });
+                FooterStatus.Text = "PNG original abierto; la marca solo existe en la vista previa.";
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo abrir el PNG original: " + exception.Message;
+            }
+        };
+        card.Children.Add(originalAssetLink);
 
         var button = new Button
         {

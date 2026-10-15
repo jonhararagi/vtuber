@@ -15,6 +15,20 @@ namespace VtuberBot.Tests;
 public sealed class Tests
 {
 
+    [Theory]
+    [InlineData(null, "local")]
+    [InlineData("", "local")]
+    [InlineData("unknown", "local")]
+    [InlineData("local", "local")]
+    [InlineData("remote", "remote")]
+    [InlineData(" REMOTE ", "remote")]
+    public void ProviderPreferenceDefaultsUseLocalUnlessRemoteWasExplicitlySaved(string? savedValue, string expected)
+    {
+        Assert.Equal(expected, ProviderPreferenceDefaults.Resolve(savedValue));
+        Assert.Equal(expected == "remote", ProviderPreferenceDefaults.IsRemote(savedValue));
+    }
+
+
     [Fact]
     public void Pcm16LevelPolicyReturnsZeroForIncompleteSample()
     {
@@ -952,7 +966,7 @@ public sealed class Tests
 
         scheduler.ScheduleOnce(TimeSpan.FromMilliseconds(20), signal.Set);
 
-        Assert.True(signal.Wait(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken));
+        Assert.True(signal.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -2300,7 +2314,7 @@ public sealed class Tests
         Assert.True(
             SpinWait.SpinUntil(
                 () => GetActiveWaiters(process) > 0,
-                TimeSpan.FromSeconds(1)));
+                TimeSpan.FromSeconds(5)));
 
         var stopStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);

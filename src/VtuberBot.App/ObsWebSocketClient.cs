@@ -148,6 +148,38 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         EnsureRequestSucceeded(response, "OBS no pudo cambiar la escena.");
     }
 
+    /// <summary>Applies a conservative 720p30 video profile and verifies the settings reported back by OBS.</summary>
+    public async Task<string> ApplyLightVideoProfileAsync(CancellationToken cancellationToken = default)
+    {
+        var requested = await RequestAsync("SetVideoSettings", new
+        {
+            baseWidth = 1280,
+            baseHeight = 720,
+            outputWidth = 1280,
+            outputHeight = 720,
+            fpsNumerator = 30,
+            fpsDenominator = 1
+        }, cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(requested, "OBS no pudo aplicar el perfil de vídeo 720p30.");
+
+        var verified = await RequestAsync("GetVideoSettings", cancellationToken: cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(verified, "OBS no pudo verificar la configuración de vídeo.");
+        var data = verified.GetProperty("responseData");
+        var baseWidth = data.GetProperty("baseWidth").GetInt32();
+        var baseHeight = data.GetProperty("baseHeight").GetInt32();
+        var outputWidth = data.GetProperty("outputWidth").GetInt32();
+        var outputHeight = data.GetProperty("outputHeight").GetInt32();
+        var fpsNumerator = data.GetProperty("fpsNumerator").GetInt32();
+        var fpsDenominator = data.GetProperty("fpsDenominator").GetInt32();
+
+        if (baseWidth != 1280 || baseHeight != 720 || outputWidth != 1280 || outputHeight != 720 ||
+            fpsDenominator <= 0 || fpsNumerator / (double)fpsDenominator != 30d)
+            throw new InvalidOperationException(
+                $"OBS devolvió una configuración diferente de la solicitada: lienzo {baseWidth}x{baseHeight}, salida {outputWidth}x{outputHeight}, FPS {fpsNumerator}/{fpsDenominator}.");
+
+        return $"Perfil verificado en OBS: lienzo y salida 1280×720 a 30 FPS.";
+    }
+
     public Task<bool> IsStreamingAsync(CancellationToken cancellationToken = default) =>
         GetOutputActiveAsync("GetStreamStatus", "estado de transmisión", cancellationToken);
 

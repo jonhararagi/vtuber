@@ -1,12 +1,160 @@
+# Estado prioritario del repositorio — 2026-10-15
+
+## Avance real de cierre — simulador de automatizaciones y reconciliación de ramas
+
+- Se portó a la rama de producto el simulador seguro de condiciones que existía únicamente en `main`. Está integrado en el editor de Automatizaciones, usa el evaluador de condiciones existente y solo muestra coincidencia/no coincidencia; no ejecuta el dispatcher, no llama a Streamer.bot y no envía hotkeys.
+- Windows CI [run #877](https://github.com/jonhararagi/vtuber/actions/runs/38745752961) terminó **success** para el SHA exacto `2f82ba97ff6af4bc22dcf553b05a2b2324382767`: Restore, Build Release, pruebas automatizadas, publicación del ZIP autocontenido Windows x64 y subida del artefacto. La primera versión del port, SHA `763d9265328412248abe1d5faeeadccdcb570f4e`, falló en Build por escapes de nueva línea duplicados; se corrigieron y el SHA #877 confirma la corrección.
+- Se corrigió el texto del taller 3D para que describa el pelo castaño, inner hair miel claro, iris y pupilas marrones sin llamar “pupila blanca” al reflejo ocular.
+- Se actualizó README para dejar claro que `product/complete-vtuber-experience` es la fuente de verdad temporal y que `main` no debe tratarse como el ZIP más actualizado. Se preservó `docs/ANALISIS-MORPHY.md` desde `main`, y se sincronizaron roadmap y guía con el simulador y la galería chibi.
+- El HEAD documental `956bc298d8d95085d42fde51dfe823e0e7acbb89` pasó Windows CI #882: Restore, Build Release, pruebas, paquete y artefacto. Después se creó el commit de integración de historial `6911bf6871ab4552fc69b88a24ea85bc629c7751`, con padres `da8bee119955d0e1f198c6fb8746302d1bb7f39f` (producto) y `15f3377239cd19e1d51d895019f64530e80aad37` (main). Windows CI del nuevo commit está en cola; la aprobación #882 no se atribuye a ese merge commit.
+- Se creó un commit de integración no destructivo en la rama de producto: `6911bf6871ab4552fc69b88a24ea85bc629c7751`. Su segundo padre es el HEAD de `main`, por lo que los ocho commits exclusivos de `main` ahora forman parte de la historia ancestral de producto; el árbol conserva las funciones de producto y los cambios útiles de `main` portados/reconciliados en código y documentación. La comparación actual informa **90 commits por delante y 0 por detrás**; `main` es ancestro de la rama de producto. PR #18 cambió de `dirty` a `mergeable: true`, `mergeable_state: unstable` mientras esperan los checks. No se ha modificado la rama `main`, no se ha fusionado la PR ni se han eliminado ramas.
+- Sigue pendiente la prueba manual global en Windows con Twitch, OBS, Streamer.bot, PNGTuber Plus, voz/dispositivos y overlay. CI no puede confirmar esos servicios reales sin las aplicaciones, cuentas y periféricos configurados.
+
+
+## Protección del trabajo y sincronización de ramas
+
+- Rama de trabajo y fuente de verdad del producto: `product/complete-vtuber-experience`.
+- `main` está divergida: comparación GitHub `main...product/complete-vtuber-experience` informa **88 commits exclusivos de producto y 8 commits exclusivos de main**, con base común `797d43ecee3eddd4c95f1c8d8f19669febfdd6a2`. No se debe describir `main` como una copia actual del producto.
+- PR #18 es la vía de integración existente: https://github.com/jonhararagi/vtuber/pull/18. No se fusiona automáticamente ni se debe reemplazar la historia de `main` sin revisar primero los ocho commits exclusivos, conflictos y el CI postintegración.
+- Regla operativa: seguir desarrollando en la rama de producto; antes de cualquier merge, comparar las dos puntas, conservar cambios exclusivos de ambos lados, resolver conflictos explícitamente y validar el SHA resultante. No borrar ramas ni commits para “limpiar” el historial.
+- Próximo hito de integración: revisar la mergeabilidad/conflictos de PR #18 y preparar una integración segura de ambas líneas de trabajo; confirmar CI post-merge antes de afirmar que `main` ya contiene todo. Hasta entonces, no asumir que un ZIP de `main` contiene las últimas funciones.
+
+## Validación Windows CI histórica comprobada (SHA anterior)
+
+- Windows CI [run #872](https://github.com/jonhararagi/vtuber/actions/runs/38738742940) terminó **success** para el SHA exacto `8a9198539c4130ea593f42dd48c67a9b2a2f2462` en `product/complete-vtuber-experience`.
+- Pasaron Restore, Build Release, pruebas automatizadas y publicación autocontenida Windows x64; el artefacto se subió correctamente.
+- Artefacto: [VTuberBot-Product-Candidate-win-x64-8a9198539c4130ea593f42dd48c67a9b2a2f2462](https://github.com/jonhararagi/vtuber/actions/runs/38738742940), SHA-256 `ff44a582e5d12cb9acbe7746b04448c305768391035b92758f3d635c41e13bf1`, vence el 29-10-2026.
+- Esta CI demuestra que ese SHA compila, pasa las pruebas automatizadas y genera un paquete Windows. **No** demuestra conexión real con cuentas Twitch, Streamer.bot u OBS ni validación visual/manual en la PC del usuario. Esta nota genera un SHA nuevo y deberá revisarse su propio CI.
+- No se ha modificado `main` ni fusionado PR #18 en esta actualización.
+
+---
+
+## 2026-10-15 — Automatizaciones directas de OBS y avatar
+
+- Se amplió `EventActionDestination` con destinos directos `ObsScene` y `AvatarExpression`; el resto del coordinador de eventos sigue compartido, acotado y con reglas persistentes.
+- `ProcessTwitchMessageAsync` publica `Twitch.IRC / Twitch.ChatMessage` con usuario, texto, ID de mensaje, indicador/comando y argumentos después de la política que suprime efectos de mensajes sancionados. La pantalla Automatizaciones permite elegir esa fuente sin suscribir otro servicio, y valida la combinación fija `Twitch.ChatMessage`.
+- La pantalla Automatizaciones consulta la lista real de escenas desde OBS autenticado y ofrece solo expresiones del avatar cuyo recurso existe. Al guardar y al ejecutar, la escena/expresión se valida de nuevo; no se cambia nada al seleccionar o guardar el destino.
+- El despachador usa `ObsWebSocketClient.SetCurrentSceneAsync` para solicitar el cambio de escena y el callback del renderizador del avatar para solicitar un estado. La actividad no afirma que OBS cambió visualmente la salida: diferencia la aceptación de la solicitud del efecto visual final.
+- Las reglas nuevas continúan desactivadas; automatizaciones pausadas por defecto; las acciones Streamer.bot mantienen confirmación por ID y los atajos PNGTuber Plus siguen con autorización global separada.
+- Se agregó una prueba de persistencia para distinguir los nuevos destinos en el Core y otra para asegurar que los destinos directos no heredan la confirmación de acciones externas de Streamer.bot.
+- La UI ahora incluye un constructor de condiciones por menús (campo, operador y valor) y mantiene el editor de líneas para casos avanzados.
+- **Validación observada:** Windows CI #871 para el SHA `df914c14869cc8d729e0bcbb64e22a8e84c20431` terminó `success`: Build Release, pruebas automatizadas y paquete/artefacto Windows x64 completados. El run #869 había detectado `CS0841` en el constructor de condiciones (el callback referenciaba `status` antes de declararlo); se corrigió moviendo la creación de la etiqueta antes de registrar los callbacks. #871 valida esa corrección, los destinos directos OBS/avatar y la fuente de chat IRC. Este commit de continuidad es documental; comprobar también el CI que corresponda al SHA que resulte de esta actualización.
+- No se modificó `main` ni se fusionó el PR #18.
+
+## 2026-10-15 — Perfiles reales de bots Twitch
+
+- Añadido `TwitchBotProfileStore.cs`: catálogo local de perfiles, credenciales OAuth separadas cifradas con DPAPI y detección de catálogo/credenciales dañadas sin registrar tokens.
+- `TwitchChatClient` ahora tiene un overload con `botLogin` y `channel` separados; el protocolo envía `NICK botLogin` y `JOIN #channel`. El overload antiguo sigue siendo compatible y usa la misma cuenta/canal.
+- `MainWindow.Twitch.cs` permite guardar varios perfiles internos (por ejemplo, Mode-chan), activar uno y conectar la cuenta real autorizada al canal objetivo. La renovación de credenciales preserva el login del bot.
+- Añadidas pruebas para persistencia, DPAPI, ausencia de tokens en texto/base64 del catálogo/archivo y manejo de catálogo corrupto.
+- Límites: no crea cuentas Twitch ni cambia el nombre público de una cuenta; cada cuenta debe existir y autorizarse por separado. Solo un perfil de chat nativo está activo a la vez. La integración EventSub conserva su configuración independiente.
+- **Validación pendiente:** el último commit de esta serie y el CI de Windows deben confirmarse por SHA exacto; no se ha probado aún con cuentas reales de Twitch.
+
+## 2026-10-15 — Inicio automático y modo ligero de OBS (implementación inicial)
+
+**Rama:** `product/complete-vtuber-experience`
+
+- Añadido `src/VtuberBot.App/ObsStartupCoordinator.cs`: detecta procesos OBS, busca `obs64.exe` en rutas estándar o en la ruta elegida por el usuario, abre OBS y puede solicitar modo ligero con `--only-bundled-plugins`. El inicio automático no bloquea la apertura de VTuberBot si OBS falta o falla.
+- `MainWindow.xaml.cs` programa la coordinación durante el evento `Loaded`; la contraseña WebSocket guardada se reutiliza solo para intentar autenticación local. Se hacen intentos limitados y con timeout; no se registra la contraseña.
+- `Workspaces/MainWindow.Integrations.cs` añade preferencias persistentes para inicio automático/modo ligero, botón para abrir OBS y selector de `obs64.exe`. El botón de conexión se presenta como configuración inicial/fallback; una conexión solo se informa como correcta tras autenticar y consultar la versión. También ofrece aplicar 1280×720 a 30 FPS previa confirmación.
+- `ObsWebSocketClient.ApplyLightVideoProfileAsync` envía `SetVideoSettings` para lienzo/salida 1280×720 a 30 FPS, consulta `GetVideoSettings` y valida la respuesta antes de informar éxito. No modifica bitrate ni selecciona un codificador de hardware automáticamente.
+- `docs/PRODUCT_USER_GUIDE.md` documenta que el modo ligero omite plugins de terceros en esa sesión y no los desinstala; el perfil 720p30 cambia la configuración global de vídeo. Ninguna de las dos opciones garantiza menor CPU/GPU sin medición en Ryzen 5 5600G.
+- **Validación pendiente:** estos cambios se escribieron en GitHub, pero todavía no se ha confirmado CI para el SHA final de este bloque. No declarar compilación correcta ni funcionamiento en Windows hasta que el run del SHA exacto termine. Tampoco se ha probado OBS instalado, credenciales reales o escenas que dependan de plugins externos.
+
 # Continuidad del proyecto — VTuberBot
 
-## 2026-10-15 — Simulador de reglas y análisis de Morphy
+## 2026-10-15 — Auditoría de capacidades IA existentes (evidencia de código)
 
-- Se añadió `docs/ANALISIS-MORPHY.md` con un análisis del espacio de trabajo Morphy y recomendaciones de proceso: roles separados de auditor/implementador/revisor, GitHub como fuente de verdad y evidencia de CI por SHA. Morphy no se añade como dependencia de ejecución del bot.
-- Se agregó en `src/VtuberBot.App/Workspaces/MainWindow.EventActionWorkspace.cs` un simulador de condiciones JSON para reglas de automatización. Usa el evaluador existente `EventActionCoordinator.MatchesConditions`, valida el JSON y no invoca al dispatcher; por diseño no envía acciones ni hotkeys.
-- La guía `docs/PRODUCT_USER_GUIDE.md` explica cómo usar el simulador.
-- El preset `Miel de café` ya presente en la galería de 13 personajes cubre la preferencia visual expresada: piel morena, pelo castaño con inner hair claro y ojos/pupilas marrones. El catálogo sigue siendo arte chibi vectorial generado localmente; no equivale a un rig Live2D.
-- CI pendiente para el nuevo código: no afirmar éxito hasta que la ejecución de Windows termine sobre el SHA exacto del simulador. Las pruebas de integraciones reales requieren además un entorno Windows interactivo con cuentas y aplicaciones configuradas.
+**Alcance y criterio:** auditoría estática del HEAD anterior `9b0f5f32470a5f6b705d3c9fd2239c02cf927312` en `product/complete-vtuber-experience`. “Implementado en código” significa que existe una ruta de ejecución; no equivale a conexión probada con una cuenta/proveedor real. Se inspeccionaron los archivos enumerados abajo y los tests asociados. No se modificó `main`.
+
+### Clasificación por capacidad
+
+| Capacidad | Clasificación | Evidencia y límites |
+|---|---|---|
+| Respuestas generativas del bot social | **Implementada; remota o local según selector** | `SocialBotService` recibe un proveedor en el constructor y expone comprobación/generación; `MainWindow.xaml.cs` instancia ambos proveedores y selecciona según `social.ai.provider`. En `MainWindow.SocialBot.cs`, el selector se inicializa como remoto si no hay preferencia guardada; el check de respuestas automáticas usa por defecto `false`. La ruta automática requiere habilitación explícita y la clave cuando se elige remoto. Evidencia: [SocialBotService.cs](../src/VtuberBot.App/SocialBotService.cs#L140), [MainWindow.xaml.cs](../src/VtuberBot.App/MainWindow.xaml.cs#L324), [MainWindow.SocialBot.cs](../src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs#L68). |
+| Generación local de texto | **Implementada en código; depende de runtime/modelo local externo** | `LocalOpenAiCompatibleProvider` llama `/v1/models` y `/v1/chat/completions`, exige host loopback (`localhost`/IP loopback) y valida el ID del modelo. El valor inicial apunta a `http://127.0.0.1:8080/v1`; VTuberBot no incluye ni instala por sí mismo un runtime de chat ni pesos de un LLM. Por tanto, es local y no necesita API remota, pero no funciona hasta que el usuario instale/inicie un servidor compatible y configure un modelo. Evidencia: [LocalOpenAiCompatibleProvider.cs](../src/VtuberBot.Core/LocalOpenAiCompatibleProvider.cs#L32), [validación loopback](../src/VtuberBot.Core/LocalOpenAiCompatibleProvider.cs#L145), [tests locales](../tests/VtuberBot.Tests/LocalOpenAiCompatibleProviderTests.cs). |
+| Generación remota de texto | **Implementada en código; API externa y clave requeridas** | `RemoteOpenAiCompatibleProvider` hace peticiones HTTPS compatibles con chat completions, usa Bearer API key y valida URL HTTPS. La UI guarda la clave con `UserSecretStore`/DPAPI fuera de SQLite. La URL/modelo por defecto se orientan a Gemini, pero la existencia del adaptador no garantiza que el modelo configurado siga vigente, que la cuenta tenga cuota o que la llamada real funcione. La API remota no es gratuita garantizada; la cuota depende del proveedor/modelo/cuenta y puede requerir facturación. Evidencia: [RemoteOpenAiCompatibleProvider.cs](../src/VtuberBot.Core/RemoteOpenAiCompatibleProvider.cs#L8), [UserSecretStore.cs](../src/VtuberBot.App/UserSecretStore.cs#L7), [tests del adaptador](../tests/VtuberBot.Tests/RemoteOpenAiCompatibleProviderTests.cs). |
+| ChatGPT/Gemini web | **Integración manual real (copiar/pegar), no integración automática** | Los botones abren los sitios en navegador/ventana, se copia el prompt con contexto reciente y la persona pega la respuesta. La aplicación procesa el texto pegado para voz/expresión; la publicación en Twitch es opcional y desactivada por defecto en ese control. El código declara expresamente que no lee ni controla la sesión privada del navegador. No necesita API key para el intercambio manual, pero requiere interacción humana y una cuenta/servicio web si la página la solicita. Evidencia: [modo manual y apertura web](../src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs#L229), [procesamiento de respuesta pegada](../src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs#L268). |
+| TTS de Windows SAPI | **Local y disponible si Windows tiene voces instaladas** | `LocalSpeechQueue` procesa audio en un hilo STA y el panel Audio lista las voces SAPI del sistema. No requiere clave ni envía texto a una API; la calidad/idioma dependen de las voces instaladas. La detección de micrófono es amplitud/umbral, no reconocimiento semántico ni transcripción. Evidencia: [LocalSpeechQueue.cs](../src/VtuberBot.App/LocalSpeechQueue.cs), [MainWindow.Audio.cs](../src/VtuberBot.App/Workspaces/MainWindow.Audio.cs#L248). |
+| TTS VOICEVOX | **Local, opcional y externo** | El adaptador HTTP limita la conexión a loopback y sintetiza con un motor VOICEVOX instalado/iniciado aparte; no manda texto a nube y no requiere API key. El motor y las voces no están empaquetados; hay que revisar sus licencias/atribución. Las pruebas encontradas validan contratos/enrutamiento, no sonido real reproducido en el PC. Evidencia: [VoicevoxSpeechSession.cs](../src/VtuberBot.App/VoicevoxSpeechSession.cs#L1), [tests VOICEVOX](../tests/VtuberBot.Tests/VoicevoxSpeechSessionTests.cs). |
+| TTS remoto de personaje | **Implementado; remoto y con clave/cuota** | `RemoteSpeechSession` tiene ruta Gemini TTS y ruta de audio MP3 compatible; requiere una clave de TTS o reutiliza la clave de IA cuando detecta que el endpoint corresponde. El selector TTS también arranca por defecto en remoto si no hay preferencia guardada. Esto contradice la meta nueva de priorizar local como predeterminado y es un cambio de producto pendiente, aunque el chat automático sí inicia desactivado. Evidencia: [RemoteSpeechSession.cs](../src/VtuberBot.App/RemoteSpeechSession.cs#L14), [selector TTS y clave](../src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs#L120). |
+| Separación de avatar 2.5D | **IA local experimental; descarga puntual de modelo** | `LocalAvatarSegmentation.cs` usa ONNX Runtime en CPU y un modelo de segmentación de cabello/ropa/piel. El modelo (~8,7 MB) se descarga la primera vez desde una URL fija y luego la inferencia es local; no requiere clave de IA, pero sí Internet inicial, almacenamiento y tiempo de CPU. El código advierte que las clases son aproximadas y no reconstruyen perfectamente zonas ocultas. No es un LLM ni un generador de arte. Evidencia: [LocalAvatarSegmentation.cs](../src/VtuberBot.App/LocalAvatarSegmentation.cs#L34), [descarga inicial](../src/VtuberBot.App/LocalAvatarSegmentation.cs#L317), [acción experimental en Avatar Studio](../src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs#L155). |
+| Transcripción/voz-a-texto local, LLM local empaquetado, automatización de ChatGPT/Gemini web | **Pendiente / no encontrado en esta auditoría** | No se encontró una ruta de transcripción semántica de audio en los archivos auditados; el VAD mide amplitud. No hay modelo de chat local incluido en el paquete y no hay lectura/envío automático a la sesión web privada. No deben presentarse como funciones existentes. |
+
+### Hallazgos y diferencias frente a la política de IA opcional
+
+1. **La IA conversacional no se ejecuta sola al iniciar:** el selector de proveedor remoto es el valor inicial, pero las respuestas automáticas y la publicación en Twitch se inicializan desactivadas. Las llamadas se producen al comprobar/probar el proveedor o tras habilitar una función que las usa.
+2. **La prioridad local aún no se refleja en los valores predeterminados de toda la UI:** tanto el selector de proveedor conversacional como el selector TTS usan remoto si no existe configuración previa. SAPI local está disponible como alternativa, y VOICEVOX es una opción local separada. Cambiar el predeterminado requiere una modificación de código y revisar onboarding/guía; no se hizo en esta auditoría.
+3. **“Gratis” no significa sin requisitos:** la inferencia local de chat requiere que el usuario aporte runtime/modelo; VOICEVOX requiere instalar el motor; SAPI depende de las voces de Windows; la segmentación 2.5D descarga un modelo al primer uso. Las APIs remotas pueden tener cuotas gratuitas variables, límites y condiciones de privacidad.
+4. **Privacidad remota:** la guía de ChatSpeak advierte que el contenido de la cuota gratuita de Gemini puede utilizarse para mejorar productos. Antes de usar un proveedor gratuito con chat de Twitch, revisar los términos vigentes y no enviar secretos, datos privados ni información sensible.
+5. **Pruebas encontradas:** existen tests unitarios con transportes falsos para el protocolo local/remoto y tests de VOICEVOX. Estos validan rutas y formato, no una cuenta real, disponibilidad de modelo, cuota, voz audible o rendimiento en la PC del usuario.
+6. **Validación de CI de referencia:** Windows CI del SHA `9b0f5f32470a5f6b705d3c9fd2239c02cf927312` terminó `success` (run [#38695029324](https://github.com/jonhararagi/vtuber/actions/runs/38695029324)); ese commit era documental. La actualización de continuidad de esta auditoría genera un SHA nuevo y su CI debe consultarse por separado. La CI no valida credenciales reales ni dispositivos de audio.
+
+**Conclusión:** hay adaptadores reales de generación local/remota, TTS local/remoto, modo web manual y segmentación ONNX local experimental. La principal brecha frente al objetivo solicitado no es la ausencia total de IA local, sino que el modo remoto sigue siendo el valor predeterminado de chat/TTS y la generación local de texto depende de un runtime/modelo externo. La siguiente implementación recomendada es corregir los valores predeterminados y el onboarding para que IA conversacional y TTS remotos sean opt-in, sin romper las configuraciones ya guardadas ni los flujos no-IA.
+
+
+## 2026-10-15 — Ajuste de formatos admitidos
+
+- Se limitó la biblioteca a PNG/JPG/JPEG/BMP, alineándola con el decodificador y la ruta de asignación de imágenes ya usados por Avatar Studio. WebP se retiró del selector para no prometer un formato que la ruta actual no garantiza.
+- Commit: `63456ac17515af09dcd23431d2d2c7d9ca55a580`. El CI de la corrección de compilación se estaba ejecutando mientras se registró este ajuste; hay que comprobar el estado del SHA más reciente y no inferir éxito del run anterior.
+
+## 2026-10-15 — Corrección del primer fallo de Windows CI
+
+- Se revisó el job de Windows CI para el SHA `3378c0933b7abf304208d8a22a86bd8cdc2391e7`. El restore terminó correctamente, pero `Build Release` falló al compilar `AvatarAssetLibrary.cs`: faltaba importar `System.IO` y el panel usaba `AvatarArtPromptCatalog.Roles` desde una clase distinta a la que lo expone.
+- Corrección registrada en el commit `6e7f48ed27e6b9082d433689d6e259d466d6a8c2`: se agregó `using System.IO` y el selector de asignación utiliza los roles explícitos compatibles con Avatar Studio. La nueva compilación/CI de este SHA todavía debe terminar antes de declarar la corrección validada.
+- No se modificó `main`, ni se fusionó o cerró ningún PR.
+
+## 2026-10-15 — Vista previa y estado de la biblioteca de assets
+
+- Se agregó una miniatura de vista previa al seleccionar una entrada de la biblioteca local de arte. La implementación de la biblioteca ahora cubre catálogo persistente, importación múltiple, búsqueda, filtros, favoritos, metadatos de procedencia/licencia, vista previa y asignación al perfil activo.
+- El siguiente trabajo artístico no debe confundirse con esta gestión de archivos: todavía hace falta ampliar la variedad real de ilustraciones/piezas originales (siluetas, formas de ropa, peinados y accesorios) y comprobar en Windows que la composición y las miniaturas se ven bien.
+- Commit de vista previa: `9560cf55108a9da962082b435d96484e033a1625`. El CI del SHA final sigue pendiente de confirmación; los estados combinados consultados no devolvieron checks, así que no se afirma que haya compilado.
+
+## 2026-10-15 — Biblioteca local de assets para Avatar Studio
+
+- Se añadió `src/VtuberBot.App/Workspaces/AvatarAssetLibrary.cs`: catálogo JSON local, copia de archivos a una carpeta propia, búsqueda por nombre/etiquetas/categoría/licencia, filtro de favoritos, metadatos editables de procedencia y licencia, y protección contra rutas de catálogo que escapen de la biblioteca.
+- La biblioteca se muestra dentro de Avatar Studio. Permite importar varias imágenes locales, mantener su estado de licencia como **Pendiente de revisar** por defecto, marcar favoritos y asignar un asset al rol elegido (personaje base, fondo, capa u expresión). La asignación hace una copia para el perfil y conserva el original en la biblioteca.
+- Se admiten PNG/JPG/JPEG/BMP/WebP hasta 25 MB por archivo. La UI intenta decodificar la imagen antes de incorporarla; los permisos de uso no se infieren automáticamente. Los archivos quedan en el directorio local del usuario, no se suben a PixAI ni a otros servicios.
+- Se añadieron pruebas en `tests/VtuberBot.Tests/AvatarAssetLibraryTests.cs` para persistencia, búsqueda, metadatos/favoritos, URL segura, extensiones y bloqueo de rutas fuera del catálogo.
+- Commits de implementación: `1f40a258a6aeaa3b911e7cd9c0bb38864f72efd6`, `5ff39bba4ca8b538aeac9887ccdcac9c933a3f95`, `90d1c50f5b612b0c6892d3c6d6d35d5aa6ac1ac8`, `2a35499c6f73eae01afc4048cb6af3ccd927e194`, `a081574227316a123137b927444e98346c94cdbf`.
+- **Validación pendiente:** aún no se declara compilación ni CI aprobada para el SHA final. La UI debe validarse en Windows; no se ha comprobado visualmente en el equipo del usuario. La biblioteca mejora la gestión de assets, pero no genera imágenes dentro de VTuberBot ni reemplaza un editor de dibujo por capas de alta complejidad.
+- Se trabajó solo en `product/complete-vtuber-experience`; no se tocó `main` ni se fusionó/cerró ningún PR.
+
+## 2026-10-15 — Investigación de arte con IA y auditoría de brechas
+
+- Se creó `docs/investigacion-arte-ia/README.md` con investigación web de PixAI, NovelAI, Tensor.Art, SeaArt, Civitai, Hugging Face, ComfyUI y Krita AI Diffusion. Incluye enlaces oficiales, capacidades observadas, precauciones de licencia y un flujo de trabajo para producir/importar recursos originales.
+- Se creó `docs/investigacion-arte-ia/AUDITORIA_BRECHAS.md` con prioridades de producto, límites documentados y validaciones externas pendientes. Distingue funciones documentadas de pruebas reales aún no realizadas.
+- Recomendación principal: ampliar Avatar Studio con una biblioteca local de recursos con diversidad visual real, etiquetas, categorías, favoritos, previsualización, asignación de capas y metadatos de procedencia/licencia. La generación por web/API no debe ser obligatoria; no usar scraping ni redistribuir modelos sin permisos verificables.
+- Fuentes destacadas: [PixAI Generator](https://pixai.art/en/ai-tools/ai-anime-generator), [PixAI Terms](https://pixai.art/en/terms), [NovelAI docs](https://docs.novelai.net/en/image/), [Tensor.Art Terms](https://tensor.art/about/terms-of-service-new), [SeaArt guide](https://docs.seaart.ai/guide-1/espanol/7-preguntas-frecuentes), [Civitai permissions](https://github.com/civitai/civitai-developer-docs/blob/main/site/reference/permissions.md), [ComfyUI](https://github.com/comfyanonymous/ComfyUI), [Krita AI Diffusion](https://github.com/Acly/krita-ai-diffusion).
+- Commits de documentación: `d24d0965f0101712d9c1239fb1959d38b8459e76` (investigación) y `8391fa939aea9c325129cc0b44a749b70f05ae85` (auditoría). La comprobación de estado de CI aún no devuelve checks para el último SHA; no se declara validación de CI.
+
+
+## 2026-10-15 — Paleta de piel marrón más profunda para Miel de café
+
+- Se agregó la opción de tono de piel `brown` / **Morena profunda** al armario modular, con color base `#8D573D` y sombra `#593625`. La opción anterior **Morena cálida** se conserva para no cambiar perfiles existentes.
+- El preset inicial **Miel de café** usa ahora ese tono más profundo, mantiene el cabello castaño con mechones interiores miel claro (`brown-inner-light`) y los ojos marrones con pupilas marrón oscuro. No se reemplazan ni borran perfiles ya guardados.
+- Se actualizó `docs/PRODUCT_USER_GUIDE.md` con la nueva opción de piel.
+- Commits de código: `057d8f2` (paleta) y `ceec469` (preset); guía `93aec3d`. Se añadió `tests/VtuberBot.Tests/AvatarWardrobeCatalogTests.cs` (`849f345`) para impedir que desaparezcan del catálogo los IDs de piel morena, tono marrón profundo, cabello castaño con inner hair claro y ojos marrones.
+- CI de Windows para esos cambios está en ejecución; no se declara todavía que este SHA haya compilado ni que la apariencia se haya comprobado visualmente en el equipo del usuario.
+- El trabajo sigue en `product/complete-vtuber-experience`; no se modificó `main` en esta tarea.
+
+## 2026-10-15 — Buscador de referencias y plantillas de inspiración VTuber
+
+- En `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs` se añadió a Avatar Studio un buscador que abre una búsqueda web de referencias públicas a partir del nombre escrito por el usuario. No descarga ni recorta automáticamente ilustraciones ajenas.
+- Se añadieron seis perfiles originales de inspiración a la galería: Océano pop, Reaper rock, Cantante estelar, Dragona cyber, Demonio gamer y Kitsune idol. Cada uno combina IDs existentes de cabello, ropa, ojos, tono de piel y accesorios del armario modular. Se conserva el preset **Miel de café** para el estilo solicitado: piel morena cálida, pelo castaño con inner hair miel claro, iris marrón y pupilas marrón oscuro.
+- Se actualizó `docs/PRODUCT_USER_GUIDE.md` para explicar el buscador y aclarar que las plantillas no copian modelos oficiales ni incorporan imágenes descargadas. El usuario puede estudiar referencias en el navegador y personalizar una combinación propia en el editor.
+- También se amplió el margen temporal de dos pruebas sensibles a la carga de CI en `tests/VtuberBot.Tests/Tests.cs`: la espera para observar un waiter de proceso y la señal del scheduler pasan de 1 a 5 segundos. La CI anterior `38689583730` falló solo en esas dos aserciones de tiempo; se está comprobando la siguiente ejecución.
+- Estos cambios no se han probado visualmente en el PC del usuario. Esperar el resultado de Windows CI para el SHA final de código antes de declarar la validación completa. No se tocó `main` ni se fusionó/cerró el PR #9.
+
+## 2026-10-15 — Marca de referencia no destructiva en la galería de avatar
+
+- En `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs`, cada tarjeta de la galería muestra ahora `VTUBERBOT · REFERENCIA` como superposición WPF. La etiqueta solo vive en la vista previa y no se fusiona con los PNG.
+- Cada tarjeta incluye `Ver PNG original sin marca ↗`, que abre el PNG base local mediante el visor predeterminado del sistema. Se mantiene separada de la acción principal que crea un perfil chibi.
+- Se eliminó una entrada duplicada de `Miel de café` que repetía el mismo ID en el catálogo; la galería conserva trece diseños únicos.
+- `docs/PRODUCT_USER_GUIDE.md` explica el comportamiento y aclara un límite legal importante: una marca de agua no concede derechos ni evita por sí sola una infracción. Los recursos de esta galería se generan localmente, así que no se inventan fuentes oficiales externas; el arte de terceros importado por el usuario debe respetar sus licencias y permisos.
+- Commit de implementación: `dc95958a3efd7726e99eb42111abda91389b45f6`. Documentación: `c077bc7c54a8cebacff5567ea5e527f7efe9ba42`.
+- Validación Windows CI del cambio de interfaz pendiente al momento de este registro; no se afirma que se haya comprobado visualmente en Windows.
+- Rama `product/complete-vtuber-experience`; no se tocó `main` ni se fusionó/cerró el PR #9.
 
 ## 2026-10-15 — Cierre de integración en main y validación Windows
 
@@ -1607,13 +1755,171 @@ Esta tabla es un análisis de ramas, no una afirmación de que las ramas enumera
 - **Ajuste de idioma de las frases predeterminadas:** las cuatro reacciones anime usan texto japonés corto para evitar pasar una oración española entera a una voz japonesa. `/soybot` conserva el texto español.
 - **Validación pendiente:** la voz SAPI japonesa no se ha probado en el equipo del usuario. El código solo acepta voz SAPI local identificable como japonesa o clip explícito; el proveedor remoto no se presenta como voz japonesa. La prueba automatizada valida la selección del callback y no el audio físico.
 
+## 2026-10-15 — Auditoría de recursos artísticos y voces realmente presentes en el repositorio
 
-## 2026-10-15 — Reconciliación de ramas: `main` como fuente principal
+**Alcance de esta auditoría:** inspección del árbol Git recursivo y de los archivos fuente en `product/complete-vtuber-experience`, HEAD `01fcfd762404cf8592eb61607ba5f11bdf70fdfc`. Se distinguen archivos versionados, gráficos construidos por código, servicios externos y recursos del paquete publicado. La inspección del árbol no equivale a inspeccionar el ZIP publicado ni a probar la interfaz en Windows.
 
-- **Rama principal del repositorio:** `main`. Se confirma como fuente canónica para futuras entregas; la rama predeterminada ya apunta a `main`.
-- **Punto de partida de la auditoría:** `main` en `8f43c9905418d2592169ee885de45e173198d0a8`; `product/complete-vtuber-experience` en `fb4ec9f96457bb0d619561cf28e4403600289a11`. La comparación de GitHub informa 42 commits exclusivos de producto y 7 exclusivos de `main`; como existen ramas de migración históricas, estos números describen la relación de ancestros, no sustituyen la revisión de archivos.
-- **PR de integración abierto:** [#18 — Integrar rama de producto en main y consolidar continuidad](https://github.com/jonhararagi/vtuber/pull/18). El PR contiene 42 commits y 17 archivos modificados. GitHub indica que no puede fusionarse automáticamente (`mergeable_state: dirty)); no se debe forzar la fusión ni reemplazar `main` por el árbol de producto, porque eso podría descartar los 7 commits propios de `main`.
-- **CI de la cabeza del PR:** Windows CI / `build-test` aparece como exitosa en [los checks del PR #18](https://github.com/jonhararagi/vtuber/pull/18/checks), con una advertencia. Esto valida la cabeza de la rama de producto, no una integración resuelta ni el SHA posterior a un eventual merge en `main`.
-- **Auditoría inicial de otras ramas:** además de la rama de producto, se detectaron diferencias de archivo en `chore/canonical-repository-identity` (`PROMPTS.md`), `docs/post-merge-validation-2026-10-14` (roadmap/guía/continuidad), `feature/embedded-avatar-wardrobe-studio` (taller de avatar y overlay), y `fix/scheduler-concurrent-shutdown` (scheduler/pruebas). Estas ramas antiguas no deben borrarse por el solo hecho de parecer atrasadas: antes hay que comprobar si su contenido útil ya está representado en `main` o en la rama de producto. Las ramas `feature/vrm-overlay-complete`, `assets/marmalade-cc0-static-avatar-sample` y las ramas `v0.2.x` no muestran commits exclusivos frente a `main` en la comparación consultada, aunque la antigüedad de su historial requiere cautela.
-- **Acción pendiente, no declarada como completada:** resolver los conflictos del PR #18 preservando cambios de ambos lados; volver a ejecutar/consultar CI en el SHA final de `main`; después comparar cada rama restante contra `main` por contenido y registrar qué se integró, qué se conservó por separado y qué puede archivarse. No se eliminó ninguna rama ni se cambió historial.
-- **Regla de continuidad:** los cambios nuevos deben partir de `main`; si el trabajo sigue temporalmente en otra rama, su PR debe apuntar a `main` y actualizar este documento al integrarse. No declarar el proyecto consolidado hasta terminar los conflictos, CI post-merge y la auditoría de ramas restantes.
+### Inventario exacto de archivos visuales binarios versionados
+
+El árbol contiene **10 archivos de imagen** y **ningún archivo de audio** (no aparecen WAV, MP3, OGG, FLAC, M4A ni otros formatos de audio habituales):
+
+1. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_NeutralIdle.png` — 1,045,151 bytes.
+2. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_NeutralTalk.png` — 1,047,298 bytes.
+3. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_BlinkIdle.png` — 1,021,800 bytes.
+4. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_BlinkTalk.png` — 1,024,124 bytes.
+5. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_HappyIdle.png` — 1,024,577 bytes.
+6. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_HappyTalk.png` — 1,026,960 bytes.
+7. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_SadIdle.png` — 1,038,374 bytes.
+8. `src/VtuberBot.App/Assets/Avatars/test-sample/crystalgirl-pngtuber/CrystalGirl_SadTalk.png` — 1,040,192 bytes.
+9. `src/VtuberBot.App/Assets/Avatars/test-sample/marmalade-pngtuber-model.png` — 536,863 bytes.
+10. `src/VtuberBot.App/from-PixAI-2066979593223430727-0.png` — 1,515,145 bytes.
+
+**Cómo interpretar las muestras:**
+- CrystalGirl son ocho fotogramas completos de 735×1388, no piezas independientes. Su README dice explícitamente que la carpeta es una muestra provisional y que el runtime WPF todavía no la carga ni la muestra. Su `LICENSES.md` registra la licencia CC0 declarada por el autor para esos ocho PNG.
+- Marmalade es una única imagen aplanada de 1346×1392. `src/VtuberBot.App/Assets/Avatars/test-sample/README.md` la documenta como muestra estática provisional, no conectada al runtime. `src/VtuberBot.App/Assets/Avatars/test-sample/LICENSES.md` registra CC0 y su procedencia.
+- El archivo `from-PixAI-2066979593223430727-0.png` sí está versionado, pero en el árbol inspeccionado no encontré un registro de licencia/procedencia asociado que permita confirmar sus permisos. No debe anunciarse como arte original propio ni redistribuirse fuera del repositorio sin aclarar ese estado.
+- No se encontraron paquetes de audio, música, efectos sonoros, grabaciones de voz ni voces pregrabadas versionadas.
+
+### Arte generado por código y catálogos paramétricos
+
+- Avatar Studio declara **18 perfiles/presets chibi en el código actual** de `MainWindow.AvatarStudio.cs`. Son combinaciones de identificadores de cabello, ropa, accesorio de cabeza, accesorio facial, elemento trasero, forma de rostro, estilo de ojos, piel y pose. No son 18 ilustraciones PNG únicas ya dibujadas.
+- El armario modular define piezas y paletas por identificadores; partes del aspecto se construyen mediante código/vectorización y composición. La cantidad de opciones del catálogo no equivale a una colección equivalente de ilustraciones profesionales independientes.
+- El taller 3D (`AvatarWardrobeStudioWindow.cs`) construye una figura paramétrica en HTML/JavaScript dentro de WebView2. No contiene un archivo de modelo 3D de personaje listo para usar: genera la vista a partir del código. Necesita conexión a Internet para descargar Three.js y no exporta un avatar animado/riggeado; el GLB exportado es estático.
+- La biblioteca local de arte (`AvatarAssetLibrary.cs`) es un **gestor vacío hasta que se importen imágenes**: crea el catálogo y la carpeta de assets en los datos locales del usuario. No descarga automáticamente imágenes de PixAI, NovelAI, Tensor.Art, SeaArt ni Civitai, ni genera imágenes con IA.
+- Las imágenes mostradas anteriormente mediante búsquedas/referencias visuales en respuestas no son prueba de que esos archivos estén incluidos en el repositorio.
+
+### Voz, audio y modelos
+
+- **No hay archivos de voz incluidos.** El proyecto incorpora código y dependencias para reproducir/generar audio, no una biblioteca de voces pregrabadas.
+- Windows SAPI usa las voces instaladas en Windows; la disponibilidad y calidad dependen del sistema del usuario.
+- VOICEVOX se conecta a un motor local externo en `http://127.0.0.1:50021`; el motor, las voces y sus términos/licencias deben instalarse y verificarse aparte. No están empaquetados por el repositorio.
+- Gemini TTS es una opción remota: requiere Internet y una clave API válida, con cuotas y condiciones del proveedor. El preset de voz y las instrucciones de estilo no garantizan una altura o calidad idéntica en todas las ejecuciones.
+- Los clips WAV/MP3 pueden importarse desde el equipo del usuario, pero no se encontró una carpeta de clips de ejemplo versionada.
+- La dependencia NuGet NAudio (`VtuberBot.App.csproj`) proporciona infraestructura de audio; no contiene voces. WebView2 y ONNX Runtime tampoco son assets artísticos o modelos de voz. No se encontraron pesos de TTS/STT/LLM ni archivos ONNX de segmentación en el árbol inspeccionado.
+
+### ¿Qué entra realmente en el paquete Windows?
+
+- `VtuberBot.App.csproj` no contiene declaraciones explícitas `Content`/`Resource` para los diez PNG listados. Los dos README de muestras advierten que esas imágenes no están conectadas al runtime. Por tanto, **no doy por confirmado que los PNG se incluyan en el artefacto autocontenido ni que aparezcan en la aplicación publicada**; esto requiere revisar el contenido del artefacto de Windows y probarlo.
+- El árbol confirma archivos versionados, no que se hayan cargado desde la aplicación ni que el paquete final los distribuya. El código del taller paramétrico sí está dentro de la aplicación, pero parte de su vista depende de bibliotecas CDN.
+- Esta auditoría no reemplaza la validación de Windows CI del SHA final ni una inspección manual del paquete instalado.
+
+### Faltantes concretos detectados
+
+1. Una galería amplia de arte terminado y listo para usar, con personajes visualmente distintos y archivos de licencia/procedencia comprobables para cada recurso.
+2. Más sprites realmente incluidos y conectados al runtime para reposo/habla/parpadeo/expresiones; las muestras CrystalGirl/Marmalade actuales son provisionales y no están conectadas.
+3. Recursos visuales separados por capas (cuerpo, cara, pelo, ojos, boca, ropa y accesorios) para los ejemplos importados; los dos modelos PNG de prueba están aplanados.
+4. Una biblioteca de audio de muestra con licencia clara y voces incluidas no existe; las voces actuales dependen de SAPI/VOICEVOX instalados o TTS remoto.
+5. Modelos/pesos locales de voz, transcripción o conversación no vienen en el repositorio.
+6. Confirmar/regularizar la licencia y procedencia de `from-PixAI-2066979593223430727-0.png`.
+7. Inspeccionar el artefacto Windows generado por CI para confirmar qué imágenes se empaquetan y hacer una prueba visual real en Windows.
+
+**Conclusión para evitar sorpresas:** el programa no carece de toda capacidad artística —tiene un armario paramétrico y perfiles generados por código—, pero **no incluye una gran galería de ilustraciones ni voces de anime pregrabadas**. Hay diez PNG en el árbol, de los cuales ocho pertenecen a una sola muestra multestado, uno es un modelo estático y uno requiere aclaración de licencia. Hay cero archivos de audio versionados. La disponibilidad de voces depende de Windows, de instalar VOICEVOX o de configurar un proveedor remoto.
+
+- Esta auditoría solo documenta lo encontrado; no cambia código ni assets.
+- Se trabajó exclusivamente en `product/complete-vtuber-experience`; no se modificó `main`, no se fusionó ni cerró ningún PR.
+
+## 2026-10-15 — Plan de ampliación real de recursos artísticos (propuesta; aún no implementada)
+
+**Objetivo:** pasar de una galería mayormente paramétrica y dos muestras PNG provisionales a un conjunto de personajes visualmente distintos, empaquetados y utilizables en el Avatar Studio. Esta sección es un plan de trabajo, no una afirmación de que los recursos ya existan.
+
+### Regla para no confundir tipos de recurso
+
+Cada elemento del catálogo debe mostrar su tipo y estado por separado:
+
+- **Ilustración raster incluida:** archivo PNG transparente versionado, con licencia/procedencia documentada, incorporado explícitamente al paquete y cargable desde la aplicación.
+- **Sprite multestado incluido:** imágenes reales para Idle/Talking/Blink/Happy/Surprised; no basta con renombrar una imagen ni cambiarle el color. Si un estado no tiene arte propio, debe indicarse como no disponible y usarse el fallback aprobado.
+- **Piezas modulares raster:** archivos separados para cabello, rostro, ropa y accesorios, compatibles por plantilla y anclajes definidos. No etiquetar un preset que solo selecciona IDs/códigos como una ilustración terminada.
+- **Diseño paramétrico generado por código:** modelo 3D geométrico o composición vectorial generada en runtime. Se muestra como “paramétrico”, no como imagen preincluida ni como modelo dibujado a mano.
+- **Importación del usuario / recurso externo:** se guarda la ruta y los metadatos, pero no cuenta como contenido incluido de VTuberBot.
+- **Referencia externa:** solo inspira o enlaza; no cuenta como asset utilizable ni se redistribuye sin permiso.
+
+### Entrega artística propuesta para la primera ampliación
+
+Objetivo inicial sugerido, sujeto a la fase de diseño y a la capacidad real de generar/validar las imágenes:
+
+1. **6 personajes raster originales con estilos y siluetas diferentes**, no simples recoloraciones de una misma base:
+   - chibi streamer casual de piel morena, cabello castaño con mechones interiores miel, iris marrones y pupilas marrón oscuro;
+   - idol pop con coleta alta y vestuario escénico;
+   - maga fantasy con capa, sombrero y accesorios;
+   - personaje gótico/rock con silueta, peinado y ropa propios;
+   - aventurera cyberpunk con chaqueta técnica y accesorios;
+   - kitsune/festival con vestimenta inspirada en folklore japonés.
+2. Para cada personaje, un PNG transparente de reposo utilizable como fallback. Como objetivo preferido, preparar estados separados de reposo, habla, parpadeo y al menos dos expresiones adicionales; no afirmar que el habla tiene sincronización fonética real.
+3. **2–3 personajes** de esa colección, priorizados primero, con una estructura por capas que permita cambiar al menos cabello, ojos/rostro, ropa y accesorios sin regenerar toda la imagen. La estructura debe probarse en el compositor real antes de extenderla a los seis.
+4. **Piezas adicionales** que amplíen combinaciones de verdad: siluetas de cabello (corto, largo liso, ondulado, coletas, trenzas, rizado), ropa (casual, hoodie, idol, fantasy, gótica, formal, cyberpunk, festival), y accesorios de cabeza/rostro/espalda. Las piezas deben tener anclajes y límites de compatibilidad definidos, no ser solo nombres nuevos en un selector.
+5. Mantener las muestras CrystalGirl y Marmalade en la categoría “muestra externa/provisional” hasta que se integre y valide su carga en el runtime. No presentarlas como los personajes nuevos originales.
+
+### Pipeline de producción e integración
+
+1. **Diseño y derechos:** aprobar una ficha por personaje (silueta, paleta, piel, cara, pelo, ropa, accesorios, estados, resolución y uso previsto). Crear arte original o usar recursos cuya licencia permita expresamente el uso previsto. No copiar modelos oficiales de VTubers ni asumir que “gratis” significa redistribuible.
+2. **Registro de procedencia obligatorio:** para cada archivo, registrar autor/creador, URL de origen cuando corresponda, licencia exacta, uso comercial permitido, permiso de modificación, permiso de redistribución, atribución requerida y fecha de revisión. Si no hay evidencia, bloquear su distribución y marcar “pendiente de revisión”.
+3. **Formato:** PNG con alfa para sprites y capas, nombres estables y dimensiones coherentes por personaje. Evitar convertir una sola imagen a ocho nombres para simular estados. Añadir miniaturas únicamente como derivados y conservar el original.
+4. **Manifiesto de catálogo:** un manifiesto por personaje enumera archivos existentes, capas, orden, anclajes, estados disponibles, versión y licencia. El validador debe rechazar rutas inexistentes, estados duplicados sin declaración explícita y recursos sin metadatos.
+5. **Empaquetado explícito:** añadir los assets aprobados como contenido de la aplicación mediante reglas explícitas del proyecto .NET; comprobar en CI que el paquete Windows contiene los archivos esperados y que sus hashes coinciden. No inferir inclusión en el paquete a partir de su presencia en Git.
+6. **Integración del runtime:** conectar los personajes a la galería de Avatar Studio, previsualización, cambio de estado, importación/exportación de perfiles y fallback cuando falte un estado. El usuario debe poder distinguir “incluido”, “importado” y “paramétrico”.
+7. **Pruebas:** pruebas automatizadas para manifiestos, metadatos, recursos faltantes, compatibilidad de capas y resolución de rutas; prueba de renderizado WPF en Windows; comprobar transparencia, escala, encuadre, estados y consumo de memoria con imágenes reales.
+8. **Criterio de aceptación:** la ficha del personaje solo dice “incluido y listo para usar” cuando los archivos existen en el repositorio, la licencia está registrada, se incluyen en el artefacto Windows y se cargan en la aplicación. CI verde por sí solo no confirma calidad artística ni experiencia visual.
+
+### Alcance y límites
+
+- Esta propuesta no genera ni añade imágenes por sí sola; no convierte referencias web en recursos incluidos.
+- La generación de arte con un proveedor externo o la creación de archivos raster debe ser una tarea explícita posterior. Los resultados deben revisarse visualmente y guardarse en el repositorio con licencias y metadatos antes de anunciarse como parte del producto.
+- La primera prioridad es **calidad y variedad verificables**, no inflar el contador de presets. Es preferible entregar dos personajes realmente distintos y probados que declarar veinte presets que solo cambian color o nombre.
+- No incluye modelos de voz ni voces pregrabadas; eso sigue siendo un trabajo separado.
+- Esta planificación solo modifica documentación en `product/complete-vtuber-experience`. No modifica `main`, no fusiona ni cierra PRs.
+
+
+## 2026-10-15 — Decisión de arquitectura: IA opcional y sin API paga obligatoria
+
+- Se formalizó la política en docs/AI_PROVIDER_ARCHITECTURE.md y en docs/PRODUCT_BLUEPRINT.md: VTuberBot debe iniciar y mantener los flujos principales sin claves de IA, suscripciones ni conexión remota.
+- Orden de preferencia: lógica determinista; capacidades locales/Windows ya disponibles; runtime/modelo local opcional y explícito; API remota oficial opcional con consentimiento y límites. La ventana web de ChatGPT/Gemini, si se usa, es solo asistencia manual y no se debe presentar como integración automática.
+- Se establecieron límites de dependencia para que Core no conozca proveedores, privacidad/DPAPI, cuotas, timeout/cancelación, límites de carga y criterios de prueba sin red. Ningún modelo se descarga/carga silenciosamente y no hay fallback remoto automático.
+- **Alcance real del commit:** cambio documental de arquitectura; no agrega por sí mismo un adaptador IA nuevo ni demuestra que cada integración existente cumpla ya esta política. La auditoría e implementación por capacidades queda como siguiente etapa.
+- CI y pruebas del nuevo SHA: pendientes de ejecutar/consultar tras el commit. No se modificó main ni se fusionó/cerró ningún PR.
+
+
+## 2026-10-15 — Auditoría estática de privacidad, secretos, tráfico remoto y logs
+
+**Alcance y criterio:** revisión estática del código en HEAD `41e5e18b340d83626603df53911ef91dcc1a4382`, rama `product/complete-vtuber-experience`. Se inspeccionaron los archivos citados abajo; esto no es una prueba dinámica con claves reales, captura de tráfico ni análisis forense del equipo. Los hallazgos describen rutas visibles en el código y no presuponen explotación ni filtración ocurrida.
+
+### Secretos y DPAPI
+
+1. **Claves de proveedores IA/TTS protegidas con DPAPI para el usuario actual.** `UserSecretStore.Save` usa `ProtectedData.Protect(..., DataProtectionScope.CurrentUser)`; las claves de IA y TTS se guardan en archivos `.dpapi`, separados de SQLite. La UI limpia los controles de contraseña tras guardar. Evidencia: [UserSecretStore.cs](../src/VtuberBot.App/UserSecretStore.cs#L17), [guardado de claves y limpieza de controles](../src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs#L190).
+2. **La protección no equivale a un gestor remoto ni a aislamiento frente a la sesión Windows comprometida.** DPAPI CurrentUser vincula el descifrado al contexto de usuario de Windows; la aplicación vuelve a leer la clave en memoria para efectuar solicitudes. En los archivos revisados no encontré una configuración explícita de ACL restrictivas para el directorio de secretos. No se comprobó la ACL efectiva del directorio en una instalación real, por lo que no afirmo que los permisos actuales sean incorrectos.
+3. **Ruta y alcance del almacenamiento.** La aplicación coloca datos, logs, assets y secretos bajo `application.Config.BaseDirectory`; los secretos de IA/TTS están en `secrets/<identificador>.dpapi`. Twitch usa aparte `secrets/twitch-token.bin`, también cifrado con DPAPI CurrentUser al guardar y descifrado al cargar. Evidencia: [inicialización del directorio de datos](../src/VtuberBot.App/MainWindow.xaml.cs#L447), [UserSecretStore.cs](../src/VtuberBot.App/UserSecretStore.cs#L24), [lectura y escritura del token Twitch](../src/VtuberBot.App/MainWindow.xaml.cs#L648).
+4. **Límites observables del manejo de secretos.** `UserSecretStore.Read` devuelve cadena vacía ante `CryptographicException` o `IOException`, sin registrar el contenido de la clave. `Save` escribe primero un archivo temporal cifrado y luego lo mueve al destino, e intenta eliminar el temporal. La escritura del token Twitch se realiza directamente sobre el archivo cifrado, sin el mismo patrón temporal. No se probó recuperación ante corte de energía ni migración de perfil Windows.
+
+### Datos que salen hacia proveedores remotos
+
+1. **Chat remoto:** `RemoteOpenAiCompatibleProvider.GenerateAsync` serializa el modelo y todos los mensajes recibidos (`role` y `content`) en el cuerpo de `POST .../chat/completions`. La URL debe usar HTTPS, pero el adaptador compatible genérico no restringe el host a una lista de proveedores aprobados. La clave se adjunta como encabezado Bearer. Evidencia: [payload y solicitud remota](../src/VtuberBot.Core/RemoteOpenAiCompatibleProvider.cs#L68), [validación HTTPS](../src/VtuberBot.Core/RemoteOpenAiCompatibleProvider.cs#L115).
+2. **Contenido incluido en ese contexto:** el servicio social construye prompts con configuración del personaje e incorpora el texto recibido del espectador; el comentario periódico construye un lote/resumen a partir de mensajes del chat. Por lo tanto, cuando se selecciona un proveedor remoto y se ejecuta una de esas rutas, el texto incorporado al contexto se envía a ese endpoint. No significa que todo el historial de Twitch se envíe siempre: el servicio aplica límites y construye el contexto según la ruta. Evidencia: [construcción de contexto del bot social](../src/VtuberBot.App/SocialBotService.cs#L472), [comentario periódico y lote de chat](../src/VtuberBot.App/SocialBotService.cs#L410).
+3. **TTS remoto:** las rutas de voz serializan el texto a sintetizar y las instrucciones de estilo configuradas en la petición remota; Gemini TTS usa el encabezado `x-goog-api-key`, y la ruta compatible genérica usa Bearer. El adaptador limita longitud y tamaño de respuesta. Evidencia: [payload TTS compatible](../src/VtuberBot.App/RemoteSpeechSession.cs#L98), [payload Gemini TTS](../src/VtuberBot.App/RemoteSpeechSession.cs#L135).
+4. **Destino y exposición de la clave:** la ruta genérica de chat valida esquema HTTPS, pero acepta cualquier host HTTPS configurado. La ruta TTS compatible también valida HTTPS sin una lista de hosts permitidos; la ruta específica Gemini restringe el host a `generativelanguage.googleapis.com`. Esto significa que una configuración genérica puede enviar el texto y la clave al host elegido en esa configuración. No hay evidencia en esta auditoría de que la aplicación envíe claves a un host no elegido por la persona ni de que haya ocurrido una filtración. Evidencia: [validación de chat](../src/VtuberBot.Core/RemoteOpenAiCompatibleProvider.cs#L115), [validación de TTS compatible y Gemini](../src/VtuberBot.App/RemoteSpeechSession.cs#L230).
+5. **Modo web manual separado:** el flujo manual copia un prompt al portapapeles y la persona decide pegarlo en ChatGPT/Gemini; el código dice que VTuberBot no lee ni controla esa sesión privada del navegador. La privacidad de lo pegado en la web depende del servicio y de la cuenta usados. Evidencia: [descripción y flujo manual](../src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs#L229).
+
+### Logs, diagnósticos y persistencia de configuración
+
+1. **Señales favorables observadas:** en los puntos inspeccionados, los errores aislados del bot social registran el tipo de excepción y un mensaje genérico, no el prompt ni la respuesta generada; al guardar la configuración se registra expresamente que no se registró el contenido del chat. La capa remota devuelve estados HTTP/categorías de error, no registra explícitamente el encabezado de autorización ni la clave. Evidencia: [captura de errores del bot social](../src/VtuberBot.App/SocialBotService.cs#L449), [registro al guardar configuración](../src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs#L226), [errores del proveedor remoto](../src/VtuberBot.Core/RemoteOpenAiCompatibleProvider.cs#L88).
+2. **Diagnósticos mostrados en UI:** algunas rutas de comprobación y prueba muestran `ex.Message` o el campo de error devuelto por el proveedor. En la implementación revisada, los errores HTTP de chat se reducen a código de estado y los fallos de transporte pueden mostrar un mensaje de diagnóstico. No encontré en estas rutas una interpolación explícita de la clave ni del cuerpo del chat en logs; tampoco se realizó una prueba dinámica de todos los mensajes que podrían generar las bibliotecas de red.
+3. **Configuración no secreta que puede ser personal:** SQLite guarda instrucciones adicionales del creador, personalidad, preferencias de proveedor/modelo/endpoint, nombres de cuenta/canal y otras preferencias. Aunque las claves API no se guardan en SQLite según la ruta inspeccionada, esos campos de configuración pueden revelar preferencias o contenido escrito por la persona. Evidencia: [persistencia de instrucciones y endpoint](../src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs#L182).
+4. **Límite del alcance de logs:** no se auditó exhaustivamente cada llamada a `store.Log` del repositorio ni se examinó una base de datos/log real de usuario. Por eso no se concluye que todos los logs de toda la aplicación estén libres de datos personales; solo que los puntos enumerados arriba no registran explícitamente la clave ni el contenido de conversación. La descripción del área de diagnóstico indica exportación sin tokens ni cookies, pero eso no sustituye una inspección completa de todos los campos exportados.
+
+### Recomendaciones proporcionadas a la evidencia
+
+- Mantener la clave fuera de SQLite y no imprimir encabezados, cuerpos de petición ni respuestas completas en logs.
+- Añadir una advertencia visible antes de habilitar IA remota: el contexto construido puede incluir mensajes de espectadores, instrucciones del creador y texto que se envía al proveedor elegido.
+- Considerar una lista de hosts permitidos para proveedores conocidos o una confirmación explícita al guardar un endpoint HTTPS personalizado, ya que los adaptadores genéricos no restringen el host.
+- Verificar y documentar los permisos efectivos de `secrets/` en Windows; si corresponde, endurecer ACL sin asumir que actualmente son débiles.
+- Completar una auditoría de logs/exportación y pruebas dinámicas con transportes instrumentados que comprueben que claves, prompts y respuestas no aparecen en registros.
+
+**Conclusión:** el código usa DPAPI CurrentUser para claves de IA/TTS y credenciales de Twitch, y no se encontró una escritura explícita de claves en SQLite o logs en las rutas inspeccionadas. Las llamadas remotas sí envían el contenido que el servicio incorpora a sus mensajes/payloads; los adaptadores genéricos aceptan destinos HTTPS configurables, por lo que la selección del endpoint es una decisión de confianza importante. No se encontró evidencia de filtración real ni se verificaron permisos efectivos, tráfico de red o logs de una instalación en ejecución.
+
+
+## 2026-10-15 — Valores predeterminados de IA y voz local-first
+
+- **Cambio aplicado en código:** los selectores de ChatSpeak Studio ahora resuelven la preferencia sin valor guardado como `local`. La generación conversacional usa el proveedor local compatible con OpenAI en `http://127.0.0.1:8080/v1` cuando no existe preferencia; la voz usa Windows SAPI local de forma predeterminada.
+- **Compatibilidad:** el código solo selecciona remoto cuando la preferencia guardada es explícitamente `remote`; las preferencias existentes `remote` y `local` se conservan. No se sobrescriben ajustes existentes durante la carga. Un valor ausente o desconocido se resuelve de forma segura a local. El usuario puede volver a elegir proveedor remoto y guardar esa preferencia explícitamente.
+- **Implementación:** `src/VtuberBot.Core/ProviderPreferenceDefaults.cs` centraliza la resolución; se aplica en `src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs`, `src/VtuberBot.App/SocialBotService.cs` y `src/VtuberBot.App/MainWindow.xaml.cs`. Las opciones remotas, endpoints y claves guardadas permanecen disponibles.
+- **Pruebas añadidas:** `tests/VtuberBot.Tests/Tests.cs` verifica que ausencia, cadena vacía y valor desconocido resuelvan local, que una preferencia local siga local y que una preferencia remota explícita (incluyendo espacios/mayúsculas) se preserve como remota.
+- **Limitación importante:** “local” no instala ni incluye un modelo conversacional. La IA local requiere un servidor compatible ejecutándose en loopback; si no está disponible, la generación local puede fallar hasta que el usuario lo configure. SAPI depende de las voces instaladas en Windows. Este cambio no realiza llamadas remotas automáticas ni elimina claves remotas existentes.
+- **CI:** pendiente de comprobar para el SHA final de esta actualización; no declarar validación hasta revisar la ejecución de Windows CI asociada exactamente al commit final.

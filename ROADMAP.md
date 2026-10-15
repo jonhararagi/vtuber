@@ -1,16 +1,21 @@
+## 2026-10-15 — Simulador seguro de reglas y reconciliación de documentación
+
+- Se portó desde `main` el simulador local de condiciones a **Automatizaciones** en la rama de producto. Evalúa el JSON de ejemplo con el evaluador existente, limita el payload a 65.536 caracteres, rechaza JSON inválido, raíces que no sean objetos y condiciones mal formadas; no llama a Streamer.bot, no envía hotkeys y no ejecuta acciones.
+- Se conservan las capacidades nuevas de producto: constructor visual de condiciones, fuente Twitch IRC, destinos OBS/avatar y selección validada de recursos reales. El simulador usa la misma lista de condiciones del editor para evitar que el preview pruebe una regla distinta.
+- Se preservó `docs/ANALISIS-MORPHY.md` desde `main` y se corregió el texto del taller de avatar para que no describa las pupilas marrones como blancas.
+- La documentación de uso y continuidad se sincroniza con el simulador. La aceptación de este bloque depende de Windows CI del SHA final y no sustituye pruebas manuales de OBS/Twitch/Streamer.bot.
+
 # ROADMAP — VTuberBot producto completo
-
-## 2026-10-15 — Auditoría adicional y simulador seguro de reglas
-
-- Se añadió un simulador local a **Automatizaciones**: permite probar las condiciones de la regla actual con un payload JSON sin enviar eventos, llamar a Streamer.bot ni ejecutar hotkeys. Rechaza JSON inválido, raíces que no sean objeto, condiciones mal formadas y payloads superiores a 65.536 caracteres.
-- La galería chibi de 13 presets incluye **Miel de café**: piel morena cálida, cabello castaño con mechones interiores miel y ojos/pupilas marrones. Las capas de muestra se generan localmente; el aspecto es ilustración vectorial de referencia, no un modelo Live2D profesional ni tracking facial.
-- La documentación de Morphy quedó en `docs/ANALISIS-MORPHY.md`. Morphy se evalúa como entorno de trabajo con agentes de IA, no como dependencia de VTuberBot.
-- Prioridad de cierre: comprobar el candidato en Windows con Twitch, OBS WebSocket, Streamer.bot, PNGTuber Plus, salida SAPI/VOICEVOX y el overlay; los servicios sin credenciales o aplicaciones instaladas deben quedar marcados como bloqueados, no aprobados.
-- El último SHA con Windows CI completa antes de este bloque es `797d43ecee3eddd4c95f1c8d8f19669febfdd6a2`. La nueva CI del código del simulador debe verificarse por SHA antes de afirmar que compila.
 
 Este roadmap prioriza terminar una aplicación coherente y útil, no detener al usuario en cada etapa técnica. El CI y los tests se ejecutan internamente durante el desarrollo, pero la validación manual del usuario se concentra en un candidato global integrado.
 
 Especificación canónica de producto, UI, arquitectura, carpetas, referencias y flujos: [docs/PRODUCT_BLUEPRINT.md](docs/PRODUCT_BLUEPRINT.md).
+
+## Ajuste de personalización de avatar — 2026-10-15
+
+- Se añadió el tono **Morena profunda** como opción independiente del tono **Morena cálida**, para ofrecer una paleta marrón más oscura sin cambiar perfiles existentes.
+- **Miel de café** ahora usa piel marrón medio-profunda, cabello castaño con inner hair miel claro e iris/pupilas marrones. La guía de usuario está actualizada.
+- CI exacta pendiente para los commits de código `057d8f2` y `ceec469`; no declarar aceptación visual sin inspección en Windows.
 
 ## Objetivo final
 

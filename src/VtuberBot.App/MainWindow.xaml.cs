@@ -308,6 +308,7 @@ public partial class MainWindow : Window
     public MainWindow(VtuberApplication application)
     {
         InitializeComponent();
+        Loaded += async (_, _) => await AutoStartObsIfConfiguredAsync();
         this.application = application;
         store = new ProductStore(application.Database.Path);
         const string previousDefaultVoiceInstruction = "Habla en español con una voz femenina adulta joven, cálida, expresiva y de estilo anime original. Buena dicción, energía y emoción natural; no imites a un personaje o actriz específica.";
@@ -323,9 +324,9 @@ public partial class MainWindow : Window
         secretStore = new UserSecretStore(Path.Combine(application.Config.BaseDirectory, "secrets"));
         remoteAiProvider = new RemoteOpenAiCompatibleProvider(() => secretStore.Read("remote-ai-api-key"));
         configuredAiProvider = new ConfiguredChatIntelligenceProvider(localAiProvider, remoteAiProvider,
-            () => store.GetSetting("social.ai.provider", "remote") == "remote");
+            () => ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.ai.provider", "local")));
         speechQueue = new LocalSpeechQueue(() => new GatedSpeechSession(audioOutputGate, () => new ConfigurableSpeechSession(
-            () => store.GetSetting("social.tts.provider", "remote") == "remote",
+            () => ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.tts.provider", "local")),
             LocalSpeechQueue.CreateSystemSpeechSession,
             () => new RemoteSpeechSession(
                 secretStore,
@@ -369,14 +370,14 @@ public partial class MainWindow : Window
                         // If the local VOICEVOX engine is not running, continue to the existing SAPI validation path.
                     }
                 }
-                if (!useVoicevox && !string.IsNullOrWhiteSpace(requestedVoiceId) && store.GetSetting("social.tts.provider", "remote") != "local")
+                if (!useVoicevox && !string.IsNullOrWhiteSpace(requestedVoiceId) && ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.tts.provider", "local")))
                 {
                     store.Log("Reacciones chat", "La voz SAPI elegida en esta regla requiere seleccionar el proveedor local en ChatSpeak Studio.");
                     return false;
                 }
                 if (language == "ja" && !useVoicevox)
                 {
-                    if (store.GetSetting("social.tts.provider", "remote") != "local")
+                    if (ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.tts.provider", "local")))
                     {
                         store.Log("Reacciones chat", "La voz configurada es remota y no garantiza pronunciación japonesa SAPI; elegí proveedor local en ChatSpeak Studio o un clip japonés para esta regla.");
                         return false;
@@ -750,7 +751,7 @@ public partial class MainWindow : Window
                 await eventSub.DisconnectAsync().ConfigureAwait(true);
 
                 if (reconnectChat)
-                    await twitch.ConnectAsync(store.GetSetting("twitch.channel"), credentials.AccessToken).ConfigureAwait(true);
+                    await twitch.ConnectAsync(store.GetSetting("twitch.bot_login", store.GetSetting("twitch.channel")), store.GetSetting("twitch.channel"), credentials.AccessToken).ConfigureAwait(true);
                 if (reconnectEventSub)
                     await eventSub.ConnectAsync(clientId, credentials.AccessToken, store.GetSetting("twitch.channel")).ConfigureAwait(true);
                 FooterStatus.Text = "Token Twitch renovado y conexiones solicitadas restauradas.";

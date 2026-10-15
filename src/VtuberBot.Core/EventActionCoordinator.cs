@@ -8,7 +8,7 @@ using System.Threading.Channels;
 namespace VtuberBot.Core;
 
 public enum NormalizedEventOrigin { Internal, External }
-public enum EventActionDestination { StreamerBot, PngtuberPlus }
+public enum EventActionDestination { StreamerBot, PngtuberPlus, ObsScene, AvatarExpression }
 public enum EventActionOutcome
 {
     EventReceived, DuplicateDiscarded, RuleDisabled, RuleChanged, AutomationsPaused, ConditionNotMet,
