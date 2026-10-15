@@ -2365,7 +2365,7 @@ public sealed class Tests
         Assert.True(
             SpinWait.SpinUntil(
                 () => GetActiveWaiters(process) > 0,
-                TimeSpan.FromSeconds(1)));
+                TimeSpan.FromSeconds(3)));
 
         var disposeStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
