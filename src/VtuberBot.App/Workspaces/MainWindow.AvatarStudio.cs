@@ -218,6 +218,7 @@ public partial class MainWindow
             "Plantillas de inspiración originales: Océano pop, Reaper rock, Cantante estelar, Dragona cyber, Demonio gamer y Kitsune idol. No son modelos oficiales ni contienen ilustraciones descargadas de terceros.",
             12, "#98A4BE"));
         root.Children.Add(referencePanel);
+        root.Children.Add(BuildAvatarAssetLibraryPanel());
 
         var profilePanel = Panel("Perfiles de avatar");
         profilePanel.Margin = new Thickness(0, 0, 0, 14);
