@@ -1,3 +1,12 @@
+## 2026-10-15 — Perfiles reales de bots Twitch
+
+- Añadido `TwitchBotProfileStore.cs`: catálogo local de perfiles, credenciales OAuth separadas cifradas con DPAPI y detección de catálogo/credenciales dañadas sin registrar tokens.
+- `TwitchChatClient` ahora tiene un overload con `botLogin` y `channel` separados; el protocolo envía `NICK botLogin` y `JOIN #channel`. El overload antiguo sigue siendo compatible y usa la misma cuenta/canal.
+- `MainWindow.Twitch.cs` permite guardar varios perfiles internos (por ejemplo, Mode-chan), activar uno y conectar la cuenta real autorizada al canal objetivo. La renovación de credenciales preserva el login del bot.
+- Añadidas pruebas para persistencia, DPAPI, ausencia de tokens en texto/base64 del catálogo/archivo y manejo de catálogo corrupto.
+- Límites: no crea cuentas Twitch ni cambia el nombre público de una cuenta; cada cuenta debe existir y autorizarse por separado. Solo un perfil de chat nativo está activo a la vez. La integración EventSub conserva su configuración independiente.
+- **Validación pendiente:** el último commit de esta serie y el CI de Windows deben confirmarse por SHA exacto; no se ha probado aún con cuentas reales de Twitch.
+
 ## 2026-10-15 — Inicio automático y modo ligero de OBS (implementación inicial)
 
 **Rama:** `product/complete-vtuber-experience`
