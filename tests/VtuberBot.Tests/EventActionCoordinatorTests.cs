@@ -215,6 +215,34 @@ public sealed class EventActionCoordinatorTests
     }
 
     [Fact]
+    public async Task DirectObsAndAvatarDestinationsPersistAsDistinctRuleTypes()
+    {
+        var settings = new MemorySettings();
+        await using var coordinator = new EventActionCoordinator(settings, new RecordingDispatcher());
+        var obsRule = Rule(enabled: false, destination: EventActionDestination.ObsScene) with
+        {
+            Name = "Switch OBS scene",
+            TargetId = "Gameplay"
+        };
+        var avatarRule = Rule(enabled: false, destination: EventActionDestination.AvatarExpression) with
+        {
+            Name = "Avatar happy",
+            TargetId = "Happy"
+        };
+
+        coordinator.SaveRule(obsRule);
+        coordinator.SaveRule(avatarRule);
+
+        Assert.Contains(coordinator.GetRules(), rule =>
+            rule.Id == obsRule.Id && rule.Destination == EventActionDestination.ObsScene &&
+            rule.TargetId == "Gameplay" && !rule.Enabled);
+        Assert.Contains(coordinator.GetRules(), rule =>
+            rule.Id == avatarRule.Id && rule.Destination == EventActionDestination.AvatarExpression &&
+            rule.TargetId == "Happy" && !rule.Enabled);
+        Assert.Equal(2, coordinator.GetRules().Count);
+    }
+
+    [Fact]
     public async Task InvalidRulesAndMalformedEventsAreRejectedWithoutCrashingCoordinator()
     {
         var settings = new MemorySettings();
