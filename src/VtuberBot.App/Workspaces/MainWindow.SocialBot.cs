@@ -11,8 +11,8 @@ public partial class MainWindow
     private UIElement BuildSocialBotPage()
     {
         var root = new StackPanel();
-        root.Children.Add(Label("ChatSpeak Studio · IA remota y voz de personaje", 22, "#F8FAFC", true));
-        root.Children.Add(Label("Modo manual con ChatGPT web (copiar/pegar) y modo bot con proveedor remoto compatible. El bot nunca lee la sesión privada del navegador. Las respuestas automáticas empiezan desactivadas.", 12, "#98A4BE"));
+        root.Children.Add(Label("ChatSpeak Studio · IA local y voz opcional", 22, "#F8FAFC", true));
+        root.Children.Add(Label("Modo bot: generación local por defecto y proveedor remoto solo si lo seleccionás. SAPI de Windows es la voz predeterminada; TTS remoto es opcional. ChatGPT web funciona por copiar/pegar: el bot nunca lee la sesión privada del navegador. Las respuestas automáticas empiezan desactivadas.", 12, "#98A4BE"));
 
         var speechPanel = Panel("Lectura del chat");
         var readEnabled = new CheckBox { Content = "Activar lectura de chat", IsChecked = store.GetSetting("social.tts.enabled", "false") == "true", Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
