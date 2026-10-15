@@ -109,11 +109,11 @@ public partial class MainWindow
         var beginnerPanel = Panel("Crear y personalizar tu personaje");
         beginnerPanel.Margin = new Thickness(0, 0, 0, 14);
         beginnerPanel.Children.Add(Label(
-            "Creá tu personaje base en VRoid Studio y usá el mini estudio 3D integrado para explorar la personalización. No se muestran los antiguos modelos de muestra.",
+            "Elegí uno de los personajes chibi de la galería de abajo o importá tu propia ilustración. El taller 3D integrado es otra opción para experimentar con un modelo paramétrico.",
             12, "#98A4BE"));
 
         beginnerPanel.Children.Add(Label(
-            "El mini estudio 3D se abre dentro de VTuberBot y permite probar un editor de avatares VRM. Esta primera integración necesita Internet; la importación de ropa depende de la compatibilidad del modelo y los recursos. El overlay de VTuberBot todavía requiere su propia integración VRM.",
+            "El taller 3D genera un personaje paramétrico dentro de VTuberBot, permite cambiar silueta, piel, pelo e inner hair, ojos, ropa y accesorios, y guardar la apariencia en JSON o exportar un GLB estático. Requiere Internet para cargar Three.js. No es un editor VRM: el GLB no tiene rig ni animaciones y todavía no se puede usar como modelo animado en el overlay.",
             12, "#98A4BE"));
 
         Button startLocalSegmentation = null!;
