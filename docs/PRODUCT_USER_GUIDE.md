@@ -198,6 +198,18 @@ Los comandos se procesan cuando el mensaje llega a la canalización de chat de V
 - La eliminación automática de mensajes usa el endpoint oficial [Delete Chat Messages](https://dev.twitch.tv/docs/api/reference#delete-chat-messages), necesita `moderator:manage:chat_messages` y solo envía el ID de mensaje exacto recibido desde las etiquetas IRC; nunca hace una solicitud vacía que pudiera borrar todo el chat.
 - **Automatizaciones:** los mensajes programados respetan un intervalo mínimo de cinco minutos y solo se envían cuando Twitch está conectado. Si está desconectado, la omisión queda registrada.
 
+## Automatizaciones por eventos reales
+
+La página **Automatizaciones** permite crear reglas que escuchan eventos de Streamer.bot o notificaciones EventSub ya recibidas por VTuberBot. Cada regla combina fuente, categoría, tipo exacto, condiciones JSON opcionales, cooldown y límite por minuto. Las reglas nuevas nacen desactivadas y las automatizaciones arrancan pausadas.
+
+Destinos disponibles:
+- **Streamer.bot:** seleccioná una acción existente de `GetActions`; antes de activar una regla se confirma el ID exacto y, al ejecutarla, se vuelve a validar que siga habilitada. Una respuesta aceptada significa que Streamer.bot aceptó la solicitud, no que el efecto final en OBS esté garantizado.
+- **PNGTuber Plus:** seleccioná un atajo previamente registrado. El envío automático requiere autorización global explícita; enviar la tecla no demuestra que la expresión haya cambiado.
+- **OBS · cambiar escena:** requiere OBS WebSocket autenticado. La lista se obtiene de las escenas reales de OBS y se vuelve a validar al guardar y ejecutar. La actividad informa que OBS aceptó la solicitud; no equivale a una comprobación visual de la salida.
+- **Avatar · expresión:** solo ofrece estados con recursos disponibles en el perfil actual (Idle, Talking, Blink, Happy o Surprised). Si falta la imagen, la acción se rechaza en vez de fingir un cambio.
+
+La cola, las condiciones y los límites evitan bloquear al productor de eventos y reducen ciclos. La actividad distingue acciones rechazadas, límites, timeouts y solicitudes aceptadas. No uses dos proveedores que emitan el mismo evento para la misma regla si no comparten un ID de deduplicación.
+
 ## Voz y audio
 
 - Seleccioná el micrófono disponible e iniciá la captura real.
