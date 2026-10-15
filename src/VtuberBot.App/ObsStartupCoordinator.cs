@@ -47,20 +47,21 @@ public partial class MainWindow
                 port = 4455;
 
             Exception? lastError = null;
-            for (var attempt = 0; attempt < 15; attempt++)
+            for (var attempt = 0; attempt < 12; attempt++)
             {
                 if (shutdownStarted || IsConnectedToObs())
                     return;
 
                 try
                 {
-                    await obs.ConnectAsync(host, port, password);
+                    using var attemptTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+                    await obs.ConnectAsync(host, port, password, attemptTimeout.Token);
                     var version = await obs.GetVersionAsync();
                     FooterStatus.Text = "OBS conectado automáticamente · versión " + version;
                     store.Log("OBS", "Conexión automática autenticada; versión " + version + ".");
                     return;
                 }
-                catch (Exception exception) when (exception is not OperationCanceledException)
+                catch (Exception exception)
                 {
                     lastError = exception;
                     await Task.Delay(1000);
