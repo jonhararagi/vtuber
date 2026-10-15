@@ -13,13 +13,15 @@
 
 - La documentación del README se actualizó después del merge para devolver a `main` el papel de rama canónica. HEAD actual al registrar esta nota: `589c0186e87adde30d5727fa904ab13778abd5fb`; Windows CI #890 está comprobando ese SHA y debe terminar antes de declarar validado el estado documental actual.
 
-## Protección del trabajo y sincronización de ramas
+## Estado canónico de ramas e integración — actualizado 2026-10-15
 
-- Rama de trabajo y fuente de verdad del producto: `product/complete-vtuber-experience`.
-- `main` está divergida: comparación GitHub `main...product/complete-vtuber-experience` informa **88 commits exclusivos de producto y 8 commits exclusivos de main**, con base común `797d43ecee3eddd4c95f1c8d8f19669febfdd6a2`. No se debe describir `main` como una copia actual del producto.
-- PR #18 es la vía de integración existente: https://github.com/jonhararagi/vtuber/pull/18. No se fusiona automáticamente ni se debe reemplazar la historia de `main` sin revisar primero los ocho commits exclusivos, conflictos y el CI postintegración.
-- Regla operativa: seguir desarrollando en la rama de producto; antes de cualquier merge, comparar las dos puntas, conservar cambios exclusivos de ambos lados, resolver conflictos explícitamente y validar el SHA resultante. No borrar ramas ni commits para “limpiar” el historial.
-- Próximo hito de integración: revisar la mergeabilidad/conflictos de PR #18 y preparar una integración segura de ambas líneas de trabajo; confirmar CI post-merge antes de afirmar que `main` ya contiene todo. Hasta entonces, no asumir que un ZIP de `main` contiene las últimas funciones.
+- La PR #18 está **cerrada como merged**: https://github.com/jonhararagi/vtuber/pull/18.
+- El merge commit de integración es `7a18cc56c5596ee8d5979fe5d4cb20b0aae96532`; preservó el trabajo de producto y los ocho commits que existían solo en `main`, sin force-push ni reset.
+- La rama canónica actual es `main`. No se deben presentar instrucciones históricas que describan a `product/complete-vtuber-experience` como la única fuente actual sin comparar su HEAD; esa rama se conserva como historial de trabajo.
+- Windows CI #891 terminó **success** para el HEAD documental de `main`, SHA exacto `b1cc9505ee46f12b0d5ad5b911c7b925e0023fa3`: Restore, Build Release, pruebas automatizadas, publicación autocontenida Windows x64 y subida del ZIP.
+- Artefacto actual: `VTuberBot-Product-Candidate-win-x64-b1cc9505ee46f12b0d5ad5b911c7b925e0023fa3`; SHA-256 `95fe7bae76f7794732bb73dcaca48c935f9e6fa9ae9da5991edd05c63d842f15`; vence el 29-10-2026. Abrir https://github.com/jonhararagi/vtuber/actions/runs/38748095558 y descargar el artefacto desde la sección Artifacts.
+- No borrar ramas históricas ni reescribir commits. Para nuevos cambios, trabajar desde `main` en una rama de trabajo y abrir una PR, salvo que las reglas del repositorio indiquen otra cosa.
+- **Límite de aceptación:** CI confirma compilación, pruebas automatizadas y empaquetado, no una sesión visual/manual ni conexiones reales con Twitch, OBS, Streamer.bot, PNGTuber Plus, dispositivos de audio o Telegram. Esa validación final sigue pendiente en Windows.
 
 ## Validación Windows CI histórica comprobada (SHA anterior)
 
