@@ -99,9 +99,6 @@ public partial class MainWindow
         new("bunny-cafe", "Conejita de café", "Moños dobles, orejas largas y mochila conejito.",
             "double-buns", "comfy-hoodie", "bunny-ears", "heart-choker", "bunny-backpack",
             "round", "rose", "cocoa", "peace"),
-        new("mocha-mel", "Miel de café", "Chibi de piel morena cálida, cabello castaño con mechones interiores miel y ojos marrones.",
-            "brown-inner-light", "comfy-hoodie", "double-bows", "heart-choker", "bunny-backpack",
-            "heart", "brown", "morena", "wave")
     ];
 
     private UIElement BuildAvatarStudio()
@@ -1392,6 +1389,22 @@ public partial class MainWindow
         if (assets.FaceAccessories.TryGetValue(preset.FaceAccessoryId, out var facePath))
             AddPreviewLayer(facePath);
 
+        // This badge is a UI-only overlay: it never edits or bakes into the underlying PNG.
+        preview.Children.Add(new TextBlock
+        {
+            Text = "VTUBERBOT · REFERENCIA",
+            FontSize = 7,
+            FontWeight = FontWeights.Bold,
+            Foreground = Brushes.White,
+            Background = new SolidColorBrush(Color.FromArgb(205, 22, 28, 45)),
+            Padding = new Thickness(3, 2, 3, 2),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(1, 0, 1, 2),
+            TextAlignment = TextAlignment.Center,
+            IsHitTestVisible = false
+        });
+
         var card = new StackPanel { Width = 112 };
         card.Children.Add(preview);
         card.Children.Add(new TextBlock
@@ -1413,6 +1426,31 @@ public partial class MainWindow
             TextWrapping = TextWrapping.Wrap,
             MaxHeight = 44
         });
+        var originalAssetLink = new TextBlock
+        {
+            Text = "Ver PNG original sin marca ↗",
+            FontSize = 9,
+            Foreground = Brush("#8BC5FF"),
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 5, 0, 0),
+            Cursor = System.Windows.Input.Cursors.Hand,
+            ToolTip = "Abre el archivo PNG local sin la marca superpuesta de la vista previa."
+        };
+        originalAssetLink.MouseLeftButtonUp += (_, eventArgs) =>
+        {
+            eventArgs.Handled = true;
+            try
+            {
+                Process.Start(new ProcessStartInfo(Path.GetFullPath(assets.BaseIdle)) { UseShellExecute = true });
+                FooterStatus.Text = "PNG original abierto; la marca solo existe en la vista previa.";
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo abrir el PNG original: " + exception.Message;
+            }
+        };
+        card.Children.Add(originalAssetLink);
 
         var button = new Button
         {
