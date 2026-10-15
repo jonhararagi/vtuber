@@ -243,6 +243,35 @@ public sealed class EventActionCoordinatorTests
     }
 
     [Fact]
+    public async Task DirectObsAndAvatarRulesDoNotRequireStreamerBotConfirmation()
+    {
+        var settings = new MemorySettings();
+        var dispatcher = new RecordingDispatcher();
+        await using var coordinator = new EventActionCoordinator(settings, dispatcher);
+        coordinator.AutomationsPaused = false;
+
+        coordinator.SaveRule(Rule(enabled: true, destination: EventActionDestination.ObsScene) with
+        {
+            Name = "OBS scene",
+            ExternalActionConfirmed = false,
+            ConfirmedTargetId = null
+        });
+        coordinator.SaveRule(Rule(enabled: true, destination: EventActionDestination.AvatarExpression) with
+        {
+            Name = "Avatar expression",
+            ExternalActionConfirmed = false,
+            ConfirmedTargetId = null
+        });
+
+        Publish(coordinator, "local-destinations");
+        Assert.True(await dispatcher.WaitForCountAsync(2));
+        Assert.Equal(2, dispatcher.Targets.Count);
+        Assert.DoesNotContain(coordinator.GetRecentActivity(), item =>
+            item.Outcome == EventActionOutcome.InvalidDestination &&
+            item.Message.Contains("confirmación explícita", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task InvalidRulesAndMalformedEventsAreRejectedWithoutCrashingCoordinator()
     {
         var settings = new MemorySettings();
