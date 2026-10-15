@@ -1,5 +1,11 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Vista previa y estado de la biblioteca de assets
+
+- Se agregó una miniatura de vista previa al seleccionar una entrada de la biblioteca local de arte. La implementación de la biblioteca ahora cubre catálogo persistente, importación múltiple, búsqueda, filtros, favoritos, metadatos de procedencia/licencia, vista previa y asignación al perfil activo.
+- El siguiente trabajo artístico no debe confundirse con esta gestión de archivos: todavía hace falta ampliar la variedad real de ilustraciones/piezas originales (siluetas, formas de ropa, peinados y accesorios) y comprobar en Windows que la composición y las miniaturas se ven bien.
+- Commit de vista previa: `9560cf55108a9da962082b435d96484e033a1625`. El CI del SHA final sigue pendiente de confirmación; los estados combinados consultados no devolvieron checks, así que no se afirma que haya compilado.
+
 ## 2026-10-15 — Biblioteca local de assets para Avatar Studio
 
 - Se añadió `src/VtuberBot.App/Workspaces/AvatarAssetLibrary.cs`: catálogo JSON local, copia de archivos a una carpeta propia, búsqueda por nombre/etiquetas/categoría/licencia, filtro de favoritos, metadatos editables de procedencia y licencia, y protección contra rutas de catálogo que escapen de la biblioteca.
