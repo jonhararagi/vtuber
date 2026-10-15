@@ -1,5 +1,13 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Buscador de referencias y plantillas de inspiración VTuber
+
+- En `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs` se añadió a Avatar Studio un buscador que abre una búsqueda web de referencias públicas a partir del nombre escrito por el usuario. No descarga ni recorta automáticamente ilustraciones ajenas.
+- Se añadieron seis perfiles originales de inspiración a la galería: Océano pop, Reaper rock, Cantante estelar, Dragona cyber, Demonio gamer y Kitsune idol. Cada uno combina IDs existentes de cabello, ropa, ojos, tono de piel y accesorios del armario modular. Se conserva el preset **Miel de café** para el estilo solicitado: piel morena cálida, pelo castaño con inner hair miel claro, iris marrón y pupilas marrón oscuro.
+- Se actualizó `docs/PRODUCT_USER_GUIDE.md` para explicar el buscador y aclarar que las plantillas no copian modelos oficiales ni incorporan imágenes descargadas. El usuario puede estudiar referencias en el navegador y personalizar una combinación propia en el editor.
+- También se amplió el margen temporal de dos pruebas sensibles a la carga de CI en `tests/VtuberBot.Tests/Tests.cs`: la espera para observar un waiter de proceso y la señal del scheduler pasan de 1 a 5 segundos. La CI anterior `38689583730` falló solo en esas dos aserciones de tiempo; se está comprobando la siguiente ejecución.
+- Estos cambios no se han probado visualmente en el PC del usuario. Esperar el resultado de Windows CI para el SHA final de código antes de declarar la validación completa. No se tocó `main` ni se fusionó/cerró el PR #9.
+
 ## 2026-10-15 — Marca de referencia no destructiva en la galería de avatar
 
 - En `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs`, cada tarjeta de la galería muestra ahora `VTUBERBOT · REFERENCIA` como superposición WPF. La etiqueta solo vive en la vista previa y no se fusiona con los PNG.
