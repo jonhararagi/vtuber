@@ -128,6 +128,44 @@ public partial class MainWindow
             ToolTip = "Una condición por línea: campo|eq|valor, campo|contains|texto o campo|present|",
             Background = Brush("#101525"), Foreground = Brush("#F8FAFC"), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 8)
         };
+        var conditionField = new ComboBox
+        {
+            ItemsSource = new[] { "message", "command", "arguments", "userName", "messageId", "isCommand", "type", "summary" },
+            SelectedIndex = 0, MinWidth = 150, Margin = new Thickness(0, 0, 8, 8)
+        };
+        var conditionOperator = new ComboBox
+        {
+            ItemsSource = new[] { "contains", "eq", "present" },
+            SelectedIndex = 0, MinWidth = 120, Margin = new Thickness(0, 0, 8, 8)
+        };
+        var conditionExpected = TextField("Valor que debe coincidir");
+        conditionExpected.MinWidth = 200;
+        conditionOperator.SelectionChanged += (_, _) =>
+        {
+            conditionExpected.IsEnabled = !Equals(conditionOperator.SelectedItem, "present");
+            if (!conditionExpected.IsEnabled) conditionExpected.Text = "";
+        };
+        var conditionBuilder = new WrapPanel();
+        conditionBuilder.Children.Add(conditionField);
+        conditionBuilder.Children.Add(conditionOperator);
+        conditionBuilder.Children.Add(conditionExpected);
+        conditionBuilder.Children.Add(ActionButton("Agregar condición", (_, _) =>
+        {
+            var field = conditionField.SelectedItem?.ToString()?.Trim() ?? "";
+            var operation = conditionOperator.SelectedItem?.ToString() ?? "";
+            var expected = conditionExpected.Text.Trim();
+            if (string.IsNullOrWhiteSpace(field) || operation is not ("eq" or "contains" or "present") ||
+                operation != "present" && string.IsNullOrWhiteSpace(expected))
+            {
+                status.Text = "Elegí campo, operador y valor. Para comprobar solo existencia, usá «present».";
+                return;
+            }
+            conditionsEditor.AppendText(field + "|" + operation + "|" + expected + Environment.NewLine);
+            status.Text = "Condición agregada; podés combinar varias y todas deben cumplirse.";
+            if (operation != "present") conditionExpected.Clear();
+        }));
+        editor.Children.Add(Label("Constructor de condiciones (todas deben cumplirse)", 12, "#98A4BE"));
+        editor.Children.Add(conditionBuilder);
         var cooldown = TextField("Cooldown en segundos", "0"); cooldown.Width = 110;
         var perRuleLimit = TextField("Máximo por minuto", "10"); perRuleLimit.Width = 110;
         var enabled = new CheckBox { Content = "Activada (solo al guardar expresamente)", IsChecked = false, Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
@@ -211,7 +249,7 @@ public partial class MainWindow
         editor.Children.Add(Label("Destino", 12, "#98A4BE"));
         destination.SelectionChanged += (_, _) => { target.Items.Clear(); status.Text = "Actualizá destinos para consultar el catálogo real."; };
         editor.Children.Add(destination); editor.Children.Add(target);
-        editor.Children.Add(Label("Condiciones opcionales (una por línea; rutas JSON simples, sin expresiones ni código)", 12, "#98A4BE"));
+        editor.Children.Add(Label("Condiciones opcionales (una por línea; rutas JSON simples, sin expresiones ni código). Podés usar el constructor de arriba o editar las líneas directamente.", 12, "#98A4BE"));
         editor.Children.Add(Label("Formato: campo|eq|valor · campo|contains|texto · campo|present|", 11, "#98A4BE"));
         editor.Children.Add(conditionsEditor);
         var limitsRow = new WrapPanel(); limitsRow.Children.Add(cooldown); limitsRow.Children.Add(perRuleLimit); editor.Children.Add(limitsRow);
