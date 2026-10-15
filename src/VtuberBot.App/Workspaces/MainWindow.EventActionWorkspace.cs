@@ -23,8 +23,8 @@ public partial class MainWindow
     {
         var settings = new WindowProductSettingsStore(key => store.GetSetting(key), (key, value) => store.SetSetting(key, value));
         eventActionHotkeys = new PngtuberHotkeyRegistry(settings, new WindowsPngtuberHotkeySender());
-        var dispatcher = new WindowEventActionDispatcher(streamerBot, settings, eventActionHotkeys,
-            () => store.GetSetting("integrations.pngTuberPlus.path"));
+        var dispatcher = new WindowEventActionDispatcher(streamerBot, obs, settings, eventActionHotkeys,
+            () => store.GetSetting("integrations.pngTuberPlus.path"), SetChatReactionExpression);
         var coordinator = new EventActionCoordinator(settings, dispatcher);
         eventActionCoordinator = coordinator;
         coordinator.ActivityChanged += _ =>
@@ -119,7 +119,7 @@ public partial class MainWindow
         var source = new ComboBox { MinWidth = 250, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "Streamer.bot", "VTuberBot.EventSub" }, SelectedIndex = 0 };
         var category = TextField("Categoría real (por ejemplo, Twitch)");
         var eventType = TextField("Tipo de evento real");
-        var destination = new ComboBox { MinWidth = 250, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "Streamer.bot", "PNGTuber Plus" }, SelectedIndex = 0 };
+        var destination = new ComboBox { MinWidth = 250, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "Streamer.bot", "PNGTuber Plus", "OBS · cambiar escena", "Avatar · expresión" }, SelectedIndex = 0 };
         var target = new ComboBox { MinWidth = 360, Margin = new Thickness(0, 0, 8, 8), DisplayMemberPath = "Content" };
         var conditionsEditor = new TextBox
         {
@@ -170,12 +170,29 @@ public partial class MainWindow
                         target.Items.Add(new ComboBoxItem { Content = $"{action.Name} · {action.Id}", Tag = action.Id });
                     status.Text = $"Catálogo real: {eventActionStreamerBotActions.Count} acciones; solo se ofrecen acciones habilitadas.";
                 }
-                else
+                else if (Equals(destination.SelectedItem, "PNGTuber Plus"))
                 {
                     var entries = eventActionHotkeys?.Load() ?? [];
                     foreach (var hotkey in entries.Where(h => h.Enabled))
                         target.Items.Add(new ComboBoxItem { Content = $"{hotkey.Name} · tecla {hotkey.Key}", Tag = hotkey.Id.ToString("D") });
                     status.Text = $"Registro real de PNGTuber Plus: {entries.Count} atajos; no se han enviado teclas.";
+                }
+                else if (Equals(destination.SelectedItem, "OBS · cambiar escena"))
+                {
+                    var scenes = await obs.GetScenesAsync();
+                    foreach (var scene in scenes)
+                        target.Items.Add(new ComboBoxItem { Content = scene, Tag = scene });
+                    status.Text = $"Escenas recibidas desde OBS autenticado: {scenes.Count}. Seleccionar no cambia la escena.";
+                }
+                else
+                {
+                    var expressions = new[] { "Idle", "Talking", "Blink", "Happy", "Surprised" }
+                        .Where(state => AvatarExpressionAvailabilityPolicy.IsAvailable(
+                            state, !string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath),
+                            File.Exists(store.GetAvatarExpression(state) ?? "")));
+                    foreach (var expressionName in expressions)
+                        target.Items.Add(new ComboBoxItem { Content = expressionName, Tag = expressionName });
+                    status.Text = "Estados del avatar con recursos disponibles. No se ha cambiado la expresión.";
                 }
                 if (target.Items.Count > 0) target.SelectedIndex = 0;
             }
@@ -216,7 +233,14 @@ public partial class MainWindow
             if (rulesList.SelectedItem is not ListBoxItem { Tag: EventActionRule rule }) return;
             editingId = rule.Id; selectedRule = rule; name.Text = rule.Name;
             source.SelectedItem = rule.Source; category.Text = rule.Category; eventType.Text = rule.EventType;
-            destination.SelectedItem = rule.Destination == EventActionDestination.StreamerBot ? "Streamer.bot" : "PNGTuber Plus";
+            destination.SelectedItem = rule.Destination switch
+            {
+                EventActionDestination.StreamerBot => "Streamer.bot",
+                EventActionDestination.PngtuberPlus => "PNGTuber Plus",
+                EventActionDestination.ObsScene => "OBS · cambiar escena",
+                EventActionDestination.AvatarExpression => "Avatar · expresión",
+                _ => "Streamer.bot"
+            };
             conditionsEditor.Text = string.Join(Environment.NewLine, rule.Conditions.Select(condition =>
                 condition.FieldPath + "|" + condition.Operator + "|" + condition.ExpectedValue));
             cooldown.Text = rule.CooldownSeconds.ToString(); perRuleLimit.Text = rule.MaxExecutionsPerMinute.ToString();
@@ -247,11 +271,27 @@ public partial class MainWindow
                     if (!currentActions.Any(a => a.Enabled && Guid.TryParse(a.Id, out var id) && id == selectedActionId))
                         throw new InvalidOperationException("La acción no está disponible/habilitada en el catálogo actual. Actualizá destinos.");
                 }
-                else
+                else if (dest == EventActionDestination.PngtuberPlus)
                 {
                     if (!Guid.TryParse(targetId, out var selectedHotkeyId) ||
                         !(eventActionHotkeys?.Load() ?? []).Any(h => h.Enabled && h.Id == selectedHotkeyId))
                         throw new InvalidOperationException("El atajo no existe en el registro actual o está deshabilitado.");
+                }
+                else if (dest == EventActionDestination.ObsScene)
+                {
+                    if (!obs.IsConnected)
+                        throw new InvalidOperationException("OBS no está autenticado. Conectalo antes de guardar una regla de escena.");
+                    var scenes = await obs.GetScenesAsync();
+                    if (!scenes.Contains(targetId, StringComparer.Ordinal))
+                        throw new InvalidOperationException("La escena ya no aparece en OBS. Actualizá destinos.");
+                }
+                else if (dest == EventActionDestination.AvatarExpression)
+                {
+                    if (targetId is not ("Idle" or "Talking" or "Blink" or "Happy" or "Surprised") ||
+                        !AvatarExpressionAvailabilityPolicy.IsAvailable(targetId,
+                            !string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath),
+                            File.Exists(store.GetAvatarExpression(targetId) ?? "")))
+                        throw new InvalidOperationException("El estado seleccionado no tiene un recurso de avatar disponible.");
                 }
                 var shouldEnable = enabled.IsChecked == true;
                 var confirmed = selectedRule?.ExternalActionConfirmed == true &&
@@ -424,9 +464,11 @@ public partial class MainWindow
 
     private sealed class WindowEventActionDispatcher(
         IStreamerBotClient streamerBot,
+        ObsWebSocketClient obs,
         IProductSettingsStore settings,
         PngtuberHotkeyRegistry hotkeys,
-        Func<string> executablePath) : IEventActionDispatcher
+        Func<string> executablePath,
+        Func<string, CancellationToken, bool> setAvatarExpression) : IEventActionDispatcher
     {
         public async Task<EventActionExecutionResult> DispatchAsync(EventActionRule rule, NormalizedBotEvent evt, CancellationToken cancellationToken)
         {
@@ -457,6 +499,34 @@ public partial class MainWindow
                 {
                     return new(EventActionOutcome.OutcomeUnknown, "La conexión falló durante la solicitud; el resultado es desconocido (" + ex.GetType().Name + ").", null, true);
                 }
+            }
+
+            if (rule.Destination == EventActionDestination.ObsScene)
+            {
+                if (!obs.IsConnected)
+                    return new(EventActionOutcome.InvalidDestination, "OBS no está autenticado; no se cambió ninguna escena.");
+                try
+                {
+                    var scenes = await obs.GetScenesAsync().ConfigureAwait(false);
+                    if (!scenes.Contains(rule.TargetId, StringComparer.Ordinal))
+                        return new(EventActionOutcome.InvalidDestination, "La escena guardada ya no existe en OBS.");
+                    await obs.SetCurrentSceneAsync(rule.TargetId).ConfigureAwait(false);
+                    return new(EventActionOutcome.RequestAccepted,
+                        "OBS aceptó el cambio a la escena «" + rule.TargetId + "». No se ha verificado visualmente la salida.", null, true);
+                }
+                catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Net.WebSockets.WebSocketException or TimeoutException or System.Text.Json.JsonException)
+                {
+                    return new(EventActionOutcome.OutcomeUnknown,
+                        "No se pudo confirmar el resultado del cambio de escena (" + ex.GetType().Name + ").", null, true);
+                }
+            }
+
+            if (rule.Destination == EventActionDestination.AvatarExpression)
+            {
+                var applied = setAvatarExpression(rule.TargetId, cancellationToken);
+                return applied
+                    ? new(EventActionOutcome.RequestAccepted, "Estado del avatar «" + rule.TargetId + "» solicitado; la salida visual depende del overlay y sus recursos.")
+                    : new(EventActionOutcome.ActionRejected, "No se pudo aplicar el estado del avatar; verificá que el recurso siga disponible.");
             }
 
             if (settings.GetSetting(EventActionCoordinator.PngtuberAutomaticHotkeysSettingKey, "false") != "true")
