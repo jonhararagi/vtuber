@@ -1,5 +1,11 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Corrección del primer fallo de Windows CI
+
+- Se revisó el job de Windows CI para el SHA `3378c0933b7abf304208d8a22a86bd8cdc2391e7`. El restore terminó correctamente, pero `Build Release` falló al compilar `AvatarAssetLibrary.cs`: faltaba importar `System.IO` y el panel usaba `AvatarArtPromptCatalog.Roles` desde una clase distinta a la que lo expone.
+- Corrección registrada en el commit `6e7f48ed27e6b9082d433689d6e259d466d6a8c2`: se agregó `using System.IO` y el selector de asignación utiliza los roles explícitos compatibles con Avatar Studio. La nueva compilación/CI de este SHA todavía debe terminar antes de declarar la corrección validada.
+- No se modificó `main`, ni se fusionó o cerró ningún PR.
+
 ## 2026-10-15 — Vista previa y estado de la biblioteca de assets
 
 - Se agregó una miniatura de vista previa al seleccionar una entrada de la biblioteca local de arte. La implementación de la biblioteca ahora cubre catálogo persistente, importación múltiple, búsqueda, filtros, favoritos, metadatos de procedencia/licencia, vista previa y asignación al perfil activo.
