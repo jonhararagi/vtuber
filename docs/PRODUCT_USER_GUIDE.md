@@ -2,6 +2,17 @@
 
 Esta guía corresponde al candidato integrado de VTuberBot. Las funciones externas no se consideran conectadas hasta completar la autenticación real. El proceso para prevenir regresiones está descrito en [Regla de Murphy y puertas de fiabilidad](REGLA_MURPHY_Y_PUERTAS_DE_FIABILIDAD.md).
 
+## OBS Studio: inicio automático y modo ligero
+
+En la página **OBS**, VTuberBot ofrece **Abrir OBS Studio**, **Elegir ubicación de OBS**, y dos preferencias persistentes:
+
+- **Abrir OBS automáticamente al iniciar VTuberBot**: activado por defecto. Si OBS está instalado en una ubicación estándar, VTuberBot intenta abrirlo sin bloquear el arranque. Si no lo encuentra, permite seleccionar `obs64.exe`.
+- **Modo ligero: iniciar OBS sin plugins de terceros**: activado por defecto. Al iniciar OBS, VTuberBot pasa `--only-bundled-plugins`, una opción de inicio que omite plugins externos durante esa sesión. No desinstala ni borra archivos. Desactivala si tus escenas usan plugins de terceros.
+- **Conexión automática**: después de guardar por primera vez host, puerto y contraseña de WebSocket desde la página OBS, VTuberBot intenta autenticarse al arrancar. Si la contraseña no existe, el puerto no responde o la autenticación falla, la app sigue funcionando y deja un estado/registro; no simula una conexión.
+
+**Límite importante:** el modo ligero no garantiza por sí solo menor uso de CPU/GPU y no reemplaza una medición real. No cambia automáticamente resolución, FPS, bitrate, codificador ni escenas. La optimización específica para Ryzen 5 5600G/16 GB todavía requiere un asistente separado y pruebas de carga en el equipo. La compilación y CI deben comprobarse en el SHA más reciente antes de distribuir este cambio.
+
+
 ## Biblioteca local de arte
 
 En **Avatar Studio**, debajo de las referencias públicas, está la biblioteca local de assets. Importá una o varias imágenes propias o generadas con una herramienta externa. Podés buscar por nombre, categoría, etiquetas y estado de licencia; filtrar favoritos; ver una miniatura del asset seleccionado; y guardar categoría, etiquetas, URL de procedencia y estado de licencia. La app no descarga automáticamente ilustraciones ni verifica por sí sola las condiciones de PixAI u otros servicios.
