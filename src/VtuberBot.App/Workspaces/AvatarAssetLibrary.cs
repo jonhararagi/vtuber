@@ -87,8 +87,8 @@ public sealed class AvatarAssetLibrary
             throw new InvalidDataException("La categoría no puede quedar vacía.");
         var cleanTags = CleanField(tags, 500);
         var cleanSourceUrl = CleanField(sourceUrl, 1000);
-        if (cleanSourceUrl.Length > 0 && !Uri.TryCreate(cleanSourceUrl, UriKind.Absolute, out var uri) ||
-            cleanSourceUrl.Length > 0 && uri!.Scheme is not ("http" or "https"))
+        if (cleanSourceUrl.Length > 0 &&
+            (!Uri.TryCreate(cleanSourceUrl, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")))
             throw new InvalidDataException("La procedencia debe ser una URL HTTP o HTTPS válida.");
 
         lock (sync)
