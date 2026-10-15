@@ -1,12 +1,12 @@
 # Validación global del candidato VTuberBot (una sola pasada en Windows)
 
-**Estado inicial:** PENDIENTE. Esta lista no certifica el producto por sí sola; registrá el resultado real de cada paso.
+**Estado inicial:** PENDIENTE. Candidato CI actual: SHA `1bfa705a29c037f9c41d6d1cfbb9398c5acaec6a`, run [#893](https://github.com/jonhararagi/vtuber/actions/runs/38759994663), artefacto `VTuberBot-Product-Candidate-win-x64-1bfa705a29c037f9c41d6d1cfbb9398c5acaec6a`, SHA-256 `c038bd75ec88707c3c9d0bd410b2007c177ab3746ab92d38b2b5c5b3d31fcf11`. La CI pasó; la validación manual sigue pendiente. Esta lista no certifica el producto por sí sola; registrá el resultado real de cada paso.
 
 ## 1. Antes de abrirlo: procedencia del paquete
 
-1. Abrí la ejecución más reciente de [Windows CI](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml) de `product/complete-vtuber-experience`.
+1. Abrí la ejecución más reciente de [Windows CI](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml) de `main`.
 2. Confirmá que todos los pasos `Restore solution`, `Build Release`, `Run automated tests`, `Publish self-contained Windows x64 validation package` y `Upload temporary validation artifact` terminaron en éxito.
-3. Compará el **Head SHA** de esa ejecución con el HEAD actual de la rama. Deben coincidir exactamente.
+3. Compará el **Head SHA** de esa ejecución con el HEAD actual de `main`. Deben coincidir exactamente.
 4. Descargá el artefacto de esa misma ejecución y extraelo en una carpeta nueva. Abrí `BUILD-INFO.txt` y confirmá que su SHA coincide. No uses artefactos antiguos.
 5. Registrá run ID, SHA, nombre/ID del artefacto y digest:
 
