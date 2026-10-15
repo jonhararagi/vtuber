@@ -2,6 +2,12 @@
 
 Esta guía corresponde al candidato integrado de VTuberBot. Las funciones externas no se consideran conectadas hasta completar la autenticación real. El proceso para prevenir regresiones está descrito en [Regla de Murphy y puertas de fiabilidad](REGLA_MURPHY_Y_PUERTAS_DE_FIABILIDAD.md).
 
+## Biblioteca local de arte
+
+En **Avatar Studio**, debajo de las referencias públicas, está la biblioteca local de assets. Importá una o varias imágenes propias o generadas con una herramienta externa. Podés buscar por nombre, categoría, etiquetas y estado de licencia; filtrar favoritos; y guardar categoría, etiquetas, URL de procedencia y estado de licencia. La app no descarga automáticamente ilustraciones ni verifica por sí sola las condiciones de PixAI u otros servicios.
+
+Cada importación empieza con **Pendiente de revisar**. Cambiá el estado solo después de comprobar la licencia de la imagen y las condiciones del modelo/servicio de origen. Las imágenes se copian al directorio local de datos de VTuberBot. Seleccioná un asset y un rol para asignarlo al perfil activo; la copia asignada no elimina el original de la biblioteca. Se admiten PNG, JPG/JPEG, BMP y WebP hasta 25 MB por archivo.
+
 ## Empezar: elegí tu tipo de VTuber
 
 Arriba de **Avatar Studio** hay una galería de diecinueve personajes chibi completos. El primero es **Miel de café** (piel marrón medio-profunda, pelo castaño con mechones interiores miel claro, iris marrones y pupilas marrón oscuro), seguido de **Neko gamer**, **Brujita lunar**, **Idol estelar**, **Gótica rosa**, **Cyber neón**, **Streamer casual**, **Zorrita de festival**, **Oráculo invernal**, **Guardiana kitsune**, **Pop celestial**, **Capitana pirata** y **Conejita de café**. Cada uno combina peinado, ropa, accesorios, rostro, ojos, tono de piel y pose distintos. No son una misma ilustración recoloreada: cada modelo combina distinto peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al pulsar una tarjeta se crea un perfil propio y se abre el overlay; tus perfiles previos no se reemplazan.
