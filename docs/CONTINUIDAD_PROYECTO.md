@@ -5,7 +5,7 @@
 - Se agregó la opción de tono de piel `brown` / **Morena profunda** al armario modular, con color base `#8D573D` y sombra `#593625`. La opción anterior **Morena cálida** se conserva para no cambiar perfiles existentes.
 - El preset inicial **Miel de café** usa ahora ese tono más profundo, mantiene el cabello castaño con mechones interiores miel claro (`brown-inner-light`) y los ojos marrones con pupilas marrón oscuro. No se reemplazan ni borran perfiles ya guardados.
 - Se actualizó `docs/PRODUCT_USER_GUIDE.md` con la nueva opción de piel.
-- Commits de código: `057d8f2` (paleta) y `ceec469` (preset); guía `93aec3d`.
+- Commits de código: `057d8f2` (paleta) y `ceec469` (preset); guía `93aec3d`. Se añadió `tests/VtuberBot.Tests/AvatarWardrobeCatalogTests.cs` (`849f345`) para impedir que desaparezcan del catálogo los IDs de piel morena, tono marrón profundo, cabello castaño con inner hair claro y ojos marrones.
 - CI de Windows para esos cambios está en ejecución; no se declara todavía que este SHA haya compilado ni que la apariencia se haya comprobado visualmente en el equipo del usuario.
 - El trabajo sigue en `product/complete-vtuber-experience`; no se modificó `main` en esta tarea.
 
