@@ -1,5 +1,14 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Paleta de piel marrón más profunda para Miel de café
+
+- Se agregó la opción de tono de piel `brown` / **Morena profunda** al armario modular, con color base `#8D573D` y sombra `#593625`. La opción anterior **Morena cálida** se conserva para no cambiar perfiles existentes.
+- El preset inicial **Miel de café** usa ahora ese tono más profundo, mantiene el cabello castaño con mechones interiores miel claro (`brown-inner-light`) y los ojos marrones con pupilas marrón oscuro. No se reemplazan ni borran perfiles ya guardados.
+- Se actualizó `docs/PRODUCT_USER_GUIDE.md` con la nueva opción de piel.
+- Commits de código: `057d8f2` (paleta) y `ceec469` (preset); guía `93aec3d`.
+- CI de Windows para esos cambios está en ejecución; no se declara todavía que este SHA haya compilado ni que la apariencia se haya comprobado visualmente en el equipo del usuario.
+- El trabajo sigue en `product/complete-vtuber-experience`; no se modificó `main` en esta tarea.
+
 ## 2026-10-15 — Buscador de referencias y plantillas de inspiración VTuber
 
 - En `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs` se añadió a Avatar Studio un buscador que abre una búsqueda web de referencias públicas a partir del nombre escrito por el usuario. No descarga ni recorta automáticamente ilustraciones ajenas.
