@@ -60,7 +60,10 @@ public partial class MainWindow
 
     private static readonly IReadOnlyList<ChibiAvatarPreset> ChibiAvatarPresets =
     [
-        new("neko-gamer", "Neko gamer", "Chibi con coletas, orejas de gato, streetwear y pose de paz.",
+        new("mocha-mel", "Miel de café", "Chibi de piel morena cálida, cabello castaño con mechones interiores miel y ojos marrones.",
+            "brown-inner-light", "comfy-hoodie", "double-bows", "heart-choker", "bunny-backpack",
+            "heart", "brown", "morena", "wave")
+,                new("neko-gamer", "Neko gamer", "Chibi con coletas, orejas de gato, streetwear y pose de paz.",
             "twin-tails", "tech-streetwear", "cat-ears", "cheek-stars", "mechanical-pack",
             "round", "rose", "warm", "peace"),
         new("lunar-witch", "Brujita lunar", "Maga de fantasía con rizos, sombrero y cristales.",
@@ -105,7 +108,7 @@ public partial class MainWindow
     {
         var root = new StackPanel();
 
-        // The old generated chibi sample gallery was removed from the user-facing workflow.
+        // Keep the built-in chibi gallery visible as the quickest path to a usable avatar.
         var beginnerPanel = Panel("Crear y personalizar tu personaje");
         beginnerPanel.Margin = new Thickness(0, 0, 0, 14);
         beginnerPanel.Children.Add(Label(
