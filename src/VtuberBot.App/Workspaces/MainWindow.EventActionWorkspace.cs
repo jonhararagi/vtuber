@@ -116,7 +116,7 @@ public partial class MainWindow
 
         var editor = Panel("Crear o editar regla");
         var name = TextField("Nombre de la regla");
-        var source = new ComboBox { MinWidth = 250, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "Streamer.bot", "VTuberBot.EventSub" }, SelectedIndex = 0 };
+        var source = new ComboBox { MinWidth = 250, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "Streamer.bot", "VTuberBot.EventSub", "Twitch.IRC" }, SelectedIndex = 0 };
         var category = TextField("Categoría real (por ejemplo, Twitch)");
         var eventType = TextField("Tipo de evento real");
         var destination = new ComboBox { MinWidth = 250, Margin = new Thickness(0, 0, 8, 8), ItemsSource = new[] { "Streamer.bot", "PNGTuber Plus", "OBS · cambiar escena", "Avatar · expresión" }, SelectedIndex = 0 };
@@ -134,6 +134,15 @@ public partial class MainWindow
         var status = Label("Consultá el catálogo real para seleccionar un evento/acción existente.", 12, "#98A4BE");
         Guid? editingId = null;
         EventActionRule? selectedRule = null;
+        source.SelectionChanged += (_, _) =>
+        {
+            if (Equals(source.SelectedItem, "Twitch.IRC"))
+            {
+                category.Text = "Twitch";
+                eventType.Text = "ChatMessage";
+                status.Text = "El chat IRC publica mensajes reales después de la política de moderación; las condiciones pueden usar userName, message, command, arguments, messageId e isCommand.";
+            }
+        };
 
         editor.Children.Add(Label("Nombre", 12, "#98A4BE")); editor.Children.Add(name);
         editor.Children.Add(Label("Fuente (no se mezclan automáticamente proveedores)", 12, "#98A4BE")); editor.Children.Add(source);
@@ -331,9 +340,14 @@ public partial class MainWindow
                     if (!available.TryGetValue(category.Text.Trim(), out var names) || !names.Contains(eventType.Text.Trim(), StringComparer.OrdinalIgnoreCase))
                         throw new InvalidOperationException("La categoría/tipo no aparece en GetEvents. Actualizá el catálogo y elegí un evento real.");
                 }
-                else if (!coordinator.GetRecentActivity().Any(a => a.Source == "VTuberBot.EventSub" &&
+                else if (selectedSource == "VTuberBot.EventSub" &&
+                    !coordinator.GetRecentActivity().Any(a => a.Source == "VTuberBot.EventSub" &&
                     a.EventType.Equals(category.Text.Trim() + "." + eventType.Text.Trim(), StringComparison.OrdinalIgnoreCase)))
                     throw new InvalidOperationException("Este tipo interno todavía no se ha observado en un evento EventSub real; no se puede validar todavía.");
+                else if (selectedSource == "Twitch.IRC" &&
+                    !(category.Text.Trim().Equals("Twitch", StringComparison.OrdinalIgnoreCase) &&
+                      eventType.Text.Trim().Equals("ChatMessage", StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("El evento de chat IRC admitido es Twitch.ChatMessage; seleccioná Twitch.IRC para autocompletar categoría y tipo.");
                 var saved = coordinator.SaveRule(new EventActionRule(editingId ?? Guid.NewGuid(), name.Text,
                     shouldEnable, selectedSource, category.Text, eventType.Text, conditions,
                     dest, targetId, cooldownSeconds, maxPerMinute, confirmed, confirmedTargetId));
