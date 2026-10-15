@@ -1,14 +1,25 @@
 # Estado prioritario del repositorio — 2026-10-15
 
+## Avance real de cierre — simulador de automatizaciones y reconciliación de ramas
+
+- Se portó a la rama de producto el simulador seguro de condiciones que existía únicamente en `main`. Está integrado en el editor de Automatizaciones, usa el evaluador de condiciones existente y solo muestra coincidencia/no coincidencia; no ejecuta el dispatcher, no llama a Streamer.bot y no envía hotkeys.
+- Windows CI [run #877](https://github.com/jonhararagi/vtuber/actions/runs/38745752961) terminó **success** para el SHA exacto `2f82ba97ff6af4bc22dcf553b05a2b2324382767`: Restore, Build Release, pruebas automatizadas, publicación del ZIP autocontenido Windows x64 y subida del artefacto. La primera versión del port, SHA `763d9265328412248abe1d5faeeadccdcb570f4e`, falló en Build por escapes de nueva línea duplicados; se corrigieron y el SHA #877 confirma la corrección.
+- Se corrigió el texto del taller 3D para que describa el pelo castaño, inner hair miel claro, iris y pupilas marrones sin llamar “pupila blanca” al reflejo ocular.
+- Se actualizó README para dejar claro que `product/complete-vtuber-experience` es la fuente de verdad temporal y que `main` no debe tratarse como el ZIP más actualizado. Se preservó `docs/ANALISIS-MORPHY.md` desde `main`, y se sincronizaron roadmap y guía con el simulador y la galería chibi.
+- El HEAD documental posterior es `956bc298d8d95085d42fde51dfe823e0e7acbb89`; su Windows CI #882 está en curso y es el que debe aprobarse antes de considerar validado ese HEAD. La aprobación #877 no se atribuye a commits posteriores.
+- Comparación actual GitHub: **88 commits exclusivos de producto y 8 exclusivos de main**, base común `797d43ecee3eddd4c95f1c8d8f19669febfdd6a2`. Se han portado cambios útiles de main, pero la historia aún no se ha reconciliado; PR #18 sigue en estado `dirty`. No se ha modificado `main`, no se ha fusionado la PR ni se han eliminado ramas.
+- Sigue pendiente la prueba manual global en Windows con Twitch, OBS, Streamer.bot, PNGTuber Plus, voz/dispositivos y overlay. CI no puede confirmar esos servicios reales sin las aplicaciones, cuentas y periféricos configurados.
+
+
 ## Protección del trabajo y sincronización de ramas
 
 - Rama de trabajo y fuente de verdad del producto: `product/complete-vtuber-experience`.
-- `main` está divergida: comparación GitHub `main...product/complete-vtuber-experience` informa **79 commits exclusivos de producto y 8 commits exclusivos de main**, con base común `797d43ecee3eddd4c95f1c8d8f19669febfdd6a2`. No se debe describir `main` como una copia actual del producto.
+- `main` está divergida: comparación GitHub `main...product/complete-vtuber-experience` informa **88 commits exclusivos de producto y 8 commits exclusivos de main**, con base común `797d43ecee3eddd4c95f1c8d8f19669febfdd6a2`. No se debe describir `main` como una copia actual del producto.
 - PR #18 es la vía de integración existente: https://github.com/jonhararagi/vtuber/pull/18. No se fusiona automáticamente ni se debe reemplazar la historia de `main` sin revisar primero los ocho commits exclusivos, conflictos y el CI postintegración.
 - Regla operativa: seguir desarrollando en la rama de producto; antes de cualquier merge, comparar las dos puntas, conservar cambios exclusivos de ambos lados, resolver conflictos explícitamente y validar el SHA resultante. No borrar ramas ni commits para “limpiar” el historial.
 - Próximo hito de integración: revisar la mergeabilidad/conflictos de PR #18 y preparar una integración segura de ambas líneas de trabajo; confirmar CI post-merge antes de afirmar que `main` ya contiene todo. Hasta entonces, no asumir que un ZIP de `main` contiene las últimas funciones.
 
-## Validación Windows CI más reciente comprobada
+## Validación Windows CI histórica comprobada (SHA anterior)
 
 - Windows CI [run #872](https://github.com/jonhararagi/vtuber/actions/runs/38738742940) terminó **success** para el SHA exacto `8a9198539c4130ea593f42dd48c67a9b2a2f2462` en `product/complete-vtuber-experience`.
 - Pasaron Restore, Build Release, pruebas automatizadas y publicación autocontenida Windows x64; el artefacto se subió correctamente.
