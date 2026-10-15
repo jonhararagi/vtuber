@@ -1,5 +1,14 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-14/15 — Cierre de la actualización visual y precisión del alcance 3D
+
+- Se colocó **Miel de café** como primer personaje de la galería para que el estilo pedido no quede perdido al final. El preset conserva piel morena cálida, cabello castaño oscuro con mechones interiores miel, iris marrones y pupilas marrón oscuro; usa el peinado modular `brown-inner-light`, no un simple brillo superficial. La guía de usuario refleja el nuevo orden.
+- Se corrigió el texto de bienvenida de Avatar Studio, que afirmaba por error que los modelos de muestra no se mostraban. Ahora dirige al usuario a la galería chibi y describe con precisión el taller paramétrico: guarda apariencia JSON y exporta GLB estático, necesita Internet para Three.js y todavía no produce un modelo VRM animado utilizable por el overlay.
+- Commits de código: `17820e6` (texto honesto del taller), `301a193` (preset moreno primero) y `76b20b9` (formato final de la lista). Documentación: `b1b347c` (orden del catálogo).
+- Último candidato con CI totalmente confirmada antes de estos cambios de interfaz: SHA `af296d3c71ce8d1fd44b00ded048a26a364cf102`, Windows CI [#38647051490](https://github.com/jonhararagi/vtuber/actions/runs/38647051490) SUCCESS y artefacto win-x64 publicado. Las ejecuciones para los commits recientes `17820e6`, `301a193` y `76b20b9` se encuentran iniciadas/en curso; no atribuirles aún la validación de ese candidato anterior. Revisar la ejecución asociada al SHA final antes de entregar el ZIP.
+- Alcance todavía no verificable sin prueba manual: apariencia real de la galería en Windows, audio real, login OAuth de Twitch, conexión real a OBS/Telegram, cuentas/credenciales de Gemini y comportamiento en directo. No se marca nada de eso como probado.
+- El estado del código continúa en `product/complete-vtuber-experience`; esta actualización no hace merge ni cambia `main`.
+
 ## 2026-10-14 — Taller 3D: inner hair y color de pupilas configurables
 
 - `src/VtuberBot.App/AvatarWardrobeStudioWindow.cs` ahora expone selectores separados para color principal del pelo, mechones interiores (`innerhair`), iris y pupilas (`pupilcolor`). El brillo blanco de los ojos permanece independiente del color de la pupila.
