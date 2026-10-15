@@ -1,5 +1,15 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Biblioteca local de assets para Avatar Studio
+
+- Se añadió `src/VtuberBot.App/Workspaces/AvatarAssetLibrary.cs`: catálogo JSON local, copia de archivos a una carpeta propia, búsqueda por nombre/etiquetas/categoría/licencia, filtro de favoritos, metadatos editables de procedencia y licencia, y protección contra rutas de catálogo que escapen de la biblioteca.
+- La biblioteca se muestra dentro de Avatar Studio. Permite importar varias imágenes locales, mantener su estado de licencia como **Pendiente de revisar** por defecto, marcar favoritos y asignar un asset al rol elegido (personaje base, fondo, capa u expresión). La asignación hace una copia para el perfil y conserva el original en la biblioteca.
+- Se admiten PNG/JPG/JPEG/BMP/WebP hasta 25 MB por archivo. La UI intenta decodificar la imagen antes de incorporarla; los permisos de uso no se infieren automáticamente. Los archivos quedan en el directorio local del usuario, no se suben a PixAI ni a otros servicios.
+- Se añadieron pruebas en `tests/VtuberBot.Tests/AvatarAssetLibraryTests.cs` para persistencia, búsqueda, metadatos/favoritos, URL segura, extensiones y bloqueo de rutas fuera del catálogo.
+- Commits de implementación: `1f40a258a6aeaa3b911e7cd9c0bb38864f72efd6`, `5ff39bba4ca8b538aeac9887ccdcac9c933a3f95`, `90d1c50f5b612b0c6892d3c6d6d35d5aa6ac1ac8`, `2a35499c6f73eae01afc4048cb6af3ccd927e194`, `a081574227316a123137b927444e98346c94cdbf`.
+- **Validación pendiente:** aún no se declara compilación ni CI aprobada para el SHA final. La UI debe validarse en Windows; no se ha comprobado visualmente en el equipo del usuario. La biblioteca mejora la gestión de assets, pero no genera imágenes dentro de VTuberBot ni reemplaza un editor de dibujo por capas de alta complejidad.
+- Se trabajó solo en `product/complete-vtuber-experience`; no se tocó `main` ni se fusionó/cerró ningún PR.
+
 ## 2026-10-15 — Investigación de arte con IA y auditoría de brechas
 
 - Se creó `docs/investigacion-arte-ia/README.md` con investigación web de PixAI, NovelAI, Tensor.Art, SeaArt, Civitai, Hugging Face, ComfyUI y Krita AI Diffusion. Incluye enlaces oficiales, capacidades observadas, precauciones de licencia y un flujo de trabajo para producir/importar recursos originales.
