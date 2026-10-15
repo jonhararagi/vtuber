@@ -1,5 +1,14 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Integración del overlay VRM pendiente
+
+- Se creó la rama `feature/vrm-overlay-complete` desde `main` tras fusionar PR #16. Se añadió `VrmOverlayWindow.cs` y un botón de Avatar Studio para importar un `.vrm` local, copiarlo a una carpeta única y abrir una ventana transparente WebView2 con Three.js/three-vrm.
+- El estado Idle/Talking se sincroniza con el estado de voz de VTuberBot y el overlay se cierra durante el apagado. Se limita el tamaño del archivo a 200 MB. El archivo permanece local; las bibliotecas JS se descargan de CDN.
+- Se actualizó `PRODUCT_USER_GUIDE.md` y se añadió `docs/VRM-OVERLAY.md`. El taller paramétrico que ya está en main sigue exportando GLB estático; no se anuncia como exportador VRM.
+- La CI de Windows del HEAD nuevo todavía debe terminar antes de abrir/fusionar el PR. La ejecución anterior de PR #15, SHA `933c90f87e5b32d7ef004c7b1295689226bb5f5f`, fue exitosa, pero no valida este port sobre la versión actual de `main`.
+- Pendiente de validación manual: abrir un VRM real en Windows y revisar transparencia, encuadre, rendimiento y cambios Idle/Talking. No se afirma que el overlay haya sido probado visualmente.
+- PR #16 ya está fusionado en `main` (merge SHA `7fd81b2898fb1596d88387a61f06124320f6a683`); esta integración VRM se mantiene en rama separada hasta validar CI.
+
 ## 2026-10-14/15 — Cierre de la actualización visual y precisión del alcance 3D
 
 - Se colocó **Miel de café** como primer personaje de la galería para que el estilo pedido no quede perdido al final. El preset conserva piel morena cálida, cabello castaño oscuro con mechones interiores miel, iris marrones y pupilas marrón oscuro; usa el peinado modular `brown-inner-light`, no un simple brillo superficial. La guía de usuario refleja el nuevo orden.
