@@ -1,6 +1,7 @@
 ## 2026-10-15 — Automatizaciones directas de OBS y avatar
 
 - Se amplió `EventActionDestination` con destinos directos `ObsScene` y `AvatarExpression`; el resto del coordinador de eventos sigue compartido, acotado y con reglas persistentes.
+- `ProcessTwitchMessageAsync` publica `Twitch.IRC / Twitch.ChatMessage` con usuario, texto, ID de mensaje, indicador/comando y argumentos después de la política que suprime efectos de mensajes sancionados. La pantalla Automatizaciones permite elegir esa fuente sin suscribir otro servicio, y valida la combinación fija `Twitch.ChatMessage`.
 - La pantalla Automatizaciones consulta la lista real de escenas desde OBS autenticado y ofrece solo expresiones del avatar cuyo recurso existe. Al guardar y al ejecutar, la escena/expresión se valida de nuevo; no se cambia nada al seleccionar o guardar el destino.
 - El despachador usa `ObsWebSocketClient.SetCurrentSceneAsync` para solicitar el cambio de escena y el callback del renderizador del avatar para solicitar un estado. La actividad no afirma que OBS cambió visualmente la salida: diferencia la aceptación de la solicitud del efecto visual final.
 - Las reglas nuevas continúan desactivadas; automatizaciones pausadas por defecto; las acciones Streamer.bot mantienen confirmación por ID y los atajos PNGTuber Plus siguen con autorización global separada.
