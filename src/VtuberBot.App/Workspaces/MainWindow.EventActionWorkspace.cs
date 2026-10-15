@@ -343,7 +343,7 @@ public partial class MainWindow
                     throw new ArgumentException("El payload debe ser un objeto JSON, por ejemplo {\"message\":\"hola\"}.");
 
                 var conditions = new List<EventActionCondition>();
-                foreach (var line in conditionsEditor.Text.Split(new[] { '\\r', '\\n' },
+                foreach (var line in conditionsEditor.Text.Split(new[] { '\r', '\n' },
                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
                     var fields = line.Split('|', 3, StringSplitOptions.None);
