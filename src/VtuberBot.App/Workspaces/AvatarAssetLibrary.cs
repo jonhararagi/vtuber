@@ -1,4 +1,7 @@
 using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using Microsoft.Win32;
 
 namespace VtuberBot.App;
 
