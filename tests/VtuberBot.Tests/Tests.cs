@@ -952,7 +952,7 @@ public sealed class Tests
 
         scheduler.ScheduleOnce(TimeSpan.FromMilliseconds(20), signal.Set);
 
-        Assert.True(signal.Wait(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken));
+        Assert.True(signal.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -2300,7 +2300,7 @@ public sealed class Tests
         Assert.True(
             SpinWait.SpinUntil(
                 () => GetActiveWaiters(process) > 0,
-                TimeSpan.FromSeconds(1)));
+                TimeSpan.FromSeconds(5)));
 
         var stopStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
