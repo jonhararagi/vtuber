@@ -19,6 +19,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
     private CancellationTokenSource? cancellation;
     private Task? supervisorTask;
     private string? sessionChannel;
+    private string? sessionLogin;
     private readonly SemaphoreSlim sendGate = new(1, 1);
 
     public event Action<string>? MessageReceived;
@@ -34,7 +35,12 @@ public sealed class TwitchChatClient : IAsyncDisposable
         SafeEventDispatch.Invoke(ConnectionStateChanged, connected);
     }
 
-    public async Task ConnectAsync(string channel, string oauthToken, CancellationToken external = default)
+    /// <summary>Backward-compatible connection using the same Twitch account and target channel.</summary>
+    public Task ConnectAsync(string channel, string oauthToken, CancellationToken external = default) =>
+        ConnectAsync(channel, channel, oauthToken, external);
+
+    /// <summary>Connects a bot account to a target channel; the OAuth token must belong to botLogin.</summary>
+    public async Task ConnectAsync(string botLogin, string channel, string oauthToken, CancellationToken external = default)
     {
         if (cancellation is not null)
         {
@@ -47,14 +53,16 @@ public sealed class TwitchChatClient : IAsyncDisposable
                 throw new InvalidOperationException("Twitch ya está conectado o intentando reconectarse.");
         }
 
+        botLogin = TwitchIrcValidation.NormalizeChannelLogin(botLogin);
         channel = TwitchIrcValidation.NormalizeChannelLogin(channel);
         var token = TwitchIrcValidation.NormalizeOAuthToken(oauthToken);
 
+        sessionLogin = botLogin;
         sessionChannel = channel;
         cancellation = CancellationTokenSource.CreateLinkedTokenSource(external);
         var firstConnection = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var tokenSource = cancellation;
-        supervisorTask = RunConnectionSupervisorAsync(channel, token, firstConnection, tokenSource.Token);
+        supervisorTask = RunConnectionSupervisorAsync(botLogin, channel, token, firstConnection, tokenSource.Token);
 
         try
         {
@@ -90,6 +98,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
     }
 
     private async Task RunConnectionSupervisorAsync(
+        string botLogin,
         string channel,
         string token,
         TaskCompletionSource<bool> firstConnection,
@@ -128,7 +137,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
                     };
 
                     await nextWriter.WriteLineAsync(("PASS oauth:" + token).AsMemory(), cancellationToken).ConfigureAwait(false);
-                    await nextWriter.WriteLineAsync(("NICK " + channel).AsMemory(), cancellationToken).ConfigureAwait(false);
+                    await nextWriter.WriteLineAsync(("NICK " + botLogin).AsMemory(), cancellationToken).ConfigureAwait(false);
                     await nextWriter.WriteLineAsync("CAP REQ :twitch.tv/tags twitch.tv/commands".AsMemory(), cancellationToken).ConfigureAwait(false);
                     await nextWriter.WriteLineAsync(("JOIN #" + channel).AsMemory(), cancellationToken).ConfigureAwait(false);
 
@@ -297,6 +306,7 @@ public sealed class TwitchChatClient : IAsyncDisposable
         cancellation = null;
         supervisorTask = null;
         sessionChannel = null;
+        sessionLogin = null;
         reader = null;
         writer = null;
         client = null;
