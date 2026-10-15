@@ -41,8 +41,9 @@ public sealed class TwitchBotProfileStoreTests : IDisposable
         Assert.DoesNotContain(credentials.RefreshToken!, metadata, StringComparison.Ordinal);
 
         var protectedFile = File.ReadAllBytes(Path.Combine(secretDirectory, "twitch-bot-" + id + ".bin"));
-        Assert.DoesNotContain(Encoding.UTF8.GetBytes(credentials.AccessToken), protectedFile);
-        Assert.DoesNotContain(Encoding.UTF8.GetBytes(credentials.RefreshToken!), protectedFile);
+        var protectedText = Convert.ToBase64String(protectedFile);
+        Assert.False(protectedText.Contains(credentials.AccessToken, StringComparison.Ordinal));
+        Assert.False(protectedText.Contains(credentials.RefreshToken!, StringComparison.Ordinal));
 
         var reopened = new TwitchBotProfileStore(dataDirectory, secretDirectory);
         var restoredCredentials = reopened.LoadCredentials(loaded);
