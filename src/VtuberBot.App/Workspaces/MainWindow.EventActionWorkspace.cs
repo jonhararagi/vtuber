@@ -145,6 +145,7 @@ public partial class MainWindow
             conditionExpected.IsEnabled = !Equals(conditionOperator.SelectedItem, "present");
             if (!conditionExpected.IsEnabled) conditionExpected.Text = "";
         };
+        var status = Label("Consultá el catálogo real para seleccionar un evento/acción existente.", 12, "#98A4BE");
         var conditionBuilder = new WrapPanel();
         conditionBuilder.Children.Add(conditionField);
         conditionBuilder.Children.Add(conditionOperator);
@@ -169,7 +170,6 @@ public partial class MainWindow
         var cooldown = TextField("Cooldown en segundos", "0"); cooldown.Width = 110;
         var perRuleLimit = TextField("Máximo por minuto", "10"); perRuleLimit.Width = 110;
         var enabled = new CheckBox { Content = "Activada (solo al guardar expresamente)", IsChecked = false, Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
-        var status = Label("Consultá el catálogo real para seleccionar un evento/acción existente.", 12, "#98A4BE");
         Guid? editingId = null;
         EventActionRule? selectedRule = null;
         source.SelectionChanged += (_, _) =>
