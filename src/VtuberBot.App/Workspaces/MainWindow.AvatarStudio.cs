@@ -60,9 +60,9 @@ public partial class MainWindow
 
     private static readonly IReadOnlyList<ChibiAvatarPreset> ChibiAvatarPresets =
     [
-        new("mocha-mel", "Miel de café", "Chibi de piel morena cálida, cabello castaño con mechones interiores miel y ojos marrones.",
+        new("mocha-mel", "Miel de café", "Chibi de piel marrón medio-profunda, cabello castaño con inner hair miel claro, iris marrones y pupilas marrón oscuro.",
             "brown-inner-light", "comfy-hoodie", "double-bows", "heart-choker", "bunny-backpack",
-            "heart", "brown", "morena", "wave"),
+            "heart", "brown", "brown", "wave"),
         new("neko-gamer", "Neko gamer", "Chibi con coletas, orejas de gato, streetwear y pose de paz.",
             "twin-tails", "tech-streetwear", "cat-ears", "cheek-stars", "mechanical-pack",
             "round", "rose", "warm", "peace"),
