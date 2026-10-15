@@ -1,5 +1,14 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Investigación de arte con IA y auditoría de brechas
+
+- Se creó `docs/investigacion-arte-ia/README.md` con investigación web de PixAI, NovelAI, Tensor.Art, SeaArt, Civitai, Hugging Face, ComfyUI y Krita AI Diffusion. Incluye enlaces oficiales, capacidades observadas, precauciones de licencia y un flujo de trabajo para producir/importar recursos originales.
+- Se creó `docs/investigacion-arte-ia/AUDITORIA_BRECHAS.md` con prioridades de producto, límites documentados y validaciones externas pendientes. Distingue funciones documentadas de pruebas reales aún no realizadas.
+- Recomendación principal: ampliar Avatar Studio con una biblioteca local de recursos con diversidad visual real, etiquetas, categorías, favoritos, previsualización, asignación de capas y metadatos de procedencia/licencia. La generación por web/API no debe ser obligatoria; no usar scraping ni redistribuir modelos sin permisos verificables.
+- Fuentes destacadas: [PixAI Generator](https://pixai.art/en/ai-tools/ai-anime-generator), [PixAI Terms](https://pixai.art/en/terms), [NovelAI docs](https://docs.novelai.net/en/image/), [Tensor.Art Terms](https://tensor.art/about/terms-of-service-new), [SeaArt guide](https://docs.seaart.ai/guide-1/espanol/7-preguntas-frecuentes), [Civitai permissions](https://github.com/civitai/civitai-developer-docs/blob/main/site/reference/permissions.md), [ComfyUI](https://github.com/comfyanonymous/ComfyUI), [Krita AI Diffusion](https://github.com/Acly/krita-ai-diffusion).
+- Commits de documentación: `d24d0965f0101712d9c1239fb1959d38b8459e76` (investigación) y `8391fa939aea9c325129cc0b44a749b70f05ae85` (auditoría). La comprobación de estado de CI aún no devuelve checks para el último SHA; no se declara validación de CI.
+
+
 ## 2026-10-15 — Paleta de piel marrón más profunda para Miel de café
 
 - Se agregó la opción de tono de piel `brown` / **Morena profunda** al armario modular, con color base `#8D573D` y sombra `#593625`. La opción anterior **Morena cálida** se conserva para no cambiar perfiles existentes.
