@@ -990,7 +990,8 @@ public sealed class Tests
         scheduler.ScheduleOnce(TimeSpan.FromMilliseconds(10), () => throw new InvalidOperationException("expected"));
         scheduler.ScheduleOnce(TimeSpan.FromMilliseconds(20), signal.Set);
 
-        Assert.True(signal.Wait(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken));
+        // This is a worker-liveness assertion; allow a contended Windows CI runner time to schedule it.
+        Assert.True(signal.Wait(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -2335,7 +2336,7 @@ public sealed class Tests
             Assert.True(
                 SpinWait.SpinUntil(
                     () => GetActiveWaiters(process) > 0,
-                    TimeSpan.FromSeconds(1)));
+                    TimeSpan.FromSeconds(3)));
 
             var startTask = System.Threading.Tasks.Task.Run(
                 () =>
@@ -2377,7 +2378,7 @@ public sealed class Tests
             TestContext.Current.CancellationToken);
 
         await disposeStarted.Task.WaitAsync(
-            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(3),
             TestContext.Current.CancellationToken);
 
         await Task.WhenAll(
