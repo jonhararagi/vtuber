@@ -751,7 +751,7 @@ public partial class MainWindow : Window
                 await eventSub.DisconnectAsync().ConfigureAwait(true);
 
                 if (reconnectChat)
-                    await twitch.ConnectAsync(store.GetSetting("twitch.channel"), credentials.AccessToken).ConfigureAwait(true);
+                    await twitch.ConnectAsync(store.GetSetting("twitch.bot_login", store.GetSetting("twitch.channel")), store.GetSetting("twitch.channel"), credentials.AccessToken).ConfigureAwait(true);
                 if (reconnectEventSub)
                     await eventSub.ConnectAsync(clientId, credentials.AccessToken, store.GetSetting("twitch.channel")).ConfigureAwait(true);
                 FooterStatus.Text = "Token Twitch renovado y conexiones solicitadas restauradas.";
