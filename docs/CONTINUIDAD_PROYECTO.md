@@ -1774,3 +1774,12 @@ Objetivo inicial sugerido, sujeto a la fase de diseño y a la capacidad real de 
 - La primera prioridad es **calidad y variedad verificables**, no inflar el contador de presets. Es preferible entregar dos personajes realmente distintos y probados que declarar veinte presets que solo cambian color o nombre.
 - No incluye modelos de voz ni voces pregrabadas; eso sigue siendo un trabajo separado.
 - Esta planificación solo modifica documentación en `product/complete-vtuber-experience`. No modifica `main`, no fusiona ni cierra PRs.
+
+
+## 2026-10-15 — Decisión de arquitectura: IA opcional y sin API paga obligatoria
+
+- Se formalizó la política en docs/AI_PROVIDER_ARCHITECTURE.md y en docs/PRODUCT_BLUEPRINT.md: VTuberBot debe iniciar y mantener los flujos principales sin claves de IA, suscripciones ni conexión remota.
+- Orden de preferencia: lógica determinista; capacidades locales/Windows ya disponibles; runtime/modelo local opcional y explícito; API remota oficial opcional con consentimiento y límites. La ventana web de ChatGPT/Gemini, si se usa, es solo asistencia manual y no se debe presentar como integración automática.
+- Se establecieron límites de dependencia para que Core no conozca proveedores, privacidad/DPAPI, cuotas, timeout/cancelación, límites de carga y criterios de prueba sin red. Ningún modelo se descarga/carga silenciosamente y no hay fallback remoto automático.
+- **Alcance real del commit:** cambio documental de arquitectura; no agrega por sí mismo un adaptador IA nuevo ni demuestra que cada integración existente cumpla ya esta política. La auditoría e implementación por capacidades queda como siguiente etapa.
+- CI y pruebas del nuevo SHA: pendientes de ejecutar/consultar tras el commit. No se modificó main ni se fusionó/cerró ningún PR.
