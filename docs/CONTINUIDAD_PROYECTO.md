@@ -1850,3 +1850,13 @@ Objetivo inicial sugerido, sujeto a la fase de diseño y a la capacidad real de 
 - Completar una auditoría de logs/exportación y pruebas dinámicas con transportes instrumentados que comprueben que claves, prompts y respuestas no aparecen en registros.
 
 **Conclusión:** el código usa DPAPI CurrentUser para claves de IA/TTS y credenciales de Twitch, y no se encontró una escritura explícita de claves en SQLite o logs en las rutas inspeccionadas. Las llamadas remotas sí envían el contenido que el servicio incorpora a sus mensajes/payloads; los adaptadores genéricos aceptan destinos HTTPS configurables, por lo que la selección del endpoint es una decisión de confianza importante. No se encontró evidencia de filtración real ni se verificaron permisos efectivos, tráfico de red o logs de una instalación en ejecución.
+
+
+## 2026-10-15 — Valores predeterminados de IA y voz local-first
+
+- **Cambio aplicado en código:** los selectores de ChatSpeak Studio ahora resuelven la preferencia sin valor guardado como `local`. La generación conversacional usa el proveedor local compatible con OpenAI en `http://127.0.0.1:8080/v1` cuando no existe preferencia; la voz usa Windows SAPI local de forma predeterminada.
+- **Compatibilidad:** el código solo selecciona remoto cuando la preferencia guardada es explícitamente `remote`; las preferencias existentes `remote` y `local` se conservan. No se sobrescriben ajustes existentes durante la carga. Un valor ausente o desconocido se resuelve de forma segura a local. El usuario puede volver a elegir proveedor remoto y guardar esa preferencia explícitamente.
+- **Implementación:** `src/VtuberBot.Core/ProviderPreferenceDefaults.cs` centraliza la resolución; se aplica en `src/VtuberBot.App/Workspaces/MainWindow.SocialBot.cs`, `src/VtuberBot.App/SocialBotService.cs` y `src/VtuberBot.App/MainWindow.xaml.cs`. Las opciones remotas, endpoints y claves guardadas permanecen disponibles.
+- **Pruebas añadidas:** `tests/VtuberBot.Tests/Tests.cs` verifica que ausencia, cadena vacía y valor desconocido resuelvan local, que una preferencia local siga local y que una preferencia remota explícita (incluyendo espacios/mayúsculas) se preserve como remota.
+- **Limitación importante:** “local” no instala ni incluye un modelo conversacional. La IA local requiere un servidor compatible ejecutándose en loopback; si no está disponible, la generación local puede fallar hasta que el usuario lo configure. SAPI depende de las voces instaladas en Windows. Este cambio no realiza llamadas remotas automáticas ni elimina claves remotas existentes.
+- **CI:** pendiente de comprobar para el SHA final de esta actualización; no declarar validación hasta revisar la ejecución de Windows CI asociada exactamente al commit final.

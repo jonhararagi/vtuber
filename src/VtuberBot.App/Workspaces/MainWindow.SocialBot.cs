@@ -67,7 +67,7 @@ public partial class MainWindow
         var aiProvider = new ComboBox
         {
             ItemsSource = new[] { "Remoto (API HTTPS)", "Local (solo localhost)" },
-            SelectedIndex = store.GetSetting("social.ai.provider", "remote") == "local" ? 1 : 0,
+            SelectedIndex = ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.ai.provider", "local")) ? 0 : 1,
             MinWidth = 280, Margin = new Thickness(0, 0, 0, 8)
         };
         var baseUrl = TextField("Servidor local compatible OpenAI", store.GetSetting("social.ai.baseUrl", "http://127.0.0.1:8080/v1"));
@@ -114,7 +114,7 @@ public partial class MainWindow
         var speechProvider = new ComboBox
         {
             ItemsSource = new[] { "Remoto (voz de personaje)", "Local (voces de Windows)" },
-            SelectedIndex = store.GetSetting("social.tts.provider", "remote") == "local" ? 1 : 0,
+            SelectedIndex = ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.tts.provider", "local")) ? 0 : 1,
             MinWidth = 280, Margin = new Thickness(0, 0, 0, 8)
         };
         var remoteTtsBaseUrl = TextField("URL base TTS remoto (HTTPS)", store.GetSetting("social.tts.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta"));

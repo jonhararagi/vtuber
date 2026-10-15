@@ -15,6 +15,20 @@ namespace VtuberBot.Tests;
 public sealed class Tests
 {
 
+    [Theory]
+    [InlineData(null, "local")]
+    [InlineData("", "local")]
+    [InlineData("unknown", "local")]
+    [InlineData("local", "local")]
+    [InlineData("remote", "remote")]
+    [InlineData(" REMOTE ", "remote")]
+    public void ProviderPreferenceDefaultsUseLocalUnlessRemoteWasExplicitlySaved(string? savedValue, string expected)
+    {
+        Assert.Equal(expected, ProviderPreferenceDefaults.Resolve(savedValue));
+        Assert.Equal(expected == "remote", ProviderPreferenceDefaults.IsRemote(savedValue));
+    }
+
+
     [Fact]
     public void Pcm16LevelPolicyReturnsZeroForIncompleteSample()
     {

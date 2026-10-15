@@ -274,7 +274,7 @@ public sealed class SocialBotService : IAsyncDisposable
 
     private ChatIntelligenceOptions BuildOptions()
     {
-        var remote = store.GetSetting("social.ai.provider", "remote") == "remote";
+        var remote = ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.ai.provider", "local"));
         return new ChatIntelligenceOptions(
             store.GetSetting(remote ? "social.ai.remoteBaseUrl" : "social.ai.baseUrl",
                 remote ? "https://generativelanguage.googleapis.com/v1beta/openai/" : "http://127.0.0.1:8080/v1"),
