@@ -311,6 +311,7 @@ public sealed class LocalSpeechQueue : IDisposable
     /// <summary>Signals the lifetime of a queued speech request so the avatar follows synthetic speech.</summary>
     public event Action<bool>? PlaybackStateChanged;
     public int PendingCount { get { lock (gate) return queue.Count; } }
+    public bool IsPlaybackActive { get { lock (gate) return playbackStateActive; } }
 
     public static IReadOnlyList<LocalSpeechVoice> GetInstalledVoices()
     {

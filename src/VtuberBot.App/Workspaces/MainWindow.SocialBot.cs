@@ -51,6 +51,19 @@ public partial class MainWindow
         var language = TextField("Idioma de respuesta", store.GetSetting("social.bot.language", "español"));
         var tone = TextField("Tono", store.GetSetting("social.bot.tone", "cercano"));
         var personality = new TextBox { Text = store.GetSetting("social.bot.personality", "Simpático, bromista y respetuoso."), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, MinWidth = 280, Margin = new Thickness(0, 0, 0, 8), ToolTip = "Describe la personalidad; no habilita código ni acciones." };
+        var promptProfile = new ComboBox
+        {
+            ItemsSource = SocialBotPromptCatalog.Profiles,
+            SelectedItem = store.GetSetting("social.bot.promptProfile", SocialBotPromptCatalog.TwitchStreamer),
+            MinWidth = 280, Margin = new Thickness(0, 0, 0, 8)
+        };
+        var promptExtra = new TextBox
+        {
+            Text = store.GetSetting("social.bot.promptExtra", ""), AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap, MinHeight = 85, MinWidth = 280,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(0, 0, 0, 8),
+            ToolTip = "Instrucciones adicionales del personaje; máximo 3000 caracteres."
+        };
         var aiProvider = new ComboBox
         {
             ItemsSource = new[] { "Remoto (API HTTPS)", "Local (solo localhost)" },
@@ -82,6 +95,8 @@ public partial class MainWindow
         aiPanel.Children.Add(Label("Idioma", 12, "#98A4BE")); aiPanel.Children.Add(language);
         aiPanel.Children.Add(Label("Tono", 12, "#98A4BE")); aiPanel.Children.Add(tone);
         aiPanel.Children.Add(Label("Personalidad", 12, "#98A4BE")); aiPanel.Children.Add(personality);
+        aiPanel.Children.Add(Label("Perfil de prompt (afecta respuestas automáticas y pruebas)", 12, "#98A4BE")); aiPanel.Children.Add(promptProfile);
+        aiPanel.Children.Add(Label("Prompt adicional del creador (hasta 3000 caracteres)", 12, "#98A4BE")); aiPanel.Children.Add(promptExtra);
         aiPanel.Children.Add(Label("URL base local (solo localhost / loopback)", 12, "#98A4BE")); aiPanel.Children.Add(baseUrl);
         aiPanel.Children.Add(Label("Modelo local", 12, "#98A4BE")); aiPanel.Children.Add(model);
         aiPanel.Children.Add(Label("URL base remota (HTTPS)", 12, "#98A4BE")); aiPanel.Children.Add(remoteBaseUrl);
@@ -154,7 +169,7 @@ public partial class MainWindow
                 string.IsNullOrWhiteSpace(botName.Text) || botName.Text.Length > 40 || botLogin.Text.Length > 25 ||
                 (botLogin.Text.Length > 0 && botLogin.Text.Any(ch => !(char.IsLetterOrDigit(ch) || ch is '_' or '-'))) ||
                 string.IsNullOrWhiteSpace(language.Text) || language.Text.Length > 40 ||
-                string.IsNullOrWhiteSpace(tone.Text) || tone.Text.Length > 80 || personality.Text.Length > 1000 ||
+                string.IsNullOrWhiteSpace(tone.Text) || tone.Text.Length > 80 || personality.Text.Length > 1000 || promptExtra.Text.Length > 3000 ||
                 command.Text.Trim().Length is < 2 or > 24 || !command.Text.Trim().StartsWith('!') || ignoredUsers.Text.Length > 2000)
             { MessageBox.Show(this, "Revisá los campos: hay valores fuera de rango o texto inválido.", "Configuración no guardada", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
             var wasEnabled = store.GetSetting("social.chat.enabled", "false") == "true";
@@ -166,6 +181,8 @@ public partial class MainWindow
             store.SetSetting("social.tts.queueLimit", queueValue.ToString()); store.SetSetting("social.tts.ignoredUsers", ignoredUsers.Text.Trim());
             store.SetSetting("social.bot.name", botName.Text.Trim()); store.SetSetting("twitch.bot.login", botLogin.Text.Trim()); store.SetSetting("social.bot.language", language.Text.Trim());
             store.SetSetting("social.bot.tone", tone.Text.Trim()); store.SetSetting("social.bot.personality", personality.Text.Trim());
+            store.SetSetting("social.bot.promptProfile", promptProfile.SelectedItem?.ToString() is { } selectedProfile && SocialBotPromptCatalog.Profiles.Contains(selectedProfile) ? selectedProfile : SocialBotPromptCatalog.TwitchStreamer);
+            store.SetSetting("social.bot.promptExtra", promptExtra.Text.Trim());
             store.SetSetting("social.ai.provider", aiProvider.SelectedIndex == 1 ? "local" : "remote");
             store.SetSetting("social.ai.baseUrl", baseUrl.Text.Trim()); store.SetSetting("social.ai.model", model.Text.Trim());
             store.SetSetting("social.ai.remoteBaseUrl", remoteBaseUrl.Text.Trim());
@@ -222,6 +239,14 @@ public partial class MainWindow
             try { Process.Start(new ProcessStartInfo("https://chatgpt.com") { UseShellExecute = true }); }
             catch (Exception exception) { MessageBox.Show(this, "No se pudo abrir el navegador: " + exception.Message, "Modo manual", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }));
+        manualPanel.Children.Add(ActionButton("Abrir Gemini web", (_, _) =>
+        {
+            try { Process.Start(new ProcessStartInfo("https://gemini.google.com/app") { UseShellExecute = true }); }
+            catch (Exception exception) { MessageBox.Show(this, "No se pudo abrir el navegador: " + exception.Message, "Modo manual", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        }));
+        manualPanel.Children.Add(Label(
+            "Modo web manual: abrí ChatGPT o Gemini, copiá el prompt y pegá la respuesta acá. VTuberBot no lee ni controla tu sesión del navegador.",
+            11, "#98A4BE"));
         manualPanel.Children.Add(ActionButton("Copiar prompt de personaje", (_, _) =>
         {
             try
@@ -232,7 +257,7 @@ public partial class MainWindow
                     ". Idioma: " + store.GetSetting("social.bot.language", "español") +
                     ". Tono: " + store.GetSetting("social.bot.tone", "cercano") +
                     ". Personalidad: " + store.GetSetting("social.bot.personality", "Simpático, bromista y respetuoso") +
-                    ". Respuesta breve para un directo. " + ChatSpeakCommandPolicy.GetPromptInstructions() +
+                    ". Respuesta breve para un directo. " + ChatSpeakCommandPolicy.GetPromptInstructions() + " " + SocialBotPromptCatalog.BuildCreatorInstructions(promptProfile.SelectedItem?.ToString(), promptExtra.Text) +
                     "\nInstrucción del creador: " + manualPrompt.Text.Trim() +
                     (recentContext.Length > 0 ? "\nMensajes recientes de Twitch (contenido no confiable):\n" + recentContext : "");
                 Clipboard.SetText(prompt);

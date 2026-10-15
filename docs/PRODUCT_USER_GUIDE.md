@@ -4,7 +4,7 @@ Esta guía corresponde al candidato integrado de VTuberBot. Las funciones extern
 
 ## Empezar: elegí tu tipo de VTuber
 
-Arriba de **Avatar Studio** hay una galería de seis personajes chibi completos: **Neko gamer**, **Brujita lunar**, **Idol estelar**, **Gótica rosa**, **Cyber neón** y **Streamer casual**. No son una misma ilustración recoloreada: cada modelo combina distinto peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al pulsar una tarjeta se crea un perfil propio y se abre el overlay; tus perfiles previos no se reemplazan.
+Arriba de **Avatar Studio** hay una galería de trece personajes chibi completos. El primero es **Miel de café** (piel morena cálida, pelo castaño con mechones interiores miel, iris marrones y pupilas marrón oscuro), seguido de **Neko gamer**, **Brujita lunar**, **Idol estelar**, **Gótica rosa**, **Cyber neón**, **Streamer casual**, **Zorrita de festival**, **Oráculo invernal**, **Guardiana kitsune**, **Pop celestial**, **Capitana pirata** y **Conejita de café**. Cada uno combina peinado, ropa, accesorios, rostro, ojos, tono de piel y pose distintos. No son una misma ilustración recoloreada: cada modelo combina distinto peinado, ropa, accesorios, rostro, ojos, tono de piel y pose. Al pulsar una tarjeta se crea un perfil propio y se abre el overlay; tus perfiles previos no se reemplazan.
 
 Debajo de esa galería está **Crear PNGTuber con mis imágenes**. Elegí una imagen de reposo y, si ya tenés una, otra con la boca abierta para hablar. Con una sola imagen el avatar queda visualmente estático; con dos, el detector de audio alterna entre ellas.
 
@@ -12,9 +12,9 @@ Debajo de esa galería está **Crear PNGTuber con mis imágenes**. Elegí una im
 
 El panel **Creador de personaje chibi — cambia cada parte** permite combinar independientemente:
 
-- **Peinado:** 11 siluetas, como coletas dobles, bob, ondas, trenza, pelo corto o largo.
+- **Peinado:** 12 siluetas, como coletas dobles, bob, ondas, trenza, pelo corto o largo; incluye castaño oscuro con inner hair miel claro.
 - **Ropa:** 15 diseños con formas propias, entre ellos idol, marinero, gótico, ceremonial, streetwear, fantasía, hoodie, cyber y vestidos.
-- **Rostro y ojos:** 4 formas de rostro, 7 estilos de ojos y 4 tonos de piel.
+- **Rostro y ojos:** 4 formas de rostro, 8 estilos de ojos y 5 tonos de piel, incluidos ojos marrones con pupilas marrón oscuro y piel morena cálida.
 - **Pose:** de pie, saludo, señal de paz, manos en la cintura, brazos cruzados o cantando al micrófono.
 - **Accesorios:** adornos de cabeza, joyería facial y piezas traseras como alas, capa, mochila o cristales.
 - **Colores:** tintes por zona con HEX o muestras rápidas, sin sobreescribir las imágenes originales.
@@ -24,7 +24,8 @@ Pulsá **Crear perfil con esta combinación** para guardar otra versión; se cre
 ### Otros modos
 
 1. **2.5D con IA local:** seleccioná una ilustración para intentar separar cabello, ropa, piel/cuerpo y detalles. La primera vez se descarga un modelo pequeño y después el procesamiento se realiza en la PC. Tiene un límite de 2 GiB para el proceso de IA y diez minutos; es experimental y puede requerir correcciones.
-2. **3D con VRoid:** abre [VRoid Studio](https://vroid.com/en/studio), un creador externo de modelos 3D. La importación y animación de VRM dentro del overlay de VTuberBot todavía no está implementada.
+2. **Taller 3D integrado:** permite cambiar silueta, tono de piel, cabello, mechones interiores (inner hair), iris, pupilas, expresión, ropa, colores y accesorios; incluye el preset **Miel de café**. Podés guardar la apariencia en JSON y exportar un modelo GLB estático. El GLB exportado no tiene rig ni animaciones, y el taller carga Three.js desde Internet.
+3. **VRoid Studio:** abre [VRoid Studio](https://vroid.com/en/studio), un creador externo de modelos 3D. La importación y animación de VRM dentro del overlay de VTuberBot todavía no está implementada.
 
 **La ruta recomendada para empezar es elegir un personaje de la galería y luego personalizarlo.** PNGTuber es lo más ligero; 2.5D sigue siendo experimental y 3D puede integrarse cuando tengamos un runtime VRM funcional.
 
@@ -133,6 +134,16 @@ Guía ampliada: [Avatar externo: PNGTuber Plus](PNGTUBER-PLUS-AVATAR-SETUP.md).
 Los mensajes del chat comparten el registro local de comandos; la actividad otorga puntos con un intervalo anti-farming y `!entrar` registra participantes únicos en el sorteo abierto. Los errores de autenticación no se tratan como conexión exitosa. Para alertas oficiales, elegí **Conectar EventSub (alertas)** después de autorizar con los scopes ampliados. La app intenta registrar follows, suscripciones, regalos de subs, redenciones de puntos de canal y raids hacia tu canal. Las notificaciones aparecen en el registro del chat y en Actividad/diagnóstico; si hay una imagen base importada, también se muestra una tarjeta temporal en el overlay de OBS. Activá **Leer alertas de Twitch con la voz local** para encolarlas con prioridad alta; las alertas no interrumpen automáticamente la frase que ya está sonando.
 
 ## Comandos, comunidad y sorteos
+
+### Comandos de reacción anime bilingües
+En el primer arranque tras esta actualización, **Centro de directo → Editor de reglas** incorpora diez reglas iniciales habilitadas si aún no se migraron (también se agregan a configuraciones existentes sin sobrescribir las reglas propias): `/ohayo`, `/baka`, `/nani`, `/okaerinasai`, `/soybot` y sus alias `!ohayo`, `!baka`, `!nani`, `!okaerinasai`, `!soybot`. Las cuatro primeras son reacciones cortas en japonés; `/soybot` aporta personalidad en español: «Yo... soy solo un bot... jeje». Las respuestas conversacionales más largas deben seguir en español. Cada regla puede pedir una expresión del avatar y configurar idioma, voz SAPI o VOICEVOX y clip de audio opcional, además de frase, cooldown global/por usuario y máximo por minuto.
+
+**Audio por regla:** en el editor, activá **Reproducir audio de esta reacción**, elegí Automático/Español/Japonés y una voz. Cada reacción guarda su propia voz; elegir un clip de la biblioteca local hace que ese clip sustituya al TTS. Importá antes el WAV/MP3 desde **Voz y audio**. Los clips y el TTS comparten un turno de audio: el clip espera a que la cola de voz existente quede libre (máximo 90 segundos), mantiene el turno durante la reproducción y deja que el TTS que llegue mientras tanto espere detrás. Si no puede obtener el turno, registra que se omitió. Los clips se resuelven por su ID en la biblioteca local y el servicio no ejecuta rutas arbitrarias guardadas en una regla. Las voces SAPI concretas requieren **ChatSpeak Studio → Proveedor de voz → Local**. Las voces VOICEVOX se enrutan directamente por la cola de audio y funcionan aunque el proveedor global sea remoto; el texto se sintetiza localmente y no necesita una clave API.
+
+**Probar una voz japonesa gratuita con VOICEVOX:** descargá el programa/motor desde el [sitio oficial de VOICEVOX](https://voicevox.hiroshiba.jp/) o consultá el [motor oficial y su API](https://github.com/VOICEVOX/voicevox_engine). Instalá y abrí VOICEVOX Engine/Editor en Windows con el servidor local predeterminado `http://127.0.0.1:50021`. Después abrí de nuevo **Centro de directo**: las voces disponibles aparecerán en la lista con la etiqueta **VOICEVOX**. Seleccioná una y pulsá **Escuchar muestra japonesa de la voz seleccionada**; la muestra usa 「お兄ちゃんのばか！ なに!? おかえりなさい！」. El motor debe seguir abierto para sintetizar. Si no aparecen voces, verificá que `http://127.0.0.1:50021/speakers` responda y reabrí la página. VOICEVOX no está incluido ni descargado automáticamente por VTuberBot: se mantiene separado por tamaño y licencias de cada voz/personaje. Revisá y cumplí los términos de crédito/uso de la voz elegida antes de publicar o monetizar contenido.
+
+Los comandos se procesan cuando el mensaje llega a la canalización de chat de VTuberBot. Algunos clientes de Twitch reservan los mensajes que empiezan por `/` como comandos propios y podrían no enviarlos al chat; en ese caso usá el alias `!`. La expresión solo puede cambiar si el avatar local tiene la imagen base/expresión disponible; esto no equivale todavía a controlar VTube Studio.
+
 
 - **Comandos:** creá respuestas con variables `{user}`, `{points}`, `{roll}`, `{args}` y `{message}`. Podés añadir hasta 20 alias separados por coma; cada alias se guarda y ejecuta como el mismo comando, y los conflictos con nombres/alias existentes se rechazan. También podés restringir su uso a Todos, Suscriptores, VIP, Moderadores o solo Broadcaster; los roles se identifican con etiquetas oficiales de Twitch y los comandos rechazados no consumen cooldown. El cooldown puede ser global (un intervalo para todo el chat) o por usuario; ambas modalidades y sus marcas se guardan en SQLite. La previsualización usa el texto aún no guardado y no consume cooldown ni envía mensajes.
 - **Comunidad y puntos:** los perfiles, el ranking, los ajustes manuales y el ledger de puntos se conservan en la base local. La actividad del chat puede otorgar puntos automáticamente. Los comandos integrados `!puntos` y `!top` consultan el saldo y los cinco primeros del ranking desde Twitch o la prueba local de Comandos.

@@ -20,7 +20,12 @@ public sealed record ChatReactionRule(
     int GlobalCooldownSeconds,
     int UserCooldownSeconds,
     int MaxPerMinute,
-    bool Enabled);
+    bool Enabled)
+{
+    public string Language { get; init; } = "auto";
+    public string VoiceId { get; init; } = "";
+    public string ClipAssetId { get; init; } = "";
+}
 
 public sealed record ChatReactionResult(
     DateTimeOffset At,
@@ -37,14 +42,16 @@ public sealed record ChatReactionResult(
 public sealed class ChatReactionService : IAsyncDisposable
 {
     public const string RulesSettingKey = "chat.reactions.rules.v1";
+    private const string BilingualDefaultsMigrationKey = "chat.reactions.bilingual-defaults.v1";
     public const string PausedSettingKey = "chat.reactions.paused";
     public const int MaximumRules = 100;
     public const int QueueCapacity = 64;
     public const int MaximumMessageLength = 1000;
     private readonly ProductStore store;
     private readonly Func<string, CancellationToken, Task<bool>> sendChat;
-    private readonly Func<string, bool> enqueueSpeech;
+    private readonly Func<string, string, string, bool> enqueueSpeech;
     private readonly Func<string, CancellationToken, bool> setExpression;
+    private readonly Func<string, CancellationToken, bool>? playClip;
     private readonly Func<bool> isConnected;
     private readonly Channel<WorkItem> queue;
     private readonly CancellationTokenSource lifetime = new();
@@ -70,14 +77,15 @@ public sealed class ChatReactionService : IAsyncDisposable
     public event Action<int>? QueueChanged;
 
     public ChatReactionService(ProductStore store, Func<string, CancellationToken, Task<bool>> sendChat,
-        Func<string, bool> enqueueSpeech, Func<string, CancellationToken, bool> setExpression, Func<bool> isConnected,
-        int queueCapacity = QueueCapacity)
+        Func<string, string, string, bool> enqueueSpeech, Func<string, CancellationToken, bool> setExpression, Func<bool> isConnected,
+        int queueCapacity = QueueCapacity, Func<string, CancellationToken, bool>? playClip = null)
     {
         this.store = store;
         this.sendChat = sendChat;
         this.enqueueSpeech = enqueueSpeech;
         this.setExpression = setExpression;
         this.isConnected = isConnected;
+        this.playClip = playClip;
         rules = LoadRules();
         paused = store.GetSetting(PausedSettingKey, "false") == "true";
         queue = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(Math.Clamp(queueCapacity, 1, QueueCapacity))
@@ -372,13 +380,17 @@ public sealed class ChatReactionService : IAsyncDisposable
                     }
                     if (item.Rule.Speak)
                     {
-                        bool spokenQueued;
+                        bool mayPlayAudio;
                         lock (gate)
-                        {
-                            spokenQueued = !paused && item.Epoch == connectionEpoch && twitchConnected && isConnected() &&
-                                !activeOperation.IsCancellationRequested && enqueueSpeech(response);
-                        }
-                        details.Add(spokenQueued ? "voz encolada" : "voz omitida/rechazada por pausa, sesión o cola");
+                            mayPlayAudio = !paused && item.Epoch == connectionEpoch && twitchConnected && isConnected() &&
+                                !activeOperation.IsCancellationRequested;
+                        // Never call a UI-dispatching clip player while holding the service gate.
+                        var audioQueued = mayPlayAudio && (string.IsNullOrWhiteSpace(item.Rule.ClipAssetId)
+                            ? enqueueSpeech(response, item.Rule.Language, item.Rule.VoiceId)
+                            : playClip is not null && playClip(item.Rule.ClipAssetId, activeOperation.Token));
+                        details.Add(string.IsNullOrWhiteSpace(item.Rule.ClipAssetId)
+                            ? (audioQueued ? "voz encolada con la voz de esta regla o la predeterminada" : "voz omitida/rechazada por pausa, sesión, voz o cola")
+                            : (audioQueued ? "clip de audio iniciado" : "clip no disponible o rechazado; no se fingió una voz alternativa"));
                     }
                     Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Respuesta enviada", string.Join("; ", details), false));
                 }
@@ -422,7 +434,17 @@ public sealed class ChatReactionService : IAsyncDisposable
 
     private List<ChatReactionRule> LoadRules()
     {
-        var json = store.GetSetting(RulesSettingKey, "[]");
+        const string missingSetting = "__chat_reactions_not_configured__";
+        var json = store.GetSetting(RulesSettingKey, missingSetting);
+        var defaultsMigrated = store.GetSetting(BilingualDefaultsMigrationKey, "false") == "true";
+        if (json == missingSetting)
+        {
+            var defaults = CreateBilingualAnimeCommands();
+            store.SetSetting(RulesSettingKey, JsonSerializer.Serialize(defaults));
+            store.SetSetting(BilingualDefaultsMigrationKey, "true");
+            store.Log("Reacciones chat", "Se instalaron comandos anime bilingües iniciales; pueden editarse o desactivarse desde Reacciones.");
+            return defaults;
+        }
         try
         {
             var loaded = JsonSerializer.Deserialize<List<ChatReactionRule>>(json) ?? [];
@@ -432,14 +454,57 @@ public sealed class ChatReactionService : IAsyncDisposable
                 if (rule is not null && TryValidate(rule, out var clean, out _)) valid.Add(clean);
                 else store.Log("Reacciones chat", "Se omitió una regla persistida inválida; no se ejecutó.");
             }
+
+            if (!defaultsMigrated)
+            {
+                foreach (var builtIn in CreateBilingualAnimeCommands())
+                {
+                    if (valid.Count >= MaximumRules) break;
+                    if (valid.All(existing => !string.Equals(existing.Id, builtIn.Id, StringComparison.OrdinalIgnoreCase)))
+                        valid.Add(builtIn);
+                }
+                store.SetSetting(RulesSettingKey, JsonSerializer.Serialize(valid));
+                store.SetSetting(BilingualDefaultsMigrationKey, "true");
+                store.Log("Reacciones chat", "Se incorporaron comandos anime bilingües iniciales a la configuración existente.");
+            }
             return valid;
         }
         catch (JsonException)
         {
             store.Log("Reacciones chat", "La configuración persistida no es JSON válido; se cargó una lista vacía.");
             store.SetSetting(RulesSettingKey, "[]");
+            store.SetSetting(BilingualDefaultsMigrationKey, "true");
             return [];
         }
+    }
+
+    private static List<ChatReactionRule> CreateBilingualAnimeCommands()
+    {
+        // Slash aliases satisfy the requested command style. Bang aliases also work in
+        // chat clients that reserve slash-prefixed input for their own local commands.
+        return
+        [
+            new("anime-ohayo-slash", "Anime bilingüe: Ohayō", "/ohayo", ChatReactionMatchType.Exact,
+                ["おはよう！"], true, "Happy", 5, 10, 10, true) { Language = "ja" },
+            new("anime-ohayo-bang", "Anime bilingüe: Ohayō", "!ohayo", ChatReactionMatchType.Exact,
+                ["おはよう！"], true, "Happy", 5, 10, 10, true) { Language = "ja" },
+            new("anime-baka-slash", "Anime bilingüe: Baka", "/baka", ChatReactionMatchType.Exact,
+                ["お兄ちゃんのばか！"], true, "Surprised", 5, 10, 10, true) { Language = "ja" },
+            new("anime-baka-bang", "Anime bilingüe: Baka", "!baka", ChatReactionMatchType.Exact,
+                ["お兄ちゃんのばか！"], true, "Surprised", 5, 10, 10, true) { Language = "ja" },
+            new("anime-nani-slash", "Anime bilingüe: Nani", "/nani", ChatReactionMatchType.Exact,
+                ["なに!?"], true, "Surprised", 5, 10, 10, true) { Language = "ja" },
+            new("anime-nani-bang", "Anime bilingüe: Nani", "!nani", ChatReactionMatchType.Exact,
+                ["なに!?"], true, "Surprised", 5, 10, 10, true) { Language = "ja" },
+            new("anime-okaeri-slash", "Anime bilingüe: Okaerinasai", "/okaerinasai", ChatReactionMatchType.Exact,
+                ["おかえりなさい！ {user}"], true, "Happy", 5, 10, 10, true) { Language = "ja" },
+            new("anime-okaeri-bang", "Anime bilingüe: Okaerinasai", "!okaerinasai", ChatReactionMatchType.Exact,
+                ["おかえりなさい！ {user}"], true, "Happy", 5, 10, 10, true) { Language = "ja" },
+            new("anime-soybot-slash", "Español: Soy solo un bot", "/soybot", ChatReactionMatchType.Exact,
+                ["Yo... soy solo un bot... jeje. ¡No me mires así!"], true, "Happy", 5, 10, 10, true) { Language = "es" },
+            new("anime-soybot-bang", "Español: Soy solo un bot", "!soybot", ChatReactionMatchType.Exact,
+                ["Yo... soy solo un bot... jeje. ¡No me mires así!"], true, "Happy", 5, 10, 10, true) { Language = "es" }
+        ];
     }
 
     private void PersistRulesLocked() => store.SetSetting(RulesSettingKey, JsonSerializer.Serialize(rules));
@@ -454,7 +519,9 @@ public sealed class ChatReactionService : IAsyncDisposable
             !Enum.IsDefined(rule.MatchType) ||
             rule.GlobalCooldownSeconds is < 0 or > 3600 || rule.UserCooldownSeconds is < 0 or > 3600 ||
             rule.MaxPerMinute is < 1 or > 60 ||
-            (rule.Expression ?? "").Length > 30 || (!string.IsNullOrEmpty(rule.Expression) && rule.Expression is not ("Idle" or "Talking" or "Blink" or "Happy" or "Surprised")))
+            (rule.Expression ?? "").Length > 30 || (!string.IsNullOrEmpty(rule.Expression) && rule.Expression is not ("Idle" or "Talking" or "Blink" or "Happy" or "Surprised")) ||
+            (rule.Language ?? "auto") is not ("auto" or "es" or "ja") ||
+            (rule.VoiceId ?? "").Length > 500 || (rule.ClipAssetId ?? "").Length > 64)
         {
             error = "Campos fuera de rango o tipo de coincidencia/expresión no permitido.";
             return false;
@@ -462,7 +529,9 @@ public sealed class ChatReactionService : IAsyncDisposable
         var id = string.IsNullOrWhiteSpace(rule.Id) ? Guid.NewGuid().ToString("N") : rule.Id;
         if (id.Length > 64) { error = "ID de regla inválido."; return false; }
         clean = rule with { Id = id, Name = rule.Name.Trim(), Trigger = rule.Trigger.Trim(),
-            Responses = rule.Responses.Select(x => x.Trim()).ToArray(), Expression = rule.Expression?.Trim() ?? "" };
+            Responses = rule.Responses.Select(x => x.Trim()).ToArray(), Expression = rule.Expression?.Trim() ?? "",
+            Language = string.IsNullOrWhiteSpace(rule.Language) ? "auto" : rule.Language.Trim(),
+            VoiceId = rule.VoiceId?.Trim() ?? "", ClipAssetId = rule.ClipAssetId?.Trim() ?? "" };
         return true;
     }
 

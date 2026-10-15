@@ -43,7 +43,8 @@ internal static class ModularWardrobeFactory
         new("royal-curls", "Rizos dorados", "Volumen y rizos de fantasía."),
         new("long-straight", "Largo liso índigo", "Mechones largos y rectos a ambos lados."),
         new("side-braid", "Trenza lateral coral", "Trenza marcada sobre un hombro."),
-        new("double-buns", "Dos moños redondos", "Dos moños altos y mechones cortos.")
+        new("double-buns", "Dos moños redondos", "Dos moños altos y mechones cortos."),
+        new("brown-inner-light", "Castaño con inner hair miel", "Cabello castaño oscuro con mechones interiores color miel claro.")
     ];
 
     public static IReadOnlyList<WardrobeOption> OutfitOptions { get; } =
@@ -126,6 +127,7 @@ internal static class ModularWardrobeFactory
         new("rose", "Rosa rubí", "Iris rosa."),
         new("emerald", "Verde esmeralda", "Iris verde."),
         new("gold", "Dorado solar", "Iris dorado."),
+        new("brown", "Marrón cálido", "Iris marrón con pupilas marrón oscuro."),
         new("heterochromia", "Heterocromía", "Un ojo turquesa y el otro rosa."),
         new("sleepy", "Ojos soñolientos", "Párpado más caído y expresión relajada.")
     ];
@@ -135,6 +137,7 @@ internal static class ModularWardrobeFactory
         new("porcelain", "Porcelana", "Piel clara con subtono cálido."),
         new("warm", "Durazno", "Piel media cálida."),
         new("cocoa", "Cacao", "Piel marrón cálida."),
+        new("morena", "Morena cálida", "Piel morena de subtono cálido, con sombras naturales."),
         new("moonlight", "Luz lunar", "Piel fantástica de tono lavanda.")
     ];
 
@@ -250,6 +253,7 @@ internal static class ModularWardrobeFactory
         {
             "warm" => ("#F7CDAA", "#D89D82"),
             "cocoa" => ("#B97965", "#7E4D48"),
+            "morena" => ("#A96D52", "#704333"),
             "moonlight" => ("#D9D0FF", "#A99BE5"),
             _ => ("#FFE0C8", "#EFB8A7")
         };
@@ -357,6 +361,7 @@ internal static class ModularWardrobeFactory
             "rose" => ("#E45E9C", "#E45E9C"),
             "emerald" => ("#3EBB9A", "#3EBB9A"),
             "gold" => ("#D7A63F", "#D7A63F"),
+            "brown" => ("#81502D", "#81502D"),
             "heterochromia" => ("#41C8DB", "#D56AB8"),
             "sleepy" => ("#70A0C8", "#70A0C8"),
             _ => ("#5A87E8", "#5A87E8")
@@ -364,11 +369,11 @@ internal static class ModularWardrobeFactory
         var eyeHeight = expression == "Surprised" ? 52 : eyeStyleId == "sleepy" ? 30 : 44;
         dc.DrawEllipse(Brush("#FFFFFF"), FineOutline, new Point(211, 247), 22, eyeHeight / 2);
         dc.DrawEllipse(Brush(eyes.Item1), null, new Point(211, 254), 12, eyeHeight / 2 - 7);
-        dc.DrawEllipse(Brush("#2F234B"), null, new Point(215, 256), 7, eyeHeight / 2 - 11);
+        dc.DrawEllipse(Brush(eyeStyleId == "brown" ? "#3A2418" : "#2F234B"), null, new Point(215, 256), 7, eyeHeight / 2 - 11);
         dc.DrawEllipse(Brush("#FFFFFF"), null, new Point(207, 244), 5, 6);
         dc.DrawEllipse(Brush("#FFFFFF"), FineOutline, new Point(301, 247), 22, eyeHeight / 2);
         dc.DrawEllipse(Brush(eyes.Item2), null, new Point(301, 254), 12, eyeHeight / 2 - 7);
-        dc.DrawEllipse(Brush("#2F234B"), null, new Point(305, 256), 7, eyeHeight / 2 - 11);
+        dc.DrawEllipse(Brush(eyeStyleId == "brown" ? "#3A2418" : "#2F234B"), null, new Point(305, 256), 7, eyeHeight / 2 - 11);
         dc.DrawEllipse(Brush("#FFFFFF"), null, new Point(297, 244), 5, 6);
         var brow = new Pen(Brush("#352445"), 5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         dc.DrawGeometry(null, brow, Geometry.Parse("M 188,213 Q 209,202 231,212"));
@@ -389,6 +394,7 @@ internal static class ModularWardrobeFactory
             "long-straight" => ("#292750", "#504BA1", "#B7B9F7"),
             "side-braid" => ("#9D4C43", "#E68776", "#FFD0B9"),
             "double-buns" => ("#7B355F", "#C46DA8", "#F8C5E7"),
+            "brown-inner-light" => ("#3B241B", "#69432F", "#D8B27A"),
             _ => ("#A87924", "#E8C35D", "#FFE9A1")
         };
 
@@ -446,6 +452,16 @@ internal static class ModularWardrobeFactory
                 dc.DrawGeometry(dark, Outline, Geometry.Parse("M 344,223 C 378,245 375,278 354,296 C 373,317 365,342 343,353 C 357,371 342,391 326,401 L 312,378 C 331,363 330,349 316,334 C 340,319 339,304 322,290 C 341,271 332,246 318,238 Z"));
                 dc.DrawGeometry(highlight, null, Geometry.Parse("M 338,257 L 354,278 L 338,295 L 324,278 Z"));
                 dc.DrawGeometry(highlight, null, Geometry.Parse("M 343,312 L 357,331 L 341,346 L 328,330 Z"));
+                break;
+            case "brown-inner-light":
+                // Long layered hair with lighter honey-colored inner strands, not just a surface shine.
+                dc.DrawGeometry(dark, Outline, Geometry.Parse("M 159,205 C 140,252 146,337 137,383 L 171,401 L 195,231 Z"));
+                dc.DrawGeometry(dark, Outline, Geometry.Parse("M 353,205 C 372,252 366,337 375,383 L 341,401 L 317,231 Z"));
+                dc.DrawGeometry(mid, null, Geometry.Parse("M 157,255 C 153,300 160,350 163,373 L 176,380 L 179,258 Z"));
+                dc.DrawGeometry(mid, null, Geometry.Parse("M 355,255 C 359,300 352,350 349,373 L 336,380 L 333,258 Z"));
+                dc.DrawGeometry(highlight, null, Geometry.Parse("M 170,274 C 166,309 170,342 173,365 L 181,357 L 184,267 Z"));
+                dc.DrawGeometry(highlight, null, Geometry.Parse("M 342,274 C 346,309 342,342 339,365 L 331,357 L 328,267 Z"));
+                dc.DrawGeometry(mid, null, Geometry.Parse("M 183,153 C 207,123 248,121 273,130 C 234,137 214,160 197,181 Z"));
                 break;
             case "double-buns":
                 dc.DrawEllipse(dark, Outline, new Point(179, 143), 31, 29);

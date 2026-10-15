@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private readonly TwitchEventSubClient eventSub = new();
     private readonly ObsWebSocketClient obs = new();
     private readonly LocalSpeechQueue speechQueue;
+    private readonly SemaphoreSlim audioOutputGate = new(1, 1);
     private readonly LocalOpenAiCompatibleProvider localAiProvider = new();
     private readonly RemoteOpenAiCompatibleProvider remoteAiProvider;
     private readonly ConfiguredChatIntelligenceProvider configuredAiProvider;
@@ -264,6 +265,44 @@ public partial class MainWindow : Window
         }
     }
 
+    private sealed class GatedSpeechSession : ILocalSpeechSession
+    {
+        private readonly SemaphoreSlim gate;
+        private readonly Func<ILocalSpeechSession> createInner;
+        private ILocalSpeechSession? inner;
+
+        public GatedSpeechSession(SemaphoreSlim gate, Func<ILocalSpeechSession> createInner)
+        {
+            this.gate = gate;
+            this.createInner = createInner;
+        }
+
+        public SpeechPlaybackResult Speak(string text, string requestedVoiceId, string requestedOutputId,
+            int rate, int volume, Func<bool> cancellationRequested)
+        {
+            var acquired = false;
+            while (!cancellationRequested())
+            {
+                if (gate.Wait(TimeSpan.FromMilliseconds(50))) { acquired = true; break; }
+            }
+            if (!acquired) return new SpeechPlaybackResult(false, true);
+
+            try
+            {
+                if (cancellationRequested()) return new SpeechPlaybackResult(false, true);
+                inner ??= createInner();
+                return inner.Speak(text, requestedVoiceId, requestedOutputId, rate, volume, cancellationRequested);
+            }
+            finally { gate.Release(); }
+        }
+
+        public void Dispose()
+        {
+            inner?.Dispose();
+            inner = null;
+        }
+    }
+
     public MainWindow(VtuberApplication application)
     {
         InitializeComponent();
@@ -283,7 +322,7 @@ public partial class MainWindow : Window
         remoteAiProvider = new RemoteOpenAiCompatibleProvider(() => secretStore.Read("remote-ai-api-key"));
         configuredAiProvider = new ConfiguredChatIntelligenceProvider(localAiProvider, remoteAiProvider,
             () => store.GetSetting("social.ai.provider", "remote") == "remote");
-        speechQueue = new LocalSpeechQueue(() => new ConfigurableSpeechSession(
+        speechQueue = new LocalSpeechQueue(() => new GatedSpeechSession(audioOutputGate, () => new ConfigurableSpeechSession(
             () => store.GetSetting("social.tts.provider", "remote") == "remote",
             LocalSpeechQueue.CreateSystemSpeechSession,
             () => new RemoteSpeechSession(
@@ -293,7 +332,8 @@ public partial class MainWindow : Window
                 () => store.GetSetting("social.tts.remoteVoice", "Zephyr"),
                 () => store.GetSetting("social.tts.remoteInstructions",
                     "Habla en español con una voz femenina adulta joven MUY aguda y chillona, tipo personaje anime enérgico: timbre brillante, ligeramente nasal y juguetón, tono alto, reacciones exageradas y ritmo vivaz. Debe sonar intencionalmente aguda y caricaturesca, pero mantener dicción clara sin gritar ni distorsionar; no imites a un personaje, actriz ni persona real específica."),
-                () => store.GetSetting("social.ai.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta/openai/"))));
+                () => store.GetSetting("social.ai.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta/openai/")),
+            () => new VoicevoxSpeechSession(() => store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl)))));
         communityCommandRouter = new CommunityCommandRouter(store);
         socialBot = new SocialBotService(store, speechQueue, twitch, configuredAiProvider, SetChatReactionExpression);
         chatReactions = new ChatReactionService(
@@ -304,14 +344,72 @@ public partial class MainWindow : Window
                 await twitch.SendMessageAsync(store.GetSetting("twitch.channel"), message, cancellationToken).ConfigureAwait(false);
                 return true; // IRC write completed; Twitch does not acknowledge that viewers saw it.
             },
-            text =>
+            (text, language, requestedVoiceId) =>
             {
                 var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var r) ? Math.Clamp(r, -10, 10) : 0;
                 var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var v) ? Math.Clamp(v, 0, 100) : 100;
-                return speechQueue.Enqueue(text, SpeechPriority.Normal, store.GetSetting("audio.tts.voiceId"), rate, volume, store.GetSetting("audio.tts.outputId"));
+                var voiceId = string.IsNullOrWhiteSpace(requestedVoiceId) ? store.GetSetting("audio.tts.voiceId") : requestedVoiceId;
+                var useVoicevox = VoicevoxSpeechSession.IsVoiceId(requestedVoiceId);
+                if (language == "ja" && !useVoicevox && string.IsNullOrWhiteSpace(requestedVoiceId))
+                {
+                    try
+                    {
+                        var defaultJapaneseVoice = VoicevoxSpeechSession.GetInstalledVoices(
+                            store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl)).FirstOrDefault();
+                        if (defaultJapaneseVoice is not null)
+                        {
+                            voiceId = defaultJapaneseVoice.Id;
+                            useVoicevox = true;
+                        }
+                    }
+                    catch
+                    {
+                        // If the local VOICEVOX engine is not running, continue to the existing SAPI validation path.
+                    }
+                }
+                if (!useVoicevox && !string.IsNullOrWhiteSpace(requestedVoiceId) && store.GetSetting("social.tts.provider", "remote") != "local")
+                {
+                    store.Log("Reacciones chat", "La voz SAPI elegida en esta regla requiere seleccionar el proveedor local en ChatSpeak Studio.");
+                    return false;
+                }
+                if (language == "ja" && !useVoicevox)
+                {
+                    if (store.GetSetting("social.tts.provider", "remote") != "local")
+                    {
+                        store.Log("Reacciones chat", "La voz configurada es remota y no garantiza pronunciación japonesa SAPI; elegí proveedor local en ChatSpeak Studio o un clip japonés para esta regla.");
+                        return false;
+                    }
+                    try
+                    {
+                        var voices = LocalSpeechQueue.GetInstalledVoices();
+                        var selectedVoice = voices.FirstOrDefault(voice => string.Equals(voice.Id, voiceId, StringComparison.OrdinalIgnoreCase));
+                        if (selectedVoice is null || !(selectedVoice.Name.Contains("Japanese", StringComparison.OrdinalIgnoreCase) ||
+                            selectedVoice.Name.Contains("ja-JP", StringComparison.OrdinalIgnoreCase) ||
+                            selectedVoice.Name.Contains("Japan", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            var japaneseVoice = voices.FirstOrDefault(voice =>
+                                voice.Name.Contains("Japanese", StringComparison.OrdinalIgnoreCase) ||
+                                voice.Name.Contains("ja-JP", StringComparison.OrdinalIgnoreCase) ||
+                                voice.Name.Contains("Japan", StringComparison.OrdinalIgnoreCase));
+                            if (japaneseVoice is null)
+                            {
+                                store.Log("Reacciones chat", "No hay una voz SAPI japonesa identificable; elegí un clip japonés en la regla o instalá una voz japonesa. No se encoló una pronunciación alternativa.");
+                                return false;
+                            }
+                            voiceId = japaneseVoice.Id;
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        store.Log("Reacciones chat", "No se pudo verificar una voz japonesa SAPI (" + exception.GetType().Name + "); elegí un clip japonés.");
+                        return false;
+                    }
+                }
+                return speechQueue.Enqueue(text, SpeechPriority.Normal, voiceId, rate, volume, store.GetSetting("audio.tts.outputId"));
             },
             SetChatReactionExpression,
-            () => twitch.IsConnected);
+            () => twitch.IsConnected,
+            playClip: PlayChatReactionClip);
         chatReactions.SetTwitchConnected(twitch.IsConnected);
         chatReactions.ResultChanged += result => Dispatcher.BeginInvoke(new Action(() =>
         {

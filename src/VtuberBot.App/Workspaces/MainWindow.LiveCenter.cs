@@ -35,6 +35,100 @@ public partial class MainWindow
         }
     }
 
+    private bool PlayChatReactionClip(string assetId, CancellationToken cancellationToken)
+    {
+        var gateReleased = 0;
+        void ReleaseAudioGate()
+        {
+            if (Interlocked.Exchange(ref gateReleased, 1) == 0) audioOutputGate.Release();
+        }
+
+        try
+        {
+            // Acquire the same gate used by TTS so speech enqueued later cannot overlap this clip.
+            var waitUntil = DateTime.UtcNow + TimeSpan.FromSeconds(90);
+            var acquired = false;
+            while (!cancellationToken.IsCancellationRequested && DateTime.UtcNow < waitUntil)
+            {
+                if (speechQueue.PendingCount == 0 && !speechQueue.IsPlaybackActive && !speechPlaybackActive &&
+                    audioOutputGate.Wait(0))
+                {
+                    acquired = true;
+                    break;
+                }
+                Thread.Sleep(30);
+            }
+            if (!acquired)
+            {
+                store.Log("Reacciones chat", "El clip se omitió porque no pudo obtener el turno de audio antes del límite o la reacción fue cancelada.");
+                return false;
+            }
+
+            var started = false;
+            try
+            {
+                started = Dispatcher.Invoke(() =>
+                {
+                    if (cancellationToken.IsCancellationRequested || string.IsNullOrWhiteSpace(assetId)) return false;
+                    List<LocalSoundAsset> assets;
+                    try { assets = System.Text.Json.JsonSerializer.Deserialize<List<LocalSoundAsset>>(store.GetSetting("audio.sound.library", "[]")) ?? []; }
+                    catch (System.Text.Json.JsonException) { return false; }
+                    var asset = assets.FirstOrDefault(item => string.Equals(item.Id, assetId, StringComparison.Ordinal));
+                    if (asset is null || !TryResolveSoundPath(asset.Path, out var soundPath)) return false;
+
+                    StopSoundPlayback();
+                    var reader = new NAudio.Wave.AudioFileReader(soundPath);
+                    var output = new NAudio.Wave.WaveOutEvent();
+                    output.PlaybackStopped += (_, _) =>
+                    {
+                        try
+                        {
+                            Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                if (ReferenceEquals(soundOutput, output))
+                                {
+                                    soundOutput = null;
+                                    soundReader = null;
+                                    output.Dispose();
+                                    reader.Dispose();
+                                }
+                            }));
+                        }
+                        catch (InvalidOperationException) { }
+                        finally { ReleaseAudioGate(); }
+                    };
+                    try
+                    {
+                        output.Init(reader);
+                        soundReader = reader;
+                        soundOutput = output;
+                        output.Play();
+                        store.Log("Reacciones chat", "Se inició el clip local configurado para una reacción.");
+                        return true;
+                    }
+                    catch
+                    {
+                        if (ReferenceEquals(soundOutput, output)) soundOutput = null;
+                        if (ReferenceEquals(soundReader, reader)) soundReader = null;
+                        output.Dispose();
+                        reader.Dispose();
+                        throw;
+                    }
+                });
+                return started;
+            }
+            finally
+            {
+                if (!started) ReleaseAudioGate();
+            }
+        }
+        catch (Exception exception)
+        {
+            store.Log("Reacciones chat", "No se pudo iniciar el clip configurado (" + exception.GetType().Name + ").");
+            return false;
+        }
+    }
+
     private void DetachLiveCenterHandlers()
     {
         if (liveCenterReactionHandler is not null) chatReactions.ResultChanged -= liveCenterReactionHandler;
@@ -187,7 +281,22 @@ public partial class MainWindow
         var triggerField = TextField("Palabra o frase activadora", "");
         var matchType = new ComboBox { ItemsSource = new[] { "Mensaje exacto", "Palabra completa", "Frase contenida" }, SelectedIndex = 1 };
         var responseField = new TextBox { Text = "", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, MaxHeight = 140, ToolTip = "Una respuesta alternativa por línea. Admite {user}." };
-        var speak = new CheckBox { Content = "Encolar respuesta en voz local", IsChecked = false, Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
+        var speak = new CheckBox { Content = "Reproducir audio de esta reacción", IsChecked = false, Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 4, 0, 8) };
+        var language = new ComboBox { ItemsSource = new[] { "Automático", "Español", "Japonés" }, SelectedIndex = 0 };
+        var voiceItems = new List<LocalSpeechVoice> { new(string.Empty, "Usar voz predeterminada") };
+        try { voiceItems.AddRange(LocalSpeechQueue.GetInstalledVoices()); }
+        catch (Exception exception) { store.Log("Reacciones chat", "No se pudo enumerar voces SAPI para el editor (" + exception.GetType().Name + ")."); }
+        try { voiceItems.AddRange(VoicevoxSpeechSession.GetInstalledVoices(store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl))); }
+        catch (Exception exception) { store.Log("Reacciones chat", "VOICEVOX no está disponible para enumerar voces (" + exception.GetType().Name + "). Iniciá VOICEVOX y volvé a abrir Centro de directo."); }
+        var voicePicker = new ComboBox { ItemsSource = voiceItems, DisplayMemberPath = nameof(LocalSpeechVoice.Name), SelectedIndex = 0 };
+        var clipItems = new List<LocalSoundAsset> { new(string.Empty, "(Sin clip; usar TTS)", string.Empty) };
+        try
+        {
+            clipItems.AddRange((System.Text.Json.JsonSerializer.Deserialize<List<LocalSoundAsset>>(store.GetSetting("audio.sound.library", "[]")) ?? [])
+                .Where(asset => TryResolveSoundPath(asset.Path, out _)));
+        }
+        catch (System.Text.Json.JsonException exception) { store.Log("Reacciones chat", "La biblioteca de clips no se pudo cargar (" + exception.GetType().Name + ")."); }
+        var clipPicker = new ComboBox { ItemsSource = clipItems, DisplayMemberPath = nameof(LocalSoundAsset.Name), SelectedIndex = 0 };
         var expression = new ComboBox { ItemsSource = new[] { "(Sin expresión)", "Idle", "Talking", "Blink", "Happy", "Surprised" }, SelectedIndex = 0 };
         var globalCooldown = TextField("Cooldown global en segundos (0–3600)", "5");
         var userCooldown = TextField("Cooldown por usuario en segundos (0–3600)", "15");
@@ -198,7 +307,27 @@ public partial class MainWindow
         editor.Children.Add(Label("Tipo de coincidencia", 12, "#98A4BE")); editor.Children.Add(matchType);
         editor.Children.Add(Label("Respuestas alternativas · una por línea", 12, "#98A4BE")); editor.Children.Add(responseField);
         editor.Children.Add(speak);
+        editor.Children.Add(Label("Idioma de la reacción", 12, "#98A4BE")); editor.Children.Add(language);
+        editor.Children.Add(Label("Voz independiente para esta regla · SAPI o VOICEVOX local", 12, "#98A4BE")); editor.Children.Add(voicePicker);
+        editor.Children.Add(ActionButton("Escuchar muestra japonesa de la voz seleccionada", (_, _) =>
+        {
+            var selectedVoice = voicePicker.SelectedItem as LocalSpeechVoice;
+            if (selectedVoice is null || !VoicevoxSpeechSession.IsVoiceId(selectedVoice.Id))
+            {
+                testResult.Text = "Para escuchar la muestra japonesa, iniciá VOICEVOX Engine y elegí una voz marcada VOICEVOX en la lista.";
+                return;
+            }
+            var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var sampleRate) ? Math.Clamp(sampleRate, -10, 10) : 0;
+            var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var sampleVolume) ? Math.Clamp(sampleVolume, 0, 100) : 100;
+            if (speechQueue.Enqueue("お兄ちゃんのばか！ なに!? おかえりなさい！", SpeechPriority.High, selectedVoice.Id, rate, volume, store.GetSetting("audio.tts.outputId")))
+                testResult.Text = "Muestra japonesa encolada. Escuchá la salida de audio de Windows.";
+            else
+                testResult.Text = "No se pudo encolar la muestra; revisá el estado de audio en el registro.";
+        }, true));
+        editor.Children.Add(Label("VOICEVOX necesita su motor local abierto. Las voces VOICEVOX se usan sin API ni enviar texto a Internet.", 11, "#98A4BE"));
+        editor.Children.Add(Label("Clip opcional de la biblioteca local (si se elige, sustituye al TTS)", 12, "#98A4BE")); editor.Children.Add(clipPicker);
         editor.Children.Add(Label("Expresión del avatar", 12, "#98A4BE")); editor.Children.Add(expression);
+        editor.Children.Add(Label("Para japonés, elegí una voz VOICEVOX, una voz SAPI identificada como japonesa o un clip importado. Si el motor VOICEVOX no está abierto, sus voces no aparecerán hasta reabrir esta página.", 11, "#98A4BE"));
         editor.Children.Add(globalCooldown); editor.Children.Add(userCooldown); editor.Children.Add(perMinute);
 
         void RefreshRules(string? selectedId = null)
@@ -218,6 +347,9 @@ public partial class MainWindow
             matchType.SelectedIndex = rule.MatchType switch { ChatReactionMatchType.Exact => 0, ChatReactionMatchType.WholeWord => 1, _ => 2 };
             responseField.Text = string.Join(Environment.NewLine, rule.Responses);
             speak.IsChecked = rule.Speak;
+            language.SelectedItem = rule.Language switch { "es" => "Español", "ja" => "Japonés", _ => "Automático" };
+            voicePicker.SelectedItem = voiceItems.FirstOrDefault(voice => string.Equals(voice.Id, rule.VoiceId, StringComparison.OrdinalIgnoreCase)) ?? voiceItems[0];
+            clipPicker.SelectedItem = clipItems.FirstOrDefault(clip => string.Equals(clip.Id, rule.ClipAssetId, StringComparison.Ordinal)) ?? clipItems[0];
             expression.SelectedItem = string.IsNullOrEmpty(rule.Expression) ? "(Sin expresión)" : rule.Expression;
             globalCooldown.Text = rule.GlobalCooldownSeconds.ToString();
             userCooldown.Text = rule.UserCooldownSeconds.ToString();
@@ -227,7 +359,7 @@ public partial class MainWindow
         {
             rulesList.SelectedItem = null;
             nameField.Text = ""; triggerField.Text = ""; responseField.Text = "";
-            matchType.SelectedIndex = 1; speak.IsChecked = false; expression.SelectedIndex = 0;
+            matchType.SelectedIndex = 1; speak.IsChecked = false; language.SelectedIndex = 0; voicePicker.SelectedIndex = 0; clipPicker.SelectedIndex = 0; expression.SelectedIndex = 0;
             globalCooldown.Text = "5"; userCooldown.Text = "15"; perMinute.Text = "6";
         }));
         editor.Children.Add(ActionButton("Guardar regla", (_, _) =>
@@ -243,9 +375,13 @@ public partial class MainWindow
             var responses = responseField.Text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             var selectedMatch = matchType.SelectedIndex switch { 0 => ChatReactionMatchType.Exact, 1 => ChatReactionMatchType.WholeWord, _ => ChatReactionMatchType.Contains };
             var selectedExpression = expression.SelectedItem?.ToString() ?? "(Sin expresión)";
+            var selectedLanguage = language.SelectedItem?.ToString() switch { "Español" => "es", "Japonés" => "ja", _ => "auto" };
+            var selectedVoiceId = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id ?? string.Empty;
+            var selectedClipId = (clipPicker.SelectedItem as LocalSoundAsset)?.Id ?? string.Empty;
             var rule = new ChatReactionRule(selected?.Id ?? Guid.NewGuid().ToString("N"), nameField.Text, triggerField.Text,
                 selectedMatch, responses, speak.IsChecked == true, selectedExpression == "(Sin expresión)" ? "" : selectedExpression,
-                global, user, minute, selected?.Enabled ?? false);
+                global, user, minute, selected?.Enabled ?? false)
+                { Language = selectedLanguage, VoiceId = selectedVoiceId, ClipAssetId = selectedClipId };
             if (!chatReactions.SaveRule(rule, selected?.Id))
             {
                 MessageBox.Show(this, "No se guardó la regla. Revisá los campos, las alternativas y el máximo de 100 reglas.", "Regla no guardada", MessageBoxButton.OK, MessageBoxImage.Warning);

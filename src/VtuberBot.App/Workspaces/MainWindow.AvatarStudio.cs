@@ -60,6 +60,9 @@ public partial class MainWindow
 
     private static readonly IReadOnlyList<ChibiAvatarPreset> ChibiAvatarPresets =
     [
+        new("mocha-mel", "Miel de café", "Chibi de piel morena cálida, cabello castaño con mechones interiores miel y ojos marrones.",
+            "brown-inner-light", "comfy-hoodie", "double-bows", "heart-choker", "bunny-backpack",
+            "heart", "brown", "morena", "wave"),
         new("neko-gamer", "Neko gamer", "Chibi con coletas, orejas de gato, streetwear y pose de paz.",
             "twin-tails", "tech-streetwear", "cat-ears", "cheek-stars", "mechanical-pack",
             "round", "rose", "warm", "peace"),
@@ -77,26 +80,43 @@ public partial class MainWindow
             "sharp", "emerald", "moonlight", "hands-hips"),
         new("casual-streamer", "Streamer casual", "Pelo corto, hoodie, auriculares y mochila conejito.",
             "short-spiky", "comfy-hoodie", "gamer-headset", "heart-choker", "bunny-backpack",
-            "round", "gold", "warm", "neutral")
+            "round", "gold", "warm", "neutral"),
+        new("fox-festival", "Zorrita de festival", "Yukata de verano, orejas de zorro y cola esponjosa.",
+            "side-braid", "summer-festival", "fox-ears", "neck-ribbon", "fox-tail",
+            "heart", "rose", "cocoa", "wave"),
+        new("winter-oracle", "Oráculo invernal", "Abrigo de invierno, tiara lunar y capa corta.",
+            "silver-cyan", "winter-parka", "crescent-tiara", "mask-pendant", "short-cape",
+            "sharp", "sleepy", "porcelain", "neutral"),
+        new("shrine-fox", "Guardiana kitsune", "Vestimenta ceremonial, trenza lisa y cola de zorro.",
+            "long-straight", "shrine-ceremony", "fox-ears", "neck-ribbon", "fox-tail",
+            "elf", "heterochromia", "cocoa", "hands-hips"),
+        new("celestial-pop", "Pop celestial", "Vestido estelar, halo luminoso y alas de luz.",
+            "long-waves", "celestial-gown", "star-halo", "star-earrings", "celestial-wings",
+            "heart", "ocean", "moonlight", "wave"),
+        new("pirate-captain", "Capitana pirata", "Abrigo vino, pluma, capa y pose desafiante.",
+            "mint-braid", "night-pirate", "feather-pin", "mask-pendant", "short-cape",
+            "sharp", "gold", "warm", "crossed-arms"),
+        new("bunny-cafe", "Conejita de café", "Moños dobles, orejas largas y mochila conejito.",
+            "double-buns", "comfy-hoodie", "bunny-ears", "heart-choker", "bunny-backpack",
+            "round", "rose", "cocoa", "peace"),
+        new("mocha-mel", "Miel de café", "Chibi de piel morena cálida, cabello castaño con mechones interiores miel y ojos marrones.",
+            "brown-inner-light", "comfy-hoodie", "double-bows", "heart-choker", "bunny-backpack",
+            "heart", "brown", "morena", "wave")
     ];
 
     private UIElement BuildAvatarStudio()
     {
         var root = new StackPanel();
 
-        // A beginner should choose an avatar workflow, not configure layers/settings manually.
-        var beginnerPanel = Panel("Empezá por acá — elegí tu tipo de VTuber");
+        // Keep the built-in chibi gallery visible as the quickest path to a usable avatar.
+        var beginnerPanel = Panel("Crear y personalizar tu personaje");
         beginnerPanel.Margin = new Thickness(0, 0, 0, 14);
         beginnerPanel.Children.Add(Label(
-            "Elegí un personaje chibi completo: cada muestra cambia el peinado, el conjunto, los accesorios, el rostro, los ojos y la pose. Después podés abrir el creador de abajo y combinar cada pieza a tu gusto; los perfiles nuevos no pisan los anteriores.",
+            "Elegí uno de los personajes chibi de la galería de abajo o importá tu propia ilustración. El taller 3D integrado es otra opción para experimentar con un modelo paramétrico.",
             12, "#98A4BE"));
-        var presetGallery = new WrapPanel { Margin = new Thickness(0, 8, 0, 10) };
-        foreach (var preset in ChibiAvatarPresets)
-            presetGallery.Children.Add(BuildChibiPresetButton(preset));
-        beginnerPanel.Children.Add(presetGallery);
 
         beginnerPanel.Children.Add(Label(
-            "PNGTuber es la opción más ligera para empezar. La separación 2.5D con IA local es experimental y puede necesitar correcciones. VRoid Studio abre un creador 3D externo; el modelo VRM todavía no se carga dentro del overlay de VTuberBot.",
+            "El taller 3D genera un personaje paramétrico dentro de VTuberBot, permite cambiar silueta, piel, pelo e inner hair, ojos, ropa y accesorios, y guardar la apariencia en JSON o exportar un GLB estático. Requiere Internet para cargar Three.js. No es un editor VRM: el GLB no tiene rig ni animaciones y todavía no se puede usar como modelo animado en el overlay.",
             12, "#98A4BE"));
 
         Button startLocalSegmentation = null!;
@@ -120,7 +140,9 @@ public partial class MainWindow
         startLocalSegmentation = ActionButton("2 · 2.5D con IA local (experimental)", async (_, _) =>
             await StartLocalAvatarSegmentationAsync());
         beginnerActions.Children.Add(startLocalSegmentation);
-        beginnerActions.Children.Add(ActionButton("3 · Abrir creador 3D VRoid (externo)", (_, _) =>
+        beginnerActions.Children.Add(ActionButton("Abrir mini estudio 3D integrado", (_, _) =>
+            OpenAvatarWardrobeStudio(), true));
+        beginnerActions.Children.Add(ActionButton("Abrir VRoid Studio (externo)", (_, _) =>
             OpenAvatarExternalTool("https://vroid.com/en/studio", "VRoid Studio")));
         cancelLocalSegmentation = ActionButton("Cancelar IA", (_, _) =>
             activeLocalAvatarSegmentation?.Cancel());
@@ -131,7 +153,19 @@ public partial class MainWindow
         beginnerPanel.Children.Add(localSegmentationProgress);
         beginnerPanel.Children.Add(localSegmentationStatus);
         root.Children.Add(beginnerPanel);
-        root.Children.Add(BuildModularWardrobePanel());
+
+        // Restore the built-in illustrated PNG layer gallery so a beginner can create a real
+        // editable avatar profile without first sourcing their own artwork.
+        var sampleGallery = Panel("Galería de personajes chibi · elegí uno para crear tu perfil");
+        sampleGallery.Margin = new Thickness(0, 0, 0, 14);
+        sampleGallery.Children.Add(Label(
+            "Son trece diseños originales de muestra, generados como PNG transparentes por capas. Incluye una variante morena de cabello castaño con mechones interiores claros y ojos marrones. Al elegir uno se crea un perfil editable; después podés cambiar peinado, ropa, ojos, accesorios y expresiones, o reemplazar las capas con tus propias imágenes.",
+            12, "#98A4BE"));
+        var sampleGalleryItems = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+        foreach (var preset in ChibiAvatarPresets)
+            sampleGalleryItems.Children.Add(BuildChibiPresetButton(preset));
+        sampleGallery.Children.Add(sampleGalleryItems);
+        root.Children.Add(sampleGallery);
 
         var profilePanel = Panel("Perfiles de avatar");
         profilePanel.Margin = new Thickness(0, 0, 0, 14);
@@ -950,6 +984,12 @@ public partial class MainWindow
         }
     }
 
+
+    private void OpenAvatarWardrobeStudio()
+    {
+        var window = new AvatarWardrobeStudioWindow { Owner = this };
+        window.Show();
+    }
 
     private void OpenAvatarExternalTool(string url, string toolName)
     {
