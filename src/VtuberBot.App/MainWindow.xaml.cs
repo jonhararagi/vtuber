@@ -308,6 +308,7 @@ public partial class MainWindow : Window
     public MainWindow(VtuberApplication application)
     {
         InitializeComponent();
+        Loaded += async (_, _) => await AutoStartObsIfConfiguredAsync();
         this.application = application;
         store = new ProductStore(application.Database.Path);
         const string previousDefaultVoiceInstruction = "Habla en español con una voz femenina adulta joven, cálida, expresiva y de estilo anime original. Buena dicción, energía y emoción natural; no imites a un personaje o actriz específica.";
