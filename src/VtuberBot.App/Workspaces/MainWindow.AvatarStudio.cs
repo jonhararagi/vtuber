@@ -62,8 +62,8 @@ public partial class MainWindow
     [
         new("mocha-mel", "Miel de café", "Chibi de piel morena cálida, cabello castaño con mechones interiores miel y ojos marrones.",
             "brown-inner-light", "comfy-hoodie", "double-bows", "heart-choker", "bunny-backpack",
-            "heart", "brown", "morena", "wave")
-,                new("neko-gamer", "Neko gamer", "Chibi con coletas, orejas de gato, streetwear y pose de paz.",
+            "heart", "brown", "morena", "wave"),
+        new("neko-gamer", "Neko gamer", "Chibi con coletas, orejas de gato, streetwear y pose de paz.",
             "twin-tails", "tech-streetwear", "cat-ears", "cheek-stars", "mechanical-pack",
             "round", "rose", "warm", "peace"),
         new("lunar-witch", "Brujita lunar", "Maga de fantasía con rizos, sombrero y cristales.",
