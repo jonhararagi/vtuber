@@ -19,7 +19,6 @@ public sealed class TwitchChatClient : IAsyncDisposable
     private CancellationTokenSource? cancellation;
     private Task? supervisorTask;
     private string? sessionChannel;
-    private string? sessionLogin;
     private readonly SemaphoreSlim sendGate = new(1, 1);
 
     public event Action<string>? MessageReceived;
@@ -57,7 +56,6 @@ public sealed class TwitchChatClient : IAsyncDisposable
         channel = TwitchIrcValidation.NormalizeChannelLogin(channel);
         var token = TwitchIrcValidation.NormalizeOAuthToken(oauthToken);
 
-        sessionLogin = botLogin;
         sessionChannel = channel;
         cancellation = CancellationTokenSource.CreateLinkedTokenSource(external);
         var firstConnection = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -306,7 +304,6 @@ public sealed class TwitchChatClient : IAsyncDisposable
         cancellation = null;
         supervisorTask = null;
         sessionChannel = null;
-        sessionLogin = null;
         reader = null;
         writer = null;
         client = null;
