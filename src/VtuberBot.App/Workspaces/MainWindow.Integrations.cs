@@ -56,6 +56,30 @@ public partial class MainWindow
         launchPanel.Children.Add(Label("El modo ligero no desinstala plugins: usa la opción oficial de OBS para omitir plugins de terceros en ese inicio. Si una escena depende de uno, desactivá esta opción. No garantiza por sí solo más FPS.", 11, "#E7B56A"));
         var launchActions = new WrapPanel();
         launchActions.Children.Add(ActionButton("Abrir OBS Studio", async (_, _) => await OpenObsFromUiAsync(), true));
+        launchActions.Children.Add(ActionButton("Aplicar perfil 720p / 30 FPS", async (_, _) =>
+        {
+            if (MessageBox.Show(this,
+                    "Se cambiarán el lienzo y la salida de OBS a 1280×720 y 30 FPS. Esto puede afectar todas tus escenas. ¿Continuar?",
+                    "Perfil ligero de OBS", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+            try
+            {
+                if (!obs.IsConnected)
+                    await AutoConnectObsFromUiAsync();
+                if (!obs.IsConnected)
+                    throw new InvalidOperationException("Primero habilitá WebSocket en OBS y guardá la contraseña desde esta página.");
+                var result = await obs.ApplyLightVideoProfileAsync();
+                FooterStatus.Text = result;
+                store.Log("OBS", result);
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo aplicar el perfil de OBS: " + exception.Message;
+                store.Log("OBS", "Falló el perfil 720p30 (" + exception.GetType().Name + ").");
+                MessageBox.Show(this, exception.Message, "Perfil de OBS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }));
+
         launchActions.Children.Add(ActionButton("Elegir ubicación de OBS", (_, _) =>
         {
             var picker = new OpenFileDialog
