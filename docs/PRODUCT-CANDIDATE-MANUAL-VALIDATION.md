@@ -1,6 +1,6 @@
 # Validación global del candidato VTuberBot (una sola pasada en Windows)
 
-**Estado inicial:** PENDIENTE. Candidato CI actual: SHA `1bfa705a29c037f9c41d6d1cfbb9398c5acaec6a`, run [#893](https://github.com/jonhararagi/vtuber/actions/runs/38759994663), artefacto `VTuberBot-Product-Candidate-win-x64-1bfa705a29c037f9c41d6d1cfbb9398c5acaec6a`, SHA-256 `c038bd75ec88707c3c9d0bd410b2007c177ab3746ab92d38b2b5c5b3d31fcf11`. La CI pasó; la validación manual sigue pendiente. Esta lista no certifica el producto por sí sola; registrá el resultado real de cada paso.
+**Estado inicial:** PENDIENTE. Candidato CI actual verificado el 2026-10-15: SHA `a9b6b64024cb168650aba9abb4e012dbba259ea3`, run [#894](https://github.com/jonhararagi/vtuber/actions/runs/38762287217), artefacto `VTuberBot-Product-Candidate-win-x64-a9b6b64024cb168650aba9abb4e012dbba259ea3` (ID `11986327499`), SHA-256 `8bbebaeabe76107057375422ca6f842e41c1f82812e87a5b51c77de3a4da9f10`. Restore, Build Release, pruebas automatizadas, publicación del paquete autocontenido Windows x64 y subida del artefacto terminaron en éxito para este SHA exacto. El artefacto expira el 2026-10-29. La validación manual sigue pendiente. Esta lista no certifica el producto por sí sola; registrá el resultado real de cada paso.
 
 ## 1. Antes de abrirlo: procedencia del paquete
 
