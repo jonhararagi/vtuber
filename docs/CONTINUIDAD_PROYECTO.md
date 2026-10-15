@@ -1,5 +1,15 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-15 — Marca de referencia no destructiva en la galería de avatar
+
+- En `src/VtuberBot.App/Workspaces/MainWindow.AvatarStudio.cs`, cada tarjeta de la galería muestra ahora `VTUBERBOT · REFERENCIA` como superposición WPF. La etiqueta solo vive en la vista previa y no se fusiona con los PNG.
+- Cada tarjeta incluye `Ver PNG original sin marca ↗`, que abre el PNG base local mediante el visor predeterminado del sistema. Se mantiene separada de la acción principal que crea un perfil chibi.
+- Se eliminó una entrada duplicada de `Miel de café` que repetía el mismo ID en el catálogo; la galería conserva trece diseños únicos.
+- `docs/PRODUCT_USER_GUIDE.md` explica el comportamiento y aclara un límite legal importante: una marca de agua no concede derechos ni evita por sí sola una infracción. Los recursos de esta galería se generan localmente, así que no se inventan fuentes oficiales externas; el arte de terceros importado por el usuario debe respetar sus licencias y permisos.
+- Commit de implementación: `dc95958a3efd7726e99eb42111abda91389b45f6`. Documentación: `c077bc7c54a8cebacff5567ea5e527f7efe9ba42`.
+- Validación Windows CI del cambio de interfaz pendiente al momento de este registro; no se afirma que se haya comprobado visualmente en Windows.
+- Rama `product/complete-vtuber-experience`; no se tocó `main` ni se fusionó/cerró el PR #9.
+
 ## 2026-10-15 — Cierre de integración en main y validación Windows
 
 - **Rama principal:** `main`. El commit de código integrado es `5407b5b5902851bef3641741e501f8fda8144fb2`, merge de PR #17. La rama de producto integrada en PR #16 aporta perfiles editables de prompts, voz japonesa local VOICEVOX y galería chibi ampliada; PR #12 aporta imágenes PNG de muestra con licencias documentadas; PR #17 aporta importación local de VRM y overlay 3D transparente con estados Idle/Talking.
