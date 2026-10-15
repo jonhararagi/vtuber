@@ -31,6 +31,55 @@ public partial class MainWindow
     private UIElement BuildObsPage()
     {
         var root=new StackPanel();var panel=Panel("OBS Studio · WebSocket v5");root.Children.Add(panel);
+        var launchPanel = Panel("Inicio de OBS y rendimiento");
+        launchPanel.Children.Add(Label("VTuberBot puede abrir OBS y conectarse con la configuración guardada. El primer uso requiere guardar una contraseña de WebSocket en OBS y en VTuberBot.", 12, "#98A4BE"));
+        var autoStartObs = new CheckBox
+        {
+            Content = "Abrir OBS automáticamente al iniciar VTuberBot",
+            IsChecked = string.Equals(store.GetSetting("obs.autoStart", "true"), "true", StringComparison.OrdinalIgnoreCase),
+            Foreground = Brush("#F8FAFC"),
+            Margin = new Thickness(0, 6, 0, 6)
+        };
+        autoStartObs.Checked += (_, _) => store.SetSetting("obs.autoStart", "true");
+        autoStartObs.Unchecked += (_, _) => store.SetSetting("obs.autoStart", "false");
+        launchPanel.Children.Add(autoStartObs);
+        var lightModeObs = new CheckBox
+        {
+            Content = "Modo ligero: iniciar OBS sin plugins de terceros",
+            IsChecked = string.Equals(store.GetSetting("obs.lightMode", "true"), "true", StringComparison.OrdinalIgnoreCase),
+            Foreground = Brush("#F8FAFC"),
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+        lightModeObs.Checked += (_, _) => store.SetSetting("obs.lightMode", "true");
+        lightModeObs.Unchecked += (_, _) => store.SetSetting("obs.lightMode", "false");
+        launchPanel.Children.Add(lightModeObs);
+        launchPanel.Children.Add(Label("El modo ligero no desinstala plugins: usa la opción oficial de OBS para omitir plugins de terceros en ese inicio. Si una escena depende de uno, desactivá esta opción. No garantiza por sí solo más FPS.", 11, "#E7B56A"));
+        var launchActions = new WrapPanel();
+        launchActions.Children.Add(ActionButton("Abrir OBS Studio", async (_, _) => await OpenObsFromUiAsync(), true));
+        launchActions.Children.Add(ActionButton("Elegir ubicación de OBS", (_, _) =>
+        {
+            var picker = new OpenFileDialog
+            {
+                Title = "Seleccioná obs64.exe",
+                Filter = "OBS Studio (obs64.exe)|obs64.exe|Ejecutables (*.exe)|*.exe",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+            if (picker.ShowDialog(this) == true)
+            {
+                store.SetSetting("obs.executablePath", Path.GetFullPath(picker.FileName));
+                FooterStatus.Text = "Ubicación de OBS guardada.";
+            }
+        }));
+        launchPanel.Children.Add(launchActions);
+        root.Children.Add(launchPanel);
+
+        root.Loaded += async (_, _) =>
+        {
+            if (IsObsRunning() && !obs.IsConnected)
+                await AutoConnectObsFromUiAsync();
+        };
+
         panel.Children.Add(Label("Conexión autenticada y control de escenas",19,"#F8FAFC",true));
         panel.Children.Add(Label("Activá WebSocket Server en OBS → Herramientas. La app no registra una conexión hasta completar Hello/Identify. La contraseña se cifra con DPAPI CurrentUser.",13,"#98A4BE"));
         var host=TextField("Host",store.GetSetting("obs.host","127.0.0.1"));
