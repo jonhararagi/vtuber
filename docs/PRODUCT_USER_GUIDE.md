@@ -4,7 +4,7 @@ Esta guía corresponde al candidato integrado de VTuberBot. Las funciones extern
 
 ## Biblioteca local de arte
 
-En **Avatar Studio**, debajo de las referencias públicas, está la biblioteca local de assets. Importá una o varias imágenes propias o generadas con una herramienta externa. Podés buscar por nombre, categoría, etiquetas y estado de licencia; filtrar favoritos; y guardar categoría, etiquetas, URL de procedencia y estado de licencia. La app no descarga automáticamente ilustraciones ni verifica por sí sola las condiciones de PixAI u otros servicios.
+En **Avatar Studio**, debajo de las referencias públicas, está la biblioteca local de assets. Importá una o varias imágenes propias o generadas con una herramienta externa. Podés buscar por nombre, categoría, etiquetas y estado de licencia; filtrar favoritos; ver una miniatura del asset seleccionado; y guardar categoría, etiquetas, URL de procedencia y estado de licencia. La app no descarga automáticamente ilustraciones ni verifica por sí sola las condiciones de PixAI u otros servicios.
 
 Cada importación empieza con **Pendiente de revisar**. Cambiá el estado solo después de comprobar la licencia de la imagen y las condiciones del modelo/servicio de origen. Las imágenes se copian al directorio local de datos de VTuberBot. Seleccioná un asset y un rol para asignarlo al perfil activo; la copia asignada no elimina el original de la biblioteca. Se admiten PNG, JPG/JPEG, BMP y WebP hasta 25 MB por archivo.
 
