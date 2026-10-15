@@ -241,11 +241,23 @@ public partial class MainWindow
 
         var assets = new ListBox
         {
-            Height = 155, MinWidth = 260, Margin = new Thickness(0, 4, 0, 8),
+            Height = 155, MinWidth = 260, Margin = new Thickness(0, 4, 8, 8),
             Background = Brush("#101525"), Foreground = Brush("#F8FAFC"),
             BorderBrush = Brush("#34415E"), DisplayMemberPath = nameof(AvatarAssetEntry.DisplayLabel)
         };
-        panel.Children.Add(assets);
+        var preview = new Image
+        {
+            Width = 112, Height = 155, Stretch = System.Windows.Media.Stretch.Uniform,
+            Margin = new Thickness(0, 4, 0, 8), ToolTip = "Vista previa del asset seleccionado"
+        };
+        var assetBrowser = new Grid();
+        assetBrowser.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        assetBrowser.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(assets, 0);
+        Grid.SetColumn(preview, 1);
+        assetBrowser.Children.Add(assets);
+        assetBrowser.Children.Add(preview);
+        panel.Children.Add(assetBrowser);
 
         var details = new Grid { Margin = new Thickness(0, 4, 0, 4) };
         details.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(115) });
@@ -372,13 +384,19 @@ public partial class MainWindow
 
         void LoadSelectedMetadata()
         {
-            if (assets.SelectedItem is not AvatarAssetEntry entry) return;
+            if (assets.SelectedItem is not AvatarAssetEntry entry)
+            {
+                preview.Source = null;
+                return;
+            }
             category.SelectedItem = entry.Category;
             if (category.SelectedIndex < 0) category.SelectedIndex = category.Items.Count - 1;
             tags.Text = entry.Tags;
             sourceUrl.Text = entry.SourceUrl;
             license.SelectedItem = entry.LicenseStatus;
             if (license.SelectedIndex < 0) license.SelectedIndex = 0;
+            try { preview.Source = LoadImage(library.GetAssetPath(entry)); }
+            catch { preview.Source = null; }
         }
 
         assets.SelectionChanged += (_, _) => LoadSelectedMetadata();
