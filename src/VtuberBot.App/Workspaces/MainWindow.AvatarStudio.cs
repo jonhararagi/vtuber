@@ -980,7 +980,8 @@ public partial class MainWindow
         right.Children.Add(ActionButton("Ocultar overlay", (_, _) => { overlay?.Hide(); store.Log("Avatar", "Overlay ocultado."); }));
         right.Children.Add(Label("Estados disponibles", 14, "#F8FAFC", true));
         var states = new WrapPanel();
-        // Expose only the two approved talk states; legacy expression assets remain stored for compatibility.\n        foreach (var state in new[] { "Idle", "Talking" })
+        // Expose only the two approved talk states; legacy expression assets remain stored for compatibility.
+        foreach (var state in new[] { "Idle", "Talking" })
             states.Children.Add(ActionButton(state, (_, _) =>
             {
                 store.SetSetting("avatar.state", state == "Blink" ? "Idle" : state);
