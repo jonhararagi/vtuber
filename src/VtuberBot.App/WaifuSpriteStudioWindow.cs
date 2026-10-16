@@ -246,7 +246,7 @@ public sealed class WaifuSpriteStudioWindow : Window
                     entry.RemoveMatte));
             }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or ArgumentException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException or NotSupportedException)
         {
             // A damaged optional asset catalog must never stop the avatar studio from opening.
             SetStatus("No se pudo restaurar la biblioteca de objetos importados: " + exception.GetBaseException().Message);
