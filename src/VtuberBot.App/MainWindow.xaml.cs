@@ -82,6 +82,7 @@ public partial class MainWindow : Window
     private DispatcherTimer? dashboardMetricsTimer;
     private TextBlock? dashboardCpuValue;
     private ProgressBar? dashboardCpuBar;
+    private TextBlock? dashboardCpuWarningLabel;
     private TextBlock? dashboardRamValue;
     private ProgressBar? dashboardRamBar;
     private TextBlock? dashboardRamWarningLabel;
