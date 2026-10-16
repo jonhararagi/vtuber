@@ -1,5 +1,17 @@
 # Estado prioritario del repositorio — 2026-10-16
 
+## 2026-10-16 — Recorrido principal simplificado a PNGTuber 2D
+
+- Se reordenó la navegación WPF para que el camino visible sea **PNGTuber 2D**, **Micrófono y voz**, **Configurar OBS**, **Conectar Twitch** y **Centro de directo**. Las opciones de avatar por capas/3D, PNGTuber Plus externo, IA, sorteos, moderación, automatizaciones y diagnóstico siguen disponibles dentro de **Más herramientas (opcional)**; no se borraron módulos.
+- Se agregó `src/VtuberBot.App/Workspaces/MainWindow.Pngtuber2D.cs`, una pantalla simple para importar la ilustración base, elegir los PNG dibujados de boca cerrada/abierta, mover el sticker con el mouse, ajustar X/Y/tamaño, guardar en SQLite, y limpiar la boca vieja usando la copia procesada existente.
+- Se añadieron efectos de movimiento cartoon de todo el avatar con `AvatarMotionPolicy`: vibración horizontal configurable, rebote al hablar y flotación suave en reposo. Las preferencias se conservan en SQLite. No se convierte la boca a un estilo realista, no se genera arte por IA y no se debe describir esto como paridad completa con PNGTuber Plus. No es física por sprite ni lip-sync por volumen/fonemas.
+- El botón **Probar vibración ahora** abre el overlay y activa el movimiento durante una breve prueba; el estado de voz sigue usando el detector de actividad de audio existente. `ShowOverlay` y la actualización del avatar aplican las preferencias de movimiento guardadas.
+- Se revisó la primera integración con CI y se corrigieron errores de compilación observados en intentos previos: colisión de nombre en `SetMotionEffects`, falta de import de `UniformGrid` y funciones locales de la pantalla simple fuera del ámbito del botón. No atribuir esos intentos fallidos a la revisión final. Confirmar la CI del HEAD más nuevo antes de distribuir.
+- La pantalla de **Configurar OBS** ahora empieza con una guía de WebSocket (Herramientas → configuración del servidor WebSocket; habilitar; puerto por defecto 4455; mostrar/copiar contraseña; ingresar host/puerto/contraseña en VTuberBot). La pantalla **Conectar Twitch** explica canal vs. login de cuenta bot vs. Client ID/OAuth, agrega el enlace al Twitch Developer Console y aclara que los puntos de canal se gestionan en Twitch. OBS y Twitch son dos configuraciones diferentes.
+- La guía de usuario ahora detalla el camino básico y los controles de movimiento. Las conexiones de OBS/Twitch siguen necesitando configuración real del usuario; CI no puede autenticarse en su PC ni validar micrófono, escena de OBS o cuenta Twitch.
+- Validación pendiente en este registro: el HEAD contiene cambios secuenciales de código/UI/documentación y tiene que pasar la Windows CI para su SHA exacto antes de marcar el paquete como validado. Probar manualmente con las imágenes PNG reales que el sticker queda alineado, con la boca antigua ya limpia y el overlay visible en OBS.
+
+
 ## 2026-10-16 — Corregir la colocación de la boca y facilitar el movimiento tipo PNGTuber
 
 - Causa del síntoma reportado: el overlay asignaba a cada capa un `Image` estirado al tamaño completo de la ventana. Un PNG recortado de boca se dibujaba como si fuera una imagen de personaje completa y parecía pegado al centro. No bastaba con que el modelo ya guardara X/Y; el tamaño/alineación del sprite también estaba mal.
