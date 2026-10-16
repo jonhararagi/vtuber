@@ -310,6 +310,7 @@ public partial class MainWindow
                 voicePicker.ItemsSource = voices;
                 voiceListLoaded = true;
                 voicePicker.SelectedItem = voices.FirstOrDefault(voice => string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
+                    ?? voices.FirstOrDefault(voice => VoicevoxSpeechSession.IsVoiceId(voice.Id))
                     ?? voices[0];
                 FooterStatus.Text = $"VOICEVOX conectado: {installedVoicevox.Count} estilos disponibles. {windowsStatus}.";
                 store.Log("VOICEVOX", $"Motor local disponible; {installedVoicevox.Count} estilos detectados.");
@@ -319,6 +320,7 @@ public partial class MainWindow
                 voicePicker.ItemsSource = voices;
                 voiceListLoaded = true;
                 voicePicker.SelectedItem = voices.FirstOrDefault(voice => string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
+                    ?? voices.FirstOrDefault(voice => VoicevoxSpeechSession.IsVoiceId(voice.Id))
                     ?? voices[0];
                 FooterStatus.Text = "VOICEVOX no disponible. Revisá que Engine esté iniciado y que la dirección sea local. " + windowsStatus + ".";
                 store.Log("VOICEVOX", "No se pudo consultar el motor local (" + exception.GetType().Name + ").");
