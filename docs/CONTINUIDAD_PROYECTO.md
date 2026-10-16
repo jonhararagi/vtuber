@@ -1955,3 +1955,10 @@ Objetivo inicial sugerido, sujeto a la fase de diseño y a la capacidad real de 
 - Se corrigió el callback de selección del catálogo y el estado al importar imágenes.
 - Guardar/abrir ahora conserva un GIF original animado dentro de la carpeta de recursos del proyecto; el temporizador vuelve a reproducirlo al abrir. Si se elimina el fondo de un GIF, la capa se convierte intencionalmente en una imagen estática procesada para evitar que el temporizador restaure fotogramas sin recortar.
 - **HEAD de código consultado:** `c67b0357f37482264c4dabaf4ab1cecca8e44deb`. La consulta de workflow runs y checks no devolvió ejecuciones ni estados para el SHA consultado. Sigue sin estar validada la compilación y los tests de Windows del bloque.
+
+
+### Último ajuste y CI observado (16/10/2026)
+
+- Se mantiene sincronizada la selección de capa al refrescar la lista; así, importar una imagen o insertar un fondo no pierde la selección activa.
+- Último SHA de código consultado antes de este apunte: `b2a312ba6db74ee84297f5b2e6217fc0806c5634`.
+- Windows CI #939 estaba **en progreso** para el SHA anterior `c67b0357f37482264c4dabaf4ab1cecca8e44deb`: build en curso y pruebas aún sin comenzar. Ese run no valida el código posterior ni el HEAD de este documento. Seguimos sin afirmar que la versión final compiló hasta comprobar un run del SHA exacto.
