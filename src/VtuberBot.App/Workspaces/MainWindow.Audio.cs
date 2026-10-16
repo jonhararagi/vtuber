@@ -297,7 +297,12 @@ public partial class MainWindow
 
         var outputPicker = new ComboBox
         {
-            ItemsSource = new List<LocalSpeechOutput> { new(string.Empty, "Salida predeterminada del sistema") },
+            ItemsSource = new List<LocalSpeechOutput>
+            {
+                new(string.Empty, string.IsNullOrWhiteSpace(savedOutputId)
+                    ? "Salida predeterminada del sistema"
+                    : "Se conservará la salida guardada hasta actualizar la lista")
+            },
             SelectedIndex = 0,
             DisplayMemberPath = nameof(LocalSpeechOutput.Name),
             MinWidth = 280,
@@ -520,7 +525,10 @@ public partial class MainWindow
             }
 
             savedVoiceId = selected.Id;
-            savedOutputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty;
+            // If output enumeration was never requested in this UI session, preserve a previously
+            // saved device instead of mistaking the placeholder item for an intentional reset.
+            if (outputListLoaded)
+                savedOutputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty;
             store.SetSetting("audio.voicevox.baseUrl", voicevoxBaseUrlField.Text.Trim());
             store.SetSetting("audio.voicevox.voiceId", savedVoiceId);
             // Keep the generic local-queue preference aligned for internal consumers that already use it.
