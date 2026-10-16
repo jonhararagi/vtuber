@@ -100,7 +100,7 @@ public partial class MainWindow : Window
 
     private static readonly string[] Pages =
     [
-        "Inicio","Centro de directo","Avatar Studio","Avatar externo","Streamer.bot","Twitch y chat","Bot social","Comandos","Comunidad y puntos","Automatizaciones","Sorteos",
+        "Inicio","PNGTuber 2D","Centro de directo","Avatar Studio","Avatar externo","Streamer.bot","Twitch y chat","Bot social","Comandos","Comunidad y puntos","Automatizaciones","Sorteos",
         "Minijuegos","Moderación","Voz y audio","OBS","Integraciones","Telegram Web","Actividad y diagnóstico","Ajustes"
     ];
 
@@ -597,7 +597,8 @@ public partial class MainWindow : Window
         {
             "Inicio" => "Todo lo importante del stream, en un solo lugar.",
             "Centro de directo" => "Salida pública del avatar y controles privados del creador, separados.",
-            "Avatar Studio" => "Probá un ejemplo PNGTuber o 2D por capas, o importá tu propio arte.",
+            "PNGTuber 2D" => "El camino sencillo: importar personaje, colocar una boca dibujada y activar efectos de movimiento.",
+            "Avatar Studio" => "Editor avanzado opcional para perfiles, capas complejas, expresiones y herramientas experimentales.",
             "Avatar externo" => "Configura PNGTuber Plus, verifica los pasos de avatar y administra atajos locales.",
             "Streamer.bot" => "Conexión WebSocket, catálogo de acciones y suscripciones de eventos confirmadas por el servidor.",
             "Twitch y chat" => "Conexión oficial por IRC/TLS; la cuenta solo aparece conectada tras autenticación real.",
@@ -608,8 +609,8 @@ public partial class MainWindow : Window
             "Sorteos" => "Participantes deduplicados y ganador guardado en el historial.",
             "Minijuegos" => "Juegos locales con resultados y recompensas registradas.",
             "Moderación" => "Reglas configurables; el modo actual marca coincidencias sin castigar automáticamente.",
-            "Voz y audio" => "Micrófono, VAD, TTS local y biblioteca de efectos de sonido.",
-            "OBS" => "Escenas, estado real y destino de transmisión Twitch/YouTube mediante OBS autenticado.",
+            "Voz y audio" => "Elegí micrófono, probá la detección de voz y configurá voz local si la necesitás.",
+            "OBS" => "Primero habilitá WebSocket en OBS; después conectate acá con el puerto y contraseña que muestra OBS.",
             "Integraciones" => "Aplicaciones externas opcionales; el proceso no equivale a una conexión verificada.",
             "Telegram Web" => "Telegram Web integrado cuando WebView2 está disponible.",
             "Actividad y diagnóstico" => "Registro local de acciones y exportación sin tokens ni cookies.",
@@ -619,6 +620,7 @@ public partial class MainWindow : Window
         Workspace.Content = currentPage switch
         {
             "Inicio" => BuildDashboard(),
+            "PNGTuber 2D" => BuildPngtuber2DWorkspace(),
             "Centro de directo" => BuildLiveCenterWorkspace(),
             "Avatar Studio" => BuildAvatarStudio(),
             "Avatar externo" => BuildPngtuberWorkspace(),
