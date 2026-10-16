@@ -277,7 +277,7 @@ public partial class MainWindow
 
         panel.Children.Add(Label("Síntesis de voz local · VOICEVOX Engine", 14, "#F8FAFC", true));
         panel.Children.Add(Label(
-            "Esta pantalla usa únicamente estilos que VOICEVOX devuelve desde tu motor local. No cambia silenciosamente a Windows SAPI, Gemini ni a una API remota. El motor y las voces deben estar instalados según sus licencias.",
+            "Esta pantalla usa únicamente estilos que VOICEVOX devuelve desde tu motor local. No cambia silenciosamente a Windows SAPI, Gemini ni a una API remota. Las voces VOICEVOX habituales están orientadas al japonés: el motor puede intentar sintetizar español, pero la pronunciación natural en español no está garantizada. El motor y las voces deben estar instalados según sus licencias.",
             12, "#98A4BE"));
         panel.Children.Add(Label("Dirección local de VOICEVOX Engine", 12, "#98A4BE"));
         panel.Children.Add(voicevoxBaseUrlField);
@@ -581,7 +581,7 @@ public partial class MainWindow
         {
             var textToSpeak = speech.Text.Trim();
             if (string.IsNullOrWhiteSpace(textToSpeak) && test)
-                textToSpeak = "Hola, esta es una prueba de voz local con VOICEVOX.";
+                textToSpeak = "こんにちは。これはVOICEVOXの音声テストです。";
             if (string.IsNullOrWhiteSpace(textToSpeak))
             {
                 FooterStatus.Text = "Escribí un texto para encolar en VOICEVOX.";
