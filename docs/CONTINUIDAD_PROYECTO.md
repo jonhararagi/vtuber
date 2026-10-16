@@ -1,5 +1,13 @@
 # Estado prioritario del repositorio — 2026-10-16
 
+## 2026-10-16 — Editor de limpieza de boca y plan de cierre seleccionable
+
+- La CI documental previa, [run #1046](https://github.com/jonhararagi/vtuber/actions/runs/38961144415), terminó con éxito en el SHA exacto `07be0a3d793df076511eec3d07f74caf48885e25`: Restore, Build Release, tests y paquete autocontenido Windows x64 completados. Esto valida ese SHA, no los cambios nuevos descritos abajo.
+- Se añadió `src/VtuberBot.App/Workspaces/ProjectFinishChecklistPanel.cs`: editor modal para seleccionar con el mouse la zona de boca de la imagen base, con conversión de coordenadas desde la previsualización a píxeles originales, copia PNG nueva y dos modos: cobertura con promedio de color vecino y transparencia con borde suavizado. El original no se sobrescribe; la actualización de la ruta base queda guardada en el perfil activo.
+- Se conectó el editor en Avatar Studio y se añadió al final de la página el panel **Plan para terminar VTuberBot**, con alcance seleccionable y casillas de auditoría Windows, avatar/boca, OBS, Streamer.bot, Twitch, voz, estabilidad, seguridad, distribución y funciones avanzadas.
+- **Enviar** prepara un pedido Markdown con las opciones marcadas, lo guarda en `%LOCALAPPDATA%/VTuberBot/ProjectFinishRequests` y lo copia al portapapeles cuando Windows lo permite. No manda datos por red ni afirma enviar una tarea directamente a GitHub; el usuario pega la solicitud en el chat del agente. La opción de solo auditoría pide un diagnóstico sin cambiar código.
+- Límites a comprobar en CI y con una imagen real: el retoque de color usa un promedio de píxeles vecinos y no es inpainting semántico; revisar visualmente el resultado. El modo transparente solo es apropiado si hay otra capa detrás de la zona vaciada. La nueva CI debe validar el SHA final tras las integraciones y la documentación.
+
 ## 2026-10-16 — Asignación de boca animada por capa y preparación de fondo blanco
 
 - Rama de trabajo: `product/complete-vtuber-experience`. No se modifica `main` ni se fusionan ramas en esta tarea.
