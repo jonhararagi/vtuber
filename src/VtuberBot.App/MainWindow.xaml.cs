@@ -336,7 +336,12 @@ public partial class MainWindow : Window
                 () => store.GetSetting("social.tts.remoteInstructions",
                     "Habla en español con una voz femenina adulta joven MUY aguda y chillona, tipo personaje anime enérgico: timbre brillante, ligeramente nasal y juguetón, tono alto, reacciones exageradas y ritmo vivaz. Debe sonar intencionalmente aguda y caricaturesca, pero mantener dicción clara sin gritar ni distorsionar; no imites a un personaje, actriz ni persona real específica."),
                 () => store.GetSetting("social.ai.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta/openai/")),
-            () => new VoicevoxSpeechSession(() => store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl)))));
+            () => new VoicevoxSpeechSession(
+                () => store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl),
+                () => double.TryParse(store.GetSetting("audio.voicevox.pitchScale", "0"),
+                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pitch) ? pitch : 0d,
+                () => double.TryParse(store.GetSetting("audio.voicevox.intonationScale", "1"),
+                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var intonation) ? intonation : 1d)))));
         communityCommandRouter = new CommunityCommandRouter(store);
         socialBot = new SocialBotService(store, speechQueue, twitch, configuredAiProvider, SetChatReactionExpression);
         chatReactions = new ChatReactionService(
