@@ -291,7 +291,7 @@ public sealed class ObsSetupWizardWindow : Window
         completedCheck.Foreground = Brush("#F1F5F9");
         completedCheck.Margin = new Thickness(2, 4, 2, 7);
         completedCheck.Checked += (_, _) => { if (!isRenderingStep) SetStepCompleted(true); };
-        completedCheck.Unchecked += (_, _) => { if (!isRenderingStep) SetStepCompleted(false); }
+        completedCheck.Unchecked += (_, _) => { if (!isRenderingStep) SetStepCompleted(false); };
         Grid.SetRow(completedCheck, 2);
         lower.Children.Add(completedCheck);
 
