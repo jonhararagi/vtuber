@@ -464,6 +464,75 @@ public partial class MainWindow
         controls.Children.Add(new TextBlock { Text = "Catálogo local de piezas vectoriales", Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 10, 4, 2) });
         controls.Children.Add(new TextBlock { Text = "Piezas originales de muestra generadas localmente; cada una se agrega como capa que podés mover, escalar y ordenar.", Foreground = Brushes.LightGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4, 0, 4, 4) });
         controls.Children.Add(catalogScroll);
+
+        // Biblioteca local de piezas independientes (por ejemplo, una boca PNG transparente).
+        var pieceName = new TextBox
+        {
+            Text = "mi-boca",
+            MinWidth = 180,
+            Margin = new Thickness(4, 5, 4, 4),
+            ToolTip = "Nombre del PNG que se guardará en la biblioteca local"
+        };
+        controls.Children.Add(new TextBlock
+        {
+            Text = "Guardar pieza seleccionada en la biblioteca local",
+            Foreground = Brushes.DeepSkyBlue,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(4, 10, 4, 3)
+        });
+        controls.Children.Add(new TextBlock
+        {
+            Text = "Seleccioná una capa (por ejemplo, una boca importada), escribí un nombre y guardala. Se copia el PNG de la pieza, con su transparencia, sin aplanar el personaje ni modificar el archivo original.",
+            Foreground = Brushes.LightGray,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(4)
+        });
+        controls.Children.Add(pieceName);
+        var savePieceButton = new Button
+        {
+            Content = "＋ Guardar pieza PNG",
+            MinHeight = 34,
+            Margin = new Thickness(4),
+            Padding = new Thickness(8, 5, 8, 5)
+        };
+        savePieceButton.Click += (_, _) =>
+        {
+            if (selected < 0 || selected >= layers.Count)
+            {
+                status.Text = "Seleccioná primero la pieza que querés guardar.";
+                return;
+            }
+
+            var name = MakeSafeFileName(pieceName.Text.Trim());
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                status.Text = "Escribí un nombre válido para la pieza.";
+                return;
+            }
+
+            try
+            {
+                var libraryDirectory = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "VTuberBot", "WaifuAssets", "Library");
+                Directory.CreateDirectory(libraryDirectory);
+                var destination = Path.Combine(libraryDirectory, name + ".png");
+                if (File.Exists(destination))
+                {
+                    status.Text = $"Ya existe «{name}.png» en la biblioteca. Cambiá el nombre para no sobrescribirlo.";
+                    return;
+                }
+
+                SaveBitmapAsPng(layers[selected].Source, destination);
+                status.Text = $"Pieza guardada: {destination}. Conserva el alfa del PNG; podés volver a importarla desde esta carpeta.";
+            }
+            catch (Exception ex)
+            {
+                status.Text = "No se pudo guardar la pieza PNG: " + ex.Message;
+            }
+        };
+        controls.Children.Add(savePieceButton);
+
         controls.Children.Add(new TextBlock { Text = "Encuadre de cámara / recorte visible", Foreground = Brushes.DeepSkyBlue, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 12, 4, 3) });
         controls.Children.Add(new TextBlock { Text = "El marco azul indica qué parte del personaje mostrar. Elegí rostro, busto o cuerpo completo y ajustá el recorte.", Foreground = Brushes.LightGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
         Slider cropX = null!, cropY = null!, cropW = null!, cropH = null!;
