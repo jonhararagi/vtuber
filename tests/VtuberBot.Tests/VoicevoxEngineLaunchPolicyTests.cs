@@ -6,6 +6,16 @@ namespace VtuberBot.Tests;
 public sealed class VoicevoxEngineLaunchPolicyTests
 {
     [Theory]
+    [InlineData(0, 1)]
+    [InlineData(1, 1)]
+    [InlineData(2, 2)]
+    [InlineData(4, 4)]
+    [InlineData(6, 6)]
+    [InlineData(8, 6)]
+    public void CpuThreadsStayWithinConservativeSupportedRange(int requested, int expected) =>
+        Assert.Equal(expected, VoicevoxEngineLaunchPolicy.NormalizeCpuThreads(requested));
+
+    [Theory]
     [InlineData("http://127.0.0.1:50021", 50021)]
     [InlineData("http://localhost:50033", 50033)]
     [InlineData("http://[::1]:50042", 50042)]
