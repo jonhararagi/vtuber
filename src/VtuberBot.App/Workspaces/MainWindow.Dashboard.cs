@@ -151,6 +151,7 @@ public partial class MainWindow
         if (health?.WorkingSetBytes is long residentBytes)
         {
             var residentMegabytes = residentBytes / (1024d * 1024d);
+            // This is VTuberBot's own working set; OBS and VOICEVOX run as separate processes.
             var memoryWarning = ProcessMemoryWarningPolicy.Evaluate(residentBytes);
             (dashboardRamWarningLabel.Text, dashboardRamWarningLabel.Foreground) = memoryWarning switch
             {
