@@ -1,5 +1,22 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-16 — Candidato de producto integrado y validado por Windows CI
+
+- `main` al validar el candidato de producto: `228cefa0c2245022b1b6567f54bf9e0238c3ec8b`.
+- PR integradas en esta línea de trabajo: #21 (editor/encuadre), #23 (especificación definitiva), #25 (UI local, VOICEVOX y avisos de memoria), #27 (reconciliación de guías) y #26 (controles de fuentes/audio OBS). PR #22 y #24 se cerraron como reemplazadas para evitar conflictos; PR #9 no se modificó.
+- Windows CI para el SHA exacto `228cefa0c2245022b1b6567f54bf9e0238c3ec8b`: **success**. [Ejecución 38943168219](https://github.com/jonhararagi/vtuber/actions/runs/38943168219). Build Release, tests automatizados y empaquetado Windows x64 completados.
+- Artefacto de esa misma ejecución: [VTuberBot-Product-Candidate-win-x64-228cefa0c2245022b1b6567f54bf9e0238c3ec8b](https://github.com/jonhararagi/vtuber/actions/runs/38943168219/artifacts/12064271520), ID `12064271520`, 84,785,049 bytes, vence el 30 de octubre de 2026. No usar artefactos de ejecuciones anteriores como si correspondieran a otro SHA.
+- Avatar Studio prioriza la imagen propia, encuadre y los dos estados visibles `Idle`/`Talking`; galería y herramientas heredadas quedan fuera del flujo principal, sin borrar código histórico. La vista OBS del editor sigue siendo orientativa.
+- Voz y audio permite configurar el endpoint local de VOICEVOX Engine, consultar estilos reales y priorizar un estilo VOICEVOX al encontrarlo. No se ha probado con Engine instalado en una máquina real; el usuario deberá iniciarlo localmente.
+- El panel OBS ahora incluye controles de escena, transmisión/grabación y consulta/alternancia de visibilidad de fuentes y silencio de entradas compatibles. Las operaciones nuevas compilan y pasan CI, pero no hubo conexión a una instancia real de OBS durante esta sesión.
+- Se implementaron avisos de memoria del proceso VTuberBot desde 800 MiB y 1 GiB. Son avisos, no un límite duro; OBS y VOICEVOX se ejecutan como procesos separados.
+- Las páginas sociales descartadas no están en la navegación principal. Las reglas de automatización heredadas se conservan pero no se ejecutan automáticamente mientras sus fuentes externas estén fuera del alcance aprobado.
+- **Validación pendiente fuera de CI:** una única prueba manual del candidato global en Windows con imágenes Idle/Talking propias, VOICEVOX Engine local y OBS WebSocket v5. No se afirma validación manual de estas conexiones en este entorno.
+
+---
+
+# Continuidad del proyecto — VTuberBot
+
 ## 2026-10-16 — OBS: visibilidad de fuentes y silencio de audio (PR #26)
 
 - `main` base de esta rama: `af58e80c49b965970273f51e6779a3842f5965d7`, integración de PR #25.
