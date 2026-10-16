@@ -718,6 +718,7 @@ public partial class MainWindow
         var layerImages = new Dictionary<long, Image>();
         Grid? previewCanvas = null;
         Image? basePreviewImage = null;
+        AvatarLayer[] visibleLayers = [];
         var previewState = store.GetSetting("avatar.state", "Idle");
         if (previewState == "Blink") previewState = "Idle";
         var left = Panel("Previsualización del avatar");
@@ -725,33 +726,79 @@ public partial class MainWindow
         var preview = new Border { Background = Brush("#101525"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14), MinHeight = 350 };
         if (!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath))
         {
-            previewCanvas = new Grid { Background = Brush("#101525"), Focusable = true };
-            var visibleLayers = store.GetAvatarLayers().Where(layer => layer.Visible && File.Exists(layer.Path)).ToArray();
+            previewCanvas = new Grid { Background = Brush("#101525"), Focusable = true, Height = 360 };
+            visibleLayers = store.GetAvatarLayers().Where(layer => layer.Visible && File.Exists(layer.Path)).ToArray();
+            var savedExpression = store.GetAvatarExpression(previewState) ?? string.Empty;
+            var initialImagePath = !string.IsNullOrWhiteSpace(savedExpression) && File.Exists(savedExpression) ? savedExpression : avatarPath;
+            basePreviewImage = new Image { Source = LoadImage(initialImagePath), Stretch = Stretch.Uniform, MaxHeight = 360, IsHitTestVisible = false };
             foreach (var layer in AvatarLayerOrdering.BackgroundLayers(visibleLayers))
             {
-                var image = new Image { Source = LoadImage(AvatarMouthSpritePolicy.ResolvePath(layer, previewState)), Stretch = Stretch.UniformToFill, MaxHeight = 360 };
+                var artworkPath = AvatarMouthSpritePolicy.ResolvePath(layer, previewState);
+                var image = new Image { Source = LoadImage(artworkPath), Stretch = Stretch.UniformToFill, MaxHeight = 360, IsHitTestVisible = false };
                 image.RenderTransformOrigin = new Point(.5, .5);
                 image.RenderTransform = BuildLayerTransform(layer);
                 previewCanvas.Children.Add(image);
                 layerImages[layer.Id] = image;
             }
-            var savedExpression = store.GetAvatarExpression(previewState) ?? string.Empty;
-            var initialImagePath = !string.IsNullOrWhiteSpace(savedExpression) && File.Exists(savedExpression) ? savedExpression : avatarPath;
-            basePreviewImage = new Image { Source = LoadImage(initialImagePath), Stretch = Stretch.Uniform, MaxHeight = 360 };
             previewCanvas.Children.Add(basePreviewImage);
             foreach (var layer in AvatarLayerOrdering.ForegroundLayers(visibleLayers))
             {
-                var image = new Image { Source = LoadImage(AvatarMouthSpritePolicy.ResolvePath(layer, previewState)), Stretch = Stretch.Uniform, MaxHeight = 360 };
+                var artworkPath = AvatarMouthSpritePolicy.ResolvePath(layer, previewState);
+                var mouthArtwork = IsAvatarMouthArtwork(layer, artworkPath);
+                var image = new Image
+                {
+                    Source = LoadImage(artworkPath), Stretch = Stretch.Uniform, MaxHeight = 360,
+                    HorizontalAlignment = mouthArtwork ? HorizontalAlignment.Center : HorizontalAlignment.Stretch,
+                    VerticalAlignment = mouthArtwork ? VerticalAlignment.Center : VerticalAlignment.Stretch,
+                    IsHitTestVisible = false
+                };
                 image.RenderTransformOrigin = new Point(.5, .5);
                 image.RenderTransform = BuildLayerTransform(layer);
                 previewCanvas.Children.Add(image);
                 layerImages[layer.Id] = image;
             }
             preview.Child = previewCanvas;
+            previewCanvas.SizeChanged += (_, _) => RefreshPreviewLayerSizing();
+            previewCanvas.Loaded += (_, _) => RefreshPreviewLayerSizing();
         }
         else preview.Child = Label("Todavía no hay arte importado.\nUsá un PNG propio para comenzar.", 16, "#98A4BE");
+
+        void RefreshPreviewLayerSizing()
+        {
+            if (previewCanvas is null || basePreviewImage?.Source is not BitmapSource referenceBitmap)
+                return;
+            var viewportWidth = previewCanvas.ActualWidth > 0 ? previewCanvas.ActualWidth : 460d;
+            var viewportHeight = previewCanvas.ActualHeight > 0 ? previewCanvas.ActualHeight : 360d;
+            foreach (var layer in visibleLayers)
+            {
+                if (!layerImages.TryGetValue(layer.Id, out var image) || image.Source is not BitmapSource artwork)
+                    continue;
+                var artworkPath = AvatarMouthSpritePolicy.ResolvePath(layer, previewState);
+                if (!AvatarLayerOrdering.IsBackground(layer) && IsAvatarMouthArtwork(layer, artworkPath))
+                {
+                    var size = AvatarLayerSizingPolicy.GetStickerSize(
+                        artwork.PixelWidth, artwork.PixelHeight,
+                        referenceBitmap.PixelWidth, referenceBitmap.PixelHeight,
+                        viewportWidth, viewportHeight);
+                    image.Width = size.Width;
+                    image.Height = size.Height;
+                    image.HorizontalAlignment = HorizontalAlignment.Center;
+                    image.VerticalAlignment = VerticalAlignment.Center;
+                }
+                else
+                {
+                    image.Width = double.NaN;
+                    image.Height = double.NaN;
+                    image.HorizontalAlignment = HorizontalAlignment.Stretch;
+                    image.VerticalAlignment = VerticalAlignment.Stretch;
+                }
+            }
+        }
+
+        RefreshPreviewLayerSizing();
         left.Children.Add(preview);
-        left.Children.Add(Label("Seleccioná una capa visible a la derecha, arrastrala en esta vista y guardá la transformación cuando te guste el resultado.", 12, "#98A4BE"));
+        left.Children.Add(Label("Para mover una boca: creá su capa independiente, seleccioná «Boca animada», activá el modo de arrastre y llevá el sticker hasta la boca con el mouse. Después guardá la posición.", 12, "#98A4BE"));
+        left.Children.Add(ActionButton("👄 CREAR CAPA DE BOCA MOVIBLE", (_, _) => CreateMouthLayerFromClosedSprite(), true));
 
         var right = Panel("Avatar y salida");
         right.Margin = new Thickness(18, 0, 0, 0);
@@ -794,12 +841,16 @@ public partial class MainWindow
             if (layerList.SelectedItem is not string item) return null;
             return long.TryParse(item.Split('|')[0].Trim(), out var id) ? id : null;
         }
+        const string selectedLayerSettingKey = "avatar.studio.selected-layer-id";
         void ReloadLayers(long? selectId = null)
         {
-            var entries = store.GetAvatarLayers().Select(l => $"{l.Id} | {(l.Visible ? "●" : "○")} | {l.Name}").ToList();
+            var storedSelection = selectId;
+            if (!storedSelection.HasValue && long.TryParse(store.GetSetting(selectedLayerSettingKey), out var storedId))
+                storedSelection = storedId;
+            var entries = store.GetAvatarLayers().Select(l => $"{l.Id} | {(l.Visible ? "●" : "○")} | {(l.ClosedMouthPath is not null || l.OpenMouthPath is not null ? "👄 " : "")}{l.Name}").ToList();
             layerList.ItemsSource = entries;
-            if (selectId.HasValue)
-                layerList.SelectedItem = entries.FirstOrDefault(s => long.TryParse(s.Split('|')[0].Trim(), out var id) && id == selectId.Value);
+            if (storedSelection.HasValue)
+                layerList.SelectedItem = entries.FirstOrDefault(s => long.TryParse(s.Split('|')[0].Trim(), out var id) && id == storedSelection.Value);
         }
         ReloadLayers();
         right.Children.Add(layerList);
@@ -827,9 +878,10 @@ public partial class MainWindow
         }));
         right.Children.Add(layerActions);
 
-        var mouthPanel = Panel("Boca animada · capa independiente");
+        var moveSelectedLayerWithMouse = false;
+        var mouthPanel = Panel("Boca animada · crear y ubicar el sticker");
         mouthPanel.Margin = new Thickness(0, 10, 0, 0);
-        mouthPanel.Children.Add(Label("Seleccioná la capa PNG de la boca. Asigná un dibujo con la boca cerrada y otro con la boca abierta. Ambos usarán la misma posición, escala y rotación de la capa, así podés ajustarlos exactamente sobre la cara aunque cada personaje tenga un diseño anime diferente.", 12, "#98A4BE"));
+        mouthPanel.Children.Add(Label("PASO 1: creá una capa propia de boca con el botón «CREAR CAPA DE BOCA MOVIBLE» junto a la vista previa. Usá un PNG recortado y transparente que contenga solamente la boca, no toda la ilustración. PASO 2: seleccioná «Boca animada» y asigná el PNG abierto. PASO 3: activá el modo de arrastre y llevá la boca desde el centro hasta la boca real de tu personaje; guardá la posición.", 12, "#98A4BE"));
         string? PickMouthSprite(string title)
         {
             var dialog = new OpenFileDialog
@@ -849,6 +901,51 @@ public partial class MainWindow
             File.Copy(dialog.FileName, destination, false);
             return destination;
         }
+        void CreateMouthLayerFromClosedSprite()
+        {
+            if (string.IsNullOrWhiteSpace(avatarPath) || !File.Exists(avatarPath))
+            {
+                MessageBox.Show(this, "Primero importá la imagen base de tu personaje. Después creá la capa de boca.", "Crear boca movible", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new OpenFileDialog
+            {
+                Title = "Elegí el PNG TRANSPARENTE que contiene solo la boca cerrada",
+                Filter = "PNG transparente recomendado (*.png)|*.png",
+                Multiselect = false,
+                CheckFileExists = true
+            };
+            if (dialog.ShowDialog(this) != true) return;
+            string? copiedPath = null;
+            try
+            {
+                var info = new FileInfo(dialog.FileName);
+                if (info.Length <= 0 || info.Length > 25 * 1024 * 1024)
+                    throw new InvalidOperationException("El PNG debe ocupar entre 1 byte y 25 MB.");
+                var source = LoadImage(dialog.FileName);
+                if (source.PixelWidth > 16384 || source.PixelHeight > 16384 || (long)source.PixelWidth * source.PixelHeight > 80_000_000)
+                    throw new InvalidOperationException("La imagen excede el límite de dimensiones admitido.");
+                Directory.CreateDirectory(avatarDirectory);
+                copiedPath = Path.Combine(avatarDirectory, "mouth-layer-" + Guid.NewGuid().ToString("N") + ".png");
+                File.Copy(dialog.FileName, copiedPath, false);
+                var layerId = store.AddAvatarLayer("Boca animada", copiedPath);
+                store.SetAvatarLayerMouthSprites(layerId, copiedPath, null);
+                store.SetSetting(selectedLayerSettingKey, layerId.ToString());
+                store.Log("Avatar", "Se creó una capa independiente de boca para moverla manualmente.");
+                RefreshAvatarPresentation();
+                FooterStatus.Text = "Capa «Boca animada» creada y seleccionada. Activá «Mover capa con el mouse», arrastrala desde el centro hasta la boca real y guardá la posición. Después asigná el PNG de boca abierta.";
+            }
+            catch (Exception ex)
+            {
+                if (copiedPath is not null)
+                {
+                    try { File.Delete(copiedPath); } catch { /* Keep the original image; cleanup is best-effort. */ }
+                }
+                MessageBox.Show(this, "No se pudo crear la capa de boca: " + ex.Message, "Crear boca movible", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         void AssignMouthSprite(bool open)
         {
             var id = SelectedLayerId();
@@ -873,6 +970,7 @@ public partial class MainWindow
             }
         }
         var mouthActions = new WrapPanel();
+        mouthActions.Children.Add(ActionButton("＋ Crear capa de boca", (_, _) => CreateMouthLayerFromClosedSprite(), true));
         mouthActions.Children.Add(ActionButton("Asignar boca cerrada", (_, _) => AssignMouthSprite(false)));
         mouthActions.Children.Add(ActionButton("Asignar boca abierta", (_, _) => AssignMouthSprite(true)));
         mouthActions.Children.Add(ActionButton("Quitar animación de boca", (_, _) =>
@@ -887,6 +985,26 @@ public partial class MainWindow
             }
             catch (Exception ex) { MessageBox.Show(this, "No se pudieron quitar las asignaciones: " + ex.Message); }
         }));
+        var moveLayerWithMouseButton = new Button
+        {
+            Content = "🎯 Activar modo mover capa con el mouse",
+            MinHeight = 34, Margin = new Thickness(3), Padding = new Thickness(10, 7, 10, 7),
+            ToolTip = "Seleccioná «Boca animada», activá este modo y arrastrá el sticker sobre la vista previa."
+        };
+        moveLayerWithMouseButton.Click += (_, _) =>
+        {
+            if (SelectedLayerId() is null)
+            {
+                MessageBox.Show(this, "Primero seleccioná la capa que querés mover en la lista de capas.", "Mover boca", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            moveSelectedLayerWithMouse = !moveSelectedLayerWithMouse;
+            moveLayerWithMouseButton.Content = moveSelectedLayerWithMouse ? "✅ Modo mover ACTIVO · clic para terminar" : "🎯 Activar modo mover capa con el mouse";
+            FooterStatus.Text = moveSelectedLayerWithMouse
+                ? "MODO MOVER ACTIVO: arrastrá la capa seleccionada dentro de la vista previa; después pulsá «Guardar posición de boca»."
+                : "Modo mover desactivado.";
+        };
+        mouthActions.Children.Add(moveLayerWithMouseButton);
         mouthPanel.Children.Add(mouthActions);
         right.Children.Add(mouthPanel);
 
@@ -932,11 +1050,30 @@ public partial class MainWindow
             loadingTransform = false;
             PreviewSelectedTransform();
         }
-        layerList.SelectionChanged += (_, _) => LoadSelectedTransform();
+        layerList.SelectionChanged += (_, _) =>
+        {
+            if (SelectedLayerId() is long selectedId)
+                store.SetSetting(selectedLayerSettingKey, selectedId.ToString());
+            LoadSelectedTransform();
+        };
         xSlider.ValueChanged += (_, _) => PreviewSelectedTransform();
         ySlider.ValueChanged += (_, _) => PreviewSelectedTransform();
         scaleSlider.ValueChanged += (_, _) => PreviewSelectedTransform();
         rotationSlider.ValueChanged += (_, _) => PreviewSelectedTransform();
+        LoadSelectedTransform();
+        mouthActions.Children.Add(ActionButton("💾 Guardar posición de boca", (_, _) =>
+        {
+            var id = SelectedLayerId();
+            if (id is null) { MessageBox.Show(this, "Seleccioná la capa «Boca animada» primero."); return; }
+            try
+            {
+                store.UpdateAvatarLayerTransform(id.Value, xSlider.Value, ySlider.Value, scaleSlider.Value, rotationSlider.Value);
+                if (overlay is { IsVisible: true } && !string.IsNullOrWhiteSpace(avatarPath))
+                    overlay.SetAvatar(avatarPath, store.GetAvatarLayers(), GetAvatarExpressionPaths());
+                FooterStatus.Text = $"Posición guardada: X {xSlider.Value:0}, Y {ySlider.Value:0}, escala {scaleSlider.Value:P0}. La boca usa estos mismos ajustes al hablar.";
+            }
+            catch (Exception ex) { MessageBox.Show(this, "No se pudo guardar la posición: " + ex.Message); }
+        }, true));
 
         // Dragging moves only the selected visible layer. The edit is preview-only until Save is pressed.
         var dragCanvas = previewCanvas;
@@ -945,10 +1082,13 @@ public partial class MainWindow
             System.Windows.Point dragOrigin = default;
             var dragStartX = 0d;
             var dragStartY = 0d;
+            var dragScaleX = 1d;
+            var dragScaleY = 1d;
             var isDraggingLayer = false;
 
             dragCanvas.MouseLeftButtonDown += (_, e) =>
             {
+                if (!moveSelectedLayerWithMouse) return;
                 var id = SelectedLayerId();
                 if (id is null || !layerImages.ContainsKey(id.Value))
                     return;
@@ -956,6 +1096,10 @@ public partial class MainWindow
                 dragOrigin = e.GetPosition(dragCanvas);
                 dragStartX = xSlider.Value;
                 dragStartY = ySlider.Value;
+                var overlayWidth = overlay is { ActualWidth: > 0 } ? overlay.ActualWidth : 420d;
+                var overlayHeight = overlay is { ActualHeight: > 0 } ? overlay.ActualHeight : 520d;
+                dragScaleX = overlayWidth / Math.Max(1, dragCanvas.ActualWidth);
+                dragScaleY = overlayHeight / Math.Max(1, dragCanvas.ActualHeight);
                 isDraggingLayer = dragCanvas.CaptureMouse();
                 if (isDraggingLayer)
                     e.Handled = true;
@@ -966,8 +1110,8 @@ public partial class MainWindow
                     return;
 
                 var current = e.GetPosition(dragCanvas);
-                xSlider.Value = Math.Clamp(dragStartX + current.X - dragOrigin.X, xSlider.Minimum, xSlider.Maximum);
-                ySlider.Value = Math.Clamp(dragStartY + current.Y - dragOrigin.Y, ySlider.Minimum, ySlider.Maximum);
+                xSlider.Value = Math.Clamp(dragStartX + (current.X - dragOrigin.X) * dragScaleX, xSlider.Minimum, xSlider.Maximum);
+                ySlider.Value = Math.Clamp(dragStartY + (current.Y - dragOrigin.Y) * dragScaleY, ySlider.Minimum, ySlider.Maximum);
             };
             dragCanvas.MouseLeftButtonUp += (_, e) =>
             {
@@ -976,7 +1120,7 @@ public partial class MainWindow
 
                 isDraggingLayer = false;
                 dragCanvas.ReleaseMouseCapture();
-                FooterStatus.Text = "Vista previa ajustada. Pulsá «Aplicar y guardar transformación» para conservar la posición.";
+                FooterStatus.Text = "Vista previa ajustada. Pulsá «Guardar posición de boca» para conservar la posición.";
                 e.Handled = true;
             };
         }
@@ -1033,6 +1177,7 @@ public partial class MainWindow
                 ? LoadImage(expressionPath)
                 : LoadImage(avatarPath);
             var visualState = selectedState == "Blink" ? "Idle" : selectedState;
+            previewState = visualState;
             foreach (var layer in store.GetAvatarLayers())
             {
                 if (!layerImages.TryGetValue(layer.Id, out var layerImage)) continue;
@@ -1040,6 +1185,7 @@ public partial class MainWindow
                 if (File.Exists(artworkPath))
                     layerImage.Source = LoadImage(artworkPath);
             }
+            RefreshPreviewLayerSizing();
         }
 
         var expressionPanel = Panel("Sprites por expresión");
@@ -1166,6 +1312,10 @@ public partial class MainWindow
         }
     }
 
+
+    private static bool IsAvatarMouthArtwork(AvatarLayer layer, string artworkPath) =>
+        (!string.IsNullOrWhiteSpace(layer.ClosedMouthPath) && string.Equals(artworkPath, layer.ClosedMouthPath, StringComparison.OrdinalIgnoreCase)) ||
+        (!string.IsNullOrWhiteSpace(layer.OpenMouthPath) && string.Equals(artworkPath, layer.OpenMouthPath, StringComparison.OrdinalIgnoreCase));
 
     private void OpenAvatarWardrobeStudio()
     {
