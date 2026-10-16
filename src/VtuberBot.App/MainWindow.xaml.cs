@@ -101,7 +101,7 @@ public partial class MainWindow : Window
 
     private static readonly string[] Pages =
     [
-        "Inicio", "Avatar Studio", "Comandos", "Automatizaciones", "Voz y audio", "OBS", "Actividad y diagnóstico", "Ajustes"
+        "Inicio", "Avatar Studio", "Comandos", "Voz y audio", "OBS", "Actividad y diagnóstico", "Ajustes"
     ];
 
     private void UpdateAvatarTalkState()
@@ -598,7 +598,6 @@ public partial class MainWindow : Window
             "Inicio" => "Todo lo importante del stream, en un solo lugar.",
             "Avatar Studio" => "Importá tu propia imagen, ajustá el encuadre y prepará los estados de reposo/habla.",
             "Comandos" => "Acciones locales disponibles desde VTuberBot; no se activan desde el chat de Twitch.",
-            "Automatizaciones" => "Reglas locales y acciones compatibles de OBS, sin depender de servicios sociales externos.",
             "Voz y audio" => "Micrófono, detección de actividad y síntesis local; VOICEVOX es la opción de voz prioritaria.",
             "OBS" => "Conexión real mediante OBS WebSocket v5 y operaciones que la API permita ejecutar.",
 
@@ -611,7 +610,6 @@ public partial class MainWindow : Window
             "Inicio" => BuildDashboard(),
             "Avatar Studio" => BuildAvatarStudio(),
             "Comandos" => BuildCommandsPage(),
-            "Automatizaciones" => BuildEventActionWorkspace(),
             "Voz y audio" => BuildAudioPage(),
             "OBS" => BuildObsPage(),
             "Actividad y diagnóstico" => BuildActivityPage(),
