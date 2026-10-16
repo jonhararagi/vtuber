@@ -1,3 +1,14 @@
+## 2026-10-16 — Validación del merge de voz/avatar y corrección de prueba WebSocket
+
+- **PR #30 se integró en `main`** mediante el merge commit `496fc5d7e278ae0d09028584dc85be3cae9defc7`. El bloque integrado incluye VOICEVOX local, estados de avatar `Idle/Talking`, límites de CPU, avisos de memoria y muestra de recursos del proceso VOICEVOX.
+- **Windows CI #1022 para el merge commit de main:** restauración de paquetes y Build Release terminaron correctamente, pero falló 1 de 647 pruebas: `StreamerBotWebSocketTests.InvalidJsonMovesConnectionToProtocolError`, con `TaskCanceledException` durante el handshake. La ejecución no publicó paquete. [Ejecución #1022](https://github.com/jonhararagi/vtuber/actions/runs/38956122398).
+- La revisión del test identificó una carrera de temporización: el servidor falso enviaba JSON inválido 100 ms después del mensaje Hello sin esperar a que `ConnectAsync` hubiese completado. Bajo carga de Windows CI, el protocolo podía fallar antes de que el test llegara a comprobar el estado `ProtocolError`.
+- **PR #31**, rama `fix/streamerbot-protocol-test-race`, sincroniza el envío del JSON inválido con una señal explícita posterior al retorno exitoso de `ConnectAsync` y amplía timeouts solo en ese test. No altera la implementación del cliente ni suprime errores de protocolo. Se requiere Windows CI verde para su HEAD y una nueva CI verde para el merge commit de `main` antes de crear/enlazar el paquete final.
+- **Paquete final de main:** no disponible a partir de CI #1022; el artefacto de PR #30 pertenece al build de la rama y no debe tratarse como artefacto del merge commit de main.
+- **Validación manual aún pendiente:** probar en Windows real el inicio/reproducción de VOICEVOX, la transición visual del avatar, las operaciones reales de OBS y la grabación local con AMD AMF. La CI no acredita estos componentes de hardware.
+
+---
+
 ## 2026-10-16 — OBS integrado; trabajo local de VOICEVOX/avatar y rendimiento
 
 - **PR #29 integrada en main:** [Panel principal de OBS](https://github.com/jonhararagi/vtuber/pull/29), merge commit `ee623d1927fc391de974df1b9f79867d3273b35f`. Se conserva OBS como motor; el panel añade inicio minimizado, controles ya implementados, estado, muestras separadas de CPU/RAM y diagnóstico no concluyente de AMD AMF.
