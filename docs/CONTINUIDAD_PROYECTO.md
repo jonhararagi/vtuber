@@ -1938,3 +1938,46 @@ Objetivo inicial sugerido, sujeto a la fase de diseño y a la capacidad real de 
 - **Pruebas añadidas:** `tests/VtuberBot.Tests/Tests.cs` verifica que ausencia, cadena vacía y valor desconocido resuelvan local, que una preferencia local siga local y que una preferencia remota explícita (incluyendo espacios/mayúsculas) se preserve como remota.
 - **Limitación importante:** “local” no instala ni incluye un modelo conversacional. La IA local requiere un servidor compatible ejecutándose en loopback; si no está disponible, la generación local puede fallar hasta que el usuario lo configure. SAPI depende de las voces instaladas en Windows. Este cambio no realiza llamadas remotas automáticas ni elimina claves remotas existentes.
 - **CI:** pendiente de comprobar para el SHA final de esta actualización; no declarar validación hasta revisar la ejecución de Windows CI asociada exactamente al commit final.
+
+
+## 2026-10-16 — Creador de waifu PNG por objetos: primer bloque de código
+
+- Rama: `product/complete-vtuber-experience`; `main` no modificado.
+- Se agregó `src/VtuberBot.App/Workspaces/MainWindow.WaifuObjectEditor.cs` y un botón de acceso desde `MainWindow.AvatarStudio.cs`.
+- Implementado en código: importar varias imágenes PNG/JPG/JPEG/BMP/GIF como capas, previsualizar sobre cuadrícula de transparencia, arrastrar capas, ajustar escala/opacidad, reordenar/eliminar, guardar/abrir un proyecto JSON con rutas originales y exportar composición PNG 640×640 con alfa.
+- Commits: `f163e7dc7d5e29acdb6c941fd9cfdd85c22b16c4` (editor), `1a4b65eeb984cd9cee0c0e59bc24082e528918da` (integración UI), `e19bc8470956aa5998f8605c76c9c6fde1b2d10d` (abrir proyecto).
+- **No declarar terminado ni validado todavía:** no se ha ejecutado Windows CI contra el SHA final de este bloque ni compilado localmente en Windows. El chequeo de ejecuciones asociado al commit de integración no devolvió runs PR vinculados.
+- Completado en código en commits posteriores: catálogo local vectorial (10 accesorios, 9 estilos de ojos, 7 bocas, 10 efectos y 4 fondos 1280×720); eliminación de blanco casi puro conectado a los bordes; reproducción de GIF en vista previa y exportación del fotograma visible; guardado portable con copias PNG de capas y rutas relativas.
+- El catálogo son formas vectoriales originales de muestra para prototipado, no ilustraciones anime profesionales. La eliminación de fondo tiene límite de 20 millones de píxeles y puede requerir revisión manual de bordes antialiasados. Los proyectos deben moverse junto con su carpeta de recursos.
+- Pendiente: pruebas automatizadas específicas, revisión visual y CI Windows del SHA final. No afirmar compilación o validación hasta que el workflow del SHA exacto termine correctamente.
+
+
+## 2026-10-16 — Creador de waifu PNG por objetos: ampliación funcional
+
+**Rama:** `product/complete-vtuber-experience`
+
+- Añadido catálogo local sin dependencias remotas: 10 accesorios de cabeza, 9 variantes de ojos, 7 bocas, 10 efectos y 4 fondos de 1280×720. Cada pieza se inserta como capa PNG independiente; los fondos se insertan detrás del resto de las capas.
+- Añadida eliminación de fondo casi blanco conectado a los bordes mediante flood fill de cuatro vecinos. Los píxeles blancos interiores no conectados se conservan. Se limita el procesamiento a 20 millones de píxeles para evitar picos excesivos de memoria. El usuario debe revisar bordes claros y antialiasing antes de exportar.
+- Añadida reproducción de fotogramas GIF en la vista previa, con duración leída de metadatos cuando está disponible y fallback a 100 ms. Exportar PNG captura el fotograma actualmente visible; no exporta un GIF animado.
+- El guardado del proyecto ahora copia las capas como PNG a una carpeta de recursos junto al JSON y almacena rutas relativas; abrir un proyecto resuelve esas rutas relativas. Mover el JSON sin su carpeta de recursos seguirá rompiendo referencias.
+- Commits del bloque: [editor por objetos](https://github.com/jonhararagi/vtuber/commit/f163e7dc7d5e29acdb6c941fd9cfdd85c22b16c4), [integración en Avatar Studio](https://github.com/jonhararagi/vtuber/commit/1a4b65eeb984cd9cee0c0e59bc24082e528918da), [reapertura de proyectos](https://github.com/jonhararagi/vtuber/commit/e19bc8470956aa5998f8605c76c9c6fde1b2d10d), [quitar fondo y proyectos portables](https://github.com/jonhararagi/vtuber/commit/23a9eb8125b444df2fc0bcbc7df24602d34ab0e0), [GIF animado](https://github.com/jonhararagi/vtuber/commit/7537ef3f84812d2266eda0e4922e4a0aa4badb84), [catálogo vectorial](https://github.com/jonhararagi/vtuber/commit/e018298333aac16dbec06bd7d008f57a4ee5538a), [corrección de sintaxis del catálogo](https://github.com/jonhararagi/vtuber/commit/c1091978b7cca7d3248212ea7e9dda3725af26e6), [fondos detrás de las capas](https://github.com/jonhararagi/vtuber/commit/6149211905cb68440edffda63184eb04cbb0f651).
+- **Validación:** el conector de GitHub no devolvió ejecuciones de workflow ni checks para el SHA consultado; no se ha confirmado compilación Windows ni pruebas automatizadas para este bloque. El código se ha revisado estáticamente, pero la validación de build sigue pendiente.
+- **Pendiente:** pruebas automáticas específicas de eliminación de fondo, duración de GIF, guardado/reapertura y exportación; revisión visual del catálogo; confirmar que el workflow Windows compile el SHA final y produzca un artefacto que lo contenga.
+
+
+### Ajustes posteriores del creador (16/10/2026)
+
+- Se corrigió el callback de selección del catálogo y el estado al importar imágenes.
+- Guardar/abrir ahora conserva un GIF original animado dentro de la carpeta de recursos del proyecto; el temporizador vuelve a reproducirlo al abrir. Si se elimina el fondo de un GIF, la capa se convierte intencionalmente en una imagen estática procesada para evitar que el temporizador restaure fotogramas sin recortar.
+- **HEAD de código consultado:** `c67b0357f37482264c4dabaf4ab1cecca8e44deb`. La consulta de workflow runs y checks no devolvió ejecuciones ni estados para el SHA consultado. Sigue sin estar validada la compilación y los tests de Windows del bloque.
+
+
+### Último ajuste y CI observado (16/10/2026)
+
+- Se mantiene sincronizada la selección de capa al refrescar la lista; así, importar una imagen o insertar un fondo no pierde la selección activa.
+- Último SHA de código consultado antes de este apunte: `b2a312ba6db74ee84297f5b2e6217fc0806c5634`.
+- Windows CI #939 estaba **en progreso** para el SHA anterior `c67b0357f37482264c4dabaf4ab1cecca8e44deb`: build en curso y pruebas aún sin comenzar. Ese run no valida el código posterior ni el HEAD de este documento. Seguimos sin afirmar que la versión final compiló hasta comprobar un run del SHA exacto.
+
+
+- Corrección adicional de selección: `RefreshList` ahora conserva el índice seleccionado al reiniciar `ItemsSource`, evitando que el evento `SelectionChanged` borre la selección al importar o insertar piezas.
+- SHA de código más reciente: `ef4a257cb63495010ed727b1b74386c9117c72a6`. La validación debe comprobar ese SHA o uno posterior que lo contenga; el CI anterior no lo valida.
