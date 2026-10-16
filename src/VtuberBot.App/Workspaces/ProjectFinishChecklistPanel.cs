@@ -282,7 +282,7 @@ public partial class MainWindow
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin = new Thickness(x * 40, y * 40, 0, 0)
             });
-        var image = new Image { Source = original, Width = previewWidth, Height = previewHeight, Stretch = Stretch.Uniform, IsHitTestVisible = false };
+        var image = new Image { Source = original, Width = previewWidth, Height = previewHeight, Stretch = Stretch.Uniform, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         var selectionCanvas = new Canvas { Width = previewWidth, Height = previewHeight, Background = Brushes.Transparent };
         preview.Children.Add(checker);
         preview.Children.Add(image);
@@ -346,7 +346,11 @@ public partial class MainWindow
         {
             if (start is null) return;
             var point = ClampToImage(e.GetPosition(selectionCanvas));
-            selectedRegion = new Rect(start.Value, point);
+            selectedRegion = new Rect(
+                Math.Min(start.Value.X, point.X),
+                Math.Min(start.Value.Y, point.Y),
+                Math.Abs(point.X - start.Value.X),
+                Math.Abs(point.Y - start.Value.Y));
             if (selectedRegion.Width < 4 || selectedRegion.Height < 4)
             {
                 selectedRegion = Rect.Empty;
