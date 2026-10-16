@@ -100,8 +100,7 @@ public partial class MainWindow : Window
 
     private static readonly string[] Pages =
     [
-        "Inicio","Centro de directo","Avatar Studio","Avatar externo","Streamer.bot","Twitch y chat","Bot social","Comandos","Comunidad y puntos","Automatizaciones","Sorteos",
-        "Minijuegos","Moderación","Voz y audio","OBS","Integraciones","Telegram Web","Actividad y diagnóstico","Ajustes"
+        "Inicio", "Avatar Studio", "Comandos", "Automatizaciones", "Voz y audio", "OBS", "Actividad y diagnóstico", "Ajustes"
     ];
 
     private void UpdateAvatarTalkState()
@@ -596,22 +595,12 @@ public partial class MainWindow : Window
         PageSubtitle.Text = currentPage switch
         {
             "Inicio" => "Todo lo importante del stream, en un solo lugar.",
-            "Centro de directo" => "Salida pública del avatar y controles privados del creador, separados.",
-            "Avatar Studio" => "Probá un ejemplo PNGTuber o 2D por capas, o importá tu propio arte.",
-            "Avatar externo" => "Configura PNGTuber Plus, verifica los pasos de avatar y administra atajos locales.",
-            "Streamer.bot" => "Conexión WebSocket, catálogo de acciones y suscripciones de eventos confirmadas por el servidor.",
-            "Twitch y chat" => "Conexión oficial por IRC/TLS; la cuenta solo aparece conectada tras autenticación real.",
-            "Bot social" => "Voz aguda de personaje, respuesta con IA y lectura del chat. Empieza en «Empezar aquí».",
-            "Comandos" => "Un registro de comandos compartido entre pruebas locales y chat.",
-            "Comunidad y puntos" => "Perfiles, puntos e historial persistidos en SQLite local.",
-            "Automatizaciones" => "Eventos reales, reglas persistentes, destinos validados y límites de seguridad.",
-            "Sorteos" => "Participantes deduplicados y ganador guardado en el historial.",
-            "Minijuegos" => "Juegos locales con resultados y recompensas registradas.",
-            "Moderación" => "Reglas configurables; el modo actual marca coincidencias sin castigar automáticamente.",
-            "Voz y audio" => "Micrófono, VAD, TTS local y biblioteca de efectos de sonido.",
-            "OBS" => "Escenas, estado real y destino de transmisión Twitch/YouTube mediante OBS autenticado.",
-            "Integraciones" => "Aplicaciones externas opcionales; el proceso no equivale a una conexión verificada.",
-            "Telegram Web" => "Telegram Web integrado cuando WebView2 está disponible.",
+            "Avatar Studio" => "Importá tu propia imagen, ajustá el encuadre y prepará los estados de reposo/habla.",
+            "Comandos" => "Acciones locales disponibles desde VTuberBot; no se activan desde el chat de Twitch.",
+            "Automatizaciones" => "Reglas locales y acciones compatibles de OBS, sin depender de servicios sociales externos.",
+            "Voz y audio" => "Micrófono, detección de actividad y síntesis local; VOICEVOX es la opción de voz prioritaria.",
+            "OBS" => "Conexión real mediante OBS WebSocket v5 y operaciones que la API permita ejecutar.",
+
             "Actividad y diagnóstico" => "Registro local de acciones y exportación sin tokens ni cookies.",
             "Ajustes" => "Preferencias locales, seguridad y perfil de rendimiento.",
             _ => ""
@@ -619,22 +608,11 @@ public partial class MainWindow : Window
         Workspace.Content = currentPage switch
         {
             "Inicio" => BuildDashboard(),
-            "Centro de directo" => BuildLiveCenterWorkspace(),
             "Avatar Studio" => BuildAvatarStudio(),
-            "Avatar externo" => BuildPngtuberWorkspace(),
-            "Streamer.bot" => BuildStreamerBotWorkspace(),
-            "Twitch y chat" => BuildTwitchPage(),
-            "Bot social" => BuildSocialBotPage(),
             "Comandos" => BuildCommandsPage(),
-            "Comunidad y puntos" => BuildCommunityPage(),
             "Automatizaciones" => BuildEventActionWorkspace(),
-            "Sorteos" => BuildGiveawaysPage(),
-            "Minijuegos" => BuildMinigamesPage(),
-            "Moderación" => BuildModerationPage(),
             "Voz y audio" => BuildAudioPage(),
             "OBS" => BuildObsPage(),
-            "Integraciones" => BuildIntegrationsPage(),
-            "Telegram Web" => BuildTelegramPage(),
             "Actividad y diagnóstico" => BuildActivityPage(),
             "Ajustes" => BuildSettingsPage(),
             _ => BuildDashboard()
