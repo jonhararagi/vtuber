@@ -28,6 +28,8 @@ public partial class MainWindow
 
         var layers = new List<WaifuLayer>();
         var selected = -1;
+        // Declared before project-loading callbacks that update these controls.
+        Slider cropX = null!, cropY = null!, cropW = null!, cropH = null!;
         var gifTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
         gifTimer.Tick += (_, _) =>
         {
@@ -586,7 +588,6 @@ public partial class MainWindow
 
         controls.Children.Add(new TextBlock { Text = "Encuadre de cámara / recorte visible", Foreground = Brushes.DeepSkyBlue, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 12, 4, 3) });
         controls.Children.Add(new TextBlock { Text = "El marco azul indica qué parte del personaje mostrar. Elegí rostro, busto o cuerpo completo y ajustá el recorte.", Foreground = Brushes.LightGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
-        Slider cropX = null!, cropY = null!, cropW = null!, cropH = null!;
         var framingPreset = new ComboBox { Margin = new Thickness(4), ItemsSource = new[] { "Personalizado", "Rostro", "Busto", "Cuerpo completo" }, SelectedIndex = 2 };
         framingPreset.SelectionChanged += (_, _) =>
         {
