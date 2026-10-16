@@ -17,8 +17,8 @@ namespace VtuberBot.App;
 /// </summary>
 public sealed class WaifuSpriteStudioWindow : Window
 {
-    private const int CanvasWidth = 1024;
-    private const int CanvasHeight = 1024;
+    private const int DefaultcanvasWidth = 1024;
+    private const int DefaultcanvasHeight = 1024;
     private const int MaximumLayers = 150;
     private const long MaxFileBytes = 25L * 1024 * 1024;
     private const long MaxFramePixels = 20_000_000;
@@ -33,10 +33,14 @@ public sealed class WaifuSpriteStudioWindow : Window
     private readonly List<WaifuSpriteAsset> catalog;
     private readonly List<SpriteLayer> layers = [];
     private readonly Dictionary<Guid, Border> visuals = [];
-    private readonly Canvas canvas = new() { Width = CanvasWidth, Height = CanvasHeight, Background = Brushes.Transparent, ClipToBounds = true, AllowDrop = true };
+    private int canvasWidth = DefaultcanvasWidth;
+    private int canvasHeight = DefaultcanvasHeight;
+    private readonly Canvas canvas = new() { Width = DefaultcanvasWidth, Height = DefaultcanvasHeight, Background = Brushes.Transparent, ClipToBounds = true, AllowDrop = true };
+    private readonly Grid stageGrid = new() { Width = DefaultcanvasWidth, Height = DefaultcanvasHeight, ClipToBounds = true };
     private readonly ListBox layerList = new() { MinHeight = 170, MaxHeight = 260 };
     private readonly ListBox catalogList = new() { MinHeight = 250, MaxHeight = 390 };
     private readonly ComboBox categoryPicker = new() { MinWidth = 200 };
+    private readonly ComboBox canvasSizePicker = new() { MinWidth = 185, Margin = new Thickness(0, 0, 8, 0) };
     private readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap, Foreground = Brush("#C7D0E6"), Margin = new Thickness(0, 8, 0, 4) };
     private readonly CheckBox removeWhiteOnImport = new() { Content = "Quitar fondo blanco conectado al borde", IsChecked = true, Foreground = Brush("#F0EAFB"), Margin = new Thickness(0, 4, 0, 8) };
     private readonly Slider xSlider = new() { Minimum = -1024, Maximum = 2048, Value = 250, TickFrequency = 16 };
@@ -52,6 +56,7 @@ public sealed class WaifuSpriteStudioWindow : Window
     private readonly DispatcherTimer animationTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private Guid? selectedLayerId;
     private bool loadingTransform;
+    private bool loadingCanvasSize;
 
     public event Action<string>? CompositeExported;
     public event Action<string>? CompositeExportedFor2D;
@@ -80,6 +85,18 @@ public sealed class WaifuSpriteStudioWindow : Window
         categoryPicker.ItemsSource = SupportedCategories;
         categoryPicker.SelectedItem = "Sombreros";
         categoryPicker.SelectionChanged += (_, _) => RefreshCatalog();
+        canvasSizePicker.ItemsSource = new[]
+        {
+            "Cuadrado · 1024 × 1024",
+            "HD · 1280 × 720",
+            "Full HD · 1920 × 1080"
+        };
+        canvasSizePicker.SelectedIndex = 0;
+        canvasSizePicker.SelectionChanged += (_, _) =>
+        {
+            if (!loadingCanvasSize)
+                ChangeCanvasSize();
+        };
         catalogList.SelectionChanged += (_, _) => UpdateCatalogDescription();
         layerList.SelectionChanged += (_, _) => LoadSelectedLayerTransform();
         xSlider.ValueChanged += (_, _) => PreviewSelectedTransform();
@@ -147,11 +164,12 @@ public sealed class WaifuSpriteStudioWindow : Window
         stagePanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         stagePanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var stageToolbar = new WrapPanel { Margin = new Thickness(4, 4, 4, 8) };
+        stageToolbar.Children.Add(new TextBlock { Text = "Lienzo:", Foreground = Brush("#E6DDF7"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
+        stageToolbar.Children.Add(canvasSizePicker);
         stageToolbar.Children.Add(ActionButton("Exportar PNG transparente", (_, _) => ExportComposite(false), true));
         stageToolbar.Children.Add(ActionButton("Crear PNGTuber en VTuberBot", (_, _) => ExportComposite(true)));
         stageToolbar.Children.Add(ActionButton("Crear PNGTuber + IA local 2.5D", (_, _) => ExportCompositeFor2D()));
         var viewbox = new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.Both, MaxWidth = 750, MaxHeight = 750, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        var stageGrid = new Grid { Width = CanvasWidth, Height = CanvasHeight, ClipToBounds = true };
         stageGrid.Children.Add(new Border { Background = CreateCheckerBrush() });
         stageGrid.Children.Add(canvas);
         viewbox.Child = stageGrid;
@@ -196,6 +214,71 @@ public sealed class WaifuSpriteStudioWindow : Window
         root.Children.Add(body);
         return root;
     }
+
+    private void ChangeCanvasSize()
+    {
+        var size = canvasSizePicker.SelectedItem?.ToString() switch
+        {
+            "HD · 1280 × 720" => (Width: 1280, Height: 720),
+            "Full HD · 1920 × 1080" => (Width: 1920, Height: 1080),
+            _ => (Width: DefaultCanvasWidth, Height: DefaultCanvasHeight)
+        };
+        if (size.Width == canvasWidth && size.Height == canvasHeight)
+            return;
+
+        var oldWidth = canvasWidth;
+        var oldHeight = canvasHeight;
+        var scale = Math.Min((double)size.Width / oldWidth, (double)size.Height / oldHeight);
+        foreach (var layer in layers)
+        {
+            if (string.Equals(layer.Category, "Fondos", StringComparison.OrdinalIgnoreCase))
+            {
+                layer.X = 0;
+                layer.Y = 0;
+                layer.Width = size.Width;
+                layer.Height = size.Height;
+                continue;
+            }
+
+            var centerX = layer.X + layer.Width / 2;
+            var centerY = layer.Y + layer.Height / 2;
+            layer.Width *= scale;
+            layer.Height *= scale;
+            layer.X = size.Width / 2d + (centerX - oldWidth / 2d) * scale - layer.Width / 2d;
+            layer.Y = size.Height / 2d + (centerY - oldHeight / 2d) * scale - layer.Height / 2d;
+        }
+
+        SetCanvasDimensions(size.Width, size.Height);
+        RefreshVisuals();
+        if (selectedLayerId is Guid selected && layers.Any(layer => layer.Id == selected))
+            SelectLayer(selected);
+        SetStatus($"Lienzo cambiado a {canvasWidth} × {canvasHeight}. Se mantuvieron las capas y se reubicaron respecto del centro.");
+    }
+
+    private void SetCanvasDimensions(int width, int height)
+    {
+        if (!IsSupportedCanvasSize(width, height))
+            throw new InvalidDataException("Los lienzos admitidos son 1024×1024, 1280×720 y 1920×1080.");
+        canvasWidth = width;
+        canvasHeight = height;
+        canvas.Width = width;
+        canvas.Height = height;
+        stageGrid.Width = width;
+        stageGrid.Height = height;
+    }
+
+    private static bool IsSupportedCanvasSize(int width, int height) =>
+        (width == DefaultCanvasWidth && height == DefaultCanvasHeight) ||
+        (width == 1280 && height == 720) ||
+        (width == 1920 && height == 1080);
+
+    private static string CanvasSizeLabel(int width, int height) =>
+        (width, height) switch
+        {
+            (1280, 720) => "HD · 1280 × 720",
+            (1920, 1080) => "Full HD · 1920 × 1080",
+            _ => "Cuadrado · 1024 × 1024"
+        };
 
     private void RefreshCatalog()
     {
@@ -346,8 +429,8 @@ public sealed class WaifuSpriteStudioWindow : Window
             var layer = new SpriteLayer
             {
                 Id = Guid.NewGuid(), Name = asset.Name, Category = asset.Category, Path = asset.Path,
-                Frames = frames, X = x, Y = y, Width = isBackground ? CanvasWidth : size.Width,
-                Height = isBackground ? CanvasHeight : size.Height, Scale = 1, Rotation = 0, Opacity = 1,
+                Frames = frames, X = x, Y = y, Width = isBackground ? canvasWidth : size.Width,
+                Height = isBackground ? canvasHeight : size.Height, Scale = 1, Rotation = 0, Opacity = 1,
                 Visible = true, ZIndex = isBackground ? -100 : NextZ(), RemoveMatte = asset.RemoveMatte
             };
             AddLayer(layer);
@@ -389,7 +472,7 @@ public sealed class WaifuSpriteStudioWindow : Window
             AddLayer(new SpriteLayer
             {
                 Id = Guid.NewGuid(), Name = "Personaje base · " + Path.GetFileName(path), Category = "Personaje base",
-                Path = processedPath, Frames = frames, X = (CanvasWidth - width) / 2, Y = (CanvasHeight - height) / 2,
+                Path = processedPath, Frames = frames, X = (canvasWidth - width) / 2, Y = (canvasHeight - height) / 2,
                 Width = width, Height = height, Scale = 1, Rotation = 0, Opacity = 1, Visible = true,
                 ZIndex = 100, RemoveMatte = removeWhite && Path.GetExtension(imported).Equals(".gif", StringComparison.OrdinalIgnoreCase)
             });
@@ -456,7 +539,7 @@ public sealed class WaifuSpriteStudioWindow : Window
             {
                 Id = Guid.NewGuid(), Name = Path.GetFileNameWithoutExtension(path), Category = category, Path = imported,
                 Frames = frames, X = isBackground ? 0 : DefaultX(category, size.Width), Y = isBackground ? 0 : DefaultY(category, size.Height),
-                Width = isBackground ? CanvasWidth : size.Width, Height = isBackground ? CanvasHeight : size.Height,
+                Width = isBackground ? canvasWidth : size.Width, Height = isBackground ? canvasHeight : size.Height,
                 Scale = 1, Rotation = 0, Opacity = 1, Visible = true, ZIndex = isBackground ? -100 : NextZ(), RemoveMatte = removeWhite
             };
             AddLayer(layer);
@@ -574,8 +657,8 @@ public sealed class WaifuSpriteStudioWindow : Window
             {
                 if (!border.IsMouseCaptured) return;
                 var current = moveEvent.GetPosition(canvas);
-                layer.X = Math.Clamp(startX + current.X - origin.X, -CanvasWidth, CanvasWidth * 2);
-                layer.Y = Math.Clamp(startY + current.Y - origin.Y, -CanvasHeight, CanvasHeight * 2);
+                layer.X = Math.Clamp(startX + current.X - origin.X, -canvasWidth, canvasWidth * 2);
+                layer.Y = Math.Clamp(startY + current.Y - origin.Y, -canvasHeight, canvasHeight * 2);
                 Canvas.SetLeft(border, layer.X);
                 Canvas.SetTop(border, layer.Y);
                 LoadSelectedLayerTransform();
@@ -628,8 +711,8 @@ public sealed class WaifuSpriteStudioWindow : Window
             {
                 if (!border.IsMouseCaptured) return;
                 var current = moveEvent.GetPosition(canvas);
-                layer.X = Math.Clamp(startX + current.X - origin.X, -CanvasWidth, CanvasWidth * 2);
-                layer.Y = Math.Clamp(startY + current.Y - origin.Y, -CanvasHeight, CanvasHeight * 2);
+                layer.X = Math.Clamp(startX + current.X - origin.X, -canvasWidth, canvasWidth * 2);
+                layer.Y = Math.Clamp(startY + current.Y - origin.Y, -canvasHeight, canvasHeight * 2);
                 Canvas.SetLeft(border, layer.X); Canvas.SetTop(border, layer.Y);
                 LoadSelectedLayerTransform();
             };
@@ -731,8 +814,8 @@ public sealed class WaifuSpriteStudioWindow : Window
         var duplicate = selected.Clone();
         duplicate.Id = Guid.NewGuid();
         duplicate.Name += " (copia)";
-        duplicate.X = Math.Clamp(duplicate.X + 30, -CanvasWidth, CanvasWidth * 2);
-        duplicate.Y = Math.Clamp(duplicate.Y + 30, -CanvasHeight, CanvasHeight * 2);
+        duplicate.X = Math.Clamp(duplicate.X + 30, -canvasWidth, canvasWidth * 2);
+        duplicate.Y = Math.Clamp(duplicate.Y + 30, -canvasHeight, canvasHeight * 2);
         duplicate.ZIndex = NextZ();
         AddLayer(duplicate);
     }
@@ -825,7 +908,7 @@ public sealed class WaifuSpriteStudioWindow : Window
 
     private BitmapSource RenderComposite()
     {
-        var exportCanvas = new Canvas { Width = CanvasWidth, Height = CanvasHeight, Background = Brushes.Transparent, ClipToBounds = true };
+        var exportCanvas = new Canvas { Width = canvasWidth, Height = canvasHeight, Background = Brushes.Transparent, ClipToBounds = true };
         foreach (var layer in layers.Where(item => item.Visible).OrderBy(item => item.ZIndex))
         {
             var image = new Image
@@ -843,10 +926,10 @@ public sealed class WaifuSpriteStudioWindow : Window
             Canvas.SetTop(image, layer.Y);
         }
 
-        exportCanvas.Measure(new Size(CanvasWidth, CanvasHeight));
-        exportCanvas.Arrange(new Rect(0, 0, CanvasWidth, CanvasHeight));
+        exportCanvas.Measure(new Size(canvasWidth, canvasHeight));
+        exportCanvas.Arrange(new Rect(0, 0, canvasWidth, canvasHeight));
         exportCanvas.UpdateLayout();
-        var target = new RenderTargetBitmap(CanvasWidth, CanvasHeight, 96, 96, PixelFormats.Pbgra32);
+        var target = new RenderTargetBitmap(canvasWidth, canvasHeight, 96, 96, PixelFormats.Pbgra32);
         target.Render(exportCanvas);
         target.Freeze();
         return target;
@@ -859,8 +942,8 @@ public sealed class WaifuSpriteStudioWindow : Window
         try
         {
             var dto = new WaifuProjectDocument(
-                CanvasWidth,
-                CanvasHeight,
+                canvasWidth,
+                canvasHeight,
                 layers.Select(layer => new WaifuProjectLayer(layer.Id, layer.Name, layer.Category, layer.Path, layer.X, layer.Y,
                     layer.Width, layer.Height, layer.Scale, layer.Rotation, layer.Opacity, layer.Visible, layer.ZIndex, layer.RemoveMatte, layer.FrameIndex)).ToList());
             File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(dto, JsonOptions));
@@ -885,6 +968,12 @@ public sealed class WaifuSpriteStudioWindow : Window
                 ?? throw new InvalidDataException("El archivo de proyecto no tiene un formato válido.");
             if (document.Layers.Count > MaximumLayers)
                 throw new InvalidDataException($"El proyecto supera el máximo de {MaximumLayers} capas.");
+            if (!IsSupportedCanvasSize(document.CanvasWidth, document.CanvasHeight))
+                throw new InvalidDataException("El proyecto usa un tamaño de lienzo no admitido.");
+            loadingCanvasSize = true;
+            canvasSizePicker.SelectedItem = CanvasSizeLabel(document.CanvasWidth, document.CanvasHeight);
+            loadingCanvasSize = false;
+            SetCanvasDimensions(document.CanvasWidth, document.CanvasHeight);
             var loaded = new List<SpriteLayer>();
             foreach (var dto in document.Layers)
             {
@@ -932,7 +1021,7 @@ public sealed class WaifuSpriteStudioWindow : Window
         return group;
     }
 
-    private static Size DefaultSize(string category, int originalWidth, int originalHeight)
+    private Size DefaultSize(string category, int originalWidth, int originalHeight)
     {
         return category switch
         {
@@ -940,7 +1029,7 @@ public sealed class WaifuSpriteStudioWindow : Window
             "Ojos" => new Size(440, 190),
             "Bocas" => new Size(180, 135),
             "Emociones" => new Size(220, 220),
-            "Fondos" => new Size(CanvasWidth, CanvasHeight),
+            "Fondos" => new Size(canvasWidth, canvasHeight),
             _ => FitWithin(originalWidth, originalHeight, 450, 450)
         };
     }
@@ -951,23 +1040,23 @@ public sealed class WaifuSpriteStudioWindow : Window
         return new Size(Math.Max(1, width * factor), Math.Max(1, height * factor));
     }
 
-    private static double DefaultX(string category, double width) =>
+    private double DefaultX(string category, double width) =>
         category switch
         {
-            "Sombreros" => (CanvasWidth - width) / 2,
-            "Ojos" => (CanvasWidth - width) / 2,
-            "Bocas" => (CanvasWidth - width) / 2,
-            _ => (CanvasWidth - width) / 2
+            "Sombreros" => (canvasWidth - width) / 2,
+            "Ojos" => (canvasWidth - width) / 2,
+            "Bocas" => (canvasWidth - width) / 2,
+            _ => (canvasWidth - width) / 2
         };
 
-    private static double DefaultY(string category, double height) =>
+    private double DefaultY(string category, double height) =>
         category switch
         {
             "Sombreros" => 80,
             "Ojos" => 340,
             "Bocas" => 515,
             "Emociones" => 210,
-            _ => (CanvasHeight - height) / 2
+            _ => (canvasHeight - height) / 2
         };
 
     private void SetStatus(string message) => status.Text = message;
@@ -1071,7 +1160,7 @@ public sealed class WaifuSpriteStudioWindow : Window
         };
     }
 
-    private sealed record WaifuProjectDocument(int CanvasWidth, int CanvasHeight, List<WaifuProjectLayer> Layers);
+    private sealed record WaifuProjectDocument(int canvasWidth, int canvasHeight, List<WaifuProjectLayer> Layers);
     private sealed record WaifuProjectLayer(Guid Id, string Name, string Category, string Path, double X, double Y,
         double Width, double Height, double Scale, double Rotation, double Opacity, bool Visible, int ZIndex,
         bool RemoveMatte, int FrameIndex);
