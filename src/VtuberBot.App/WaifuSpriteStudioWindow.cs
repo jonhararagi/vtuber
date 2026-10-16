@@ -136,7 +136,7 @@ public sealed class WaifuSpriteStudioWindow : Window
         library.Children.Add(categoryPicker);
         library.Children.Add(catalogList);
         library.Children.Add(ActionButton("＋ Añadir objeto seleccionado", (_, _) => AddSelectedCatalogAsset(), true));
-        library.Children.Add(ActionButton("＋ Importar objeto / fondo / GIF", (_, _) => ChooseExternalAsset()));
+        library.Children.Add(ActionButton("＋ Importar objeto / fondo / GIF (categoría seleccionada)", (_, _) => ChooseExternalAsset()));
         library.Children.Add(ActionButton("Quitar fondo blanco a una imagen…", (_, _) => ChooseImageForMatting()));
         library.Children.Add(new TextBlock { Text = "Los fondos HD incluidos son imágenes originales 1920×1080. Los GIF importados se animan en la vista previa; al exportar PNG se toma el fotograma visible.", Foreground = Brush("#91A1C0"), TextWrapping = TextWrapping.Wrap, FontSize = 11, Margin = new Thickness(0, 8, 0, 0) });
         Grid.SetColumn(library, 0);
@@ -409,9 +409,9 @@ public sealed class WaifuSpriteStudioWindow : Window
     {
         var dialog = new OpenFileDialog { Title = "Elegí un objeto o fondo para agregar", Filter = "Imágenes PNG/JPG/BMP/GIF|*.png;*.jpg;*.jpeg;*.bmp;*.gif", CheckFileExists = true };
         if (dialog.ShowDialog(this) != true) return;
+        // The category selector doubles as the import destination, so users can classify
+        // an imported eye/mouth/hat explicitly instead of silently forcing everything to Custom.
         var category = categoryPicker.SelectedItem?.ToString() ?? "Personalizados";
-        if (category == "Sombreros" || category == "Ojos" || category == "Bocas" || category == "Emociones")
-            category = "Personalizados";
         TryImportObject(dialog.FileName, category);
     }
 
