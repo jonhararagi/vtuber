@@ -1,5 +1,19 @@
 # Estado prioritario del repositorio — 2026-10-16
 
+## 2026-10-16 — Asignación de boca animada por capa y preparación de fondo blanco
+
+- Rama de trabajo: `product/complete-vtuber-experience`. No se modifica `main` ni se fusionan ramas en esta tarea.
+- Se amplió el modelo `AvatarLayer` con rutas opcionales persistentes para boca cerrada/abierta. La migración SQLite añade columnas compatibles con bases existentes; las asignaciones se guardan por perfil y capa, validan que los archivos existan y pueden quitarse sin eliminar la capa.
+- El overlay selecciona el PNG de boca abierta cuando el estado real es `Talking`; en los demás estados usa la boca cerrada. Si falta un archivo, vuelve a la imagen de capa original sin ocultarla ni reemplazar la imagen completa del personaje.
+- Avatar Studio ahora permite asignar/quitar ambos PNG a la capa seleccionada. La boca conserva la transformación X/Y, escala, rotación y orden de esa capa, por lo que se puede alinear sobre caras de distintos estilos anime. La previsualización de estados también actualiza esa capa.
+- Se añadió una acción opcional para preparar una copia transparente de una imagen base con fondo blanco: solo elimina píxeles casi blancos conectados a los bordes y conserva el original. Debe revisarse el resultado, porque ropa o pelo blancos que toquen el borde podrían quedar transparentes. No es un eliminador semántico perfecto para todos los dibujos.
+- Pruebas nuevas cubren persistencia y eliminación de las asignaciones en SQLite, selección cerrada/abierta por estado y fallback cuando falta un recurso. No se debe declarar el bloque validado hasta que Windows CI finalice en el SHA exacto.
+- Límite conocido: esto implementa alternancia binaria de boca cerrada/abierta por actividad de voz; no es lip-sync fonético/visemas, no calcula apertura según volumen y no separa automáticamente la boca de una ilustración aplanada. Para imágenes aplanadas se necesita una capa de boca transparente preparada por el usuario o extraída en el editor, y el fondo detrás de esa zona debe ser transparente para no dejar la boca original visible.
+- Próximo paso: revisar el CI del SHA final, corregir cualquier fallo, actualizar guía de usuario y generar el candidato Windows desde el SHA validado. La validación visual final con las imágenes reales del usuario sigue siendo manual.
+
+---
+
+
 ## 2026-10-16 — Diagnóstico de Windows CI #1028/#1029 y corrección de compilación
 
 - Los runs [#1028](https://github.com/jonhararagi/vtuber/actions/runs/38957552826) y [#1029](https://github.com/jonhararagi/vtuber/actions/runs/38957569225) terminaron en `failure`. El restore fue correcto; ambos fallaron en `Build Release`, por errores de compilación preexistentes en el árbol de la rama, no por la documentación.
