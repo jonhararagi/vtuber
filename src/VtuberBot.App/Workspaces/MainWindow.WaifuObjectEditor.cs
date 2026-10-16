@@ -360,6 +360,32 @@ public partial class MainWindow
             }
             catch (Exception ex) { status.Text = "No se pudo guardar el proyecto: " + ex.Message; }
         });
+        ButtonFor("Exportar encuadre de cámara", () =>
+        {
+            var dialog = new SaveFileDialog { Filter = "Recorte PNG transparente (*.png)|*.png", FileName = "avatar-encuadre-obs.png" };
+            if (dialog.ShowDialog(editor) != true) return;
+            try
+            {
+                var width = Math.Clamp((int)Math.Round(cameraWidth), 1, 640);
+                var height = Math.Clamp((int)Math.Round(cameraHeight), 1, 640);
+                var visual = new DrawingVisual();
+                using (var dc = visual.RenderOpen())
+                {
+                    dc.PushClip(new RectangleGeometry(new Rect(0, 0, width, height)));
+                    dc.PushTransform(new TranslateTransform(-cameraX, -cameraY));
+                    foreach (var layer in layers)
+                    {
+                        var rect = new Rect(layer.X + layer.Width * (1 - layer.Scale) / 2, layer.Y + layer.Height * (1 - layer.Scale) / 2, layer.Width * layer.Scale, layer.Height * layer.Scale);
+                        dc.PushOpacity(layer.Opacity); dc.DrawImage(layer.Source, rect); dc.Pop();
+                    }
+                    dc.Pop(); dc.Pop();
+                }
+                var render = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+                render.Render(visual); SaveBitmapAsPng(render, dialog.FileName);
+                status.Text = $"Encuadre exportado en PNG transparente ({width} × {height}). Importalo como fuente de imagen en OBS; la previsualización de posición no mueve fuentes dentro de OBS automáticamente.";
+            }
+            catch (Exception ex) { status.Text = "No se pudo exportar el encuadre: " + ex.Message; }
+        });
         ButtonFor("Exportar PNG", () =>
         {
             var dialog = new SaveFileDialog { Filter = "Imagen PNG transparente (*.png)|*.png", FileName = "mi-waifu.png" };
@@ -438,6 +464,7 @@ public partial class MainWindow
         controls.Children.Add(catalogScroll);
         controls.Children.Add(new TextBlock { Text = "Encuadre de cámara / recorte visible", Foreground = Brushes.DeepSkyBlue, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 12, 4, 3) });
         controls.Children.Add(new TextBlock { Text = "El marco azul indica qué parte del personaje mostrar. Elegí rostro, busto o cuerpo completo y ajustá el recorte.", Foreground = Brushes.LightGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
+        Slider cropX = null!, cropY = null!, cropW = null!, cropH = null!;
         var framingPreset = new ComboBox { Margin = new Thickness(4), ItemsSource = new[] { "Personalizado", "Rostro", "Busto", "Cuerpo completo" }, SelectedIndex = 2 };
         framingPreset.SelectionChanged += (_, _) =>
         {
@@ -459,10 +486,10 @@ public partial class MainWindow
             slider.ValueChanged += (_, _) => { set(slider.Value); RefreshCameraPreview(); RenderLayers(); };
             controls.Children.Add(slider); return slider;
         }
-        var cropX = CropSlider("Recorte X", 0, 640, cameraX, v => cameraX = v);
-        var cropY = CropSlider("Recorte Y", 0, 640, cameraY, v => cameraY = v);
-        var cropW = CropSlider("Ancho del recorte", 80, 640, cameraWidth, v => cameraWidth = v);
-        var cropH = CropSlider("Alto del recorte", 80, 640, cameraHeight, v => cameraHeight = v);
+        cropX = CropSlider("Recorte X", 0, 640, cameraX, v => cameraX = v);
+        cropY = CropSlider("Recorte Y", 0, 640, cameraY, v => cameraY = v);
+        cropW = CropSlider("Ancho del recorte", 80, 640, cameraWidth, v => cameraWidth = v);
+        cropH = CropSlider("Alto del recorte", 80, 640, cameraHeight, v => cameraHeight = v);
         controls.Children.Add(new TextBlock { Text = "Lienzo completo de OBS (1920 × 1080)", Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 10, 4, 3) });
         controls.Children.Add(obsPreview);
         controls.Children.Add(cameraSummary);
@@ -490,7 +517,8 @@ public partial class MainWindow
         body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(250) });
         body.Children.Add(new Border { Child = preview, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, BorderBrush = new SolidColorBrush(Color.FromRgb(70, 82, 110)), BorderThickness = new Thickness(1) });
-        Grid.SetColumn(controls, 1); body.Children.Add(controls);
+        var controlsScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = controls };
+        Grid.SetColumn(controlsScroll, 1); body.Children.Add(controlsScroll);
         layout.Children.Add(body);
         editor.Content = layout;
         gifTimer.Start();
