@@ -154,11 +154,11 @@ public sealed class AvatarOverlayWindow : Window
             : 0;
     }
 
-    public void SetMotionEffects(bool speakingShake, double shakeStrength, bool talkingBounce)
+    public void SetMotionEffects(bool speakingShake, double shakeStrength, bool enableTalkingBounce)
     {
         speakingShakeEnabled = speakingShake;
         speakingShakeStrength = AvatarMotionPolicy.NormalizeShakeStrength(shakeStrength);
-        talkingBounceEnabled = talkingBounce;
+        talkingBounceEnabled = enableTalkingBounce;
         if (!speakingShakeEnabled && DateTimeOffset.UtcNow >= manualShakeUntil)
             talkingShake.X = 0;
         if (!talkingBounceEnabled)
