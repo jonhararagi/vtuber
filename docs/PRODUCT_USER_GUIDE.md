@@ -1,5 +1,44 @@
 # Guía del candidato integral de VTuberBot
 
+## Camino principal recomendado: usar VTuberBot como PNGTuber 2D
+
+No necesitás aprender el editor avanzado, abrir el taller 3D ni configurar la IA. En la barra izquierda, entrá en **PNGTuber 2D**. Los botones principales ahora son **PNGTuber 2D**, **Micrófono y voz**, **Configurar OBS** y **Conectar Twitch**. Las demás funciones siguen disponibles bajo **Más herramientas (opcional)**; se ocultaron del recorrido principal, no se eliminaron del proyecto.
+
+### Crear tu PNGTuber
+
+1. Entrá en **PNGTuber 2D** y pulsá **Importar mi personaje PNG**. Elegí la ilustración de tu personaje.
+2. Para animar la boca, pulsá **Elegir boca cerrada** y luego **Elegir boca abierta**. Elegí tus propios dibujos estilo anime/sticker; VTuberBot no crea ni impone una boca realista. La boca se abre al detectar que estás hablando.
+3. Usá **Activar movimiento de boca con mouse** y arrastrá el sticker en la vista previa. También podés ajustar X/Y y tamaño con los controles.
+4. Pulsá **Guardar posición de boca**. Si ves la boca original por debajo, usá **La boca vieja sigue debajo · limpiarla**: elegí la zona antigua y guardá la copia. La imagen original no se sobrescribe.
+5. En **EFECTOS DE DIBUJO · SIN IA**, activá o desactivá **Vibrar/sacudir al hablar**, **Rebotar suavemente al hablar** y **Flotar suavemente cuando estoy en reposo**. Ajustá la intensidad de la vibración y pulsá **Probar vibración ahora** para verla. Son movimientos sencillos de todo el personaje, no simulación de física avanzada ni lip-sync fonético.
+
+**Consejo para los stickers de boca:** usá PNG con fondo transparente, recortado a la boca. El espacio que no forma parte del dibujo debe ser transparente; si el PNG tiene fondo blanco opaco, ese rectángulo tapa la cara. Si querés dos bocas distintas, elegí dos imágenes de estilo/tamaño parecido.
+
+### Mostrar el avatar en OBS
+
+El menú **Configurar OBS** abre la pantalla correcta. La conexión WebSocket se configura una vez:
+
+1. Abrí OBS Studio.
+2. En OBS, entrá en **Herramientas → Configuración del servidor WebSocket** (puede aparecer en inglés como *WebSocket Server Settings*).
+3. Activá el servidor WebSocket. Conservá el puerto predeterminado **4455**, salvo que lo hayas cambiado. Abrí **Mostrar información de conexión** y copiá la contraseña del WebSocket de OBS.
+4. En VTuberBot, escribí Host `127.0.0.1`, Puerto `4455` y pegá esa contraseña en **Contraseña de WebSocket**. Pulsá **Guardar y conectar (primera vez)**.
+5. En OBS, agregá la ventana **VTuberBot Avatar Overlay** como una **Captura de ventana**. La conexión WebSocket permite controlar OBS, pero no agrega automáticamente el avatar a una escena. Para comenzar a transmitir, verificá primero la escena y la salida de OBS.
+
+**Importante:** la contraseña de WebSocket de OBS no es tu contraseña de Twitch. El estado “autenticado” solo aparece después de que OBS acepta la conexión.
+
+### Qué significa la pantalla de Twitch
+
+**Conectar Twitch** sirve para que VTuberBot lea/escriba en el chat y reciba eventos; no es necesario para mostrar tu PNGTuber y no sustituye la configuración de OBS.
+
+1. En **Twitch y chat**, ingresá el nombre de tu canal.
+2. En **Cuenta bot**, ingresá el login de la cuenta que actuará como bot (tu propia cuenta, o una cuenta bot separada que ya exista).
+3. El **Client ID** identifica una aplicación de Twitch Developer Console. Usá el botón **Abrir Twitch Developer Console** de la guía para crear/consultar tu aplicación.
+4. Pulsá **Autorizar con Twitch** y aceptá los permisos solicitados en el navegador. Luego pulsá **Conectar**.
+5. Si querés alertas de follows, raids u otros eventos, usá **Conectar EventSub (alertas)** aparte. Las recompensas de puntos del canal se crean/administran desde el Panel de creador de Twitch; guardar datos acá no las crea por sí solo.
+
+El token OAuth es una credencial y debe mantenerse privado. VTuberBot lo protege localmente con DPAPI; nunca lo pegues en un repositorio ni en un chat público. Podés utilizar el PNGTuber y OBS sin configurar las funciones de comunidad de Twitch.
+
+
 ## Limpiar la boca y cerrar el proyecto desde el panel
 
 En **Avatar Studio**, el botón **Limpiar zona de la boca de la imagen base** abre un editor donde arrastrás un rectángulo sobre la boca anterior. Se guarda una copia PNG y la imagen original no se sobrescribe. Podés elegir:
