@@ -480,7 +480,8 @@ public partial class MainWindow
         advancedTools.Children.Add(imageToAvatarPanel);
         root.Children.Add(new Expander
         {
-            Header = "Personalización avanzada (capas, ropa, colores y herramientas externas)",
+            Visibility = Visibility.Collapsed,
+            Header = "Herramientas históricas fuera del flujo principal",
             Content = advancedTools,
             IsExpanded = false,
             Foreground = Brush("#F8FAFC"),
