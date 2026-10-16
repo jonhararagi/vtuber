@@ -25,4 +25,12 @@ public static class AvatarMotionPolicy
 
         return Math.Sin(phase * 1.15) * Math.Clamp(strength, 0, MaximumBouncePixels);
     }
+
+    public static double GetIdleFloatOffset(double phase, bool enabled, double strength = 2)
+    {
+        if (!enabled || !double.IsFinite(phase) || !double.IsFinite(strength))
+            return 0;
+
+        return Math.Sin(phase * 0.72) * Math.Clamp(strength, 0, 6);
+    }
 }
