@@ -18,11 +18,26 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
     private const int MaximumInputCharacters = 2000;
     private const int MaximumAudioBytes = 12 * 1024 * 1024;
     private readonly Func<string> baseUrl;
+    private readonly Func<double> pitchScale;
+    private readonly Func<double> intonationScale;
     private readonly HttpClient http = new() { Timeout = Timeout.InfiniteTimeSpan };
     private bool disposed;
 
-    public VoicevoxSpeechSession(Func<string>? baseUrl = null) =>
+    public VoicevoxSpeechSession(
+        Func<string>? baseUrl = null,
+        Func<double>? pitchScale = null,
+        Func<double>? intonationScale = null)
+    {
         this.baseUrl = baseUrl ?? (() => DefaultBaseUrl);
+        this.pitchScale = pitchScale ?? (() => 0d);
+        this.intonationScale = intonationScale ?? (() => 1d);
+    }
+
+    public static double NormalizePitchScale(double value) =>
+        double.IsFinite(value) ? Math.Clamp(value, -0.3, 0.3) : 0d;
+
+    public static double NormalizeIntonationScale(double value) =>
+        double.IsFinite(value) ? Math.Clamp(value, 0.5, 1.5) : 1d;
 
     public static bool IsVoiceId(string? id)
     {
@@ -53,6 +68,46 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
         return voices.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
     }
 
+    /// <summary>Lists the playback devices exposed by NAudio/WinMM for VOICEVOX WAV output.</summary>
+    public static IReadOnlyList<LocalSpeechOutput> GetInstalledOutputs()
+    {
+        var outputs = new List<LocalSpeechOutput>();
+        var count = WaveOut.DeviceCount;
+        for (var index = 0; index < count; index++)
+        {
+            var capabilities = WaveOut.GetCapabilities(index);
+            var name = string.IsNullOrWhiteSpace(capabilities.ProductName)
+                ? "Dispositivo de audio " + (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : capabilities.ProductName;
+            outputs.Add(new LocalSpeechOutput("waveout:" + index.ToString(System.Globalization.CultureInfo.InvariantCulture), name));
+        }
+        return outputs;
+    }
+
+    /// <summary>
+    /// Resolves a saved NAudio output ID without requiring audio hardware in unit tests.
+    /// Empty or legacy SAPI IDs mean the system-default output; stale explicit waveout IDs fail clearly.
+    /// </summary>
+    public static int ResolveOutputDeviceNumber(string? outputId, int availableDeviceCount)
+    {
+        if (availableDeviceCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(availableDeviceCount));
+        if (string.IsNullOrWhiteSpace(outputId) ||
+            !outputId.StartsWith("waveout:", StringComparison.OrdinalIgnoreCase))
+            return -1;
+
+        var suffix = outputId["waveout:".Length..];
+        if (!int.TryParse(suffix, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var deviceNumber) ||
+            deviceNumber < 0)
+            throw new InvalidOperationException("El dispositivo de salida VOICEVOX guardado no es válido. Actualizá la lista de dispositivos.");
+
+        if (deviceNumber >= availableDeviceCount)
+            throw new InvalidOperationException("El dispositivo de salida VOICEVOX guardado ya no está disponible. Actualizá la lista y elegí otro.");
+
+        return deviceNumber;
+    }
+
     public SpeechPlaybackResult Speak(string text, string requestedVoiceId, string requestedOutputId,
         int rate, int volume, Func<bool> cancellationRequested)
     {
@@ -81,7 +136,8 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
 
         using var stream = new MemoryStream(audio, writable: false);
         using var reader = new WaveFileReader(stream);
-        using var output = new WaveOutEvent();
+        var deviceNumber = ResolveOutputDeviceNumber(requestedOutputId, WaveOut.DeviceCount);
+        using var output = new WaveOutEvent { DeviceNumber = deviceNumber };
         output.Volume = Math.Clamp(volume, 0, 100) / 100f;
         Exception? playbackError = null;
         output.PlaybackStopped += (_, eventArgs) => playbackError = eventArgs.Exception;
@@ -109,6 +165,8 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
         var queryJson = await queryResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         var query = JsonNode.Parse(queryJson) ?? throw new InvalidOperationException("VOICEVOX devolvió una consulta de audio vacía.");
         query["speedScale"] = Math.Clamp(1.0 + Math.Clamp(rate, -10, 10) * 0.06, 0.5, 2.0);
+        query["pitchScale"] = NormalizePitchScale(pitchScale());
+        query["intonationScale"] = NormalizeIntonationScale(intonationScale());
         using var request = new StringContent(query.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
         var synthesisEndpoint = BuildEndpoint(baseUrl(), $"synthesis?speaker={speakerId}");
         using var response = await http.PostAsync(synthesisEndpoint, request, cancellationToken).ConfigureAwait(false);

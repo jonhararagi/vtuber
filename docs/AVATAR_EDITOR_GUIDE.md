@@ -21,9 +21,10 @@ Esta guía describe el flujo vigente de VTuberBot. La fuente de alcance es [la e
 
 1. En Avatar Studio, confirmá que existan las imágenes **Idle** y **Talking**.
 2. Mostrá el overlay del avatar.
-3. Desde **Voz y audio**, configurá la dirección local de VOICEVOX Engine y pulsá **Comprobar VOICEVOX y actualizar voces**.
-4. Elegí un estilo de VOICEVOX y reproducí una prueba. Durante el audio, el avatar debe pasar a **Talking** y volver a **Idle** al terminar o detenerse.
-5. También podés probar el estado manualmente desde las herramientas de avatar, sin micrófono ni OBS conectado.
+3. En **Voz y audio**, elegí el archivo run.exe de la carpeta vv-engine de una instalación oficial de VOICEVOX y pulsá **Iniciar VOICEVOX Engine en segundo plano**. Si ya está activo, VTuberBot lo detecta y evita iniciar otra instancia.
+4. Pulsá **Comprobar y actualizar voces VOICEVOX** y elegí un estilo real devuelto por Engine. Podés seleccionar también la salida de audio.
+5. Pulsá **Probar voz VOICEVOX**. La aplicación debe encolar la prueba mediante el motor local; mientras el audio esté reproduciéndose, el avatar pasa a **Talking** y vuelve a **Idle** al terminar o detenerse.
+6. También podés probar los estados manualmente desde las herramientas de avatar, sin micrófono ni OBS conectado. Si Engine no responde, se muestra un error y no se utiliza silenciosamente una voz de Windows o una API remota.
 
 ## 4. OBS
 

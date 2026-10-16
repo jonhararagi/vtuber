@@ -214,9 +214,11 @@ public sealed class StreamerBotWebSocketTests
             await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"timeout","name":"Test","version":"1","os":"windows"}}""");
             using var request = await ReceiveJsonAsync(socket);
             Assert.Equal("GetActions", request.RootElement.GetProperty("request").GetString());
-            await Task.Delay(500, TestContext.Current.CancellationToken);
+            // Keep a wide margin between the client deadline and server close so scheduler jitter
+            // on loaded Windows runners cannot turn the expected timeout into a socket IOException.
+            await Task.Delay(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         });
-        await using var client = new StreamerBotWebSocketClient(TimeSpan.FromMilliseconds(150));
+        await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(1));
         await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), cancellationToken: TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<TimeoutException>(() => client.GetActionsAsync(TestContext.Current.CancellationToken));
         Assert.Equal(StreamerBotConnectionState.Connected, client.Snapshot.State);

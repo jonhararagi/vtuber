@@ -82,6 +82,7 @@ public partial class MainWindow : Window
     private DispatcherTimer? dashboardMetricsTimer;
     private TextBlock? dashboardCpuValue;
     private ProgressBar? dashboardCpuBar;
+    private TextBlock? dashboardCpuWarningLabel;
     private TextBlock? dashboardRamValue;
     private ProgressBar? dashboardRamBar;
     private TextBlock? dashboardRamWarningLabel;
@@ -336,7 +337,12 @@ public partial class MainWindow : Window
                 () => store.GetSetting("social.tts.remoteInstructions",
                     "Habla en español con una voz femenina adulta joven MUY aguda y chillona, tipo personaje anime enérgico: timbre brillante, ligeramente nasal y juguetón, tono alto, reacciones exageradas y ritmo vivaz. Debe sonar intencionalmente aguda y caricaturesca, pero mantener dicción clara sin gritar ni distorsionar; no imites a un personaje, actriz ni persona real específica."),
                 () => store.GetSetting("social.ai.remoteBaseUrl", "https://generativelanguage.googleapis.com/v1beta/openai/")),
-            () => new VoicevoxSpeechSession(() => store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl)))));
+            () => new VoicevoxSpeechSession(
+                () => store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl),
+                () => double.TryParse(store.GetSetting("audio.voicevox.pitchScale", "0"),
+                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pitch) ? pitch : 0d,
+                () => double.TryParse(store.GetSetting("audio.voicevox.intonationScale", "1"),
+                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var intonation) ? intonation : 1d))));
         communityCommandRouter = new CommunityCommandRouter(store);
         socialBot = new SocialBotService(store, speechQueue, twitch, configuredAiProvider, SetChatReactionExpression);
         chatReactions = new ChatReactionService(
@@ -508,6 +514,68 @@ public partial class MainWindow : Window
 
     private async Task ShutdownBeforeCloseAsync()
     {
+        // Engine started by VTuberBot is an independent process. Ask explicitly whether to stop
+        // it and release its resources, leave it running for another local client, or cancel exit.
+        var engineProcess = localVoicevoxEngineProcess;
+        if (engineProcess is not null)
+        {
+            try
+            {
+                if (engineProcess.HasExited)
+                {
+                    localVoicevoxEngineProcess = null;
+                    engineProcess.Dispose();
+                }
+                else
+                {
+                    var engineChoice = MessageBox.Show(
+                        this,
+                        "VOICEVOX Engine está activo como un proceso separado. ¿Qué querés hacer antes de cerrar VTuberBot?\n\nSí: detener Engine y liberar sus recursos.\nNo: dejar Engine ejecutándose en segundo plano.\nCancelar: mantener VTuberBot abierto.",
+                        "VOICEVOX Engine sigue activo",
+                        MessageBoxButton.YesNoCancel,
+                        MessageBoxImage.Question);
+                    if (engineChoice == MessageBoxResult.Cancel)
+                    {
+                        shutdownStarted = false;
+                        return;
+                    }
+
+                    if (engineChoice == MessageBoxResult.Yes)
+                    {
+                        try
+                        {
+                            engineProcess.Kill(entireProcessTree: true);
+                            using var engineTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                            await engineProcess.WaitForExitAsync(engineTimeout.Token);
+                            localVoicevoxEngineProcess = null;
+                            engineProcess.Dispose();
+                            store.Log("VOICEVOX", "Se detuvo por confirmación del usuario el Engine iniciado por VTuberBot al cerrar la aplicación.");
+                        }
+                        catch (Exception exception) when (
+                            exception is OperationCanceledException or InvalidOperationException or
+                            System.ComponentModel.Win32Exception or UnauthorizedAccessException)
+                        {
+                            LogShutdownFailure("VOICEVOX Engine local", exception);
+                            MessageBox.Show(this,
+                                "No se pudo confirmar que VOICEVOX Engine se haya detenido. El proceso podría seguir consumiendo memoria; verificá su estado en el Administrador de tareas.",
+                                "Cierre de VOICEVOX no confirmado",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Warning);
+                        }
+                    }
+                    else
+                    {
+                        store.Log("VOICEVOX", "El usuario eligió dejar el Engine iniciado por VTuberBot ejecutándose después del cierre.");
+                    }
+                }
+            }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or System.ComponentModel.Win32Exception or UnauthorizedAccessException)
+            {
+                LogShutdownFailure("VOICEVOX Engine local", exception);
+            }
+        }
+
         dashboardMetricsTimer?.Stop();
         automationTimer.Stop();
         twitchCredentialTimer.Stop();

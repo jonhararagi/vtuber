@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -24,6 +25,9 @@ namespace VtuberBot.App;
 public partial class MainWindow
 {
     private sealed record LocalSoundAsset(string Id, string Name, string Path);
+    private sealed record LocalVoicevoxThreadOption(int Value, string Name);
+    private Process? localVoicevoxEngineProcess;
+    private int voicevoxEngineStartInProgress;
     private UIElement BuildAudioPage()
     {
         var root = new StackPanel();
@@ -229,15 +233,43 @@ public partial class MainWindow
             SelectedItem = SpeechPriority.Normal,
             Width = 180
         };
-        var savedVoiceId = store.GetSetting("audio.tts.voiceId");
-        var savedOutputId = store.GetSetting("audio.tts.outputId");
-        var voicevoxBaseUrlField = TextField("http://127.0.0.1:50021", store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl));
+        var savedVoiceId = store.GetSetting("audio.voicevox.voiceId", store.GetSetting("audio.tts.voiceId"));
+        var savedOutputId = store.GetSetting("audio.voicevox.outputId");
+        var voicevoxBaseUrlField = TextField("http://127.0.0.1:50021",
+            store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl));
         voicevoxBaseUrlField.MinWidth = 320;
+        var voicevoxEnginePathField = TextField(
+            "Seleccioná el ejecutable oficial vv-engine/run.exe",
+            store.GetSetting("audio.voicevox.executablePath"));
+        voicevoxEnginePathField.MinWidth = 320;
+        var savedVoicevoxThreads = int.TryParse(
+            store.GetSetting("audio.voicevox.cpuThreads", "2"),
+            out var savedVoicevoxThreadsValue)
+            ? VoicevoxEngineLaunchPolicy.NormalizeCpuThreads(savedVoicevoxThreadsValue) : 2;
+        var voicevoxCpuThreadsPicker = new ComboBox
+        {
+            ItemsSource = new[]
+            {
+                new LocalVoicevoxThreadOption(1, "1 hilo · mínimo consumo de CPU"),
+                new LocalVoicevoxThreadOption(2, "2 hilos · recomendado"),
+                new LocalVoicevoxThreadOption(3, "3 hilos"),
+                new LocalVoicevoxThreadOption(4, "4 hilos"),
+                new LocalVoicevoxThreadOption(6, "6 hilos · mayor velocidad posible")
+            },
+            DisplayMemberPath = nameof(LocalVoicevoxThreadOption.Name),
+            SelectedValuePath = nameof(LocalVoicevoxThreadOption.Value),
+            SelectedValue = savedVoicevoxThreads,
+            MinWidth = 320,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
         var outputListLoaded = false;
         var voiceListLoaded = false;
         var voicePicker = new ComboBox
         {
-            ItemsSource = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") },
+            ItemsSource = new List<LocalSpeechVoice>
+            {
+                new(string.Empty, "VOICEVOX no comprobado — pulsá «Comprobar y actualizar voces»")
+            },
             SelectedIndex = 0,
             DisplayMemberPath = nameof(LocalSpeechVoice.Name),
             MinWidth = 280,
@@ -245,132 +277,544 @@ public partial class MainWindow
         };
         var initialRate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var rateSetting) ? Math.Clamp(rateSetting, -10, 10) : 0;
         var initialVolume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var volumeSetting) ? Math.Clamp(volumeSetting, 0, 100) : 100;
+        var initialPitch = double.TryParse(store.GetSetting("audio.voicevox.pitchScale", "0"),
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pitchSetting)
+            ? VoicevoxSpeechSession.NormalizePitchScale(pitchSetting) : 0d;
+        var initialIntonation = double.TryParse(store.GetSetting("audio.voicevox.intonationScale", "1"),
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var intonationSetting)
+            ? VoicevoxSpeechSession.NormalizeIntonationScale(intonationSetting) : 1d;
         var rateSlider = new Slider { Minimum = -10, Maximum = 10, Value = initialRate, TickFrequency = 1 };
         var volumeSlider = new Slider { Minimum = 0, Maximum = 100, Value = initialVolume, TickFrequency = 5 };
+        var pitchSlider = new Slider { Minimum = -0.3, Maximum = 0.3, Value = initialPitch, TickFrequency = 0.01 };
+        var intonationSlider = new Slider { Minimum = 0.5, Maximum = 1.5, Value = initialIntonation, TickFrequency = 0.05 };
         var rateLabel = Label($"Velocidad de voz: {initialRate}", 12, "#98A4BE");
         var volumeLabel = Label($"Volumen: {initialVolume}%", 12, "#98A4BE");
+        var pitchLabel = Label($"Tono / pitch: {initialPitch:0.00}", 12, "#98A4BE");
+        var intonationLabel = Label($"Variación de entonación: {initialIntonation:0.00}×", 12, "#98A4BE");
         rateSlider.ValueChanged += (_, _) => rateLabel.Text = $"Velocidad de voz: {rateSlider.Value:0}";
         volumeSlider.ValueChanged += (_, _) => volumeLabel.Text = $"Volumen: {volumeSlider.Value:0}%";
+        pitchSlider.ValueChanged += (_, _) => pitchLabel.Text = $"Tono / pitch: {pitchSlider.Value:0.00}";
+        intonationSlider.ValueChanged += (_, _) => intonationLabel.Text = $"Variación de entonación: {intonationSlider.Value:0.00}×";
 
-        panel.Children.Add(Label("Voces locales: VOICEVOX y Windows", 14, "#F8FAFC", true));
-        panel.Children.Add(Label("VOICEVOX es el motor prioritario. Debe estar instalado y ejecutándose localmente; VTuberBot no simula una conexión ni usa una API remota como sustituto.", 12, "#98A4BE"));
+        panel.Children.Add(Label("Síntesis de voz local · VOICEVOX Engine", 14, "#F8FAFC", true));
+        panel.Children.Add(Label(
+            "Esta pantalla usa únicamente estilos que VOICEVOX devuelve desde tu motor local. No cambia silenciosamente a Windows SAPI, Gemini ni a una API remota. Las voces VOICEVOX habituales están orientadas al japonés: el motor puede intentar sintetizar español, pero la pronunciación natural en español no está garantizada. El motor y las voces deben estar instalados según sus licencias.",
+            12, "#98A4BE"));
         panel.Children.Add(Label("Dirección local de VOICEVOX Engine", 12, "#98A4BE"));
         panel.Children.Add(voicevoxBaseUrlField);
+        panel.Children.Add(Label("Ejecutable de VOICEVOX Engine (no se incluye en VTuberBot)", 12, "#98A4BE"));
+        panel.Children.Add(Label("En la instalación oficial suele estar en %LOCALAPPDATA%\\Programs\\VOICEVOX\\vv-engine\\run.exe. Seleccioná run.exe; VTuberBot lo iniciará sin exponer el servicio a la red local.", 11, "#98A4BE"));
+        panel.Children.Add(voicevoxEnginePathField);
+        panel.Children.Add(Label("Hilos de CPU para el Engine (se aplica al iniciarlo)", 12, "#98A4BE"));
+        panel.Children.Add(voicevoxCpuThreadsPicker);
+        panel.Children.Add(Label("El valor inicial es 2 hilos para no ocupar todos los núcleos al transmitir. El Engine usa un proceso separado y esta opción no limita su RAM.", 11, "#98A4BE"));
+        var voicevoxProcessMetricsLabel = Label("CPU/RAM de VOICEVOX: todavía no se midió.", 11, "#98A4BE");
+        panel.Children.Add(voicevoxProcessMetricsLabel);
+
+        int? FindVoicevoxEngineProcessId()
+        {
+            try
+            {
+                if (localVoicevoxEngineProcess is { HasExited: false } ownedProcess)
+                    return ownedProcess.Id;
+            }
+            catch (InvalidOperationException) { }
+
+            var configuredPath = store.GetSetting("audio.voicevox.executablePath");
+            if (string.IsNullOrWhiteSpace(configuredPath) || !File.Exists(configuredPath))
+                return null;
+
+            string expectedPath;
+            try { expectedPath = Path.GetFullPath(configuredPath); }
+            catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException)
+            {
+                return null;
+            }
+
+            foreach (var process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(expectedPath)))
+            {
+                using (process)
+                {
+                    try
+                    {
+                        var modulePath = process.MainModule?.FileName;
+                        if (!string.IsNullOrWhiteSpace(modulePath) &&
+                            string.Equals(Path.GetFullPath(modulePath), expectedPath, StringComparison.OrdinalIgnoreCase))
+                            return process.Id;
+                    }
+                    catch (Exception exception) when (
+                        exception is InvalidOperationException or System.ComponentModel.Win32Exception or
+                        NotSupportedException or UnauthorizedAccessException or IOException or ArgumentException)
+                    {
+                        // MainModule can be restricted by Windows. Skip rather than attributing
+                        // another process's resource usage to VOICEVOX.
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        async Task MeasureVoicevoxProcessAsync()
+        {
+            var processId = FindVoicevoxEngineProcessId();
+            if (processId is null)
+            {
+                voicevoxProcessMetricsLabel.Text =
+                    "No se encontró un proceso activo que coincida con la ruta configurada de VOICEVOX Engine.";
+                voicevoxProcessMetricsLabel.Foreground = Brush("#E7B56A");
+                return;
+            }
+
+            voicevoxProcessMetricsLabel.Text = "Midiendo CPU y memoria de VOICEVOX…";
+            try
+            {
+                var snapshot = await ProcessResourceSampler.MeasureAsync(processId.Value);
+                if (snapshot is null)
+                {
+                    voicevoxProcessMetricsLabel.Text = "El proceso de VOICEVOX terminó antes de completar la medición.";
+                    voicevoxProcessMetricsLabel.Foreground = Brush("#E7B56A");
+                    return;
+                }
+
+                voicevoxProcessMetricsLabel.Text = "VOICEVOX (proceso separado): " + snapshot.ToDisplayString();
+                voicevoxProcessMetricsLabel.Foreground = Brush("#98A4BE");
+            }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or System.ComponentModel.Win32Exception or
+                NotSupportedException or UnauthorizedAccessException or IOException or ArgumentException)
+            {
+                voicevoxProcessMetricsLabel.Text =
+                    "No se pudo medir VOICEVOX (" + exception.GetType().Name + "). El motor puede seguir funcionando.";
+                voicevoxProcessMetricsLabel.Foreground = Brush("#E7B56A");
+            }
+        }
+
+        panel.Children.Add(ActionButton("Medir CPU/RAM del proceso VOICEVOX", async (_, _) =>
+            await MeasureVoicevoxProcessAsync()));
+        panel.Children.Add(ActionButton("Elegir run.exe oficial", (_, _) =>
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Elegí el ejecutable oficial de VOICEVOX Engine (run.exe)",
+                Filter = "VOICEVOX Engine (run.exe)|run.exe|Programas ejecutables (*.exe)|*.exe",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+            if (dialog.ShowDialog(this) != true) return;
+            if (!string.Equals(Path.GetFileName(dialog.FileName), "run.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(this, "Elegí el archivo run.exe de la carpeta vv-engine de una instalación oficial de VOICEVOX.",
+                    "Ejecutable de VOICEVOX", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            voicevoxEnginePathField.Text = dialog.FileName;
+            store.SetSetting("audio.voicevox.executablePath", dialog.FileName);
+            FooterStatus.Text = "Ruta de VOICEVOX Engine guardada. Podés iniciarlo en segundo plano.";
+        }));
+        panel.Children.Add(ActionButton("Iniciar VOICEVOX Engine en segundo plano", async (_, _) =>
+            await StartVoicevoxEngineAsync(), true));
+        panel.Children.Add(ActionButton("Detener Engine iniciado por VTuberBot", async (_, _) =>
+        {
+            if (Volatile.Read(ref voicevoxEngineStartInProgress) != 0)
+            {
+                FooterStatus.Text = "Esperá a que termine la comprobación de inicio antes de detener VOICEVOX.";
+                return;
+            }
+
+            var engine = localVoicevoxEngineProcess;
+            if (engine is null)
+            {
+                FooterStatus.Text = "VTuberBot no inició la instancia actual de VOICEVOX. No se detuvo ningún proceso externo.";
+                return;
+            }
+
+            try
+            {
+                if (engine.HasExited)
+                {
+                    localVoicevoxEngineProcess = null;
+                    engine.Dispose();
+                    FooterStatus.Text = "La instancia de VOICEVOX iniciada por VTuberBot ya estaba detenida.";
+                    return;
+                }
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                FooterStatus.Text = "No se pudo consultar el estado de VOICEVOX. No se envió una orden de cierre.";
+                return;
+            }
+
+            if (MessageBox.Show(this,
+                    "Se detendrá únicamente el proceso de VOICEVOX Engine que esta instancia de VTuberBot inició, incluidos sus procesos secundarios. Las frases de voz dejarán de estar disponibles hasta volver a iniciarlo. ¿Continuar?",
+                    "Detener VOICEVOX Engine", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                engine.Kill(entireProcessTree: true);
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                await engine.WaitForExitAsync(timeout.Token);
+                if (ReferenceEquals(localVoicevoxEngineProcess, engine))
+                    localVoicevoxEngineProcess = null;
+                engine.Dispose();
+                FooterStatus.Text = "VOICEVOX Engine iniciado por VTuberBot se detuvo. La memoria de ese proceso quedará liberada por Windows.";
+                store.Log("VOICEVOX", "Se detuvo por confirmación del usuario la instancia de Engine iniciada por VTuberBot.");
+            }
+            catch (OperationCanceledException)
+            {
+                FooterStatus.Text = "Se solicitó cerrar VOICEVOX, pero el proceso no confirmó la salida en 8 segundos. Revisá su estado antes de reintentarlo.";
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception or UnauthorizedAccessException)
+            {
+                FooterStatus.Text = "No se pudo detener VOICEVOX Engine: " + exception.GetType().Name + ".";
+                store.Log("VOICEVOX", "No se pudo detener la instancia propia de Engine (" + exception.GetType().Name + ").");
+            }
+        }));
+        panel.Children.Add(Label("Voz / estilo", 12, "#98A4BE"));
         panel.Children.Add(voicePicker);
+
         var outputPicker = new ComboBox
         {
-            ItemsSource = new List<LocalSpeechOutput> { new(string.Empty, "Salida predeterminada de Windows") },
+            ItemsSource = new List<LocalSpeechOutput>
+            {
+                new(string.Empty, string.IsNullOrWhiteSpace(savedOutputId)
+                    ? "Salida predeterminada del sistema"
+                    : "Se conservará la salida guardada hasta actualizar la lista")
+            },
             SelectedIndex = 0,
             DisplayMemberPath = nameof(LocalSpeechOutput.Name),
             MinWidth = 280,
             Margin = new Thickness(0, 0, 0, 8)
         };
-        panel.Children.Add(Label("Dispositivo de salida para la voz local", 12, "#98A4BE"));
+        panel.Children.Add(Label("Dispositivo de salida de audio VOICEVOX", 12, "#98A4BE"));
         panel.Children.Add(outputPicker);
-        panel.Children.Add(ActionButton("Actualizar dispositivos de salida", async (_, _) =>
-        {
-            try
-            {
-                var installed = await Task.Run(LocalSpeechQueue.GetInstalledOutputs);
-                var outputs = new List<LocalSpeechOutput> { new(string.Empty, "Salida predeterminada de Windows") };
-                outputs.AddRange(installed);
-                outputPicker.ItemsSource = outputs;
-                outputListLoaded = true;
-                outputPicker.SelectedItem = outputs.FirstOrDefault(output => string.Equals(output.Id, savedOutputId, StringComparison.OrdinalIgnoreCase)) ?? outputs[0];
-                FooterStatus.Text = "Salidas SAPI encontradas: " + installed.Count + ".";
-            }
-            catch (Exception exception)
-            {
-                FooterStatus.Text = "No se pudieron enumerar las salidas de audio: " + exception.Message;
-                MessageBox.Show(this, "Se mantiene la salida predeterminada de Windows.\\n\\n" + exception.Message, "Salidas de audio", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }));
-        panel.Children.Add(ActionButton("Comprobar VOICEVOX y actualizar voces", async (_, _) =>
+
+        async Task<bool> LoadVoicevoxVoicesAsync(bool showError)
         {
             var configuredUrl = voicevoxBaseUrlField.Text.Trim();
-            // VoicevoxSpeechSession rejects non-loopback hosts before sending any request.
-            store.SetSetting("audio.voicevox.baseUrl", configuredUrl);
-            var voices = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") };
-            string windowsStatus;
+            var previousSelection = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id;
             try
             {
-                var installedWindows = await Task.Run(LocalSpeechQueue.GetInstalledVoices);
-                voices.AddRange(installedWindows);
-                windowsStatus = $"Windows: {installedWindows.Count} voces";
+                // The adapter rejects non-loopback addresses before it makes any HTTP request.
+                store.SetSetting("audio.voicevox.baseUrl", configuredUrl);
+                var installedVoicevox = await Task.Run(() => VoicevoxSpeechSession.GetInstalledVoices(configuredUrl));
+                if (installedVoicevox.Count == 0)
+                    throw new InvalidOperationException("VOICEVOX respondió, pero no devolvió ningún estilo. Verificá que el Engine y al menos una voz sean compatibles.");
+
+                voicePicker.ItemsSource = installedVoicevox;
+                voiceListLoaded = true;
+                var selected = installedVoicevox.FirstOrDefault(voice =>
+                    string.Equals(voice.Id, previousSelection, StringComparison.OrdinalIgnoreCase))
+                    ?? installedVoicevox.FirstOrDefault(voice =>
+                        string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
+                    ?? installedVoicevox[0];
+                voicePicker.SelectedItem = selected;
+                savedVoiceId = selected.Id;
+                FooterStatus.Text = $"VOICEVOX conectado: {installedVoicevox.Count} estilos disponibles.";
+                store.Log("VOICEVOX", $"Motor local disponible; {installedVoicevox.Count} estilos detectados.");
+                return true;
             }
             catch (Exception exception)
             {
-                windowsStatus = "Windows SAPI no disponible (" + exception.GetType().Name + ")";
-                store.Log("VOICEVOX", "No se pudieron enumerar voces Windows SAPI (" + exception.GetType().Name + ").");
+                voicePicker.ItemsSource = new List<LocalSpeechVoice>
+                {
+                    new(string.Empty, "VOICEVOX no disponible — iniciá Engine y volvé a comprobar")
+                };
+                voicePicker.SelectedIndex = 0;
+                voiceListLoaded = false;
+                FooterStatus.Text = "VOICEVOX no disponible. Iniciá Engine, comprobá la dirección local y volvé a intentar.";
+                store.Log("VOICEVOX", "No se pudo consultar el motor local (" + exception.GetType().Name + ").");
+                if (showError)
+                {
+                    MessageBox.Show(this,
+                        "No se pudo conectar con VOICEVOX Engine. No se generó audio ni se seleccionó otra voz.\n\n" +
+                        exception.GetBaseException().Message +
+                        "\n\nIniciá VOICEVOX Engine, comprobá la dirección local y elegí «Comprobar y actualizar voces».",
+                        "VOICEVOX no disponible", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                return false;
+            }
+        }
+
+        async Task<bool> IsVoicevoxApiReachableAsync(string baseUrl)
+        {
+            try
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromMilliseconds(750) };
+                using var response = await client.GetAsync(baseUrl.TrimEnd('/') + "/version");
+                return response.IsSuccessStatusCode;
+            }
+            catch (HttpRequestException) { return false; }
+            catch (TaskCanceledException) { return false; }
+        }
+
+        async Task StartVoicevoxEngineAsync()
+        {
+            if (Interlocked.CompareExchange(ref voicevoxEngineStartInProgress, 1, 0) != 0)
+            {
+                FooterStatus.Text = "El inicio de VOICEVOX Engine ya está en curso.";
+                return;
             }
 
             try
             {
-                var installedVoicevox = await Task.Run(() => VoicevoxSpeechSession.GetInstalledVoices(configuredUrl));
-                voices.AddRange(installedVoicevox);
-                voicePicker.ItemsSource = voices;
-                voiceListLoaded = true;
-                voicePicker.SelectedItem = voices.FirstOrDefault(voice => string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
-                    ?? voices.FirstOrDefault(voice => VoicevoxSpeechSession.IsVoiceId(voice.Id))
-                    ?? voices[0];
-                FooterStatus.Text = $"VOICEVOX conectado: {installedVoicevox.Count} estilos disponibles. {windowsStatus}.";
-                store.Log("VOICEVOX", $"Motor local disponible; {installedVoicevox.Count} estilos detectados.");
+            var executable = voicevoxEnginePathField.Text.Trim();
+            if (!File.Exists(executable) ||
+                !string.Equals(Path.GetFileName(executable), "run.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(this,
+                    "Primero elegí el archivo run.exe de la carpeta vv-engine de una instalación oficial de VOICEVOX.",
+                    "VOICEVOX Engine", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (!VoicevoxEngineLaunchPolicy.TryParseBaseUrl(voicevoxBaseUrlField.Text.Trim(), out var endpoint))
+            {
+                MessageBox.Show(this,
+                    "Para iniciar Engine desde VTuberBot, configurá una dirección HTTP local como http://127.0.0.1:50021. No se permite exponer Engine a una dirección remota.",
+                    "Dirección local no válida", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (await IsVoicevoxApiReachableAsync(endpoint.BaseUrl))
+            {
+                if (await LoadVoicevoxVoicesAsync(showError: false))
+                    FooterStatus.Text = "VOICEVOX ya estaba activo. No se inició otra instancia.";
+                else
+                    FooterStatus.Text = "El Engine responde, pero no hay estilos disponibles. Revisá la instalación de las voces.";
+                return;
+            }
+
+            if (localVoicevoxEngineProcess is { HasExited: false })
+            {
+                FooterStatus.Text = "VOICEVOX ya fue iniciado por VTuberBot, pero todavía no responde. Volvé a comprobar las voces en unos segundos.";
+                return;
+            }
+
+            try
+            {
+                localVoicevoxEngineProcess?.Dispose();
+                localVoicevoxEngineProcess = null;
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = executable,
+                    WorkingDirectory = Path.GetDirectoryName(executable) ?? Environment.CurrentDirectory,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                startInfo.ArgumentList.Add("--host");
+                startInfo.ArgumentList.Add(endpoint.Host);
+                startInfo.ArgumentList.Add("--port");
+                startInfo.ArgumentList.Add(endpoint.Port.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                var cpuThreads = VoicevoxEngineLaunchPolicy.NormalizeCpuThreads(
+                    voicevoxCpuThreadsPicker.SelectedValue is int selectedThreads ? selectedThreads : 2);
+                startInfo.ArgumentList.Add("--cpu_num_threads");
+                startInfo.ArgumentList.Add(cpuThreads.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                startInfo.Environment["VV_OUTPUT_LOG_UTF8"] = "1";
+                store.SetSetting("audio.voicevox.cpuThreads", cpuThreads.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+                var launchedProcess = Process.Start(startInfo)
+                    ?? throw new InvalidOperationException("Windows no pudo iniciar run.exe.");
+                localVoicevoxEngineProcess = launchedProcess;
+                voicevoxEnginePathField.Text = executable;
+                voicevoxBaseUrlField.Text = endpoint.BaseUrl;
+                store.SetSetting("audio.voicevox.executablePath", executable);
+                store.SetSetting("audio.voicevox.baseUrl", endpoint.BaseUrl);
+                FooterStatus.Text = "VOICEVOX Engine iniciado en segundo plano; esperando respuesta local…";
+
+                var ready = false;
+                using (var probeClient = new HttpClient { Timeout = TimeSpan.FromMilliseconds(750) })
+                {
+                    for (var attempt = 0; attempt < 30; attempt++)
+                    {
+                        await Task.Delay(500);
+                        if (launchedProcess.HasExited)
+                            throw new InvalidOperationException("VOICEVOX run.exe terminó antes de responder. Revisá la instalación oficial y sus requisitos.");
+
+                        try
+                        {
+                            using var response = await probeClient.GetAsync(endpoint.BaseUrl + "/version");
+                            if (response.IsSuccessStatusCode)
+                            {
+                                ready = true;
+                                break;
+                            }
+                        }
+                        catch (HttpRequestException) { }
+                        catch (TaskCanceledException) { }
+                    }
+                }
+
+                if (!ready)
+                {
+                    FooterStatus.Text = "El proceso de VOICEVOX sigue iniciado, pero la API local aún no responde. Podés volver a comprobarlo.";
+                    store.Log("VOICEVOX", "run.exe se inició, pero la API no respondió dentro del plazo de comprobación.");
+                    MessageBox.Show(this,
+                        "Se inició run.exe, pero la API no respondió en 15 segundos. El proceso no se cerró automáticamente; revisá la instalación, la carga inicial de voces y el puerto configurado.",
+                        "VOICEVOX todavía no responde", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (await LoadVoicevoxVoicesAsync(showError: false))
+                {
+                    FooterStatus.Text = "VOICEVOX Engine listo en segundo plano. Seleccioná un estilo y probá la voz.";
+                    store.Log("VOICEVOX", "Engine local iniciado por VTuberBot y estilos disponibles.");
+                }
+                else
+                {
+                    FooterStatus.Text = "VOICEVOX Engine responde, pero no devolvió estilos utilizables.";
+                }
             }
             catch (Exception exception)
             {
-                voicePicker.ItemsSource = voices;
-                voiceListLoaded = true;
-                voicePicker.SelectedItem = voices.FirstOrDefault(voice => string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
-                    ?? voices.FirstOrDefault(voice => VoicevoxSpeechSession.IsVoiceId(voice.Id))
-                    ?? voices[0];
-                FooterStatus.Text = "VOICEVOX no disponible. Revisá que Engine esté iniciado y que la dirección sea local. " + windowsStatus + ".";
-                store.Log("VOICEVOX", "No se pudo consultar el motor local (" + exception.GetType().Name + ").");
-                MessageBox.Show(this,
-                    "No se pudo conectar con VOICEVOX Engine en la dirección configurada. La aplicación no generó una voz alternativa.\n\n" +
-                    exception.GetBaseException().Message,
-                    "VOICEVOX no disponible", MessageBoxButton.OK, MessageBoxImage.Warning);
+                FooterStatus.Text = "No se pudo iniciar VOICEVOX Engine: " + exception.GetBaseException().Message;
+                store.Log("VOICEVOX", "No se pudo iniciar run.exe (" + exception.GetType().Name + ").");
+                MessageBox.Show(this, exception.GetBaseException().Message, "No se pudo iniciar VOICEVOX Engine",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            }
+            finally
+            {
+                Volatile.Write(ref voicevoxEngineStartInProgress, 0);
+            }
+
+        }
+
+        panel.Children.Add(ActionButton("Actualizar dispositivos de salida", async (_, _) =>
+        {
+            try
+            {
+                var installed = await Task.Run(VoicevoxSpeechSession.GetInstalledOutputs);
+                var outputs = new List<LocalSpeechOutput> { new(string.Empty, "Salida predeterminada del sistema") };
+                outputs.AddRange(installed);
+                outputPicker.ItemsSource = outputs;
+                outputListLoaded = true;
+                outputPicker.SelectedItem = outputs.FirstOrDefault(output =>
+                    string.Equals(output.Id, savedOutputId, StringComparison.OrdinalIgnoreCase)) ?? outputs[0];
+                savedOutputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty;
+                FooterStatus.Text = $"Dispositivos de salida de voz encontrados: {installed.Count}.";
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudieron enumerar los dispositivos de salida: " + exception.GetBaseException().Message;
+                MessageBox.Show(this, exception.GetBaseException().Message, "Dispositivos de salida",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }));
+        panel.Children.Add(ActionButton("Comprobar y actualizar voces VOICEVOX", async (_, _) =>
+        {
+            await LoadVoicevoxVoicesAsync(showError: true);
+        }, true));
+
         panel.Children.Add(rateLabel);
         panel.Children.Add(rateSlider);
+        panel.Children.Add(pitchLabel);
+        panel.Children.Add(pitchSlider);
+        panel.Children.Add(intonationLabel);
+        panel.Children.Add(intonationSlider);
         panel.Children.Add(volumeLabel);
         panel.Children.Add(volumeSlider);
         panel.Children.Add(ActionButton("Guardar voz y ajustes", (_, _) =>
         {
-            savedVoiceId = AudioPreferenceSelectionPolicy.Resolve(
-                (voicePicker.SelectedItem as LocalSpeechVoice)?.Id,
-                savedVoiceId,
-                voiceListLoaded);
-            savedOutputId = AudioPreferenceSelectionPolicy.Resolve(
-                (outputPicker.SelectedItem as LocalSpeechOutput)?.Id,
-                savedOutputId,
-                outputListLoaded);
+            if (!voiceListLoaded ||
+                voicePicker.SelectedItem is not LocalSpeechVoice selected ||
+                !VoicevoxSpeechSession.IsVoiceId(selected.Id))
+            {
+                FooterStatus.Text = "Primero iniciá VOICEVOX Engine y comprobá la lista de voces.";
+                return;
+            }
+
+            savedVoiceId = selected.Id;
+            // If output enumeration was never requested in this UI session, preserve a previously
+            // saved device instead of mistaking the placeholder item for an intentional reset.
+            if (outputListLoaded)
+                savedOutputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty;
+            store.SetSetting("audio.voicevox.baseUrl", voicevoxBaseUrlField.Text.Trim());
+            store.SetSetting("audio.voicevox.voiceId", savedVoiceId);
+            // Keep the generic local-queue preference aligned for internal consumers that already use it.
             store.SetSetting("audio.tts.voiceId", savedVoiceId);
-            store.SetSetting("audio.tts.outputId", savedOutputId);
+            store.SetSetting("audio.voicevox.outputId", savedOutputId);
             store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.voicevox.pitchScale", VoicevoxSpeechSession.NormalizePitchScale(pitchSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.voicevox.intonationScale", VoicevoxSpeechSession.NormalizeIntonationScale(intonationSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var cpuThreads = VoicevoxEngineLaunchPolicy.NormalizeCpuThreads(
+                voicevoxCpuThreadsPicker.SelectedValue is int selectedThreads ? selectedThreads : 2);
+            store.SetSetting("audio.voicevox.cpuThreads", cpuThreads.ToString(System.Globalization.CultureInfo.InvariantCulture));
             store.SetSetting("audio.tts.volume", ((int)volumeSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            FooterStatus.Text = "Voz, velocidad y volumen guardados en SQLite.";
-            store.Log("Audio", "Preferencias TTS locales guardadas.");
-        }));
+            FooterStatus.Text = "Preferencias VOICEVOX, salida, velocidad y volumen guardados en SQLite.";
+            store.Log("VOICEVOX", "Preferencias de voz local guardadas.");
+        }, true));
         panel.Children.Add(speech);
         panel.Children.Add(Label("Prioridad de reproducción", 12, "#98A4BE"));
         panel.Children.Add(priority);
-        panel.Children.Add(ActionButton("＋ Encolar voz", (_, _) =>
+
+        async Task QueueVoicevoxAsync(bool test)
         {
-            var selectedPriority = priority.SelectedItem is SpeechPriority selected ? selected : SpeechPriority.Normal;
-            var voiceId = AudioPreferenceSelectionPolicy.Resolve(
-                (voicePicker.SelectedItem as LocalSpeechVoice)?.Id,
-                savedVoiceId,
-                voiceListLoaded);
+            var textToSpeak = speech.Text.Trim();
+            if (string.IsNullOrWhiteSpace(textToSpeak) && test)
+                textToSpeak = "こんにちは。これはVOICEVOXの音声テストです。";
+            if (string.IsNullOrWhiteSpace(textToSpeak))
+            {
+                FooterStatus.Text = "Escribí un texto para encolar en VOICEVOX.";
+                return;
+            }
+            if (textToSpeak.Length > 2000)
+            {
+                FooterStatus.Text = "VOICEVOX admite un máximo de 2000 caracteres por frase.";
+                return;
+            }
+
+            if (!await LoadVoicevoxVoicesAsync(showError: test))
+                return;
+
+            if (voicePicker.SelectedItem is not LocalSpeechVoice selectedVoice ||
+                !VoicevoxSpeechSession.IsVoiceId(selectedVoice.Id))
+            {
+                FooterStatus.Text = "Seleccioná una voz VOICEVOX disponible antes de reproducir.";
+                return;
+            }
+
+            var voiceId = selectedVoice.Id;
             var outputId = AudioPreferenceSelectionPolicy.Resolve(
                 (outputPicker.SelectedItem as LocalSpeechOutput)?.Id,
                 savedOutputId,
                 outputListLoaded);
-            if (speechQueue.Enqueue(speech.Text, selectedPriority, voiceId, (int)rateSlider.Value, (int)volumeSlider.Value, outputId))
-                store.Log("Audio", "Frase agregada a la cola TTS local con prioridad " + selectedPriority + ".");
+            var selectedPriority = test
+                ? SpeechPriority.High
+                : priority.SelectedItem is SpeechPriority selected ? selected : SpeechPriority.Normal;
+
+            savedVoiceId = voiceId;
+            savedOutputId = outputId;
+            store.SetSetting("audio.voicevox.voiceId", voiceId);
+            store.SetSetting("audio.tts.voiceId", voiceId);
+            store.SetSetting("audio.voicevox.outputId", outputId);
+            store.SetSetting("audio.voicevox.pitchScale", VoicevoxSpeechSession.NormalizePitchScale(pitchSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.voicevox.intonationScale", VoicevoxSpeechSession.NormalizeIntonationScale(intonationSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.tts.volume", ((int)volumeSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+            if (speechQueue.Enqueue(textToSpeak, selectedPriority, voiceId,
+                    (int)rateSlider.Value, (int)volumeSlider.Value, outputId))
+            {
+                FooterStatus.Text = test
+                    ? "Prueba VOICEVOX encolada con prioridad alta. El estado Talking se activa durante la reproducción real."
+                    : "Texto encolado para síntesis VOICEVOX local.";
+                store.Log("VOICEVOX", test
+                    ? "Se encoló una prueba de audio VOICEVOX."
+                    : "Se encoló texto para voz VOICEVOX.");
+            }
             else
-                FooterStatus.Text = "No se pudo encolar: revisá el texto, velocidad, volumen o el límite de la cola.";
-        }, true));
+            {
+                FooterStatus.Text = "No se pudo encolar VOICEVOX. Revisá que el texto sea válido y que la cola no esté llena.";
+            }
+        }
+
+        panel.Children.Add(ActionButton("▶ Probar voz VOICEVOX", async (_, _) =>
+            await QueueVoicevoxAsync(test: true), true));
+        panel.Children.Add(ActionButton("＋ Encolar texto VOICEVOX", async (_, _) =>
+            await QueueVoicevoxAsync(test: false), true));
         panel.Children.Add(ActionButton("Detener voz actual", (_, _) =>
         {
             if (speechQueue.StopCurrentSpeech())
@@ -485,7 +929,7 @@ public partial class MainWindow
         soundPanel.Children.Add(soundActions);
         root.Children.Add(soundPanel);
         
-        root.Children.Add(Label("El dispositivo de micrófono, el umbral acústico y la retención se guardan automáticamente y se recuperan al reiniciar. La cola procesa una frase por vez en un hilo STA separado. Podés elegir una voz SAPI instalada, ajustar velocidad (-10 a 10) y volumen (0 a 100). Las alertas usan las preferencias guardadas. No se descarga ni se promete una voz anime: el resultado depende de las voces que tenga Windows. La salida SAPI se puede seleccionar entre los dispositivos que Windows exponga; si no está disponible, se usa la salida predeterminada. La detección de micrófono usa amplitud suavizada/retención, no reconocimiento semántico ni lip-sync por fonemas.", 12, "#98A4BE"));
+        root.Children.Add(Label("El dispositivo de micrófono, el umbral acústico y la retención se guardan automáticamente y se recuperan al reiniciar. La detección de micrófono usa amplitud suavizada y retención, no reconocimiento semántico ni sincronización fonema a fonema. La voz principal se genera mediante VOICEVOX Engine local: esta página no cambia silenciosamente a SAPI de Windows, Gemini ni a un servicio remoto. Las voces estándar de VOICEVOX están orientadas principalmente al japonés, por lo que la pronunciación natural del español no está garantizada. La cola de voz está limitada a 32 frases.", 12, "#98A4BE"));
         return root;
     }
 

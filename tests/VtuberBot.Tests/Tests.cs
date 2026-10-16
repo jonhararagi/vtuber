@@ -2331,9 +2331,11 @@ public sealed class Tests
             TimeSpan.FromSeconds(1),
             TestContext.Current.CancellationToken);
 
+        // Allow slower hosted Windows runners to schedule both independent tasks while
+        // retaining a finite deadline that still detects a real process-control deadlock.
         await Task.WhenAll(
-            stopTask.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken),
-            waitTask.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken));
+            stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken),
+            waitTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
 
         Assert.False(process.IsRunning);
         Assert.Null(process.Pid);

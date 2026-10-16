@@ -75,7 +75,9 @@ public partial class MainWindow
         };
         cpuContent.Children.Add(dashboardCpuValue);
         cpuContent.Children.Add(dashboardCpuBar);
-        cpuContent.Children.Add(Label("Uso de CPU de VTuberBot, normalizado sobre los núcleos disponibles.", 11, "#98A4BE"));
+        dashboardCpuWarningLabel = Label("Aviso desde 80% y alerta desde 95% de la capacidad total de CPU.", 11, "#98A4BE");
+        cpuContent.Children.Add(dashboardCpuWarningLabel);
+        cpuContent.Children.Add(Label("Uso normalizado de VTuberBot sobre la capacidad total de CPU. No incluye OBS ni otros programas y no es un limitador.", 11, "#98A4BE"));
         cpuCard.Child = cpuContent;
 
         var ramCard = new Border
@@ -133,7 +135,8 @@ public partial class MainWindow
     private void UpdateDashboardMetrics()
     {
         if (currentPage != "Inicio" || dashboardCpuValue is null || dashboardCpuBar is null ||
-            dashboardRamValue is null || dashboardRamBar is null || dashboardRamWarningLabel is null)
+            dashboardCpuWarningLabel is null || dashboardRamValue is null || dashboardRamBar is null ||
+            dashboardRamWarningLabel is null)
             return;
 
         var health = application.LatestHealth;
@@ -141,11 +144,21 @@ public partial class MainWindow
         {
             dashboardCpuValue.Text = $"{cpu:0.0}%";
             dashboardCpuBar.Value = Math.Clamp(cpu, 0, 100);
+            var cpuWarning = ProcessCpuWarningPolicy.Evaluate(cpu);
+            (dashboardCpuWarningLabel.Text, dashboardCpuWarningLabel.Foreground) = cpuWarning switch
+            {
+                ProcessCpuWarningLevel.HighLoad => ("Aviso: VTuberBot está usando al menos el 80% de la capacidad total de CPU.", Brush("#E7B56A")),
+                ProcessCpuWarningLevel.Critical => ("ALERTA: VTuberBot está usando al menos el 95% de la capacidad total de CPU.", Brush("#F2A6A6")),
+                ProcessCpuWarningLevel.Unavailable => ("No se pudo validar el uso de CPU; no se infiere que esté dentro del umbral.", Brush("#E7B56A")),
+                _ => ("CPU de VTuberBot por debajo del umbral de aviso. La carga de otros procesos no está incluida.", Brush("#98A4BE"))
+            };
         }
         else
         {
             dashboardCpuValue.Text = "Midiendo…";
             dashboardCpuBar.Value = 0;
+            dashboardCpuWarningLabel.Text = "No se pudo medir CPU; no se infiere que esté por debajo del umbral.";
+            dashboardCpuWarningLabel.Foreground = Brush("#E7B56A");
         }
 
         if (health?.WorkingSetBytes is long residentBytes)
