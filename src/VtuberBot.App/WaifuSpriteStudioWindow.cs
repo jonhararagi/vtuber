@@ -219,7 +219,7 @@ public sealed class WaifuSpriteStudioWindow : Window
 
         try
         {
-            var frames = LoadFrames(asset.Path, false);
+            var frames = LoadFrames(asset.Path, asset.RemoveMatte);
             var isBackground = asset.Category == "Fondos";
             var size = DefaultSize(asset.Category, asset.Width, asset.Height);
             var x = isBackground ? 0 : DefaultX(asset.Category, size.Width);
@@ -229,7 +229,7 @@ public sealed class WaifuSpriteStudioWindow : Window
                 Id = Guid.NewGuid(), Name = asset.Name, Category = asset.Category, Path = asset.Path,
                 Frames = frames, X = x, Y = y, Width = isBackground ? CanvasWidth : size.Width,
                 Height = isBackground ? CanvasHeight : size.Height, Scale = 1, Rotation = 0, Opacity = 1,
-                Visible = true, ZIndex = isBackground ? -100 : NextZ(), RemoveMatte = false
+                Visible = true, ZIndex = isBackground ? -100 : NextZ(), RemoveMatte = asset.RemoveMatte
             };
             AddLayer(layer);
             SetStatus("Objeto añadido: " + asset.Name + ". Seleccionalo en el panel de capas para ajustar su posición.");
@@ -271,7 +271,7 @@ public sealed class WaifuSpriteStudioWindow : Window
                 Id = Guid.NewGuid(), Name = "Personaje base · " + Path.GetFileName(path), Category = "Personaje base",
                 Path = processedPath, Frames = frames, X = (CanvasWidth - width) / 2, Y = (CanvasHeight - height) / 2,
                 Width = width, Height = height, Scale = 1, Rotation = 0, Opacity = 1, Visible = true,
-                ZIndex = 100, RemoveMatte = false
+                ZIndex = 100, RemoveMatte = removeWhite && Path.GetExtension(imported).Equals(".gif", StringComparison.OrdinalIgnoreCase)
             });
             SetStatus(removeWhite
                 ? "Personaje importado. Se eliminó localmente el blanco conectado al borde; el archivo original no se modificó. Revisá los bordes claros y ajustá a mano si hace falta."
@@ -347,7 +347,8 @@ public sealed class WaifuSpriteStudioWindow : Window
                     "Objeto importado por el usuario. Archivo local; no se ha subido a Internet.",
                     imported,
                     frames[0].PixelWidth,
-                    frames[0].PixelHeight));
+                    frames[0].PixelHeight,
+                    removeWhite));
                 if (Equals(categoryPicker.SelectedItem, category))
                     RefreshCatalog();
             }
