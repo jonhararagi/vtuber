@@ -1,5 +1,18 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-16 — OBS: visibilidad de fuentes y silencio de audio (PR #26)
+
+- `main` base de esta rama: `af58e80c49b965970273f51e6779a3842f5965d7`, integración de PR #25.
+- PR #25 tuvo CI de Windows exitosa para el candidato de merge `a0ee7a9e8780581fed9274a177b3a8386572b572` (HEAD de la PR `65dc0c23e715da329c1d9dd512f889f2caafa02d)); el paquete de esa ejecución era un artefacto de PR, no el artefacto final de `main`. La CI de `main` para `af58e80` se consulta por separado.
+- Esta rama amplía el cliente OBS WebSocket v5 con `GetSceneItemList`, `SetSceneItemEnabled`, `GetInputList`, `GetInputMute` y `SetInputMute`, y añade controles en el panel OBS para consultar/alternar visibilidad de fuentes y silencio de audio.
+- Las fuentes de audio se filtran por tipo probable y se limitan a 32 candidatas. Los tipos que no expongan estado de silencio se omiten; los fallos de transporte siguen propagándose y se muestran como errores.
+- Se añaden pruebas unitarias de la política de tipos de entrada. No se ha probado la conexión contra una instalación real de OBS en esta sesión; CI solo valida compilación y pruebas automatizadas.
+- Estado de validación de PR #26: pendiente hasta que la ejecución de Windows CI correspondiente al HEAD final termine. No se declara el control real de fuentes validado sin OBS conectado.
+
+---
+
+# Continuidad del proyecto — VTuberBot
+
 ## 2026-10-16 — Navegación local, VOICEVOX y avisos de memoria (PR #25)
 
 - Rama de implementación: `product/focus-local-avatar-obs-voice`. Base de trabajo: `main` en `a72ae5c7d09e3123056a0d745f5a1a108429565c` (merge de PR #23).
