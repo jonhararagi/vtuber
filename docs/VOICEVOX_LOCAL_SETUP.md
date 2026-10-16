@@ -42,7 +42,7 @@ Si solo tenés una imagen, podrás utilizar el avatar estático, pero no habrá 
 - La voz se genera en el Engine local. Esta función no necesita un token de Gemini ni una API TTS remota.
 - El Engine es un proceso separado: su consumo se suma al del resto de aplicaciones aunque no cuente como memoria del proceso VTuberBot. El objetivo de alerta de 1 GiB corresponde al proceso VTuberBot, no al conjunto de todo el sistema.
 - VTuberBot no incluye el Engine/voicebanks ni los actualiza automáticamente. Conservá la instalación oficial; las opciones y el comportamiento pueden variar por versión.
-- Si necesitás detener un Engine que inició VTuberBot, hacelo desde el Administrador de tareas o el mecanismo oficial de cierre de la instalación después de terminar el audio. VTuberBot no lo termina automáticamente para no cortar un trabajo de audio ni cerrar un motor que el usuario podría estar usando.
+- El botón **Detener Engine iniciado por VTuberBot** permite finalizar únicamente el proceso que abrió esta instancia. Al cerrar VTuberBot, si ese proceso sigue activo, se pregunta si querés detenerlo (Sí), dejarlo activo para otro cliente local (No) o cancelar el cierre. Si el cierre no puede confirmarse, la aplicación avisa que el proceso podría seguir consumiendo memoria.
 
 ## 5. Licencias y atribución
 
