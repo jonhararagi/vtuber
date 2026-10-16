@@ -42,6 +42,7 @@ public partial class MainWindow
         var guideActions = new WrapPanel();
         guideActions.Children.Add(ActionButton("Volver a configurar el avatar", (_, _) => Navigate("PNGTuber 2D"), true));
         guideActions.Children.Add(ActionButton("OBS (otra configuración)", (_, _) => Navigate("OBS")));
+        guideActions.Children.Add(ActionButton("Abrir Twitch Developer Console", (_, _) => OpenExternalUrl("https://dev.twitch.tv/console/apps")));
         guide.Children.Add(guideActions);
         root.Children.Add(guide);
 
