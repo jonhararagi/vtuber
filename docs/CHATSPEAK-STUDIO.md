@@ -1,3 +1,7 @@
+> **Documento histórico — no representa el flujo actual aprobado.** Esta guía describe funciones anteriores de Twitch, bot social y proveedores remotos de voz. El alcance vigente se define en [la especificación definitiva](ESPECIFICACION_DEFINITIVA.md): el flujo principal utiliza VOICEVOX Engine local y el usuario opera desde las páginas actuales de VTuberBot. No sigas las instrucciones de proveedor remoto o Twitch de esta guía para configurar la versión actual. Para instalar y usar voz local, consultá [VOICEVOX local](VOICEVOX_LOCAL_SETUP.md).
+
+---
+
 # ChatSpeak Studio
 
 ## Objetivo
