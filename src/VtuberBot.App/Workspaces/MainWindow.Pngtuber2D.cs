@@ -15,6 +15,7 @@ public partial class MainWindow
     private const string PngtuberShakeEnabledKey = "avatar.pngtuber.motion.shake-enabled";
     private const string PngtuberShakeStrengthKey = "avatar.pngtuber.motion.shake-strength";
     private const string PngtuberBounceEnabledKey = "avatar.pngtuber.motion.bounce-enabled";
+    private const string PngtuberIdleFloatEnabledKey = "avatar.pngtuber.motion.idle-float-enabled";
 
     private UIElement BuildPngtuber2DWorkspace()
     {
@@ -252,6 +253,12 @@ public partial class MainWindow
             IsChecked = store.GetSetting(PngtuberBounceEnabledKey, "true") == "true",
             Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 0, 0, 8)
         };
+        var idleFloatEnabled = new CheckBox
+        {
+            Content = "Flotar suavemente cuando estoy en reposo",
+            IsChecked = store.GetSetting(PngtuberIdleFloatEnabledKey, "true") == "true",
+            Foreground = Brush("#F8FAFC"), Margin = new Thickness(0, 0, 0, 8)
+        };
         var shakeStrength = double.TryParse(store.GetSetting(PngtuberShakeStrengthKey, "6"), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedStrength)
             ? AvatarMotionPolicy.NormalizeShakeStrength(parsedStrength) : 6;
         var strengthSlider = new Slider { Minimum = 0, Maximum = AvatarMotionPolicy.MaximumShakePixels, Value = shakeStrength, TickFrequency = 1 };
@@ -260,6 +267,7 @@ public partial class MainWindow
         {
             store.SetSetting(PngtuberShakeEnabledKey, shakeEnabled.IsChecked == true ? "true" : "false");
             store.SetSetting(PngtuberBounceEnabledKey, bounceEnabled.IsChecked == true ? "true" : "false");
+            store.SetSetting(PngtuberIdleFloatEnabledKey, idleFloatEnabled.IsChecked == true ? "true" : "false");
             store.SetSetting(PngtuberShakeStrengthKey, strengthSlider.Value.ToString(CultureInfo.InvariantCulture));
             strengthLabel.Text = $"Intensidad de vibración: {strengthSlider.Value:0}/18";
             ApplyPngtuberMotionSettings();
@@ -268,9 +276,12 @@ public partial class MainWindow
         shakeEnabled.Unchecked += (_, _) => SaveMotionSettings();
         bounceEnabled.Checked += (_, _) => SaveMotionSettings();
         bounceEnabled.Unchecked += (_, _) => SaveMotionSettings();
+        idleFloatEnabled.Checked += (_, _) => SaveMotionSettings();
+        idleFloatEnabled.Unchecked += (_, _) => SaveMotionSettings();
         strengthSlider.ValueChanged += (_, _) => SaveMotionSettings();
         controlsPanel.Children.Add(shakeEnabled);
         controlsPanel.Children.Add(bounceEnabled);
+        controlsPanel.Children.Add(idleFloatEnabled);
         controlsPanel.Children.Add(strengthLabel);
         controlsPanel.Children.Add(strengthSlider);
         controlsPanel.Children.Add(ActionButton("⚡ Probar vibración ahora", (_, _) =>
@@ -354,9 +365,10 @@ public partial class MainWindow
         if (overlay is null) return;
         var shake = store.GetSetting(PngtuberShakeEnabledKey, "true") == "true";
         var bounce = store.GetSetting(PngtuberBounceEnabledKey, "true") == "true";
+        var idleFloat = store.GetSetting(PngtuberIdleFloatEnabledKey, "true") == "true";
         var intensity = double.TryParse(store.GetSetting(PngtuberShakeStrengthKey, "6"), NumberStyles.Float,
             CultureInfo.InvariantCulture, out var parsed) ? AvatarMotionPolicy.NormalizeShakeStrength(parsed) : 6;
-        overlay.SetMotionEffects(shake, intensity, bounce);
+        overlay.SetMotionEffects(shake, intensity, bounce, idleFloat);
         overlay.ReduceMotion = store.GetSetting("ui.reduceMotion", "false") == "true";
     }
 
