@@ -13,6 +13,7 @@ VTuberBot está pensado para ser un programa de escritorio completo para gestion
 - [Registro central de continuidad](docs/CONTINUIDAD_PROYECTO.md)
 - [Guía de configuración del candidato integral](docs/PRODUCT_USER_GUIDE.md)
 - [Creador de waifu PNG por objetos: capas, eliminación de fondo, GIF y 2.5D](docs/WAIFU-SPRITE-STUDIO.md)
+- [Guía rápida para encontrar el editor PNGTuber y el encuadre OBS](docs/AVATAR_EDITOR_GUIDE.md)
 - [Referencias visuales de VTubers y catálogo de cabello/ropa/accesorios por separado](docs/VTUBER_REFERENCIA_Y_BIBLIOTECA_MODULAR.md)
 - [ChatSpeak Studio: voz aguda estilo anime, IA remota y modos manual/automático](docs/CHATSPEAK-STUDIO.md)
 - [Guía sencilla para emitir en Twitch y YouTube](docs/STREAMING-YOUTUBE-TWITCH.md)
