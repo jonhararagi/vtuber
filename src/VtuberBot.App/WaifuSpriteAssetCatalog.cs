@@ -186,7 +186,7 @@ internal static class WaifuSpriteAssetCatalog
                 dc.DrawGeometry(cream, outline, Geometry.Parse("M 93,215 Q 125,68 260,73 Q 371,75 419,215 Z"));
                 dc.DrawGeometry(B("#3576DA"), outline, Geometry.Parse("M 82,209 Q 250,256 432,209 L 414,267 Q 256,313 102,266 Z"));
                 dc.DrawEllipse(gold, fine, new Point(256, 172), 40, 30);
-                dc.DrawStar(new Point(256, 172), 22, gold, null);
+                DrawStar(dc, new Point(256, 172), 22, gold, null);
                 break;
 
             case "eyes-open":
