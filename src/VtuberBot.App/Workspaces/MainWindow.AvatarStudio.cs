@@ -216,8 +216,6 @@ public partial class MainWindow
         beginnerActions.Children.Add(startLocalSegmentation);
         beginnerActions.Children.Add(ActionButton("Cargar modelo VRM (opcional)", (_, _) =>
             ImportVrmAndOpenOverlay(), true));
-        beginnerActions.Children.Add(ActionButton("Abrir VRoid Studio (externo)", (_, _) =>
-            OpenAvatarExternalTool("https://vroid.com/en/studio", "VRoid Studio")));
         cancelLocalSegmentation = ActionButton("Cancelar IA", (_, _) =>
             activeLocalAvatarSegmentation?.Cancel());
         cancelLocalSegmentation.IsEnabled = false;
