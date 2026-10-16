@@ -152,8 +152,7 @@ public partial class MainWindow
         // Wayfinding for users who confuse the five avatar creation modes.
         var editorGuide = Panel("¿Qué editor tengo que abrir?");
         editorGuide.Margin = new Thickness(0, 0, 0, 10);
-        editorGuide.BorderBrush = Brush("#2B879E");
-        editorGuide.BorderThickness = new Thickness(1);
+        editorGuide.Background = Brush("#1C2A3D");
         editorGuide.Children.Add(Label(
             "• EDITOR PNGTUBER · capas y piezas: el editor principal para importar PNG/GIF, combinar accesorios, mover capas y exportar el personaje.\n• ENCUADRE DE CÁMARA / OBS: herramienta complementaria para recortar rostro, busto o cuerpo y preparar un PNG recortado; su vista OBS es orientativa, no controla OBS en tiempo real.\n• Crear PNGTuber con mis imágenes: asistente rápido.\n• 2.5D experimental: separa una imagen con IA local aproximada.\n• Taller 3D / VRM / VRoid: otros flujos; no son necesarios para editar capas PNG.",
             12, "#D8E5F5"));
