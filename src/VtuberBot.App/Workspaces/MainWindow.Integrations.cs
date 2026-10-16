@@ -30,7 +30,25 @@ public partial class MainWindow
 
     private UIElement BuildObsPage()
     {
-        var root=new StackPanel();var panel=Panel("OBS Studio · WebSocket v5");root.Children.Add(panel);
+        var root = new StackPanel();
+        var setupGuide = Panel("EMPEZÁ ACÁ · Conectar OBS en 3 pasos");
+        setupGuide.Children.Add(Label(
+            "Esta es la configuración de OBS, no la de Twitch. No uses tu contraseña de Twitch acá: necesitás la contraseña del servidor WebSocket de OBS.",
+            13, "#F8FAFC", true));
+        setupGuide.Children.Add(Label(
+            "1. Abrí OBS Studio. 2. En el menú superior entrá en Herramientas → Configuración del servidor WebSocket (el nombre puede aparecer como WebSocket Server Settings). 3. Marcá «Activar servidor WebSocket» y dejá el puerto 4455 salvo que lo hayas cambiado. 4. Pulsá «Mostrar información de conexión» y copiá la contraseña de OBS en el campo Contraseña de WebSocket que aparece abajo. 5. Pulsá «Guardar y conectar (primera vez)».",
+            12, "#C4CDE0"));
+        setupGuide.Children.Add(Label(
+            "Si la conexión funciona, VTuberBot mostrará que OBS está autenticado y podrá leer escenas y el estado real de transmisión. Guardar una contraseña por sí solo no significa que esté conectado.",
+            11, "#98A4BE"));
+        var guideActions = new WrapPanel();
+        guideActions.Children.Add(ActionButton("Abrir OBS Studio", async (_, _) => await OpenObsFromUiAsync(), true));
+        guideActions.Children.Add(ActionButton("Volver al PNGTuber 2D", (_, _) => Navigate("PNGTuber 2D")));
+        guideActions.Children.Add(ActionButton("Configurar Twitch aparte", (_, _) => Navigate("Twitch y chat")));
+        setupGuide.Children.Add(guideActions);
+        root.Children.Add(setupGuide);
+
+        var panel=Panel("Conexión y controles reales de OBS");root.Children.Add(panel);
         var launchPanel = Panel("Inicio de OBS y rendimiento");
         launchPanel.Children.Add(Label("VTuberBot puede abrir OBS y conectarse con la configuración guardada. El primer uso requiere guardar una contraseña de WebSocket en OBS y en VTuberBot.", 12, "#98A4BE"));
         var autoStartObs = new CheckBox
@@ -104,8 +122,7 @@ public partial class MainWindow
                 await AutoConnectObsFromUiAsync();
         };
 
-        panel.Children.Add(Label("Conexión autenticada y control de escenas",19,"#F8FAFC",true));
-        panel.Children.Add(Label("Activá WebSocket Server en OBS → Herramientas. La app no registra una conexión hasta completar Hello/Identify. La contraseña se cifra con DPAPI CurrentUser.",13,"#98A4BE"));
+        panel.Children.Add(Label("Después de completar los pasos de arriba, revisá estos campos. Para una instalación normal en la misma PC: Host 127.0.0.1 · Puerto 4455. La contraseña es la de WebSocket de OBS, no la de Twitch.",12,"#98A4BE"));
         var host=TextField("Host",store.GetSetting("obs.host","127.0.0.1"));
         var port=TextField("Puerto",store.GetSetting("obs.port","4455"));
         var password=new PasswordBox{Password=LoadObsPassword(),Background=Brush("#101525"),Foreground=Brush("#F8FAFC"),BorderBrush=Brush("#34415E"),Padding=new Thickness(10),Margin=new Thickness(0,0,0,8)};
