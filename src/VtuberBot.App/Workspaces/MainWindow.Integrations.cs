@@ -27,10 +27,56 @@ public partial class MainWindow
     private TextBlock? obsRecordOutputStatusLabel;
     private Action<string, JsonElement>? obsEventHandler;
     private Action<string>? obsStatusHandler;
+    private ObsSetupWizardWindow? obsSetupWizardWindow;
+
+    private void OpenObsSetupWizard()
+    {
+        if (obsSetupWizardWindow is null)
+        {
+            async Task<bool> CheckConnectionAsync()
+            {
+                if (!obs.IsConnected)
+                    await AutoConnectObsFromUiAsync();
+                return obs.IsConnected && !string.IsNullOrWhiteSpace(await obs.GetVersionAsync());
+            }
+
+            var wizard = new ObsSetupWizardWindow(
+                key => store.GetSetting(key, string.Empty),
+                (key, value) => store.SetSetting(key, value),
+                () => OpenObsFromUiAsync(),
+                CheckConnectionAsync,
+                () => Navigate("OBS"),
+                async () =>
+                {
+                    if (!obs.IsConnected)
+                        throw new InvalidOperationException("Primero conecta VTuberBot con OBS desde la página OBS.");
+                    return await obs.ApplyLightVideoProfileAsync();
+                },
+                () => ShowOverlay(),
+                this);
+            obsSetupWizardWindow = wizard;
+            wizard.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(obsSetupWizardWindow, wizard))
+                    obsSetupWizardWindow = null;
+            };
+        }
+
+        if (!obsSetupWizardWindow.IsVisible)
+            obsSetupWizardWindow.Show();
+        if (obsSetupWizardWindow.WindowState == WindowState.Minimized)
+            obsSetupWizardWindow.WindowState = WindowState.Normal;
+        obsSetupWizardWindow.Activate();
+    }
 
     private UIElement BuildObsPage()
     {
-        var root=new StackPanel();var panel=Panel("OBS Studio · WebSocket v5");root.Children.Add(panel);
+        var root=new StackPanel();
+        var guidePanel = Panel("Asistente visual · Configurar OBS paso a paso");
+        guidePanel.Children.Add(Label("Una guía que podés volver a abrir: diagramas clicables, enlaces oficiales, pasos para Twitch/YouTube y progreso guardado. Los diagramas son ilustraciones explicativas; la conexión y los cambios solo se confirman cuando la aplicación los comprueba realmente.", 12, "#98A4BE"));
+        guidePanel.Children.Add(ActionButton("Abrir asistente visual de OBS", (_, _) => OpenObsSetupWizard(), true));
+        root.Children.Add(guidePanel);
+        var panel=Panel("OBS Studio · WebSocket v5");root.Children.Add(panel);
         var launchPanel = Panel("Inicio de OBS y rendimiento");
         launchPanel.Children.Add(Label("VTuberBot puede abrir OBS y conectarse con la configuración guardada. El primer uso requiere guardar una contraseña de WebSocket en OBS y en VTuberBot.", 12, "#98A4BE"));
         var autoStartObs = new CheckBox

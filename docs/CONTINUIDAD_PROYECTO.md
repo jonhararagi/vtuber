@@ -1,3 +1,17 @@
+# Continuidad del proyecto — VTuberBot
+
+## 2026-10-16 — Asistente visual de configuración OBS (main)
+
+- Se incorporó en la página **OBS y transmisiones** un botón permanente para abrir el asistente visual paso a paso.
+- `ObsSetupWizardWindow.cs` presenta siete pasos: instalación de OBS, apertura/escenas, avatar y micrófono, WebSocket, destino Twitch/YouTube, perfil inicial 720p30 y grabación de prueba.
+- Los diagramas son ilustraciones vectoriales originales de la interfaz; sus marcadores numerados se pueden pulsar para leer qué representa cada zona. No se presentan como capturas exactas de la máquina del usuario.
+- Paso actual, plataforma seleccionada y pasos marcados se guardan con `ProductStore` en SQLite local, para cerrar y retomar el asistente.
+- Las acciones de abrir OBS, mostrar el overlay, abrir páginas oficiales, copiar el puerto y probar una conexión real están enlazadas con funciones existentes. Aplicar 720p30 pide confirmación y requiere una conexión OBS autenticada.
+- La guía nunca pide compartir claves. La clave de streaming se introduce solo en la página OBS de VTuberBot, cuyo almacenamiento cifrado existente se conserva.
+- **Validación requerida:** Windows CI para el SHA exacto de este cambio; la inspección visual manual de WPF y la conexión con una instalación real de OBS todavía deben comprobarse por el usuario.
+
+---
+
 # Estado prioritario del repositorio — 2026-10-15
 
 ## 2026-10-16 — Creador de waifu PNG por objetos
