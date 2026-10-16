@@ -14,6 +14,9 @@ public sealed class AvatarOverlayWindow : Window
     private readonly Border alertCard = new() { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(12), Padding = new Thickness(12), Background = new SolidColorBrush(Color.FromArgb(230, 16, 21, 37)), CornerRadius = new CornerRadius(12), MaxWidth = 390 };
     private readonly TextBlock alertText = new() { Foreground = Brushes.White, FontSize = 18, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly ScaleTransform breathing = new(1,1);
+    private readonly TranslateTransform talkingBounce = new();
+    private readonly List<(Image Image, BitmapSource Artwork)> intrinsicLayerImages = [];
+    private BitmapSource? referenceAvatarBitmap;
     private readonly List<(TranslateTransform Transform, double Factor)> parallaxTransforms = [];
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(80) };
     private bool parallaxEnabled = true;
@@ -40,7 +43,11 @@ public sealed class AvatarOverlayWindow : Window
         WindowStyle = WindowStyle.None; AllowsTransparency = true; Background = Brushes.Transparent;
         Topmost = true; ShowInTaskbar = false; ResizeMode = ResizeMode.CanResizeWithGrip;
         layerCanvas.RenderTransformOrigin = new Point(.5,.5);
-        layerCanvas.RenderTransform = breathing;
+        var avatarMotion = new TransformGroup();
+        avatarMotion.Children.Add(breathing);
+        avatarMotion.Children.Add(talkingBounce);
+        layerCanvas.RenderTransform = avatarMotion;
+        layerCanvas.SizeChanged += (_, _) => UpdateIntrinsicLayerSizes();
         alertCard.Child = alertText;
         layerCanvas.Children.Add(alertCard);
         Content = layerCanvas;
@@ -88,10 +95,16 @@ public sealed class AvatarOverlayWindow : Window
             layerCanvas.Opacity = 1;
             alertCard.Visibility = now < alertUntil ? Visibility.Visible : Visibility.Collapsed;
             UpdateParallax();
-            if (ReduceMotion) { breathing.ScaleX = 1; breathing.ScaleY = 1; return; }
+            if (ReduceMotion)
+            {
+                breathing.ScaleX = 1; breathing.ScaleY = 1; talkingBounce.Y = 0; return;
+            }
             phase += state == "Talking" ? .12 : .035;
-            breathing.ScaleY = state switch { "Talking" => 1 + Math.Sin(phase) * .012, "Happy" => 1.008, "Surprised" => 1.025, _ => 1 + Math.Sin(phase) * .008 };
+            breathing.ScaleY = state switch { "Talking" => 1 + Math.Sin(phase) * .018, "Happy" => 1.008, "Surprised" => 1.025, _ => 1 + Math.Sin(phase) * .008 };
             breathing.ScaleX = state switch { "Happy" => 1.008, "Surprised" => 1.025, _ => 1 + Math.Sin(phase + .6) * .004 };
+            // A visible, state-driven bob helps a PNGTuber feel alive while audio is active.
+            // This follows Talking state; it is not an amplitude- or phoneme-driven lip-sync.
+            talkingBounce.Y = state == "Talking" ? Math.Sin(phase * 1.15) * 4.5 : 0;
         };
         timer.Start();
         Closed += (_, _) => timer.Stop();
@@ -209,36 +222,54 @@ public sealed class AvatarOverlayWindow : Window
     {
         layerCanvas.Children.Clear();
         parallaxTransforms.Clear();
+        intrinsicLayerImages.Clear();
         var visualState = transientState ?? state;
         var activeBasePath = expressionImages.TryGetValue(visualState, out var expressionPath) && File.Exists(expressionPath)
             ? expressionPath
             : baseImagePath;
+        referenceAvatarBitmap = !string.IsNullOrWhiteSpace(activeBasePath) && File.Exists(activeBasePath)
+            ? AvatarImageLoader.Load(activeBasePath, decodePixelWidth: 1000)
+            : null;
         var visibleLayers = avatarLayers.Where(layer => layer.Visible && File.Exists(layer.Path)).ToArray();
         foreach (var layer in AvatarLayerOrdering.BackgroundLayers(visibleLayers))
-            AddLayerImage(ResolveLayerArtwork(layer, visualState), layer);
-        if (!string.IsNullOrWhiteSpace(activeBasePath) && File.Exists(activeBasePath))
-            AddLayerImage(activeBasePath, null);
+            AddLayerImage(ResolveLayerArtwork(layer, visualState), layer, referenceAvatarBitmap);
+        if (referenceAvatarBitmap is not null && !string.IsNullOrWhiteSpace(activeBasePath))
+            AddLayerImage(activeBasePath, null, referenceAvatarBitmap, referenceAvatarBitmap);
         foreach (var layer in AvatarLayerOrdering.ForegroundLayers(visibleLayers))
-            AddLayerImage(ResolveLayerArtwork(layer, visualState), layer);
+            AddLayerImage(ResolveLayerArtwork(layer, visualState), layer, referenceAvatarBitmap);
         if (additionalPaths is not null)
             foreach (var path in additionalPaths.Where(File.Exists))
-                AddLayerImage(path, null);
+                AddLayerImage(path, null, referenceAvatarBitmap);
         layerCanvas.Children.Add(alertCard);
+        UpdateIntrinsicLayerSizes();
     }
 
     private static string ResolveLayerArtwork(AvatarLayer layer, string visualState) =>
         AvatarMouthSpritePolicy.ResolvePath(layer, visualState);
 
-    private void AddLayerImage(string path, AvatarLayer? layer)
+    private void AddLayerImage(string path, AvatarLayer? layer, BitmapSource? referenceBitmap, BitmapSource? preloadedBitmap = null)
     {
-        var bitmap = AvatarImageLoader.Load(path, decodePixelWidth: 1000);
+        var bitmap = preloadedBitmap ?? AvatarImageLoader.Load(path, decodePixelWidth: 1000);
+        var isBackground = AvatarLayerOrdering.IsBackground(layer);
+        var isMouthArtwork = layer is not null &&
+            ((!string.IsNullOrWhiteSpace(layer.ClosedMouthPath) && string.Equals(path, layer.ClosedMouthPath, StringComparison.OrdinalIgnoreCase)) ||
+             (!string.IsNullOrWhiteSpace(layer.OpenMouthPath) && string.Equals(path, layer.OpenMouthPath, StringComparison.OrdinalIgnoreCase)));
+        var intrinsicMouthPiece = isMouthArtwork && referenceBitmap is { PixelWidth: > 0, PixelHeight: > 0 };
         var image = new Image
         {
-            Source = bitmap, Stretch = AvatarLayerOrdering.IsBackground(layer) ? Stretch.UniformToFill : Stretch.Uniform,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Stretch,
+            Source = bitmap,
+            Stretch = isBackground ? Stretch.UniformToFill : Stretch.Uniform,
+            HorizontalAlignment = intrinsicMouthPiece ? HorizontalAlignment.Center : HorizontalAlignment.Stretch,
+            VerticalAlignment = intrinsicMouthPiece ? VerticalAlignment.Center : VerticalAlignment.Stretch,
             IsHitTestVisible = false
         };
+        if (intrinsicMouthPiece)
+        {
+            // The old renderer stretched every source over the full window. A tightly cropped
+            // mouth PNG therefore appeared huge and anchored to the center of the face. Keep
+            // its intrinsic pixel size relative to the base avatar's Uniform scale instead.
+            intrinsicLayerImages.Add((image, bitmap));
+        }
         if (layer is not null)
         {
             image.RenderTransformOrigin = new Point(.5, .5);
@@ -252,6 +283,23 @@ public sealed class AvatarOverlayWindow : Window
             image.RenderTransform = transform;
         }
         layerCanvas.Children.Add(image);
+    }
+
+    private void UpdateIntrinsicLayerSizes()
+    {
+        if (referenceAvatarBitmap is null || referenceAvatarBitmap.PixelWidth <= 0 || referenceAvatarBitmap.PixelHeight <= 0)
+            return;
+        var viewportWidth = layerCanvas.ActualWidth > 0 ? layerCanvas.ActualWidth : Width;
+        var viewportHeight = layerCanvas.ActualHeight > 0 ? layerCanvas.ActualHeight : Height;
+        foreach (var (image, artwork) in intrinsicLayerImages)
+        {
+            var size = AvatarLayerSizingPolicy.GetStickerSize(
+                artwork.PixelWidth, artwork.PixelHeight,
+                referenceAvatarBitmap.PixelWidth, referenceAvatarBitmap.PixelHeight,
+                viewportWidth, viewportHeight);
+            image.Width = size.Width;
+            image.Height = size.Height;
+        }
     }
 
     private void UpdateParallax()
