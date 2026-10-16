@@ -66,8 +66,11 @@ public partial class MainWindow
 
         void RefreshList()
         {
+            var desiredSelection = selected;
             list.ItemsSource = null;
-            list.ItemsSource = layers.Select((layer, index) => $"{(index == selected ? "▶ " : "")}{index + 1}. {layer.Name}").Reverse().ToArray();
+            list.ItemsSource = layers.Select((layer, index) => $"{(index == desiredSelection ? "▶ " : "")}{index + 1}. {layer.Name}").Reverse().ToArray();
+            // Reassign after ItemsSource reset because SelectionChanged can temporarily set -1.
+            selected = desiredSelection;
             list.SelectedIndex = selected >= 0 && selected < layers.Count ? layers.Count - 1 - selected : -1;
             RenderLayers();
         }
