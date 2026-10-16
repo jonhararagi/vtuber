@@ -288,6 +288,7 @@ public partial class MainWindow
         panel.Children.Add(ActionButton("Comprobar VOICEVOX y actualizar voces", async (_, _) =>
         {
             var configuredUrl = voicevoxBaseUrlField.Text.Trim();
+            // VoicevoxSpeechSession rejects non-loopback hosts before sending any request.
             store.SetSetting("audio.voicevox.baseUrl", configuredUrl);
             var voices = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") };
             string windowsStatus;
