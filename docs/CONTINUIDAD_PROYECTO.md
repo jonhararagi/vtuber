@@ -1,3 +1,18 @@
+## 2026-10-16 — Especificación definitiva del producto (decisiones del usuario)
+
+- Se creó `docs/ESPECIFICACION_DEFINITIVA.md` en la rama `docs/definitive-product-scope` para fijar alcance y plan de integración.
+- Prioridad aprobada: programa completo, local y gratuito en su uso básico, escritorio Windows x64, C#/.NET 10/WPF/SQLite, guía interactiva, seguridad, pruebas y entrega verificable.
+- Avatar: usar la imagen que aporte el usuario; conservar edición/importación, encuadre, previsualización OBS y exportación; limitar el avatar a dos estados básicos (reposo/habla); retirar catálogo de waifus prefabricadas y parallax/2.5D; mantener VRM/3D como opcional sujeto a evidencia.
+- Twitch y funciones sociales (eventos, mensajes automáticos, moderación, puntos, sorteos, minijuegos y reacciones) quedan fuera del alcance actual. Los comandos personalizados que se conserven no pueden activarse desde chat de Twitch sin un conector Twitch; OBS no sustituye la API/IRC/EventSub de Twitch.
+- OBS se mantiene como motor de escenas/transmisión, con operaciones de OBS controlables desde el panel solo cuando estén realmente implementadas y probadas. No se pretende reemplazar OBS ni obligar al usuario a operar otra app para cada acción compatible.
+- Voz: prioridad VOICEVOX local, selección de voz/estilo, síntesis y reproducción desde VTuberBot. Antes de empaquetar motores o voicebanks se verificarán licencias, créditos y condiciones de redistribución. No simular voz si el motor falla.
+- Rendimiento: objetivo/umbral de aviso de 1 GiB para el proceso VTuberBot, con aviso anticipado y medición; no prometer límite duro ni contar como parte de ese proceso a OBS u otros procesos auxiliares.
+- Antes de retirar funciones se auditarán referencias, datos, menús y pruebas. La decisión de producto no autoriza una eliminación inmediata de código compartido.
+- **Estado:** documentación creada en rama separada; todavía no integrada en `main`. README enlazado en la rama. Falta abrir/revisar PR, reconciliar Blueprint/Project Spec/Roadmap/guías y auditar el código real. Esta especificación no afirma que las funciones estén ya implementadas.
+- Rama: `docs/definitive-product-scope`; commit de creación de la especificación: `16b07001cc9972bcfcc227e6aa944736d820aea4`.
+
+---
+
 # Continuidad del proyecto — VTuberBot
 
 ## 2026-10-16 — Asistente visual de configuración OBS (main)
