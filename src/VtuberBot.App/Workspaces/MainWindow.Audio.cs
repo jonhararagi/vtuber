@@ -229,15 +229,19 @@ public partial class MainWindow
             SelectedItem = SpeechPriority.Normal,
             Width = 180
         };
-        var savedVoiceId = store.GetSetting("audio.tts.voiceId");
-        var savedOutputId = store.GetSetting("audio.tts.outputId");
-        var voicevoxBaseUrlField = TextField("http://127.0.0.1:50021", store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl));
+        var savedVoiceId = store.GetSetting("audio.voicevox.voiceId", store.GetSetting("audio.tts.voiceId"));
+        var savedOutputId = store.GetSetting("audio.voicevox.outputId");
+        var voicevoxBaseUrlField = TextField("http://127.0.0.1:50021",
+            store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl));
         voicevoxBaseUrlField.MinWidth = 320;
         var outputListLoaded = false;
         var voiceListLoaded = false;
         var voicePicker = new ComboBox
         {
-            ItemsSource = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") },
+            ItemsSource = new List<LocalSpeechVoice>
+            {
+                new(string.Empty, "VOICEVOX no comprobado — pulsá «Comprobar y actualizar voces»")
+            },
             SelectedIndex = 0,
             DisplayMemberPath = nameof(LocalSpeechVoice.Name),
             MinWidth = 280,
@@ -252,125 +256,190 @@ public partial class MainWindow
         rateSlider.ValueChanged += (_, _) => rateLabel.Text = $"Velocidad de voz: {rateSlider.Value:0}";
         volumeSlider.ValueChanged += (_, _) => volumeLabel.Text = $"Volumen: {volumeSlider.Value:0}%";
 
-        panel.Children.Add(Label("Voces locales: VOICEVOX y Windows", 14, "#F8FAFC", true));
-        panel.Children.Add(Label("VOICEVOX es el motor prioritario. Debe estar instalado y ejecutándose localmente; VTuberBot no simula una conexión ni usa una API remota como sustituto.", 12, "#98A4BE"));
+        panel.Children.Add(Label("Síntesis de voz local · VOICEVOX Engine", 14, "#F8FAFC", true));
+        panel.Children.Add(Label(
+            "Esta pantalla usa únicamente estilos que VOICEVOX devuelve desde tu motor local. No cambia silenciosamente a Windows SAPI, Gemini ni a una API remota. El motor y las voces deben estar instalados según sus licencias.",
+            12, "#98A4BE"));
         panel.Children.Add(Label("Dirección local de VOICEVOX Engine", 12, "#98A4BE"));
         panel.Children.Add(voicevoxBaseUrlField);
+        panel.Children.Add(Label("Voz / estilo", 12, "#98A4BE"));
         panel.Children.Add(voicePicker);
+
         var outputPicker = new ComboBox
         {
-            ItemsSource = new List<LocalSpeechOutput> { new(string.Empty, "Salida predeterminada de Windows") },
+            ItemsSource = new List<LocalSpeechOutput> { new(string.Empty, "Salida predeterminada del sistema") },
             SelectedIndex = 0,
             DisplayMemberPath = nameof(LocalSpeechOutput.Name),
             MinWidth = 280,
             Margin = new Thickness(0, 0, 0, 8)
         };
-        panel.Children.Add(Label("Dispositivo de salida para la voz local", 12, "#98A4BE"));
+        panel.Children.Add(Label("Dispositivo de salida de audio VOICEVOX", 12, "#98A4BE"));
         panel.Children.Add(outputPicker);
+
+        async Task<bool> LoadVoicevoxVoicesAsync(bool showError)
+        {
+            var configuredUrl = voicevoxBaseUrlField.Text.Trim();
+            var previousSelection = (voicePicker.SelectedItem as LocalSpeechVoice)?.Id;
+            try
+            {
+                // The adapter rejects non-loopback addresses before it makes any HTTP request.
+                store.SetSetting("audio.voicevox.baseUrl", configuredUrl);
+                var installedVoicevox = await Task.Run(() => VoicevoxSpeechSession.GetInstalledVoices(configuredUrl));
+                if (installedVoicevox.Count == 0)
+                    throw new InvalidOperationException("VOICEVOX respondió, pero no devolvió ningún estilo. Verificá que el Engine y al menos una voz sean compatibles.");
+
+                voicePicker.ItemsSource = installedVoicevox;
+                voiceListLoaded = true;
+                var selected = installedVoicevox.FirstOrDefault(voice =>
+                    string.Equals(voice.Id, previousSelection, StringComparison.OrdinalIgnoreCase))
+                    ?? installedVoicevox.FirstOrDefault(voice =>
+                        string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
+                    ?? installedVoicevox[0];
+                voicePicker.SelectedItem = selected;
+                savedVoiceId = selected.Id;
+                FooterStatus.Text = $"VOICEVOX conectado: {installedVoicevox.Count} estilos disponibles.";
+                store.Log("VOICEVOX", $"Motor local disponible; {installedVoicevox.Count} estilos detectados.");
+                return true;
+            }
+            catch (Exception exception)
+            {
+                voicePicker.ItemsSource = new List<LocalSpeechVoice>
+                {
+                    new(string.Empty, "VOICEVOX no disponible — iniciá Engine y volvé a comprobar")
+                };
+                voicePicker.SelectedIndex = 0;
+                voiceListLoaded = false;
+                FooterStatus.Text = "VOICEVOX no disponible. Iniciá Engine, comprobá la dirección local y volvé a intentar.";
+                store.Log("VOICEVOX", "No se pudo consultar el motor local (" + exception.GetType().Name + ").");
+                if (showError)
+                {
+                    MessageBox.Show(this,
+                        "No se pudo conectar con VOICEVOX Engine. No se generó audio ni se seleccionó otra voz.\n\n" +
+                        exception.GetBaseException().Message +
+                        "\n\nIniciá VOICEVOX Engine, comprobá la dirección local y elegí «Comprobar y actualizar voces».",
+                        "VOICEVOX no disponible", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                return false;
+            }
+        }
+
         panel.Children.Add(ActionButton("Actualizar dispositivos de salida", async (_, _) =>
         {
             try
             {
-                var installed = await Task.Run(LocalSpeechQueue.GetInstalledOutputs);
-                var outputs = new List<LocalSpeechOutput> { new(string.Empty, "Salida predeterminada de Windows") };
+                var installed = await Task.Run(VoicevoxSpeechSession.GetInstalledOutputs);
+                var outputs = new List<LocalSpeechOutput> { new(string.Empty, "Salida predeterminada del sistema") };
                 outputs.AddRange(installed);
                 outputPicker.ItemsSource = outputs;
                 outputListLoaded = true;
-                outputPicker.SelectedItem = outputs.FirstOrDefault(output => string.Equals(output.Id, savedOutputId, StringComparison.OrdinalIgnoreCase)) ?? outputs[0];
-                FooterStatus.Text = "Salidas SAPI encontradas: " + installed.Count + ".";
+                outputPicker.SelectedItem = outputs.FirstOrDefault(output =>
+                    string.Equals(output.Id, savedOutputId, StringComparison.OrdinalIgnoreCase)) ?? outputs[0];
+                savedOutputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty;
+                FooterStatus.Text = $"Dispositivos de salida de voz encontrados: {installed.Count}.";
             }
             catch (Exception exception)
             {
-                FooterStatus.Text = "No se pudieron enumerar las salidas de audio: " + exception.Message;
-                MessageBox.Show(this, "Se mantiene la salida predeterminada de Windows.\\n\\n" + exception.Message, "Salidas de audio", MessageBoxButton.OK, MessageBoxImage.Warning);
+                FooterStatus.Text = "No se pudieron enumerar los dispositivos de salida: " + exception.GetBaseException().Message;
+                MessageBox.Show(this, exception.GetBaseException().Message, "Dispositivos de salida",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }));
-        panel.Children.Add(ActionButton("Comprobar VOICEVOX y actualizar voces", async (_, _) =>
+        panel.Children.Add(ActionButton("Comprobar y actualizar voces VOICEVOX", async (_, _) =>
         {
-            var configuredUrl = voicevoxBaseUrlField.Text.Trim();
-            // VoicevoxSpeechSession rejects non-loopback hosts before sending any request.
-            store.SetSetting("audio.voicevox.baseUrl", configuredUrl);
-            var voices = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") };
-            string windowsStatus;
-            try
-            {
-                var installedWindows = await Task.Run(LocalSpeechQueue.GetInstalledVoices);
-                voices.AddRange(installedWindows);
-                windowsStatus = $"Windows: {installedWindows.Count} voces";
-            }
-            catch (Exception exception)
-            {
-                windowsStatus = "Windows SAPI no disponible (" + exception.GetType().Name + ")";
-                store.Log("VOICEVOX", "No se pudieron enumerar voces Windows SAPI (" + exception.GetType().Name + ").");
-            }
+            await LoadVoicevoxVoicesAsync(showError: true);
+        }, true));
 
-            try
-            {
-                var installedVoicevox = await Task.Run(() => VoicevoxSpeechSession.GetInstalledVoices(configuredUrl));
-                voices.AddRange(installedVoicevox);
-                voicePicker.ItemsSource = voices;
-                voiceListLoaded = true;
-                voicePicker.SelectedItem = voices.FirstOrDefault(voice => string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
-                    ?? voices.FirstOrDefault(voice => VoicevoxSpeechSession.IsVoiceId(voice.Id))
-                    ?? voices[0];
-                FooterStatus.Text = $"VOICEVOX conectado: {installedVoicevox.Count} estilos disponibles. {windowsStatus}.";
-                store.Log("VOICEVOX", $"Motor local disponible; {installedVoicevox.Count} estilos detectados.");
-            }
-            catch (Exception exception)
-            {
-                voicePicker.ItemsSource = voices;
-                voiceListLoaded = true;
-                voicePicker.SelectedItem = voices.FirstOrDefault(voice => string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
-                    ?? voices.FirstOrDefault(voice => VoicevoxSpeechSession.IsVoiceId(voice.Id))
-                    ?? voices[0];
-                FooterStatus.Text = "VOICEVOX no disponible. Revisá que Engine esté iniciado y que la dirección sea local. " + windowsStatus + ".";
-                store.Log("VOICEVOX", "No se pudo consultar el motor local (" + exception.GetType().Name + ").");
-                MessageBox.Show(this,
-                    "No se pudo conectar con VOICEVOX Engine en la dirección configurada. La aplicación no generó una voz alternativa.\n\n" +
-                    exception.GetBaseException().Message,
-                    "VOICEVOX no disponible", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }));
         panel.Children.Add(rateLabel);
         panel.Children.Add(rateSlider);
         panel.Children.Add(volumeLabel);
         panel.Children.Add(volumeSlider);
         panel.Children.Add(ActionButton("Guardar voz y ajustes", (_, _) =>
         {
-            savedVoiceId = AudioPreferenceSelectionPolicy.Resolve(
-                (voicePicker.SelectedItem as LocalSpeechVoice)?.Id,
-                savedVoiceId,
-                voiceListLoaded);
-            savedOutputId = AudioPreferenceSelectionPolicy.Resolve(
-                (outputPicker.SelectedItem as LocalSpeechOutput)?.Id,
-                savedOutputId,
-                outputListLoaded);
+            if (!voiceListLoaded ||
+                voicePicker.SelectedItem is not LocalSpeechVoice selected ||
+                !VoicevoxSpeechSession.IsVoiceId(selected.Id))
+            {
+                FooterStatus.Text = "Primero iniciá VOICEVOX Engine y comprobá la lista de voces.";
+                return;
+            }
+
+            savedVoiceId = selected.Id;
+            savedOutputId = (outputPicker.SelectedItem as LocalSpeechOutput)?.Id ?? string.Empty;
+            store.SetSetting("audio.voicevox.baseUrl", voicevoxBaseUrlField.Text.Trim());
+            store.SetSetting("audio.voicevox.voiceId", savedVoiceId);
+            // Keep the generic local-queue preference aligned for internal consumers that already use it.
             store.SetSetting("audio.tts.voiceId", savedVoiceId);
-            store.SetSetting("audio.tts.outputId", savedOutputId);
+            store.SetSetting("audio.voicevox.outputId", savedOutputId);
             store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
             store.SetSetting("audio.tts.volume", ((int)volumeSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            FooterStatus.Text = "Voz, velocidad y volumen guardados en SQLite.";
-            store.Log("Audio", "Preferencias TTS locales guardadas.");
-        }));
+            FooterStatus.Text = "Preferencias VOICEVOX, salida, velocidad y volumen guardados en SQLite.";
+            store.Log("VOICEVOX", "Preferencias de voz local guardadas.");
+        }, true));
         panel.Children.Add(speech);
         panel.Children.Add(Label("Prioridad de reproducción", 12, "#98A4BE"));
         panel.Children.Add(priority);
-        panel.Children.Add(ActionButton("＋ Encolar voz", (_, _) =>
+
+        async Task QueueVoicevoxAsync(bool test)
         {
-            var selectedPriority = priority.SelectedItem is SpeechPriority selected ? selected : SpeechPriority.Normal;
-            var voiceId = AudioPreferenceSelectionPolicy.Resolve(
-                (voicePicker.SelectedItem as LocalSpeechVoice)?.Id,
-                savedVoiceId,
-                voiceListLoaded);
+            var textToSpeak = speech.Text.Trim();
+            if (string.IsNullOrWhiteSpace(textToSpeak) && test)
+                textToSpeak = "Hola, esta es una prueba de voz local con VOICEVOX.";
+            if (string.IsNullOrWhiteSpace(textToSpeak))
+            {
+                FooterStatus.Text = "Escribí un texto para encolar en VOICEVOX.";
+                return;
+            }
+            if (textToSpeak.Length > 2000)
+            {
+                FooterStatus.Text = "VOICEVOX admite un máximo de 2000 caracteres por frase.";
+                return;
+            }
+
+            if (!await LoadVoicevoxVoicesAsync(showError: test))
+                return;
+
+            if (voicePicker.SelectedItem is not LocalSpeechVoice selectedVoice ||
+                !VoicevoxSpeechSession.IsVoiceId(selectedVoice.Id))
+            {
+                FooterStatus.Text = "Seleccioná una voz VOICEVOX disponible antes de reproducir.";
+                return;
+            }
+
+            var voiceId = selectedVoice.Id;
             var outputId = AudioPreferenceSelectionPolicy.Resolve(
                 (outputPicker.SelectedItem as LocalSpeechOutput)?.Id,
                 savedOutputId,
                 outputListLoaded);
-            if (speechQueue.Enqueue(speech.Text, selectedPriority, voiceId, (int)rateSlider.Value, (int)volumeSlider.Value, outputId))
-                store.Log("Audio", "Frase agregada a la cola TTS local con prioridad " + selectedPriority + ".");
+            var selectedPriority = test
+                ? SpeechPriority.High
+                : priority.SelectedItem is SpeechPriority selected ? selected : SpeechPriority.Normal;
+
+            savedVoiceId = voiceId;
+            savedOutputId = outputId;
+            store.SetSetting("audio.voicevox.voiceId", voiceId);
+            store.SetSetting("audio.tts.voiceId", voiceId);
+            store.SetSetting("audio.voicevox.outputId", outputId);
+
+            if (speechQueue.Enqueue(textToSpeak, selectedPriority, voiceId,
+                    (int)rateSlider.Value, (int)volumeSlider.Value, outputId))
+            {
+                FooterStatus.Text = test
+                    ? "Prueba VOICEVOX encolada con prioridad alta. El estado Talking se activa durante la reproducción real."
+                    : "Texto encolado para síntesis VOICEVOX local.";
+                store.Log("VOICEVOX", test
+                    ? "Se encoló una prueba de audio VOICEVOX."
+                    : "Se encoló texto para voz VOICEVOX.");
+            }
             else
-                FooterStatus.Text = "No se pudo encolar: revisá el texto, velocidad, volumen o el límite de la cola.";
-        }, true));
+            {
+                FooterStatus.Text = "No se pudo encolar VOICEVOX. Revisá que el texto sea válido y que la cola no esté llena.";
+            }
+        }
+
+        panel.Children.Add(ActionButton("▶ Probar voz VOICEVOX", async (_, _) =>
+            await QueueVoicevoxAsync(test: true), true));
+        panel.Children.Add(ActionButton("＋ Encolar texto VOICEVOX", async (_, _) =>
+            await QueueVoicevoxAsync(test: false), true));
         panel.Children.Add(ActionButton("Detener voz actual", (_, _) =>
         {
             if (speechQueue.StopCurrentSpeech())
