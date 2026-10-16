@@ -2,7 +2,7 @@
 
 ## Camino principal recomendado: usar VTuberBot como PNGTuber 2D
 
-No necesitás aprender el editor avanzado, abrir el taller 3D ni configurar la IA. En la barra izquierda, entrá en **PNGTuber 2D**. Los botones principales ahora son **PNGTuber 2D**, **Micrófono y voz**, **Configurar OBS** y **Conectar Twitch**. Las demás funciones siguen disponibles bajo **Más herramientas (opcional)**; se ocultaron del recorrido principal, no se eliminaron del proyecto.
+No necesitás aprender el editor avanzado, abrir el taller 3D ni configurar la IA. Al abrir VTuberBot aparece directamente **PNGTuber 2D**. Si volviste a Inicio, también podés entrar con el botón **PNGTuber 2D** de la barra izquierda. Los botones principales ahora son **PNGTuber 2D**, **Micrófono y voz**, **Configurar OBS** y **Conectar Twitch**. Las demás funciones siguen disponibles bajo **Más herramientas (opcional)**; se ocultaron del recorrido principal, no se eliminaron del proyecto.
 
 ### Crear tu PNGTuber
 
