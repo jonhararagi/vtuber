@@ -164,7 +164,7 @@ public partial class MainWindow
                         Y = (640 - Math.Min(420, bitmap.PixelHeight)) / 2,
                         OriginalPath = path
                     });
-                    setSelected(layers.Count - 1);
+                    selected = layers.Count - 1;
                 }
                 catch (Exception ex) { status.Text = $"No se pudo cargar {Path.GetFileName(path)}: {ex.Message}"; }
             }
