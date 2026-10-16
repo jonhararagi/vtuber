@@ -3,6 +3,14 @@
 **Rama objetivo:** `product/complete-vtuber-experience`  
 **Estado:** especificación de implementación; no declarar la función terminada hasta integrar UI, persistencia, runtime y pruebas.
 
+## Cómo encontrar el editor dentro de VTuberBot
+
+1. En el menú lateral, abrí **Avatar Studio**.
+2. Bajá por la galería de personajes y el panel de referencias.
+3. Pulsá **ABRIR EDITOR PNGTUBER · mover piezas y encuadre**.
+
+No elijas **2.5D con IA local**, **mini estudio 3D**, **cargar modelo VRM** ni **VRoid Studio** si lo que querés es acomodar capas PNG: son modos distintos. Como orientación rápida, **Crear PNGTuber con mis imágenes** sirve para el inicio guiado; el **editor por objetos** es donde se importan y mueven piezas y se ajusta el encuadre.
+
 ## Objetivo
 
 Permitir que una persona sin conocimientos de dibujo técnico prepare un PNGTuber anime usando su propia ilustración y piezas transparentes separadas. La boca debe poder colocarse y ajustarse manualmente, guardarse como PNG mediante el botón `＋` y asignarse a estados de voz sin depender de expresiones caricaturescas.
