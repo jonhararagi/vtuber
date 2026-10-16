@@ -131,7 +131,7 @@ public partial class MainWindow
     private void UpdateDashboardMetrics()
     {
         if (currentPage != "Inicio" || dashboardCpuValue is null || dashboardCpuBar is null ||
-            dashboardRamValue is null || dashboardRamBar is null)
+            dashboardRamValue is null || dashboardRamBar is null || dashboardRamWarningLabel is null)
             return;
 
         var health = application.LatestHealth;
@@ -149,6 +149,13 @@ public partial class MainWindow
         if (health?.WorkingSetBytes is long residentBytes)
         {
             var residentMegabytes = residentBytes / (1024d * 1024d);
+            var memoryWarning = ProcessMemoryWarningPolicy.Evaluate(residentBytes);
+            (dashboardRamWarningLabel.Text, dashboardRamWarningLabel.Foreground) = memoryWarning switch
+            {
+                ProcessMemoryWarningLevel.ApproachingLimit => ("Aviso: VTuberBot se acerca a 1 GiB de RAM (desde 800 MiB).", Brush("#E7B56A")),
+                ProcessMemoryWarningLevel.LimitReached => ("ALERTA: VTuberBot alcanzó o superó 1 GiB. Es un umbral de aviso, no un límite duro.", Brush("#F2A6A6")),
+                _ => ("Sin advertencia de memoria para el proceso VTuberBot. OBS y VOICEVOX son procesos separados.", Brush("#98A4BE"))
+            };
             var availableBytes = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
             if (availableBytes > 0)
             {
@@ -166,6 +173,8 @@ public partial class MainWindow
         {
             dashboardRamValue.Text = "No disponible";
             dashboardRamBar.Value = 0;
+            dashboardRamWarningLabel.Text = "No se pudo medir la memoria del proceso; no se infiere que esté dentro del umbral.";
+            dashboardRamWarningLabel.Foreground = Brush("#E7B56A");
         }
     }
 }
