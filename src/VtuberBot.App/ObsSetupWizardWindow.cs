@@ -230,7 +230,7 @@ public sealed class ObsSetupWizardWindow : Window
             Margin = new Thickness(5, 12, 5, 2)
         };
         DockPanel.SetDock(sideFooter, Dock.Bottom);
-        sideDock.Children.Add(sideFooter);
+        sideDock.Children.Insert(0, sideFooter);
         Grid.SetColumn(side, 0);
         body.Children.Add(side);
 
