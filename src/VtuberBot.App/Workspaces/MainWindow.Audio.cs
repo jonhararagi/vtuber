@@ -25,6 +25,7 @@ namespace VtuberBot.App;
 public partial class MainWindow
 {
     private sealed record LocalSoundAsset(string Id, string Name, string Path);
+    private sealed record LocalVoicevoxThreadOption(int Value, string Name);
     private Process? localVoicevoxEngineProcess;
     private int voicevoxEngineStartInProgress;
     private UIElement BuildAudioPage()
@@ -241,6 +242,26 @@ public partial class MainWindow
             "Seleccioná el ejecutable oficial vv-engine/run.exe",
             store.GetSetting("audio.voicevox.executablePath"));
         voicevoxEnginePathField.MinWidth = 320;
+        var savedVoicevoxThreads = int.TryParse(
+            store.GetSetting("audio.voicevox.cpuThreads", "2"),
+            out var savedVoicevoxThreadsValue)
+            ? VoicevoxEngineLaunchPolicy.NormalizeCpuThreads(savedVoicevoxThreadsValue) : 2;
+        var voicevoxCpuThreadsPicker = new ComboBox
+        {
+            ItemsSource = new[]
+            {
+                new LocalVoicevoxThreadOption(1, "1 hilo · mínimo consumo de CPU"),
+                new LocalVoicevoxThreadOption(2, "2 hilos · recomendado"),
+                new LocalVoicevoxThreadOption(3, "3 hilos"),
+                new LocalVoicevoxThreadOption(4, "4 hilos"),
+                new LocalVoicevoxThreadOption(6, "6 hilos · mayor velocidad posible")
+            },
+            DisplayMemberPath = nameof(LocalVoicevoxThreadOption.Name),
+            SelectedValuePath = nameof(LocalVoicevoxThreadOption.Value),
+            SelectedValue = savedVoicevoxThreads,
+            MinWidth = 320,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
         var outputListLoaded = false;
         var voiceListLoaded = false;
         var voicePicker = new ComboBox
@@ -284,6 +305,9 @@ public partial class MainWindow
         panel.Children.Add(Label("Ejecutable de VOICEVOX Engine (no se incluye en VTuberBot)", 12, "#98A4BE"));
         panel.Children.Add(Label("En la instalación oficial suele estar en %LOCALAPPDATA%\\Programs\\VOICEVOX\\vv-engine\\run.exe. Seleccioná run.exe; VTuberBot lo iniciará sin exponer el servicio a la red local.", 11, "#98A4BE"));
         panel.Children.Add(voicevoxEnginePathField);
+        panel.Children.Add(Label("Hilos de CPU para el Engine (se aplica al iniciarlo)", 12, "#98A4BE"));
+        panel.Children.Add(voicevoxCpuThreadsPicker);
+        panel.Children.Add(Label("El valor inicial es 2 hilos para no ocupar todos los núcleos al transmitir. El Engine usa un proceso separado y esta opción no limita su RAM.", 11, "#98A4BE"));
         panel.Children.Add(ActionButton("Elegir run.exe oficial", (_, _) =>
         {
             var dialog = new OpenFileDialog
@@ -443,7 +467,12 @@ public partial class MainWindow
                 startInfo.ArgumentList.Add(endpoint.Host);
                 startInfo.ArgumentList.Add("--port");
                 startInfo.ArgumentList.Add(endpoint.Port.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                var cpuThreads = VoicevoxEngineLaunchPolicy.NormalizeCpuThreads(
+                    voicevoxCpuThreadsPicker.SelectedValue is int selectedThreads ? selectedThreads : 2);
+                startInfo.ArgumentList.Add("--cpu_num_threads");
+                startInfo.ArgumentList.Add(cpuThreads.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 startInfo.Environment["VV_OUTPUT_LOG_UTF8"] = "1";
+                store.SetSetting("audio.voicevox.cpuThreads", cpuThreads.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
                 var launchedProcess = Process.Start(startInfo)
                     ?? throw new InvalidOperationException("Windows no pudo iniciar run.exe.");
@@ -569,6 +598,9 @@ public partial class MainWindow
             store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
             store.SetSetting("audio.voicevox.pitchScale", VoicevoxSpeechSession.NormalizePitchScale(pitchSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
             store.SetSetting("audio.voicevox.intonationScale", VoicevoxSpeechSession.NormalizeIntonationScale(intonationSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var cpuThreads = VoicevoxEngineLaunchPolicy.NormalizeCpuThreads(
+                voicevoxCpuThreadsPicker.SelectedValue is int selectedThreads ? selectedThreads : 2);
+            store.SetSetting("audio.voicevox.cpuThreads", cpuThreads.ToString(System.Globalization.CultureInfo.InvariantCulture));
             store.SetSetting("audio.tts.volume", ((int)volumeSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
             FooterStatus.Text = "Preferencias VOICEVOX, salida, velocidad y volumen guardados en SQLite.";
             store.Log("VOICEVOX", "Preferencias de voz local guardadas.");
