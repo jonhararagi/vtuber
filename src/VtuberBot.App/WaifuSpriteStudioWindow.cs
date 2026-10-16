@@ -51,8 +51,6 @@ public sealed class WaifuSpriteStudioWindow : Window
     private readonly DispatcherTimer animationTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private Guid? selectedLayerId;
     private bool loadingTransform;
-    private bool arranging;
-    private List<SpriteLayer> lastUsedLayerSet = [];
 
     public event Action<string>? CompositeExported;
     public event Action<string>? CompositeExportedFor2D;
@@ -340,6 +338,19 @@ public sealed class WaifuSpriteStudioWindow : Window
                 Scale = 1, Rotation = 0, Opacity = 1, Visible = true, ZIndex = isBackground ? -100 : NextZ(), RemoveMatte = removeWhite
             };
             AddLayer(layer);
+            if (!catalog.Any(item => string.Equals(item.Path, imported, StringComparison.OrdinalIgnoreCase)))
+            {
+                catalog.Add(new WaifuSpriteAsset(
+                    "user-" + Guid.NewGuid().ToString("N"),
+                    Path.GetFileNameWithoutExtension(path),
+                    category,
+                    "Objeto importado por el usuario. Archivo local; no se ha subido a Internet.",
+                    imported,
+                    frames[0].PixelWidth,
+                    frames[0].PixelHeight));
+                if (Equals(categoryPicker.SelectedItem, category))
+                    RefreshCatalog();
+            }
             SetStatus(Path.GetExtension(path).Equals(".gif", StringComparison.OrdinalIgnoreCase)
                 ? "GIF agregado y animado en la vista previa. La exportación será una imagen PNG del fotograma visible."
                 : "Objeto importado. Si el fondo blanco seguía conectado al borde se procesó localmente.");
@@ -434,7 +445,7 @@ public sealed class WaifuSpriteStudioWindow : Window
 
     private void AddVisual(SpriteLayer layer)
     {
-        var image = new Image { Source = layer.Frames[0], Stretch = Stretch.Fill, IsHitTestVisible = false };
+        var image = new Image { Source = layer.Frames[0], Stretch = layer.Category == "Fondos" ? Stretch.UniformToFill : Stretch.Fill, IsHitTestVisible = false };
         var border = new Border { Width = layer.Width, Height = layer.Height, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Child = image, Tag = layer.Id, Opacity = layer.Opacity, Cursor = Cursors.SizeAll };
         border.RenderTransformOrigin = new Point(.5, .5);
         border.RenderTransform = BuildTransform(layer);
@@ -712,7 +723,7 @@ public sealed class WaifuSpriteStudioWindow : Window
                 Source = layer.Frames[Math.Clamp(layer.FrameIndex, 0, layer.Frames.Count - 1)],
                 Width = layer.Width,
                 Height = layer.Height,
-                Stretch = Stretch.Fill,
+                Stretch = layer.Category == "Fondos" ? Stretch.UniformToFill : Stretch.Fill,
                 Opacity = layer.Opacity,
                 RenderTransformOrigin = new Point(.5, .5),
                 RenderTransform = BuildTransform(layer)
