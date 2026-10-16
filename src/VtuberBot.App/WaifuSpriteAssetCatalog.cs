@@ -440,8 +440,8 @@ internal static class WaifuSpriteAssetCatalog
         var x = center.X;
         var y = center.Y;
         var half = size / 2;
-        var geometry = Geometry.Parse(
-            $"M {x},{y + half * .8} C {x - size * 1.25},{y - half * .2} {x - size * .75},{y - half * 1.15} {x},{y - half * .48} C {x + size * .75},{y - half * 1.15} {x + size * 1.25},{y - half * .2} {x},{y + half * .8} Z");
+        var geometry = Geometry.Parse(FormattableString.Invariant(
+            $"M {x},{y + half * .8} C {x - size * 1.25},{y - half * .2} {x - size * .75},{y - half * 1.15} {x},{y - half * .48} C {x + size * .75},{y - half * 1.15} {x + size * 1.25},{y - half * .2} {x},{y + half * .8} Z"));
         dc.DrawGeometry(fill, pen, geometry);
     }
 
