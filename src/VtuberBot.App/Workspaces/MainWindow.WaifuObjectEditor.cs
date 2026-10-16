@@ -342,6 +342,38 @@ public partial class MainWindow
         var controls = new StackPanel { Margin = new Thickness(12) };
         controls.Children.Add(new TextBlock { Text = "Capas / objetos (arriba = primer plano)", Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4) });
         controls.Children.Add(list);
+
+        var catalogStack = new StackPanel();
+        void AddCatalogCategory(string category, string title, string[] names)
+        {
+            catalogStack.Children.Add(new TextBlock
+            {
+                Text = title, Foreground = Brushes.White, FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(4, 9, 4, 3)
+            });
+            var items = new WrapPanel();
+            for (var itemIndex = 0; itemIndex < names.Length; itemIndex++)
+            {
+                var index = itemIndex;
+                var button = new Button
+                {
+                    Content = names[index], Width = 104, MinHeight = 30, Margin = new Thickness(2),
+                    Padding = new Thickness(3), ToolTip = "Añadir " + names[index] + " como capa editable"
+                };
+                button.Click += (_, _) => AddCatalogLayer(category, index, names[index]);
+                items.Children.Add(button);
+            }
+            catalogStack.Children.Add(items);
+        }
+        AddCatalogCategory("head", "Accesorios de cabeza · 10", ["Orejas de gato", "Orejas de conejo", "Moño doble", "Corona", "Sombrero bruja", "Halo", "Cuernos", "Flor lateral", "Auriculares", "Hebilla estrella"]);
+        AddCatalogCategory("eyes", "Ojos anime · 9", ["Marrones", "Azules", "Verdes", "Violetas", "Rosa", "Dorado", "Adormilados", "Estrellados", "Heterocromía"]);
+        AddCatalogCategory("mouth", "Bocas · 7", ["Sonrisa", "Abierta", "Gatita", "Pequeña", "Sorprendida", "Puchero", "Risa"]);
+        AddCatalogCategory("effect", "Efectos · 10", ["Corazones", "Estrellas", "Brillos", "Rubor", "Lágrimas", "Enojo", "Aura rosa", "Aura azul", "Notas musicales", "Confeti"]);
+        AddCatalogCategory("background", "Fondos HD · 4", ["Atardecer", "Noche estelar", "Café acogedor", "Cielo pastel"]);
+        var catalogScroll = new ScrollViewer { Height = 300, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = catalogStack, Margin = new Thickness(0, 4, 0, 8) };
+        controls.Children.Add(new TextBlock { Text = "Catálogo local de piezas vectoriales", Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 10, 4, 2) });
+        controls.Children.Add(new TextBlock { Text = "Piezas originales de muestra generadas localmente; cada una se agrega como capa que podés mover, escalar y ordenar.", Foreground = Brushes.LightGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4, 0, 4, 4) });
+        controls.Children.Add(catalogScroll);
         controls.Children.Add(new TextBlock { Text = "Opacidad", Foreground = Brushes.White, Margin = new Thickness(4, 10, 4, 0) });
         controls.Children.Add(opacity);
         controls.Children.Add(new TextBlock { Text = "Escala", Foreground = Brushes.White, Margin = new Thickness(4, 10, 4, 0) });
@@ -362,6 +394,236 @@ public partial class MainWindow
         editor.ShowDialog();
     }
 
+
+    private void AddCatalogLayer(string category, int index, string name)
+    {
+        // El catálogo se dibuja con primitivas vectoriales locales: no requiere descargas,
+        // cuentas ni API externa. Los fondos se crean en resolución 1280x720.
+        var source = CreateWaifuCatalogAsset(category, index);
+        var isBackground = category == "background";
+        var width = isBackground ? 640d : 256d;
+        var height = isBackground ? 360d : 256d;
+        var layer = new WaifuLayer
+        {
+            Name = name,
+            Source = source,
+            PixelWidth = source.PixelWidth,
+            PixelHeight = source.PixelHeight,
+            Width = width,
+            Height = height,
+            X = isBackground ? 0 : (640 - width) / 2,
+            Y = isBackground ? 140 : (640 - height) / 2,
+            OriginalPath = SaveCatalogAsset(source, name)
+        };
+        // New layers are inserted in front so the user sees the result immediately.
+        layers.Add(layer);
+        selected = layers.Count - 1;
+        RefreshList();
+        SelectLayer();
+        status.Text = $"Se añadió «{name}» como una capa independiente. El catálogo usa arte vectorial de muestra, editable por posición, escala, opacidad y orden.";
+    }
+
+    private static string SaveCatalogAsset(BitmapSource source, string name)
+    {
+        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VTuberBot", "WaifuAssets");
+        Directory.CreateDirectory(directory);
+        var safe = MakeSafeFileName(name);
+        var path = Path.Combine(directory, $"catalog-{safe}-{Guid.NewGuid():N}.png");
+        SaveBitmapAsPng(source, path);
+        return path;
+    }
+
+    private static BitmapSource CreateWaifuCatalogAsset(string category, int index)
+    {
+        var isBackground = category == "background";
+        var width = isBackground ? 1280 : 256;
+        var height = isBackground ? 720 : 256;
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen())
+        {
+            var bounds = new Rect(0, 0, width, height);
+            if (isBackground)
+            {
+                var palettes = new[]
+                {
+                    new[] { Color.FromRgb(255, 169, 126), Color.FromRgb(113, 87, 159) },
+                    new[] { Color.FromRgb(12, 22, 56), Color.FromRgb(65, 76, 145) },
+                    new[] { Color.FromRgb(95, 64, 68), Color.FromRgb(241, 189, 137) },
+                    new[] { Color.FromRgb(250, 211, 229), Color.FromRgb(153, 208, 239) }
+                };
+                var colors = palettes[index % palettes.Length];
+                dc.DrawRectangle(new LinearGradientBrush(colors[0], colors[1], 90), null, bounds);
+                if (index == 0)
+                {
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(255, 231, 177)), null, new Point(1010, 180), 100, 100);
+                    for (var i = 0; i < 9; i++)
+                        dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(100, 255, 230, 211)), null, new Point(90 + i * 145, 590 - (i % 3) * 35), 100, 40);
+                }
+                else if (index == 1)
+                {
+                    var random = new Random(713);
+                    for (var i = 0; i < 100; i++)
+                    {
+                        var x = random.Next(20, width - 20); var y = random.Next(15, 490);
+                        dc.DrawEllipse(Brushes.White, null, new Point(x, y), random.Next(2, 5), random.Next(2, 5));
+                    }
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(255, 244, 207)), null, new Point(1030, 150), 75, 75);
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(49, 59, 113)), null, new Point(1060, 125), 72, 72);
+                }
+                else if (index == 2)
+                {
+                    for (var i = 0; i < 12; i++)
+                    {
+                        var x = i * 115;
+                        dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(190, 59, 46, 66)), null, new Rect(x, 350 + (i % 4) * 25, 85, 370), 8, 8);
+                        for (var row = 0; row < 5; row++)
+                            dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(180, 255, 218, 158)), null, new Rect(x + 14, 375 + (i % 4) * 25 + row * 42, 13, 20));
+                    }
+                }
+                else
+                {
+                    for (var i = 0; i < 8; i++)
+                    {
+                        var x = 70 + i * 160;
+                        dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(130, 255, 255, 255)), null, new Point(x, 150 + (i % 2) * 70), 75, 38);
+                        dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(130, 255, 255, 255)), null, new Point(x + 40, 135 + (i % 2) * 70), 65, 48);
+                    }
+                }
+            }
+            else if (category == "eyes")
+            {
+                var irisColors = new[] { "#865334", "#3298D4", "#3BAA78", "#9560D5", "#EA719F", "#D6A52D", "#805E9E", "#4F92C6", "#865334" };
+                var irisBrush = (Brush)new BrushConverter().ConvertFromString(irisColors[index % irisColors.Length])!;
+                for (var side = 0; side < 2; side++)
+                {
+                    var x = side == 0 ? 72d : 184d;
+                    if (index == 6) { dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(65, 55, 84)), null, new Point(x, 128), 35, 19); continue; }
+                    dc.DrawEllipse(Brushes.White, new Pen(new SolidColorBrush(Color.FromRgb(64, 45, 63)), 5), new Point(x, 126), 39, index == 7 ? 33 : 42);
+                    dc.DrawEllipse(irisBrush, null, new Point(x, 132), 27, 31);
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(30, 24, 43)), null, new Point(x, 136), index == 7 ? 11 : 15, 21);
+                    dc.DrawEllipse(Brushes.White, null, new Point(x - 9, 119), 8, 10);
+                    dc.DrawEllipse(Brushes.White, null, new Point(x + 10, 143), 4, 5);
+                }
+                if (index == 8)
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(85, 164, 219)), null, new Point(184, 132), 27, 31);
+                dc.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb(70, 42, 51)), 6), new Point(32, 80), new Point(105, 73));
+                dc.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb(70, 42, 51)), 6), new Point(151, 73), new Point(224, 80));
+            }
+            else if (category == "mouth")
+            {
+                var pen = new Pen(new SolidColorBrush(Color.FromRgb(119, 43, 65)), 7);
+                switch (index)
+                {
+                    case 0: dc.DrawGeometry(null, pen, MakePath(new Point(77, 124), new Point(105, 153), new Point(151, 153), new Point(179, 124)); break;
+                    case 1: dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(139, 42, 72)), new Pen(new SolidColorBrush(Color.FromRgb(93, 32, 53)), 4), new Point(128, 139), 25, 34); dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(245, 132, 160)), null, new Point(128, 158), 14, 7); break;
+                    case 2: dc.DrawGeometry(null, pen, MakePath(new Point(96, 134), new Point(112, 122), new Point(128, 134), new Point(144, 122), new Point(160, 134)); break;
+                    case 3: dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(139, 42, 72)), null, new Point(128, 140), 10, 7); break;
+                    case 4: dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(139, 42, 72)), new Pen(new SolidColorBrush(Color.FromRgb(93, 32, 53)), 4), new Point(128, 142), 24, 29); break;
+                    case 5: dc.DrawGeometry(null, pen, MakePath(new Point(90, 143), new Point(108, 132), new Point(128, 142), new Point(148, 132), new Point(166, 143)); break;
+                    default: dc.DrawGeometry(null, pen, MakePath(new Point(83, 121), new Point(101, 146), new Point(128, 155), new Point(155, 146), new Point(173, 121)); break;
+                }
+            }
+            else if (category == "head")
+            {
+                var main = new SolidColorBrush(new[] { Color.FromRgb(244, 112, 164), Color.FromRgb(255, 195, 220), Color.FromRgb(205, 142, 255), Color.FromRgb(244, 197, 94) }[index % 4]);
+                var dark = new SolidColorBrush(Color.FromRgb(80, 47, 91));
+                switch (index)
+                {
+                    case 0:
+                        dc.DrawGeometry(main, new Pen(dark, 5), MakePath(new Point(38, 95), new Point(51, 16), new Point(105, 71)));
+                        dc.DrawGeometry(main, new Pen(dark, 5), MakePath(new Point(151, 71), new Point(205, 16), new Point(218, 95)));
+                        dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(255, 228, 166)), null, new Point(52, 88), 10, 8); break;
+                    case 1:
+                        dc.DrawRoundedRectangle(main, new Pen(dark, 4), new Rect(44, 18, 42, 110), 22, 22);
+                        dc.DrawRoundedRectangle(main, new Pen(dark, 4), new Rect(170, 18, 42, 110), 22, 22); break;
+                    case 2:
+                        dc.DrawEllipse(main, new Pen(dark, 4), new Point(98, 90), 42, 30);
+                        dc.DrawEllipse(main, new Pen(dark, 4), new Point(158, 90), 42, 30);
+                        dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(255, 231, 165)), null, new Point(128, 90), 18, 18); break;
+                    case 3:
+                        dc.DrawGeometry(new SolidColorBrush(Color.FromRgb(255, 218, 104)), new Pen(dark, 4), MakePath(new Point(47, 100), new Point(56, 42), new Point(78, 67), new Point(99, 35), new Point(121, 68), new Point(145, 36), new Point(169, 67), new Point(194, 42), new Point(208, 100))); break;
+                    case 4:
+                        dc.DrawGeometry(new SolidColorBrush(Color.FromRgb(70, 55, 99)), new Pen(dark, 5), MakePath(new Point(30, 100), new Point(75, 22), new Point(184, 22), new Point(226, 100)));
+                        dc.DrawEllipse(main, null, new Point(128, 96), 98, 15); break;
+                    case 5:
+                        dc.DrawEllipse(null, new Pen(new SolidColorBrush(Color.FromRgb(255, 228, 139)), 12), new Point(128, 66), 48, 30);
+                        dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(65, 255, 239, 166)), null, new Point(128, 66), 64, 43); break;
+                    case 6:
+                        dc.DrawGeometry(main, new Pen(dark, 4), MakePath(new Point(52, 90), new Point(45, 37), new Point(87, 62), new Point(104, 91)));
+                        dc.DrawGeometry(main, new Pen(dark, 4), MakePath(new Point(152, 91), new Point(169, 62), new Point(211, 37), new Point(204, 90))); break;
+                    case 7:
+                        dc.DrawEllipse(main, new Pen(dark, 4), new Point(70, 76), 30, 30);
+                        dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(255, 223, 102)), null, new Point(70, 76), 12, 12); break;
+                    case 8:
+                        dc.DrawEllipse(null, new Pen(dark, 9), new Point(78, 85), 43, 43);
+                        dc.DrawEllipse(null, new Pen(dark, 9), new Point(178, 85), 43, 43);
+                        dc.DrawLine(new Pen(dark, 10), new Point(119, 85), new Point(137, 85));
+                        dc.DrawLine(new Pen(dark, 7), new Point(48, 55), new Point(102, 54));
+                        dc.DrawLine(new Pen(dark, 7), new Point(154, 54), new Point(208, 55)); break;
+                    default:
+                        dc.DrawEllipse(main, new Pen(dark, 3), new Point(186, 64), 20, 20);
+                        dc.DrawGeometry(new SolidColorBrush(Color.FromRgb(255, 223, 102)), null, MakePath(new Point(186, 35), new Point(192, 55), new Point(214, 56), new Point(197, 69), new Point(203, 91), new Point(186, 78), new Point(168, 91), new Point(175, 69), new Point(158, 56), new Point(180, 55))); break;
+                }
+            }
+            else if (category == "effect")
+            {
+                var colors = new[] { Color.FromRgb(255, 102, 158), Color.FromRgb(255, 217, 95), Color.FromRgb(151, 220, 255), Color.FromRgb(255, 130, 170) };
+                var brush = new SolidColorBrush(colors[index % colors.Length]);
+                if (index == 3)
+                {
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(120, 255, 97, 144)), null, new Point(78, 138), 34, 18);
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(120, 255, 97, 144)), null, new Point(178, 138), 34, 18);
+                }
+                else if (index == 4)
+                {
+                    dc.DrawGeometry(brush, null, MakePath(new Point(75, 105), new Point(100, 138), new Point(82, 163)));
+                    dc.DrawGeometry(brush, null, MakePath(new Point(175, 105), new Point(150, 138), new Point(168, 163)));
+                }
+                else if (index == 5)
+                {
+                    dc.DrawLine(new Pen(brush, 12), new Point(50, 60), new Point(92, 82));
+                    dc.DrawLine(new Pen(brush, 12), new Point(164, 82), new Point(206, 60));
+                    dc.DrawLine(new Pen(brush, 12), new Point(40, 86), new Point(78, 99));
+                    dc.DrawLine(new Pen(brush, 12), new Point(178, 99), new Point(216, 86));
+                }
+                else
+                {
+                    for (var i = 0; i < 8; i++)
+                    {
+                        var angle = (Math.PI * 2 * i / 8) + index * .22;
+                        var x = 128 + Math.Cos(angle) * (index is 6 or 7 ? 78 : 62);
+                        var y = 128 + Math.Sin(angle) * (index is 6 or 7 ? 78 : 62);
+                        if (index == 0 || index == 6 || index == 7)
+                        {
+                            var heart = MakePath(new Point(x, y - 14), new Point(x - 13, y - 25), new Point(x - 24, y - 13), new Point(x, y + 20), new Point(x + 24, y - 13), new Point(x + 13, y - 25));
+                            dc.DrawGeometry(brush, null, heart);
+                        }
+                        else
+                        {
+                            dc.DrawGeometry(brush, null, MakePath(new Point(x, y - 17), new Point(x + 5, y - 5), new Point(x + 17, y), new Point(x + 5, y + 5), new Point(x, y + 17), new Point(x - 5, y + 5), new Point(x - 17, y), new Point(x - 5, y - 5)));
+                        }
+                    }
+                }
+            }
+        }
+        var render = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        render.Render(visual);
+        render.Freeze();
+        return render;
+    }
+
+    private static StreamGeometry MakePath(params Point[] points)
+    {
+        var geometry = new StreamGeometry();
+        using (var context = geometry.Open())
+        {
+            if (points.Length < 2) return geometry;
+            context.BeginFigure(points[0], true, true);
+            context.PolyLineTo(points.Skip(1).ToArray(), true, false);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
 
     private static int ReadGifFrameDuration(BitmapFrame frame)
     {
