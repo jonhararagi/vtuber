@@ -149,7 +149,7 @@ public partial class MainWindow
             Visibility = Visibility.Collapsed
         };
 
-        // Wayfinding for users who confuse the five avatar creation modes.
+        // Keep the guide focused on the two basic avatar states and image framing.
         var editorGuide = Panel("¿Qué editor tengo que abrir?");
         editorGuide.Margin = new Thickness(0, 0, 0, 10);
         editorGuide.Background = Brush("#1C2A3D");
@@ -161,7 +161,7 @@ public partial class MainWindow
         var beginnerActions = new WrapPanel();
         beginnerActions.Children.Add(ActionButton("Crear PNGTuber con mis imágenes", (_, _) =>
             CreateSimplePngTuber(), true));
-        beginnerActions.Children.Add(ActionButton("🎨 ABRIR EDITOR PNGTUBER · capas y piezas", (_, _) =>
+        beginnerActions.Children.Add(ActionButton("🎨 Abrir editor de imagen y capas", (_, _) =>
         {
             var studio = new WaifuSpriteStudioWindow(avatarDirectory) { Owner = this };
             studio.CompositeExported += path =>
@@ -212,10 +212,9 @@ public partial class MainWindow
         }, true));
         startLocalSegmentation = ActionButton("2 · 2.5D con IA local (experimental)", async (_, _) =>
             await StartLocalAvatarSegmentationAsync());
-        startLocalSegmentation.Visibility = Visibility.Collapsed;\n        beginnerActions.Children.Add(startLocalSegmentation);
-        beginnerActions.Children.Add(ActionButton("Abrir mini estudio 3D integrado", (_, _) =>
-            OpenAvatarWardrobeStudio(), true));
-        beginnerActions.Children.Add(ActionButton("Cargar modelo VRM y abrir overlay 3D", (_, _) =>
+        startLocalSegmentation.Visibility = Visibility.Collapsed;
+        beginnerActions.Children.Add(startLocalSegmentation);
+        beginnerActions.Children.Add(ActionButton("Cargar modelo VRM (opcional)", (_, _) =>
             ImportVrmAndOpenOverlay(), true));
         beginnerActions.Children.Add(ActionButton("Abrir VRoid Studio (externo)", (_, _) =>
             OpenAvatarExternalTool("https://vroid.com/en/studio", "VRoid Studio")));
@@ -223,6 +222,8 @@ public partial class MainWindow
             activeLocalAvatarSegmentation?.Cancel());
         cancelLocalSegmentation.IsEnabled = false;
         cancelLocalSegmentation.Visibility = Visibility.Collapsed;
+        localSegmentationStatus.Visibility = Visibility.Collapsed;
+        localSegmentationProgress.Visibility = Visibility.Collapsed;
         beginnerActions.Children.Add(cancelLocalSegmentation);
         beginnerPanel.Children.Add(beginnerActions);
         beginnerPanel.Children.Add(localSegmentationProgress);
