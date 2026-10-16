@@ -26,6 +26,7 @@ public partial class MainWindow
 {
     private sealed record LocalSoundAsset(string Id, string Name, string Path);
     private Process? localVoicevoxEngineProcess;
+    private int voicevoxEngineStartInProgress;
     private UIElement BuildAudioPage()
     {
         var root = new StackPanel();
@@ -385,6 +386,14 @@ public partial class MainWindow
 
         async Task StartVoicevoxEngineAsync()
         {
+            if (Interlocked.CompareExchange(ref voicevoxEngineStartInProgress, 1, 0) != 0)
+            {
+                FooterStatus.Text = "El inicio de VOICEVOX Engine ya está en curso.";
+                return;
+            }
+
+            try
+            {
             var executable = voicevoxEnginePathField.Text.Trim();
             if (!File.Exists(executable) ||
                 !string.Equals(Path.GetFileName(executable), "run.exe", StringComparison.OrdinalIgnoreCase))
@@ -495,6 +504,12 @@ public partial class MainWindow
                 MessageBox.Show(this, exception.GetBaseException().Message, "No se pudo iniciar VOICEVOX Engine",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
+            }
+            finally
+            {
+                Volatile.Write(ref voicevoxEngineStartInProgress, 0);
+            }
+
         }
 
         panel.Children.Add(ActionButton("Actualizar dispositivos de salida", async (_, _) =>
