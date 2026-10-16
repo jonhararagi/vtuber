@@ -393,8 +393,7 @@ public sealed class WaifuSpriteStudioWindow : Window
                 Width = width, Height = height, Scale = 1, Rotation = 0, Opacity = 1, Visible = true,
                 ZIndex = 100, RemoveMatte = removeWhite && Path.GetExtension(imported).Equals(".gif", StringComparison.OrdinalIgnoreCase)
             });
-            RegisterImportedAsset(imported, Path.GetFileNameWithoutExtension(path), "Personalizados", first,
-                removeWhite && Path.GetExtension(imported).Equals(".gif", StringComparison.OrdinalIgnoreCase));
+            RegisterImportedAsset(imported, Path.GetFileNameWithoutExtension(path), "Personalizados", first, removeWhite);
             SetStatus(removeWhite
                 ? "Personaje importado. Se eliminó localmente el blanco conectado al borde; el archivo original no se modificó. Revisá los bordes claros y ajustá a mano si hace falta."
                 : "Personaje importado sin quitar el fondo. Podés usar «Quitar fondo blanco a una imagen» después.");
