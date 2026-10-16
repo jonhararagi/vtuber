@@ -416,8 +416,17 @@ public partial class MainWindow
             OriginalPath = SaveCatalogAsset(source, name)
         };
         // New layers are inserted in front so the user sees the result immediately.
-        layers.Add(layer);
-        selected = layers.Count - 1;
+        if (isBackground)
+        {
+            // El índice 0 se dibuja primero, por detrás de los demás objetos.
+            layers.Insert(0, layer);
+            selected = 0;
+        }
+        else
+        {
+            layers.Add(layer);
+            selected = layers.Count - 1;
+        }
         RefreshList();
         SelectLayer();
         status.Text = $"Se añadió «{name}» como una capa independiente. El catálogo usa arte vectorial de muestra, editable por posición, escala, opacidad y orden.";
