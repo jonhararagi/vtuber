@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Microsoft.Win32;
 
 namespace VtuberBot.App;
@@ -27,6 +28,21 @@ public partial class MainWindow
 
         var layers = new List<WaifuLayer>();
         var selected = -1;
+        var gifTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+        gifTimer.Tick += (_, _) =>
+        {
+            foreach (var layer in layers)
+            {
+                if (layer.AnimationFrames.Count < 2 || layer.PreviewImage is null) continue;
+                layer.FrameElapsedMs += 50;
+                var duration = layer.FrameDurationsMs[Math.Clamp(layer.FrameIndex, 0, layer.FrameDurationsMs.Count - 1)];
+                if (layer.FrameElapsedMs < duration) continue;
+                layer.FrameElapsedMs = 0;
+                layer.FrameIndex = (layer.FrameIndex + 1) % layer.AnimationFrames.Count;
+                layer.Source = layer.AnimationFrames[layer.FrameIndex];
+                layer.PreviewImage.Source = layer.Source;
+            }
+        };
         var canvas = new Canvas { Width = 640, Height = 640, ClipToBounds = true, Background = Brushes.Transparent };
         var checker = new Grid { Width = 640, Height = 640, Background = new SolidColorBrush(Color.FromRgb(37, 45, 63)) };
         for (var y = 0; y < 16; y++)
@@ -96,6 +112,7 @@ public partial class MainWindow
                     image.MouseLeftButtonUp += (_, _) => { image.ReleaseMouseCapture(); image.MouseMove -= Drag; RefreshList(); };
                     e.Handled = true;
                 };
+                layer.PreviewImage = image;
                 canvas.Children.Add(image);
             }
         }
@@ -125,12 +142,20 @@ public partial class MainWindow
                 {
                     using var stream = File.OpenRead(path);
                     var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-                    var frame = decoder.Frames[0];
-                    var bitmap = new WriteableBitmap(frame);
+                    var animationFrames = Path.GetExtension(path).Equals(".gif", StringComparison.OrdinalIgnoreCase)
+                        ? decoder.Frames.Select(frame => (BitmapSource)new WriteableBitmap(frame)).ToList()
+                        : new List<BitmapSource>();
+                    var bitmap = animationFrames.Count > 0
+                        ? animationFrames[0]
+                        : new WriteableBitmap(decoder.Frames[0]);
+                    var frameDurations = animationFrames.Select(frame => ReadGifFrameDuration(decoder.Frames[animationFrames.IndexOf(frame)])).ToList();
+                    if (frameDurations.Count == 0) frameDurations.Add(100);
                     layers.Add(new WaifuLayer
                     {
                         Name = Path.GetFileNameWithoutExtension(path),
                         Source = bitmap,
+                        AnimationFrames = animationFrames,
+                        FrameDurationsMs = frameDurations,
                         PixelWidth = bitmap.PixelWidth,
                         PixelHeight = bitmap.PixelHeight,
                         Width = Math.Min(420, bitmap.PixelWidth),
@@ -145,7 +170,7 @@ public partial class MainWindow
             }
             RefreshList();
             SelectLayer();
-            status.Text = "Imágenes importadas. Seleccioná una capa y arrastrala en la vista previa. Los GIF se importan como fotograma estático.";
+            status.Text = "Imágenes importadas. Seleccioná una capa y arrastrala en la vista previa. Los GIF animados se reproducen en la vista previa; la exportación usa el fotograma visible.";
         }
 
         var buttons = new WrapPanel { Margin = new Thickness(0, 0, 0, 10) };
@@ -332,9 +357,28 @@ public partial class MainWindow
         Grid.SetColumn(controls, 1); body.Children.Add(controls);
         layout.Children.Add(body);
         editor.Content = layout;
+        gifTimer.Start();
+        editor.Closed += (_, _) => gifTimer.Stop();
         editor.ShowDialog();
     }
 
+
+    private static int ReadGifFrameDuration(BitmapFrame frame)
+    {
+        try
+        {
+            if (frame.Metadata is BitmapMetadata metadata && metadata.ContainsQuery("/grctlext/Delay"))
+            {
+                var delay = metadata.GetQuery("/grctlext/Delay");
+                if (delay is ushort hundredths && hundredths > 0)
+                    return Math.Clamp(hundredths * 10, 20, 2000);
+                if (delay is short signedHundredths && signedHundredths > 0)
+                    return Math.Clamp(signedHundredths * 10, 20, 2000);
+            }
+        }
+        catch (Exception) { /* Algunos GIF no incluyen metadatos de duración. */ }
+        return 100;
+    }
 
     private static BitmapSource RemoveWhiteBackgroundConnectedToEdges(BitmapSource source)
     {
@@ -415,6 +459,11 @@ public partial class MainWindow
         public required int PixelWidth { get; set; }
         public required int PixelHeight { get; set; }
         public required string OriginalPath { get; set; }
+        public List<BitmapSource> AnimationFrames { get; set; } = [];
+        public List<int> FrameDurationsMs { get; set; } = [];
+        public int FrameIndex { get; set; }
+        public int FrameElapsedMs { get; set; }
+        public Image? PreviewImage { get; set; }
         public double X { get; set; }
         public double Y { get; set; }
         public double Width { get; set; }
