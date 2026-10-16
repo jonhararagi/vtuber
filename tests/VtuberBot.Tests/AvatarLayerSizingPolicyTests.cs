@@ -21,6 +21,20 @@ public sealed class AvatarLayerSizingPolicyTests
     }
 
     [Fact]
+    public void DragScaleUsesUniformFitScaleNotIndependentWindowWidthAndHeight()
+    {
+        const double avatarWidth = 1000;
+        const double avatarHeight = 2000;
+        var previewScale = AvatarLayerSizingPolicy.GetFitScale(avatarWidth, avatarHeight, 400, 360);
+        var overlayScale = AvatarLayerSizingPolicy.GetFitScale(avatarWidth, avatarHeight, 420, 520);
+
+        Assert.Equal(0.18, previewScale, precision: 6);
+        Assert.Equal(0.26, overlayScale, precision: 6);
+        Assert.Equal(0.26 / 0.18, overlayScale / previewScale, precision: 6);
+        Assert.NotEqual(420d / 400d, overlayScale / previewScale);
+    }
+
+    [Fact]
     public void PortraitBaseUsesTheUniformScaleThatFitsItsHeight()
     {
         var (width, height) = AvatarLayerSizingPolicy.GetStickerSize(
