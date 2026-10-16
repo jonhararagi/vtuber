@@ -532,6 +532,57 @@ public partial class MainWindow
             }
         };
         controls.Children.Add(savePieceButton);
+        var importLibraryButton = new Button
+        {
+            Content = "Importar pieza guardada",
+            MinHeight = 32,
+            Margin = new Thickness(4),
+            Padding = new Thickness(8, 5, 8, 5)
+        };
+        importLibraryButton.Click += (_, _) =>
+        {
+            var libraryDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "VTuberBot", "WaifuAssets", "Library");
+            Directory.CreateDirectory(libraryDirectory);
+            var dialog = new OpenFileDialog
+            {
+                Title = "Importar una pieza de la biblioteca local",
+                InitialDirectory = libraryDirectory,
+                Filter = "Piezas PNG transparentes (*.png)|*.png",
+                Multiselect = false
+            };
+            if (dialog.ShowDialog(editor) != true) return;
+            try
+            {
+                using var stream = File.OpenRead(dialog.FileName);
+                var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                var bitmap = new WriteableBitmap(decoder.Frames[0]);
+                var width = Math.Min(420, bitmap.PixelWidth);
+                var height = Math.Min(420, bitmap.PixelHeight);
+                layers.Add(new WaifuLayer
+                {
+                    Name = Path.GetFileNameWithoutExtension(dialog.FileName),
+                    Source = bitmap,
+                    PixelWidth = bitmap.PixelWidth,
+                    PixelHeight = bitmap.PixelHeight,
+                    Width = width,
+                    Height = height,
+                    X = (640 - width) / 2,
+                    Y = (640 - height) / 2,
+                    OriginalPath = dialog.FileName
+                });
+                selected = layers.Count - 1;
+                RefreshList();
+                SelectLayer();
+                status.Text = "Pieza importada desde la biblioteca local como una capa editable; la original no se modificó.";
+            }
+            catch (Exception ex)
+            {
+                status.Text = "No se pudo importar la pieza guardada: " + ex.Message;
+            }
+        };
+        controls.Children.Add(importLibraryButton);
 
         controls.Children.Add(new TextBlock { Text = "Encuadre de cámara / recorte visible", Foreground = Brushes.DeepSkyBlue, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 12, 4, 3) });
         controls.Children.Add(new TextBlock { Text = "El marco azul indica qué parte del personaje mostrar. Elegí rostro, busto o cuerpo completo y ajustá el recorte.", Foreground = Brushes.LightGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
