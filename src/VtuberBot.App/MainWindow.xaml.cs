@@ -485,7 +485,7 @@ public partial class MainWindow : Window
         automationTimer.Start();
         twitchCredentialTimer.Tick += async (_, _) => await MaintainTwitchCredentialsAsync();
         twitchCredentialTimer.Start();
-        Navigate("Inicio");
+        Navigate("PNGTuber 2D");
     }
 
     protected override void OnClosing(CancelEventArgs e)
