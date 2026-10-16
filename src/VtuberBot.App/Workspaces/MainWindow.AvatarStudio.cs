@@ -199,7 +199,7 @@ public partial class MainWindow
                 studio.Close();
                 _ = StartLocalAvatarSegmentationAsync(path);
             };
-            studio.ShowDialog(this);
+            studio.ShowDialog();
         }, true));
         startLocalSegmentation = ActionButton("2 · 2.5D con IA local (experimental)", async (_, _) =>
             await StartLocalAvatarSegmentationAsync());
