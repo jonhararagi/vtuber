@@ -7,6 +7,12 @@ public sealed record VoicevoxEngineLaunchEndpoint(string Host, int Port, string 
 /// <summary>Allows launching the local VOICEVOX Engine only with an HTTP loopback endpoint.</summary>
 public static class VoicevoxEngineLaunchPolicy
 {
+    /// <summary>
+    /// Keeps the local TTS Engine conservative on low-memory streaming PCs while allowing
+    /// the user to trade synthesis speed for fewer occupied CPU threads.
+    /// </summary>
+    public static int NormalizeCpuThreads(int value) => Math.Clamp(value, 1, 6);
+
     public static bool TryParseBaseUrl(string? value, out VoicevoxEngineLaunchEndpoint endpoint)
     {
         endpoint = new VoicevoxEngineLaunchEndpoint("127.0.0.1", 50021, "http://127.0.0.1:50021");
