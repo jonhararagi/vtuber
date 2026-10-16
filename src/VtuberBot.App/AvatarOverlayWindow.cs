@@ -14,10 +14,12 @@ public sealed class AvatarOverlayWindow : Window
     private readonly Border alertCard = new() { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(12), Padding = new Thickness(12), Background = new SolidColorBrush(Color.FromArgb(230, 16, 21, 37)), CornerRadius = new CornerRadius(12), MaxWidth = 390 };
     private readonly TextBlock alertText = new() { Foreground = Brushes.White, FontSize = 18, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly ScaleTransform breathing = new(1,1);
+    private readonly TranslateTransform idleFloat = new();
     private readonly TranslateTransform talkingBounce = new();
     private readonly TranslateTransform talkingShake = new();
     private bool speakingShakeEnabled = true;
     private bool talkingBounceEnabled = true;
+    private bool idleFloatEnabled = true;
     private double speakingShakeStrength = 6;
     private double shakePhase;
     private DateTimeOffset manualShakeUntil = DateTimeOffset.MinValue;
@@ -51,6 +53,7 @@ public sealed class AvatarOverlayWindow : Window
         layerCanvas.RenderTransformOrigin = new Point(.5,.5);
         var avatarMotion = new TransformGroup();
         avatarMotion.Children.Add(breathing);
+        avatarMotion.Children.Add(idleFloat);
         avatarMotion.Children.Add(talkingBounce);
         avatarMotion.Children.Add(talkingShake);
         layerCanvas.RenderTransform = avatarMotion;
@@ -104,13 +107,14 @@ public sealed class AvatarOverlayWindow : Window
             UpdateParallax();
             if (ReduceMotion)
             {
-                breathing.ScaleX = 1; breathing.ScaleY = 1; talkingBounce.Y = 0; talkingShake.X = 0; return;
+                breathing.ScaleX = 1; breathing.ScaleY = 1; idleFloat.Y = 0; talkingBounce.Y = 0; talkingShake.X = 0; return;
             }
             phase += state == "Talking" ? .12 : .035;
             breathing.ScaleY = state switch { "Talking" => 1 + Math.Sin(phase) * .018, "Happy" => 1.008, "Surprised" => 1.025, _ => 1 + Math.Sin(phase) * .008 };
             breathing.ScaleX = state switch { "Happy" => 1.008, "Surprised" => 1.025, _ => 1 + Math.Sin(phase + .6) * .004 };
-            // Motion stays intentionally cartoon-like: whole-avatar shake/bounce, not a realistic mouth simulation.
+            // Motion stays intentionally cartoon-like: whole-avatar float, shake and bounce, not a realistic mouth simulation.
             var talking = state == "Talking" && transientState is null;
+            idleFloat.Y = AvatarMotionPolicy.GetIdleFloatOffset(phase, idleFloatEnabled && !talking);
             talkingBounce.Y = AvatarMotionPolicy.GetTalkingBounceOffset(phase, talking && talkingBounceEnabled);
             shakePhase += .72;
             var manualShakeRemaining = (manualShakeUntil - now).TotalMilliseconds;
@@ -154,11 +158,12 @@ public sealed class AvatarOverlayWindow : Window
             : 0;
     }
 
-    public void SetMotionEffects(bool speakingShake, double shakeStrength, bool enableTalkingBounce)
+    public void SetMotionEffects(bool speakingShake, double shakeStrength, bool enableTalkingBounce, bool enableIdleFloat = true)
     {
         speakingShakeEnabled = speakingShake;
         speakingShakeStrength = AvatarMotionPolicy.NormalizeShakeStrength(shakeStrength);
         talkingBounceEnabled = enableTalkingBounce;
+        idleFloatEnabled = enableIdleFloat;
         if (!speakingShakeEnabled && DateTimeOffset.UtcNow >= manualShakeUntil)
             talkingShake.X = 0;
         if (!talkingBounceEnabled)
