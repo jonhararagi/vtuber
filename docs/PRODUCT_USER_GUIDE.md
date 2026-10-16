@@ -9,6 +9,22 @@ En **Avatar Studio**, el botón **Limpiar zona de la boca de la imagen base** ab
 
 Seleccioná algo de margen alrededor de la boca vieja, guardá la copia y revisá cómo queda el avatar antes de asignar los sprites de boca cerrada y abierta.
 
+## Mover el sticker de boca y hacer que el avatar se mueva al hablar
+
+El sticker quedaba centrado porque el renderizador estiraba el PNG recortado al tamaño de toda la ventana. Ahora el tamaño del sticker se calcula en relación con la imagen base para que conserve una escala útil y sus desplazamientos X/Y puedan ubicarlo sobre la boca real.
+
+1. En **Avatar Studio**, buscá el botón grande **👄 CREAR CAPA DE BOCA MOVIBLE**, justo debajo de la vista previa.
+2. Seleccioná un PNG **recortado alrededor de la boca cerrada**, con el resto transparente. No elijas la ilustración completa ni un PNG con un fondo opaco: el recorte permite que se vea la cara por detrás.
+3. En la lista de capas, seleccioná **👄 Boca animada**. Si ya existe una capa de boca, seleccioná esa fila en lugar de crear otra.
+4. En **Boca animada · crear y ubicar el sticker**, pulsá **🎯 Activar modo mover capa con el mouse**. El botón indicará que el modo está activo.
+5. Arrastrá el sticker en la vista previa desde el centro hasta la boca real del personaje. Ajustá con los controles X/Y y escala si hace falta.
+6. Pulsá **💾 Guardar posición de boca**. Esa transformación se guarda en SQLite y se utiliza también en el overlay transparente.
+7. Con la misma capa seleccionada, pulsá **Asignar boca abierta** y elegí el PNG transparente de boca abierta. La boca cerrada se usa en reposo y la abierta cuando VTuberBot entra en estado `Talking`.
+
+Si parece que el sticker no se mueve, verificá que el modo de mover esté activo y que la fila **Boca animada** esté seleccionada. El arrastre se hace sobre la vista previa de Avatar Studio, no arrastrando la imagen dentro de la ventana del overlay. Si la boca tapa demasiado la cara, comprobá que los PNG contienen solamente la boca recortada.
+
+El avatar también hace un pequeño movimiento vertical mientras está en `Talking`, además de su respiración. Es una animación sencilla por estado, no un seguimiento de volumen ni sincronización fonética/visemas como un rig avanzado. La alternancia de boca abierta/cerrada depende del estado de voz detectado por VTuberBot.
+
 Al final de **Avatar Studio** está **Plan para terminar VTuberBot**. Marcá los pasos que querés priorizar y elegí el alcance general. El botón **Enviar** genera una solicitud Markdown, la guarda en `%LOCALAPPDATA%/VTuberBot/ProjectFinishRequests` y trata de copiarla al portapapeles. Después pegala en el chat del agente GitHub para ejecutar el trabajo. Por seguridad no transmite nada automáticamente ni utiliza credenciales de GitHub; el agente debe volver a auditar la rama y la CI para no repetir tareas ya terminadas. La opción **Solo auditar** prepara una petición de diagnóstico y plan sin autorizar implementación.
 
 Esta guía corresponde al candidato integrado de VTuberBot. Las funciones externas no se consideran conectadas hasta completar la autenticación real. El proceso para prevenir regresiones está descrito en [Regla de Murphy y puertas de fiabilidad](REGLA_MURPHY_Y_PUERTAS_DE_FIABILIDAD.md).
