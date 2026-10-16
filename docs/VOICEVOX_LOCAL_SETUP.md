@@ -20,8 +20,9 @@ Instalá VOICEVOX Engine para Windows siguiendo las instrucciones oficiales y la
 4. Pulsá **Iniciar VOICEVOX Engine en segundo plano**. VTuberBot comprueba primero si el Engine ya está respondiendo. Si no lo está, solicita un inicio ligado a 127.0.0.1, con el puerto configurado, y espera la API local.
 5. Pulsá **Comprobar y actualizar voces VOICEVOX**. Elegí uno de los estilos devueltos por el Engine. Si no aparece ninguno, comprobá instalación, versión, carga de voces y mensaje de error.
 6. Elegí un **dispositivo de salida** si no querés usar el predeterminado del sistema.
-7. Pulsá **Guardar voz y ajustes** para conservar URL, voz, volumen, velocidad y salida.
-8. Pulsá **Probar voz VOICEVOX** para escuchar una prueba. Usá **Encolar texto VOICEVOX** para texto propio, y **Detener voz actual** para interrumpir la frase.
+7. Ajustá **Tono / pitch** (de -0,30 a +0,30) y **Variación de entonación** (de 0,50× a 1,50×). Un tono positivo eleva la altura y una variación mayor exagera más los cambios de tono; probá valores suaves para evitar artefactos.
+8. Pulsá **Guardar voz y ajustes** para conservar URL, voz, tono, entonación, volumen, velocidad y salida.
+9. Pulsá **Probar voz VOICEVOX** para escuchar una prueba. Usá **Encolar texto VOICEVOX** para texto propio, y **Detener voz actual** para interrumpir la frase.
 
 La app no debe indicar que la conexión está lista si la API no respondió. Tampoco debe usar una voz Windows/Gemini de manera silenciosa para reemplazar un fallo local. Si aparece “VOICEVOX no disponible”, seguí el diagnóstico y volvé a comprobar.
 
