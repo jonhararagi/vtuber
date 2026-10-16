@@ -46,7 +46,7 @@ public partial class MainWindow
         // Encuadre configurable de cámara; es una guía visual guardada en el proyecto.
         double cameraX = 110, cameraY = 30, cameraWidth = 420, cameraHeight = 430;
         double obsX = 1420, obsY = 360, obsWidth = 420, obsHeight = 630;
-        Slider cropX = null!, cropY = null!, cropW = null!, cropH = null;
+        Slider cropX = null!, cropY = null!, cropW = null!, cropH = null!;
         var cameraFrame = new System.Windows.Shapes.Rectangle
         {
             Stroke = Brushes.DeepSkyBlue, StrokeThickness = 2,
@@ -317,7 +317,7 @@ public partial class MainWindow
                 obsX = Math.Clamp(project.ObsX, 0, 1920); obsY = Math.Clamp(project.ObsY, 0, 1080);
                 obsWidth = Math.Clamp(project.ObsWidth <= 0 ? 420 : project.ObsWidth, 50, 1920);
                 obsHeight = Math.Clamp(project.ObsHeight <= 0 ? 630 : project.ObsHeight, 50, 1080);
-                cropX.Value = cameraX; cropY.Value = cameraY; cropW.Value = cameraWidth; cropH.Value = cameraHeight;
+                cropX!.Value = cameraX; cropY!.Value = cameraY; cropW!.Value = cameraWidth; cropH!.Value = cameraHeight;
                 RefreshCameraPreview();
                 selected = layers.Count - 1;
                 RefreshList();
@@ -477,7 +477,7 @@ public partial class MainWindow
                 case "Cuerpo completo": cameraWidth = 600; cameraHeight = 620; cameraX = 20; cameraY = 10; break;
                 default: return;
             }
-            cropX.Value = cameraX; cropY.Value = cameraY; cropW.Value = cameraWidth; cropH.Value = cameraHeight;
+            cropX!.Value = cameraX; cropY!.Value = cameraY; cropW!.Value = cameraWidth; cropH!.Value = cameraHeight;
             RefreshCameraPreview(); RenderLayers();
         };
         controls.Children.Add(framingPreset);
