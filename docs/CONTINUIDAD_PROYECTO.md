@@ -1,3 +1,17 @@
+# Actualización de integración — editor PNGTuber y encuadre OBS (2026-10-16)
+
+**Rama de integración:** `integration/main-avatar-editor-wayfinding`, creada desde `main` en el SHA `d53b5268165952ee589c702c77a86d3b2ade1b9a`. `main` no se ha modificado directamente.
+
+- Se portó a la línea de `main` la implementación de encuadre del editor clásico: presets de recorte, controles X/Y/ancho/alto, vista esquemática OBS, posición/tamaño previstos, guardado de valores en `.waifu.json` y exportación de un PNG transparente recortado.
+- Se conservó el editor principal más reciente `WaifuSpriteStudioWindow`; no se sustituyó por el editor clásico ni se sobrescribieron las mejoras propias de `main`.
+- En Avatar Studio se agregó una guía visible que distingue el editor principal de capas/piezas, la herramienta complementaria de encuadre OBS, el asistente PNGTuber, 2.5D y las opciones 3D/VRM. Se renombraron los dos botones para que cada uno describa su función.
+- Se añadió `docs/AVATAR_EDITOR_GUIDE.md` y se enlazó desde README. La guía aclara que la previsualización OBS no es una conexión en tiempo real, que el recorte exportado es estático y que la alternancia automática de boca requiere sprites de expresión y runtime compatibles.
+- Commits de esta integración en la rama: `5ff2636dcc04f0fca8c3552878f7c20ecc9a05fd` (port de encuadre), `cf4e25a9f7c5cfd18210b3a0c0d713604f922c6e` (guía de navegación), `b6b1e19371d561d9301088df9487c32958f41110` (guía nueva), `621513be64342235dd164a9c51d87af0a1ec4212` (README).
+- **Validación:** aún no se ha confirmado compilación, pruebas ni artefacto Windows para el HEAD final de esta rama. No reutilizar CI histórica de otros SHA como prueba de estos cambios. El PR y la CI del commit resultante deben comprobarse antes de integrar en `main`.
+- **No se ha fusionado ningún PR ni se han borrado o reescrito ramas históricas.** La validación manual global con OBS/Twitch, audio, Streamer.bot, PNGTuber Plus y overlay continúa siendo una tarea separada.
+
+---
+
 # Continuidad del proyecto — VTuberBot
 
 ## 2026-10-16 — Asistente visual de configuración OBS (main)
