@@ -729,7 +729,7 @@ public partial class MainWindow
             var visibleLayers = store.GetAvatarLayers().Where(layer => layer.Visible && File.Exists(layer.Path)).ToArray();
             foreach (var layer in AvatarLayerOrdering.BackgroundLayers(visibleLayers))
             {
-                var image = new Image { Source = LoadImage(layer.Path), Stretch = Stretch.UniformToFill, MaxHeight = 360 };
+                var image = new Image { Source = LoadImage(AvatarMouthSpritePolicy.ResolvePath(layer, previewState)), Stretch = Stretch.UniformToFill, MaxHeight = 360 };
                 image.RenderTransformOrigin = new Point(.5, .5);
                 image.RenderTransform = BuildLayerTransform(layer);
                 previewCanvas.Children.Add(image);
@@ -741,7 +741,7 @@ public partial class MainWindow
             previewCanvas.Children.Add(basePreviewImage);
             foreach (var layer in AvatarLayerOrdering.ForegroundLayers(visibleLayers))
             {
-                var image = new Image { Source = LoadImage(layer.Path), Stretch = Stretch.Uniform, MaxHeight = 360 };
+                var image = new Image { Source = LoadImage(AvatarMouthSpritePolicy.ResolvePath(layer, previewState)), Stretch = Stretch.Uniform, MaxHeight = 360 };
                 image.RenderTransformOrigin = new Point(.5, .5);
                 image.RenderTransform = BuildLayerTransform(layer);
                 previewCanvas.Children.Add(image);
@@ -1031,6 +1031,14 @@ public partial class MainWindow
             basePreviewImage.Source = !string.IsNullOrWhiteSpace(expressionPath) && File.Exists(expressionPath)
                 ? LoadImage(expressionPath)
                 : LoadImage(avatarPath);
+            var visualState = selectedState == "Blink" ? "Idle" : selectedState;
+            foreach (var layer in store.GetAvatarLayers())
+            {
+                if (!layerImages.TryGetValue(layer.Id, out var layerImage)) continue;
+                var artworkPath = AvatarMouthSpritePolicy.ResolvePath(layer, visualState);
+                if (File.Exists(artworkPath))
+                    layerImage.Source = LoadImage(artworkPath);
+            }
         }
 
         var expressionPanel = Panel("Sprites por expresión");
