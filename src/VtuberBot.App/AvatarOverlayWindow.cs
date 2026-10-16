@@ -16,20 +16,16 @@ public sealed class AvatarOverlayWindow : Window
     private readonly ScaleTransform breathing = new(1,1);
     private readonly List<(TranslateTransform Transform, double Factor)> parallaxTransforms = [];
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(80) };
-    private bool parallaxEnabled = true;
+    private bool parallaxEnabled;
     private double targetParallaxX;
     private double targetParallaxY;
     private double currentParallaxX;
     private double currentParallaxY;
     private double parallaxStrength = AvatarParallaxPolicy.MaximumOffsetPixels;
-    private double phase;
     private string state = "Idle";
-    private string? transientState;
     private string? baseImagePath;
     private IReadOnlyList<AvatarLayer> avatarLayers = Array.Empty<AvatarLayer>();
     private IReadOnlyDictionary<string, string> expressionImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    private DateTimeOffset transientUntil;
-    private DateTimeOffset nextAutomaticBlinkAt = DateTimeOffset.UtcNow.AddSeconds(Random.Shared.NextDouble() * 3 + 3);
     private DateTimeOffset alertUntil;
     public bool ReduceMotion { get; set; }
 
@@ -59,39 +55,13 @@ public sealed class AvatarOverlayWindow : Window
             targetParallaxX = 0;
             targetParallaxY = 0;
         };
+        // Only the timed informational card animates; the character itself has no breathing,
+        // automatic blink, mouse parallax, or expression reactions in the approved two-state mode.
         timer.Tick += (_, _) =>
         {
-            var now = DateTimeOffset.UtcNow;
-            if (transientState is not null && now >= transientUntil)
-            {
-                transientState = null;
-                RenderAvatar();
-            }
-
-            if (!ReduceMotion && IsVisible && transientState is null && now >= nextAutomaticBlinkAt)
-            {
-                // Blink is a facial sprite transition, not an opacity pulse over the entire avatar.
-                if (expressionImages.TryGetValue("Blink", out var blinkPath) && File.Exists(blinkPath))
-                {
-                    transientState = "Blink";
-                    transientUntil = now.AddMilliseconds(150);
-                    nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
-                    RenderAvatar();
-                }
-                else
-                {
-                    // Without a configured eyelid/closed-eye sprite, don't fake a blink by fading the whole character.
-                    nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
-                }
-            }
-
-            layerCanvas.Opacity = 1;
-            alertCard.Visibility = now < alertUntil ? Visibility.Visible : Visibility.Collapsed;
-            UpdateParallax();
-            if (ReduceMotion) { breathing.ScaleX = 1; breathing.ScaleY = 1; return; }
-            phase += state == "Talking" ? .12 : .035;
-            breathing.ScaleY = state switch { "Talking" => 1 + Math.Sin(phase) * .012, "Happy" => 1.008, "Surprised" => 1.025, _ => 1 + Math.Sin(phase) * .008 };
-            breathing.ScaleX = state switch { "Happy" => 1.008, "Surprised" => 1.025, _ => 1 + Math.Sin(phase + .6) * .004 };
+            alertCard.Visibility = DateTimeOffset.UtcNow < alertUntil
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         };
         timer.Start();
         Closed += (_, _) => timer.Stop();
@@ -112,73 +82,34 @@ public sealed class AvatarOverlayWindow : Window
         return bitmap;
     }
 
+    /// <summary>Compatibility shim: parallax is intentionally disabled in the two-state PNGTuber workflow.</summary>
     public void SetParallaxEnabled(bool enabled)
     {
-        parallaxEnabled = enabled;
-        if (!enabled)
+        parallaxEnabled = false;
+        targetParallaxX = targetParallaxY = currentParallaxX = currentParallaxY = 0;
+        foreach (var (transform, _) in parallaxTransforms)
         {
-            targetParallaxX = 0;
-            targetParallaxY = 0;
+            transform.X = 0;
+            transform.Y = 0;
         }
     }
 
+    /// <summary>Compatibility shim: strength is fixed to zero because 2.5D/parallax is out of scope.</summary>
     public void SetParallaxStrength(double strength)
     {
-        parallaxStrength = double.IsFinite(strength)
-            ? Math.Clamp(strength, 0, AvatarParallaxPolicy.MaximumOffsetPixels)
-            : 0;
+        parallaxStrength = 0;
     }
 
     public void SetImage(string path) => SetLayers([path]);
 
     public void SetState(string nextState)
     {
-        if (string.Equals(nextState, "Blink", StringComparison.OrdinalIgnoreCase))
-        {
-            // A visible blink needs a closed-eye sprite assigned in Avatar Studio.
-            if (!expressionImages.TryGetValue("Blink", out var blinkPath) || !File.Exists(blinkPath))
-            {
-                nextAutomaticBlinkAt = DateTimeOffset.UtcNow.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
-                return;
-            }
-
-            var now = DateTimeOffset.UtcNow;
-            transientState = "Blink";
-            transientUntil = now.AddMilliseconds(160);
-            nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
-            RenderAvatar();
-            return;
-        }
-
-        var isBuiltInState = nextState is "Idle" or "Talking" or "Happy" or "Surprised";
-        var hasConfiguredExpression = expressionImages.TryGetValue(nextState, out var customPath) && File.Exists(customPath);
-        state = isBuiltInState || hasConfiguredExpression ? nextState : "Idle";
-        transientState = null;
-        transientUntil = DateTimeOffset.MinValue;
+        state = AvatarTalkStatePolicy.NormalizeVisualState(nextState);
         RenderAvatar();
     }
 
-    public bool ShowReaction(string reactionState, TimeSpan? duration = null)
-    {
-        if (reactionState is not ("Happy" or "Surprised"))
-            return false;
-
-        var reactionDuration = duration ?? TimeSpan.FromSeconds(3);
-        if (reactionDuration <= TimeSpan.Zero || reactionDuration > TimeSpan.FromSeconds(15))
-            return false;
-
-        // Reactions use the viewer's own configured expression art. Without that sprite,
-        // keep the alert card but do not pretend that a meaningful expression was shown.
-        if (!expressionImages.TryGetValue(reactionState, out var expressionPath) || !File.Exists(expressionPath))
-            return false;
-
-        var now = DateTimeOffset.UtcNow;
-        transientState = reactionState;
-        transientUntil = now.Add(reactionDuration);
-        nextAutomaticBlinkAt = now.AddSeconds(Random.Shared.NextDouble() * 4 + 3.5);
-        RenderAvatar();
-        return true;
-    }
+    /// <summary>Automatic reactions are outside the approved Idle/Talking-only scope.</summary>
+    public bool ShowReaction(string reactionState, TimeSpan? duration = null) => false;
 
     public void SetLayers(IEnumerable<string> paths)
     {
@@ -209,7 +140,7 @@ public sealed class AvatarOverlayWindow : Window
     {
         layerCanvas.Children.Clear();
         parallaxTransforms.Clear();
-        var visualState = transientState ?? state;
+        var visualState = AvatarTalkStatePolicy.NormalizeVisualState(state);
         var activeBasePath = expressionImages.TryGetValue(visualState, out var expressionPath) && File.Exists(expressionPath)
             ? expressionPath
             : baseImagePath;
