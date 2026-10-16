@@ -32,6 +32,13 @@ public partial class MainWindow
                 }
 
                 StartObs(executable);
+                await Task.Delay(800);
+                if (!IsObsRunning())
+                {
+                    FooterStatus.Text = "Se solicitó iniciar OBS, pero el proceso todavía no aparece. VTuberBot sigue disponible.";
+                    store.Log("OBS", "Inicio solicitado; el proceso OBS no se detectó en la primera comprobación.");
+                    return;
+                }
             }
 
             var password = LoadObsPassword();
@@ -121,17 +128,18 @@ public partial class MainWindow
             throw new FileNotFoundException("No se encontró el ejecutable de OBS.", executable);
 
         var lightMode = string.Equals(store.GetSetting("obs.lightMode", "true"), "true", StringComparison.OrdinalIgnoreCase);
+        var startMinimized = string.Equals(store.GetSetting("obs.startMinimized", "true"), "true", StringComparison.OrdinalIgnoreCase);
         var startInfo = new ProcessStartInfo
         {
             FileName = executable,
             UseShellExecute = true,
-            Arguments = lightMode ? "--only-bundled-plugins" : string.Empty
+            Arguments = ObsLaunchArgumentsPolicy.BuildArguments(lightMode, startMinimized)
         };
 
         Process.Start(startInfo);
-        store.Log("OBS", lightMode
-            ? "OBS iniciado en modo ligero: se solicitó cargar solo plugins incluidos con OBS; no se desinstaló ningún complemento."
-            : "OBS iniciado con sus plugins configurados.");
+        var startupMode = startMinimized ? "minimizado a la bandeja" : "con ventana normal";
+        var pluginMode = lightMode ? "omitiendo plugins de terceros solo en este inicio" : "con los plugins configurados";
+        store.Log("OBS", $"Inicio de OBS solicitado {startupMode}, {pluginMode}.");
     }
 
     private async Task OpenObsFromUiAsync()
@@ -162,10 +170,21 @@ public partial class MainWindow
             }
 
             StartObs(executable);
-            FooterStatus.Text = "OBS Studio se está iniciando.";
+            FooterStatus.Text = "Inicio de OBS solicitado; comprobando el proceso y la sesión WebSocket.";
             await Task.Delay(1200);
+            if (!IsObsRunning())
+            {
+                FooterStatus.Text = "Windows no detecta todavía el proceso de OBS. Revisá la ruta del ejecutable.";
+                store.Log("OBS", "Inicio solicitado desde la interfaz, pero el proceso no se detectó.");
+                return;
+            }
+
             if (!obs.IsConnected && !string.IsNullOrEmpty(LoadObsPassword()))
                 await AutoConnectObsFromUiAsync();
+
+            FooterStatus.Text = obs.IsConnected
+                ? "OBS abierto y conectado mediante WebSocket autenticado."
+                : "Proceso de OBS detectado; la conexión WebSocket todavía no está autenticada.";
         }
         catch (Exception exception)
         {
