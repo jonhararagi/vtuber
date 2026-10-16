@@ -14,7 +14,6 @@ VTuberBot es una aplicación de escritorio para Windows centrada en editar tu pr
 - [Registro central de continuidad](docs/CONTINUIDAD_PROYECTO.md)
 - [Guía de configuración del candidato integral](docs/PRODUCT_USER_GUIDE.md)
 - [Guía del editor de avatar y encuadre OBS](docs/AVATAR_EDITOR_GUIDE.md)
-- [Guía rápida para encontrar el editor PNGTuber y el encuadre OBS](docs/AVATAR_EDITOR_GUIDE.md)
 
 ## Auditorías y continuidad
 
@@ -26,7 +25,7 @@ VTuberBot es una aplicación de escritorio para Windows centrada en editar tu pr
 - C# / .NET 10 / WPF / SQLite.
 - Windows como plataforma objetivo; equipo de referencia Ryzen 5 5600G y 16 GB RAM.
 - Sin dependencia obligatoria de APIs de IA pagas.
-- Integraciones Twitch y OBS opcionales, con autenticación y configuración explícitas.
+- OBS se conecta de forma opcional y explícita; Twitch y sus funciones sociales quedan fuera del alcance aprobado.
 - Los datos de usuario se guardan fuera del repositorio y del paquete de distribución.
 
 ## Estructura actual
@@ -45,8 +44,8 @@ dotnet run --project src/VtuberBot.App --configuration Release
 
 ## Descargar el candidato de Windows
 
-No hace falta clonar ni compilar el repositorio para probar el paquete. Abrí [Windows CI de `main`](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml?query=branch%3Amain), elegí la ejecución más reciente con estado **success** y verificá que **Head SHA** sea el commit de `main` que querés probar. Descargá el ZIP en la sección **Artifacts**, extraelo a una carpeta normal y ejecutá `VtuberBot.App.exe`. Revisá `BUILD-INFO.txt` dentro del paquete y compará el SHA de origen con el SHA de la ejecución; no mezcles artefactos de ejecuciones distintas. El artefacto es temporal (retención configurada de 14 días); no es una release pública. Streamer.bot, PNGTuber Plus y otras aplicaciones externas se instalan por separado.
+No hace falta clonar ni compilar el repositorio para probar el paquete. Abrí [Windows CI de `main`](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml?query=branch%3Amain), elegí una ejecución con estado **success** y verificá que **Head SHA** coincida con el commit que querés probar. Descargá el ZIP de **Artifacts**, extraelo y ejecutá `VtuberBot.App.exe`. Revisá `BUILD-INFO.txt` y compará el SHA del paquete con el de la ejecución. El artefacto es temporal y no equivale a una release pública. VOICEVOX Engine requiere una instalación local compatible; Twitch, Streamer.bot y PNGTuber Plus no son dependencias del alcance actual.
 
 ## Criterio de finalización
 
-El CI verde certifica únicamente la ejecución automatizada para el commit correspondiente. La aceptación del producto requiere además la integración real de las funciones descritas en PRODUCT_BLUEPRINT.md, sin botones muertos ni conexiones simuladas, seguida de una validación global en Windows.
+El CI verde certifica únicamente la ejecución automatizada para el commit correspondiente. La aceptación del producto requiere además la integración real de las funciones descritas en `docs/ESPECIFICACION_DEFINITIVA.md`, sin botones muertos ni conexiones simuladas, seguida de una validación global en Windows.
