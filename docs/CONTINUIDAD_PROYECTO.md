@@ -1,3 +1,16 @@
+# Continuidad del proyecto — VTuberBot
+
+## 2026-10-16 — Reconciliación del alcance y editor de encuadre
+
+- HEAD de `main` antes de esta rama documental: `0857fae922c199af2a607626f4e858b8393a59a9`.
+- PR #21 se integró mediante merge commit `0857fae922c199af2a607626f4e858b8393a59a9`. La CI consultada para el HEAD de la PR terminó success; esto no equivale a validación manual del editor ni a conexión real con OBS.
+- El port conserva el editor de capas existente y añade una herramienta complementaria de encuadre con presets, controles geométricos, persistencia en `.waifu.json` y exportación de PNG recortado. La maqueta OBS es orientativa y no controla una fuente OBS en tiempo real.
+- PR #22 quedó con conflicto de integración después de fusionar PR #21 porque ambas modifican README y continuidad. Se prepara una rama documental nueva desde el main actualizado para incorporar la especificación sin sobrescribir cambios.
+- El alcance definitivo excluye Twitch/sociales, Telegram Web, Streamer.bot, PNGTuber Plus obligatorio, catálogo prefabricado como flujo principal y 2.5D/parallax. La exclusión no autoriza borrar código hasta revisar referencias, persistencia y pruebas.
+- Pendiente: reconciliar los documentos heredados, auditar implementación real de los dos estados del avatar, OBS y VOICEVOX; ejecutar CI en el SHA final de la nueva PR; comprobar artefacto y SHA correspondiente. No se afirma aún que estas funciones estén completas.
+
+---
+
 # Actualización de integración — editor PNGTuber y encuadre OBS (2026-10-16)
 
 **Rama de integración:** `integration/main-avatar-editor-wayfinding`, creada desde `main` en el SHA `d53b5268165952ee589c702c77a86d3b2ade1b9a`. `main` no se ha modificado directamente.
