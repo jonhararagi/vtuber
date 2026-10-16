@@ -195,6 +195,12 @@ public partial class MainWindow
             {
                 var layer = layers[selected];
                 layer.Source = RemoveWhiteBackgroundConnectedToEdges(layer.Source);
+                // El recorte transforma el fotograma actual en una imagen estática; no dejar que
+                // el temporizador restaure después los fotogramas GIF sin procesar.
+                layer.AnimationFrames.Clear();
+                layer.FrameDurationsMs.Clear();
+                layer.FrameIndex = 0;
+                layer.FrameElapsedMs = 0;
                 layer.PixelWidth = layer.Source.PixelWidth;
                 layer.PixelHeight = layer.Source.PixelHeight;
                 var assetDirectory = Path.Combine(
@@ -249,10 +255,19 @@ public partial class MainWindow
                         throw new FileNotFoundException("No se encuentra el recurso de una capa: " + item.Path);
                     using var stream = File.OpenRead(resolvedPath);
                     var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-                    var bitmap = new WriteableBitmap(decoder.Frames[0]);
+                    var isGif = Path.GetExtension(resolvedPath).Equals(".gif", StringComparison.OrdinalIgnoreCase);
+                    var animationFrames = isGif
+                        ? decoder.Frames.Select(frame => (BitmapSource)new WriteableBitmap(frame)).ToList()
+                        : new List<BitmapSource>();
+                    var bitmap = animationFrames.Count > 0 ? animationFrames[0] : new WriteableBitmap(decoder.Frames[0]);
+                    var frameDurations = isGif
+                        ? decoder.Frames.Cast<BitmapFrame>().Select(ReadGifFrameDuration).ToList()
+                        : new List<int>();
+                    if (frameDurations.Count == 0) frameDurations.Add(100);
                     loaded.Add(new WaifuLayer
                     {
                         Name = item.Name, Source = bitmap, PixelWidth = bitmap.PixelWidth, PixelHeight = bitmap.PixelHeight,
+                        AnimationFrames = animationFrames, FrameDurationsMs = frameDurations,
                         OriginalPath = resolvedPath, X = item.X, Y = item.Y, Width = item.Width, Height = item.Height,
                         Scale = Math.Clamp(item.Scale, 0.1, 3), Opacity = Math.Clamp(item.Opacity, 0, 1)
                     });
@@ -282,9 +297,14 @@ public partial class MainWindow
                 for (var index = 0; index < layers.Count; index++)
                 {
                     var layer = layers[index];
-                    var assetName = $"{index + 1:D3}-{MakeSafeFileName(layer.Name)}.png";
+                    var keepAnimation = layer.AnimationFrames.Count > 1 &&
+                        Path.GetExtension(layer.OriginalPath).Equals(".gif", StringComparison.OrdinalIgnoreCase) &&
+                        File.Exists(layer.OriginalPath);
+                    var extension = keepAnimation ? ".gif" : ".png";
+                    var assetName = $"{index + 1:D3}-{MakeSafeFileName(layer.Name)}{extension}";
                     var assetPath = Path.Combine(assetDirectory, assetName);
-                    SaveBitmapAsPng(layer.Source, assetPath);
+                    if (keepAnimation) File.Copy(layer.OriginalPath, assetPath, true);
+                    else SaveBitmapAsPng(layer.Source, assetPath);
                     layer.OriginalPath = assetPath;
                     savedLayers.Add(new WaifuLayerData
                     {
