@@ -393,3 +393,17 @@ En **Automatizaciones**, al editar una regla, usá **Simulador seguro de condici
 
 Pulsá **Simular condiciones (sin ejecutar acciones)**. Se usa la fuente, categoría, tipo y las condiciones actuales. El simulador no llama a Streamer.bot, no envía hotkeys, no modifica reglas ni ejecuta acciones externas. Si no coincide, revisá los nombres de los campos y el operador `eq`, `contains` o `present`. Los payloads se limitan a 65.536 caracteres.
 
+
+
+## Creador de waifu PNG por objetos
+
+Abrí **Avatar Studio** y pulsá **Abrir creador de waifu PNG por objetos**.
+
+- **Importar objetos:** admite PNG, JPG/JPEG, BMP y GIF. Los GIF animados se reproducen en la vista previa; al exportar PNG se captura el fotograma que se ve en ese momento.
+- **Catálogo local:** agrega accesorios de cabeza, ojos, bocas, efectos y fondos de muestra. Cada pieza se agrega como capa independiente. Los fondos se colocan detrás del resto. El catálogo se genera localmente con formas vectoriales originales: es material de prototipado, no una colección de ilustraciones anime profesionales.
+- **Componer:** arrastrá las piezas, ajustá escala y opacidad, cambiá el orden o eliminá capas. Importá primero tu ilustración base y después las piezas que quieras superponer.
+- **Quitar fondo blanco (bordes):** seleccioná la capa y usá el botón. Se elimina el blanco casi puro conectado al borde de la imagen, pero se conserva el blanco interior encerrado por otros píxeles. Los contornos antialiasados o tonos casi blancos pueden necesitar retoque; comprobá la vista previa antes de exportar. Para proteger memoria, el procesamiento rechaza imágenes de más de 20 millones de píxeles.
+- **Guardar proyecto:** genera un JSON y una carpeta de recursos con copias PNG de las capas. Conservá ambos juntos si movés el proyecto a otra carpeta o PC.
+- **Exportar PNG:** exporta la composición de 640×640 con transparencia. No exporta animación GIF ni un archivo PSD con capas.
+
+**Validación del bloque:** la implementación está registrada en la rama de producto, pero todavía no se debe considerar verificada hasta que Windows CI compile y ejecute las pruebas del SHA final. La galería es un catálogo vectorial básico y requiere revisión visual en la aplicación.
