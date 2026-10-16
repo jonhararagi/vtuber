@@ -301,7 +301,7 @@ public partial class MainWindow
 
         var sourceControls = Panel("Fuentes de escena y audio");
         sourceControls.Children.Add(Label("Estos controles actúan sobre OBS conectado. No modifican la previsualización local del avatar.", 12, "#98A4BE"));
-        var sceneItemPicker = new ComboBox { MinWidth = 280, DisplayMemberPath = nameof(ObsSceneItem.Name), Margin = new Thickness(0, 0, 8, 8) };
+        var sceneItemPicker = new ComboBox { MinWidth = 280, DisplayMemberPath = nameof(ObsSceneItem.DisplayLabel), Margin = new Thickness(0, 0, 8, 8) };
         async Task RefreshSceneItemsAsync()
         {
             if (scenes.SelectedItem is not string selectedScene)
@@ -347,7 +347,7 @@ public partial class MainWindow
         sourceControls.Children.Add(Label("Visibilidad de fuente en la escena seleccionada", 13, "#F8FAFC", true));
         sourceControls.Children.Add(sceneSourceActions);
 
-        var audioInputPicker = new ComboBox { MinWidth = 280, DisplayMemberPath = nameof(ObsAudioInput.Name), Margin = new Thickness(0, 0, 8, 8) };
+        var audioInputPicker = new ComboBox { MinWidth = 280, DisplayMemberPath = nameof(ObsAudioInput.DisplayLabel), Margin = new Thickness(0, 0, 8, 8) };
         async Task RefreshAudioInputsAsync()
         {
             var inputs = await obs.GetAudioInputsAsync();
