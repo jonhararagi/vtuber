@@ -46,6 +46,7 @@ public partial class MainWindow
         // Encuadre configurable de cámara; es una guía visual guardada en el proyecto.
         double cameraX = 110, cameraY = 30, cameraWidth = 420, cameraHeight = 430;
         double obsX = 1420, obsY = 360, obsWidth = 420, obsHeight = 630;
+        Slider cropX = null!, cropY = null!, cropW = null!, cropH = null;
         var cameraFrame = new System.Windows.Shapes.Rectangle
         {
             Stroke = Brushes.DeepSkyBlue, StrokeThickness = 2,
@@ -466,7 +467,6 @@ public partial class MainWindow
         controls.Children.Add(catalogScroll);
         controls.Children.Add(new TextBlock { Text = "Encuadre de cámara / recorte visible", Foreground = Brushes.DeepSkyBlue, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 12, 4, 3) });
         controls.Children.Add(new TextBlock { Text = "El marco azul indica qué parte del personaje mostrar. Elegí rostro, busto o cuerpo completo y ajustá el recorte.", Foreground = Brushes.LightGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
-        Slider cropX = null!, cropY = null!, cropW = null!, cropH = null!;
         var framingPreset = new ComboBox { Margin = new Thickness(4), ItemsSource = new[] { "Personalizado", "Rostro", "Busto", "Cuerpo completo" }, SelectedIndex = 2 };
         framingPreset.SelectionChanged += (_, _) =>
         {
