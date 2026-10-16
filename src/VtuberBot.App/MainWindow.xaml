@@ -192,7 +192,6 @@
               <StackPanel>
                 <Button Content="▣  OBS y transmisiones" Tag="OBS" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
                 <Button Content="⌘  Comandos locales" Tag="Comandos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
-                <Button Content="⚡  Automatizaciones locales" Tag="Automatizaciones" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
               </StackPanel>
             </Expander>
             <Expander Header="SISTEMA" IsExpanded="False" Foreground="#98A4BE" Background="Transparent" BorderThickness="0" Padding="4,2" Margin="0,2,0,0">
