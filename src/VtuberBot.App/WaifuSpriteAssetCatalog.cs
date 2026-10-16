@@ -13,7 +13,8 @@ internal sealed record WaifuSpriteAsset(
     string Description,
     string Path,
     int Width,
-    int Height)
+    int Height,
+    bool RemoveMatte = false)
 {
     public override string ToString() => Name + " · " + Category;
 }
