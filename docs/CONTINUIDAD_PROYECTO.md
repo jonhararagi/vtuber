@@ -1,5 +1,18 @@
 # Estado prioritario del repositorio — 2026-10-16
 
+## 2026-10-16 — Corregir la colocación de la boca y facilitar el movimiento tipo PNGTuber
+
+- Causa del síntoma reportado: el overlay asignaba a cada capa un `Image` estirado al tamaño completo de la ventana. Un PNG recortado de boca se dibujaba como si fuera una imagen de personaje completa y parecía pegado al centro. No bastaba con que el modelo ya guardara X/Y; el tamaño/alineación del sprite también estaba mal.
+- `src/VtuberBot.Core/AvatarLayerSizingPolicy.cs` calcula el tamaño del recorte en relación con la escala `Uniform` de la imagen base. `AvatarOverlayWindow.cs` y la previsualización de Avatar Studio aplican ese tamaño a sprites asignados a `ClosedMouthPath`/`OpenMouthPath`, manteniendo la transformación de la capa y permitiendo el desplazamiento horizontal/vertical.
+- Avatar Studio ahora muestra **CREAR CAPA DE BOCA MOVIBLE** bajo la vista previa. Pide un PNG de solo la boca cerrada con transparencia, crea la capa independiente **Boca animada**, le asigna el sprite cerrado, recuerda la capa seleccionada y etiqueta las capas que tienen sprites de boca.
+- En **Boca animada · crear y ubicar el sticker**, el usuario activa **Modo mover capa con el mouse**, arrastra la capa seleccionada en la vista previa y pulsa **Guardar posición de boca**. El cambio queda persistido a través de `UpdateAvatarLayerTransform` (SQLite) y se aplica también al overlay real. Las imágenes de la vista previa dejan pasar los eventos del mouse para que la rejilla pueda capturar el arrastre.
+- Corrección de calibración adicional: la relación entre la vista previa y el overlay ahora se deriva de `GetFitScale` para la imagen base; no se compara cada eje solo por el ancho/alto de ventana. Esto evita que avatares altos o angostos tengan una conversión X/Y distinta de la escala visual real.
+- El overlay mueve suavemente el personaje en vertical y cambia la respiración mientras el estado de voz está en `Talking`. Es una animación del personaje por estado, **no** lip-sync por amplitud de audio, fonemas o visemas.
+- Windows CI [#1058](https://github.com/jonhararagi/vtuber/actions/runs/38977324220) terminó correctamente en el SHA `7b02b219d5ff76ea4a22e59a26be4102f76308f9`: Restore y Build Release sin advertencias/errores, **558/558 pruebas aprobadas**, paquete autocontenido Windows x64 generado y artefacto subido. Artefacto ID `12079457179`, 84.7 MB, vence el 30-10-2026; ZIP validado con 490 entradas. Esta ejecución valida la corrección del tamaño del sticker y el modo de movimiento inicial, **no** los commits posteriores de calibración.
+- La calibración `GetFitScale` y las pruebas correspondientes se añadieron después; Windows CI [#1062](https://github.com/jonhararagi/vtuber/actions/runs/38977693599) ejecuta el SHA `f8747bf251deef2bd07bdb780b27e5b034989244` y debe finalizar para validar la versión completa. La nueva documentación también requiere comprobar la CI de su propio SHA.
+- Validación visual pendiente: probar con las imágenes reales del usuario que la boca llegue exactamente sobre la boca de la cara, que los sprites sean recortes PNG con transparencia y que el movimiento no haga que el sticker se desplace fuera del rostro. La CI no puede verificar la alineación artística de assets que no están en el repositorio.
+
+
 ## 2026-10-16 — Editor de limpieza de boca y plan de cierre seleccionable
 
 - La CI documental previa, [run #1046](https://github.com/jonhararagi/vtuber/actions/runs/38961144415), terminó con éxito en el SHA exacto `07be0a3d793df076511eec3d07f74caf48885e25`: Restore, Build Release, tests y paquete autocontenido Windows x64 completados. Esto valida ese SHA, no los cambios nuevos descritos abajo.
