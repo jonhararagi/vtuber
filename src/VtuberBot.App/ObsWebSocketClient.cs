@@ -7,8 +7,15 @@ using VtuberBot.Core;
 
 namespace VtuberBot.App;
 
-public sealed record ObsSceneItem(string Name, long Id, bool Enabled);
-public sealed record ObsAudioInput(string Name, string Kind, bool Muted);
+public sealed record ObsSceneItem(string Name, long Id, bool Enabled)
+{
+    public string DisplayLabel => $"{Name} — {(Enabled ? "visible" : "oculta")}";
+}
+
+public sealed record ObsAudioInput(string Name, string Kind, bool Muted)
+{
+    public string DisplayLabel => $"{Name} — {(Muted ? "silenciado" : "activo")}";
+}
 
 /// <summary>OBS Studio WebSocket v5 client with automatic reconnect after transient connection loss.</summary>
 /// <remarks>Connection is reported as active only after Hello/Identify succeeds. Credentials stay in memory only.</remarks>
