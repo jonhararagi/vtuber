@@ -1,5 +1,16 @@
 # Guía del candidato integral de VTuberBot
 
+## Limpiar la boca y cerrar el proyecto desde el panel
+
+En **Avatar Studio**, el botón **Limpiar zona de la boca de la imagen base** abre un editor donde arrastrás un rectángulo sobre la boca anterior. Se guarda una copia PNG y la imagen original no se sobrescribe. Podés elegir:
+
+- **Cubrir con color de piel muestreado**: reemplaza la zona elegida por un promedio del color de los píxeles vecinos, con borde suavizado. Es la opción inicial para ilustraciones planas; puede necesitar retoque visual porque no reconstruye textura, sombras ni líneas.
+- **Borrar a transparencia**: vuelve transparente la selección y suaviza el borde. Elegila si existe otra capa de cara debajo; sobre una imagen plana puede dejar un hueco que muestre el fondo de OBS.
+
+Seleccioná algo de margen alrededor de la boca vieja, guardá la copia y revisá cómo queda el avatar antes de asignar los sprites de boca cerrada y abierta.
+
+Al final de **Avatar Studio** está **Plan para terminar VTuberBot**. Marcá los pasos que querés priorizar y elegí el alcance general. El botón **Enviar** genera una solicitud Markdown, la guarda en `%LOCALAPPDATA%/VTuberBot/ProjectFinishRequests` y trata de copiarla al portapapeles. Después pegala en el chat del agente GitHub para ejecutar el trabajo. Por seguridad no transmite nada automáticamente ni utiliza credenciales de GitHub; el agente debe volver a auditar la rama y la CI para no repetir tareas ya terminadas. La opción **Solo auditar** prepara una petición de diagnóstico y plan sin autorizar implementación.
+
 Esta guía corresponde al candidato integrado de VTuberBot. Las funciones externas no se consideran conectadas hasta completar la autenticación real. El proceso para prevenir regresiones está descrito en [Regla de Murphy y puertas de fiabilidad](REGLA_MURPHY_Y_PUERTAS_DE_FIABILIDAD.md).
 
 ## Perfiles reales de bots de Twitch
