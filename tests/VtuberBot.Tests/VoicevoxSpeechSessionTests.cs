@@ -32,6 +32,23 @@ public sealed class VoicevoxSpeechSessionTests
     public void IsVoiceIdAcceptsOnlyNonNegativeSpeakerIds(string? id, bool expected) =>
         Assert.Equal(expected, VoicevoxSpeechSession.IsVoiceId(id));
 
+    [Theory]
+    [InlineData(null, 0, -1)]
+    [InlineData("", 2, -1)]
+    [InlineData("sapi:legacy-device", 3, -1)]
+    [InlineData("waveout:0", 1, 0)]
+    [InlineData("WAVEOUT:2", 3, 2)]
+    public void ResolveOutputDeviceNumberUsesNAudioDeviceIds(string? outputId, int availableDevices, int expected) =>
+        Assert.Equal(expected, VoicevoxSpeechSession.ResolveOutputDeviceNumber(outputId, availableDevices));
+
+    [Theory]
+    [InlineData("waveout:bad", 2)]
+    [InlineData("waveout:-1", 2)]
+    [InlineData("waveout:2", 2)]
+    public void ResolveOutputDeviceNumberRejectsInvalidOrStaleExplicitDeviceIds(string outputId, int availableDevices) =>
+        Assert.Throws<InvalidOperationException>(() =>
+            VoicevoxSpeechSession.ResolveOutputDeviceNumber(outputId, availableDevices));
+
     [Fact]
     public void ConfigurableSessionRoutesVoicevoxRuleToOfflineProviderEvenWhenRemoteIsDefault()
     {
