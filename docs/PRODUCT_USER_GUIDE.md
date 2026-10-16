@@ -26,7 +26,7 @@ También podés importar PNG, JPG, JPEG, BMP y GIF propios. Los archivos se copi
 4. Seleccioná la capa en el panel derecho. Arrastrala sobre el lienzo o ajustá posición X/Y, tamaño, giro y opacidad. Podés duplicar, ocultar, reordenar o eliminar capas.
 5. Añadí boca, ojos, cejas/ojos enojados y efectos por separado. Para preparar diferentes estados, ocultá o cambiá las piezas que varían, exportá cada versión y asigná luego los PNG por estado desde **Avatar Studio → Sprites por expresión**.
 
-El lienzo de composición actual es de 1024×1024. Los fondos HD se conservan como recursos de alta resolución y se ajustan al lienzo; las composiciones exportadas desde esta versión se guardan como PNG de 1024×1024.
+El selector **Lienzo** permite elegir **Cuadrado 1024×1024** (predeterminado), **HD 1280×720** o **Full HD 1920×1080**. Al cambiar de tamaño, las capas se escalan y recentran para conservar su composición, y las capas de categoría **Fondos** vuelven a cubrir el lienzo completo. La resolución elegida se guarda en el proyecto JSON y se restaura al abrirlo. Para aprovechar los fondos 1920×1080 sin recortar los laterales, elegí el lienzo Full HD 16:9; el lienzo cuadrado recorta los bordes de un fondo panorámico. El PNG exportado usa las dimensiones del lienzo actual y conserva el canal alfa si no hay una capa de fondo opaca.
 
 ## Guardar, exportar y usarlo como PNGTuber
 
