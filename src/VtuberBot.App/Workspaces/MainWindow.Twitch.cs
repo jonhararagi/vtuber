@@ -25,7 +25,27 @@ public partial class MainWindow
 {
     private UIElement BuildTwitchPage()
     {
-        var root=new StackPanel();var panel=Panel("Conexión de Twitch");root.Children.Add(panel);
+        var root = new StackPanel();
+        var guide = Panel("¿QUÉ ES ESTA PANTALLA? · El bot de chat de Twitch");
+        guide.Children.Add(Label(
+            "Esto conecta el bot que lee y envía mensajes del chat. No sirve para conectar OBS ni hace falta configurarlo para mover tu avatar PNG en pantalla: primero configurá OBS por separado.",
+            13, "#F8FAFC", true));
+        guide.Children.Add(Label(
+            "Configuración mínima: 1. Escribí el nombre de tu canal de Twitch. 2. Escribí el login de la cuenta que actuará como bot (puede ser tu cuenta, o una cuenta bot separada que ya exista). 3. Pegá el Client ID de tu aplicación en Twitch Developer Console. 4. Pulsá «Autorizar con Twitch» y aceptá los permisos en el navegador. 5. Cuando vuelva a VTuberBot, pulsá «Conectar».",
+            12, "#C4CDE0"));
+        guide.Children.Add(Label(
+            "Qué significan los campos: «Canal» es el canal donde el bot escribe y escucha; «Cuenta bot» es la cuenta que inicia sesión; «Client ID» identifica tu aplicación de Twitch; «Token OAuth» es una credencial que se obtiene al autorizar y se guarda cifrada localmente. No compartas ni publiques el token. Las alertas de follows/raids se conectan por separado con EventSub.",
+            12, "#98A4BE"));
+        guide.Children.Add(Label(
+            "Los puntos del canal/recompensas se crean y administran en el Panel de creador de Twitch; esta pantalla solo conecta VTuberBot con el chat y los eventos para reaccionar a ellos.",
+            11, "#E7B56A"));
+        var guideActions = new WrapPanel();
+        guideActions.Children.Add(ActionButton("Volver a configurar el avatar", (_, _) => Navigate("PNGTuber 2D"), true));
+        guideActions.Children.Add(ActionButton("OBS (otra configuración)", (_, _) => Navigate("OBS")));
+        guide.Children.Add(guideActions);
+        root.Children.Add(guide);
+
+        var panel=Panel("Datos y conexión de Twitch");root.Children.Add(panel);
         var channel=TextField("Canal donde actuará el bot",store.GetSetting("twitch.channel"));
         var botLogin=TextField("Login real de la cuenta bot (ej. mode_chan)",store.GetSetting("twitch.bot_login",store.GetSetting("twitch.channel","")));
         panel.Children.Add(Label("Cuenta bot",12,"#98A4BE"));panel.Children.Add(botLogin);
