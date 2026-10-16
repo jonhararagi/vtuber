@@ -1,22 +1,19 @@
 # VTuberBot — escritorio VTuber local para Windows
 
-VTuberBot está pensado para ser un programa de escritorio completo para gestionar avatar, audio, Twitch, comandos, comunidad, sorteos, minijuegos, moderación, automatizaciones, OBS, Telegram Web y diagnóstico desde una experiencia visual coherente.
+VTuberBot es una aplicación de escritorio para Windows centrada en editar tu propia imagen de avatar, operar las funciones compatibles de OBS Studio y usar voz local mediante VOICEVOX. El alcance aprobado y el estado real de cada capacidad se documentan en la [especificación definitiva](docs/ESPECIFICACION_DEFINITIVA.md).
 
 **Objetivo de diseño:** una aplicación moderna con Dashboard y espacios de trabajo reales, controles con estados visuales consistentes y una navegación que marca la sección activa. No se considera terminado por mostrar estado RUNNING o por compilar.
 
 ## Especificación del producto
 
-- [Especificación funcional, interfaz, carpetas y arquitectura objetivo](docs/PRODUCT_BLUEPRINT.md)
+- [Especificación definitiva del producto y plan de integración](docs/ESPECIFICACION_DEFINITIVA.md)
+- [Especificación funcional y arquitectura histórica](docs/PRODUCT_BLUEPRINT.md) (debe reconciliarse con el alcance definitivo)
 - [Especificación central](PROJECT_SPEC.md)
 - [Roadmap de integración completa](ROADMAP.md)
 - [Prompt oficial para GPT Obrero — implementación integral](PROMPTS.md)
 - [Registro central de continuidad](docs/CONTINUIDAD_PROYECTO.md)
 - [Guía de configuración del candidato integral](docs/PRODUCT_USER_GUIDE.md)
-- [Creador de waifu PNG por objetos: capas, eliminación de fondo, GIF y 2.5D](docs/WAIFU-SPRITE-STUDIO.md)
-- [Guía rápida para encontrar el editor PNGTuber y el encuadre OBS](docs/AVATAR_EDITOR_GUIDE.md)
-- [Referencias visuales de VTubers y catálogo de cabello/ropa/accesorios por separado](docs/VTUBER_REFERENCIA_Y_BIBLIOTECA_MODULAR.md)
-- [ChatSpeak Studio: voz aguda estilo anime, IA remota y modos manual/automático](docs/CHATSPEAK-STUDIO.md)
-- [Guía sencilla para emitir en Twitch y YouTube](docs/STREAMING-YOUTUBE-TWITCH.md)
+- [Guía del editor de avatar y encuadre OBS](docs/AVATAR_EDITOR_GUIDE.md)
 
 ## Auditorías y continuidad
 
@@ -28,12 +25,13 @@ VTuberBot está pensado para ser un programa de escritorio completo para gestion
 - C# / .NET 10 / WPF / SQLite.
 - Windows como plataforma objetivo; equipo de referencia Ryzen 5 5600G y 16 GB RAM.
 - Sin dependencia obligatoria de APIs de IA pagas.
-- Integraciones Twitch y OBS opcionales, con autenticación y configuración explícitas.
+- OBS se conecta de forma opcional y explícita; Twitch y sus funciones sociales quedan fuera del alcance aprobado.
 - Los datos de usuario se guardan fuera del repositorio y del paquete de distribución.
 
 ## Estructura actual
 
-**Estado de ramas:** la integración de producto a `main` se completó mediante la PR #18, conservando los historiales de ambas ramas. `main` vuelve a ser la rama canónica para descargar y desarrollar; `product/complete-vtuber-experience` se conserva como historial de trabajo. Consultá `docs/CONTINUIDAD_PROYECTO.md` para el SHA integrado y la validación CI más reciente. El producto incluye dashboard con métricas CPU/RAM del proceso en vivo, navegación, **perfiles de avatar de ejemplo que puedes crear con un clic** (PNGTuber con sprites de reposo/habla y un ejemplo 2D por capas movibles), editor de capas con arrastre directo y sprites por expresión, overlay transparente con sprites de expresión configurables, OAuth PKCE con validación/renovación, chat IRC/EventSub con reconexión, comandos con alias, cooldown global o por usuario, preview segura y permisos por rol de Twitch (Todos/Suscriptor/VIP/Moderador/Broadcaster), puntos y ranking, sorteos con selección criptográfica, minijuegos con reglas y apuestas SQLite atómicas, moderación manual y reglas automáticas opcionales (desactivadas por defecto), timers persistentes, micrófono/VAD acústico y TTS SAPI con selección de voz/velocidad/volumen, OBS WebSocket v5 con configuración segura de destino RTMPS para Twitch o YouTube, guía para multistream opcional, Telegram Web, SQLite y diagnóstico. Avatar Studio ofrece PNGTuber, separación local experimental 2.5D, un taller paramétrico 3D que exporta GLB estático y carga de modelos VRM propios en un overlay transparente. El overlay VRM sincroniza Idle/Talking, requiere WebView2 e Internet para sus bibliotecas CDN, y no ofrece tracking facial ni edición de mallas. El modelo ONNX externo y su licencia están anotados en [avisos de terceros](docs/THIRD_PARTY_NOTICES.md). ChatSpeak Studio incluye modo manual con ChatGPT o Gemini web por copiar/pegar, perfiles editables de personalidad (incluido estilo Twitch), modo bot con Gemini API configurable, voz TTS y comandos de avatar limitados por allowlist. El Centro de directo también permite seleccionar voces japonesas locales de VOICEVOX y escuchar una muestra cuando el motor está instalado. Los proveedores remotos requieren sus propias credenciales y están sujetos a sus cuotas y condiciones de privacidad. Las funciones dependientes de cuentas/credenciales requieren configuración real; la CI no equivale a validación con tu cuenta. Los perfiles de ejemplo se generan localmente en el primer uso. El modo nativo es animación 2D por sprites/capas con movimiento ligero, no un rig Live2D ni tracking facial. El **Creador de waifu PNG por objetos** incorpora 40 recursos originales de inicio (sombreros, ojos, bocas, efectos y fondos HD), importación local de PNG/JPG/BMP/GIF, eliminación de fondo blanco conectado al borde, edición por capas, proyectos JSON y exportación PNG transparente. Los GIF se previsualizan animados, pero el PNG exportado es estático. La opción de 2.5D reutiliza la segmentación local experimental existente y no crea un rig ni reconstruye perfectamente las zonas ocultas. PNGTuber Plus sigue siendo una aplicación externa que se instala por separado. El PR #9 se fusionó el 13 de octubre de 2026. La validación CI y manual siempre debe atribuirse al SHA exacto; las pruebas externas pendientes están registradas en docs/CONTINUIDAD_PROYECTO.md.
+**Estado de producto:** el alcance vigente excluye la conexión directa de Twitch y sus funciones sociales, Telegram Web, Streamer.bot y PNGTuber Plus como dependencias. El producto prioritario es el editor de imagen propia con encuadre/exportación, dos estados de avatar reposo/habla, control real de operaciones compatibles de OBS, voz local VOICEVOX, configuración persistente, seguridad y diagnóstico de memoria. Algunas funciones históricas siguen presentes en el código o en la documentación y no deben considerarse aceptadas hasta que se auditen y se retiren de la UI de forma segura. La guía y el registro de continuidad deben distinguir funciones probadas, parciales y pendientes. El encuadre de OBS es una previsualización orientativa, no un control en tiempo real de fuentes OBS.
+
 
 ## Compilar y ejecutar en Windows
 
@@ -46,8 +44,8 @@ dotnet run --project src/VtuberBot.App --configuration Release
 
 ## Descargar el candidato de Windows
 
-No hace falta clonar ni compilar el repositorio para probar el paquete. Abrí [Windows CI de `main`](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml?query=branch%3Amain), elegí la ejecución más reciente con estado **success** y verificá que **Head SHA** sea el commit de `main` que querés probar. Descargá el ZIP en la sección **Artifacts**, extraelo a una carpeta normal y ejecutá `VtuberBot.App.exe`. Revisá `BUILD-INFO.txt` dentro del paquete y compará el SHA de origen con el SHA de la ejecución; no mezcles artefactos de ejecuciones distintas. El artefacto es temporal (retención configurada de 14 días); no es una release pública. Streamer.bot, PNGTuber Plus y otras aplicaciones externas se instalan por separado.
+No hace falta clonar ni compilar el repositorio para probar el paquete. Abrí [Windows CI de `main`](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml?query=branch%3Amain), elegí una ejecución con estado **success** y verificá que **Head SHA** coincida con el commit que querés probar. Descargá el ZIP de **Artifacts**, extraelo y ejecutá `VtuberBot.App.exe`. Revisá `BUILD-INFO.txt` y compará el SHA del paquete con el de la ejecución. El artefacto es temporal y no equivale a una release pública. VOICEVOX Engine requiere una instalación local compatible; Twitch, Streamer.bot y PNGTuber Plus no son dependencias del alcance actual.
 
 ## Criterio de finalización
 
-El CI verde certifica únicamente la ejecución automatizada para el commit correspondiente. La aceptación del producto requiere además la integración real de las funciones descritas en PRODUCT_BLUEPRINT.md, sin botones muertos ni conexiones simuladas, seguida de una validación global en Windows.
+El CI verde certifica únicamente la ejecución automatizada para el commit correspondiente. La aceptación del producto requiere además la integración real de las funciones descritas en `docs/ESPECIFICACION_DEFINITIVA.md`, sin botones muertos ni conexiones simuladas, seguida de una validación global en Windows.
