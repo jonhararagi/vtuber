@@ -407,3 +407,6 @@ Abrí **Avatar Studio** y pulsá **Abrir creador de waifu PNG por objetos**.
 - **Exportar PNG:** exporta la composición de 640×640 con transparencia. No exporta animación GIF ni un archivo PSD con capas.
 
 **Validación del bloque:** la implementación está registrada en la rama de producto, pero todavía no se debe considerar verificada hasta que Windows CI compile y ejecute las pruebas del SHA final. La galería es un catálogo vectorial básico y requiere revisión visual en la aplicación.
+
+
+**GIF y proyectos:** si guardás una capa GIF sin procesarla, el proyecto copia el GIF original y vuelve a animarlo al abrirlo. Si aplicás eliminación de fondo a un GIF, la capa pasa a ser estática porque el recorte se aplica al fotograma actual.
