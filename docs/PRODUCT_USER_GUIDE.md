@@ -1,3 +1,9 @@
+> **Guía del candidato actual — 2026-10-16:** el flujo vigente usa Inicio, Avatar Studio, Voz y audio, OBS, Comandos locales, Actividad/diagnóstico y Ajustes. Para usar tu arte, importá la imagen propia, ajustá el encuadre y asigná reposo (`Idle`) y hablando (`Talking`). Para voz, iniciá VOICEVOX Engine local, configurá su URL en Voz y audio y usá «Comprobar VOICEVOX y actualizar voces». Para OBS, conectá el WebSocket v5 desde el panel OBS. La vista de encuadre OBS es orientativa, no una fuente OBS sincronizada.
+>
+> Las secciones heredadas sobre galería chibi, catálogo de piezas como flujo principal, 2.5D, Twitch/sociales, Telegram Web, Streamer.bot y PNGTuber Plus no describen el alcance actual. No sigas esos pasos para configurar el candidato actual. Consultá [la especificación definitiva](ESPECIFICACION_DEFINITIVA.md) para el alcance y [la guía actualizada de Avatar Studio](AVATAR_EDITOR_GUIDE.md) para los pasos vigentes.
+
+---
+
 # Guía del candidato integral de VTuberBot
 
 Esta guía corresponde al candidato integrado de VTuberBot. Las funciones externas no se consideran conectadas hasta completar la autenticación real. El proceso para prevenir regresiones está descrito en [Regla de Murphy y puertas de fiabilidad](REGLA_MURPHY_Y_PUERTAS_DE_FIABILIDAD.md).
@@ -6,7 +12,7 @@ Esta guía corresponde al candidato integrado de VTuberBot. Las funciones extern
 
 En **Avatar Studio**, abrí **Creador de waifu PNG por objetos**. Es un editor 2D local para combinar una ilustración propia con accesorios y expresiones independientes y exportar una composición PNG con transparencia. Los recursos de inicio son dibujos vectoriales originales generados por VTuberBot; el editor también permite importar piezas tuyas. No necesita clave de IA ni sube imágenes a la web.
 
-## Biblioteca inicial
+## Histórico — Biblioteca inicial (no es el flujo principal actual)
 
 El catálogo se genera en el equipo y contiene 40 recursos originales:
 
@@ -39,7 +45,7 @@ El selector **Lienzo** permite elegir **Cuadrado 1024×1024** (predeterminado), 
 
 Los GIF importados se reproducen en la vista previa para que puedas alinear un fondo o un efecto animado. La exportación PNG es estática y usa el fotograma visible en el momento de exportar; no exporta un GIF nuevo ni un vídeo animado. Los cuatro fondos de inicio son ilustraciones estáticas de alta resolución.
 
-## Convertir el PNG a 2.5D experimental con IA local
+## Histórico — Convertir el PNG a 2.5D (fuera del alcance actual)
 
 Pulsá **Crear PNGTuber + IA local 2.5D**. El editor exporta la composición y se la entrega al flujo de segmentación local que ya existe en Avatar Studio. Cuando el modelo está disponible, el procesamiento se ejecuta localmente sobre CPU y crea capas aproximadas de piel/cuerpo, ropa, cabello y detalles. El perfil resultante puede necesitar corregir alineación, recortes o zonas ocultas.
 
@@ -50,7 +56,7 @@ Pulsá **Crear PNGTuber + IA local 2.5D**. El editor exporta la composición y s
 - No crea un rig Live2D, seguimiento facial ni lip-sync por fonemas. Sigue siendo un avatar 2D por capas con movimiento ligero.
 - Si la segmentación falla o no encuentra suficientes píxeles útiles, se informa el error y no se debe presentar un perfil segmentado como resultado exitoso.
 
-## Perfiles reales de bots de Twitch
+## Histórico — Perfiles de bots de Twitch (fuera del alcance actual)
 
 En **Twitch y chat** podés guardar varios perfiles, por ejemplo **Mode-chan**, con su login real, canal de destino, Client ID y credenciales OAuth. El catálogo solo contiene metadatos; los tokens de acceso/renovación de cada perfil se cifran con DPAPI de Windows para el usuario actual.
 
@@ -198,7 +204,7 @@ El estado visual Talking permanece activo si hay actividad del micrófono o una 
 
 El overlay compone la imagen base con capas transformables, reproduce el sprite asignado al estado activo y aplica movimiento respiratorio sutil. El parpadeo automático requiere un sprite Blink de ojos cerrados asignado: sin ese archivo, no se atenúa la imagen completa ni se simula un parpadeo falso. “Reducir movimiento” suspende el parpadeo y la respiración. El micrófono activa Talking con un detector acústico configurable. Esto no equivale a un rig con huesos/física ni a lip-sync por fonemas; usá sprites de expresión con el mismo lienzo para evitar desalineaciones.
 
-## Avatar externo con PNGTuber Plus
+## Histórico — PNGTuber Plus (no es una dependencia del candidato actual)
 
 Usá **Avatar externo** para configurar una copia de PNGTuber Plus que ya esté instalada. Esta opción es independiente de los perfiles y capas de **Avatar Studio** nativo; no importa ni convierte archivos .vtuberavatar.
 
