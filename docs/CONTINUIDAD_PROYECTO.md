@@ -1,4 +1,15 @@
-# Estado prioritario del repositorio — 2026-10-15
+# Estado prioritario del repositorio — 2026-10-16
+
+## Cambio reciente: exportar piezas PNG individuales desde el editor
+
+- Commit de código: [5ddfb7df6804052b4331162ff8723a6913175ac5](https://github.com/jonhararagi/vtuber/commit/5ddfb7df6804052b4331162ff8723a6913175ac5), en `product/complete-vtuber-experience`.
+- `MainWindow.WaifuObjectEditor.cs` incorpora un control para guardar la capa seleccionada como PNG independiente dentro de `%LOCALAPPDATA%/VTuberBot/WaifuAssets/Library`. Permite editar el nombre y se niega a sobrescribir un archivo existente; exporta la imagen fuente de la capa para no aplanar el personaje ni modificar el original.
+- Esto es un avance acotado de la biblioteca de piezas, no la implementación completa del editor de boca: todavía falta persistir y asignar sprites Idle/Talking al runtime, validar la alternancia real de boca durante la voz y añadir pruebas específicas de alfa/biblioteca.
+- Verificación posterior a la escritura: el archivo actualizado se volvió a leer desde GitHub y el bloque insertado está presente. El endpoint de estados y el endpoint de ejecuciones asociados al SHA no devolvieron checks; por tanto, **este cambio todavía no se declara compilado ni probado por CI**. Reconsultar CI del SHA exacto antes de distribuir un candidato.
+- No se modificó `main`, no se fusionó la PR #29 y no se alteró el historial de otras ramas.
+- La rama `product/complete-vtuber-experience-obs-panel` contiene cambios de OBS y avatar que no están integrados en la rama canónica: la comparación contra la rama de producto informa divergencia (88 commits exclusivos de esa rama y 7 exclusivos de producto). No hacer un merge global a ciegas; revisar/portar los archivos necesarios y probar el árbol resultante.
+
+---
 
 ## Avance real de cierre — simulador de automatizaciones y reconciliación de ramas
 
