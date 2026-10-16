@@ -481,8 +481,10 @@ public partial class MainWindow : Window
         // WPF may shut down its dispatcher as soon as the last window closes.
         // Defer the close until every async network client has completed disposal.
 
+        // Persisted automation rules are retained but kept inert while their external
+        // Twitch/Streamer.bot/PNGTuber Plus triggers are outside the approved product scope.
+        // Do not run old saved rules silently in the background.
         automationTimer.Tick += async (_, _) => await ProcessAutomationsAsync();
-        automationTimer.Start();
         twitchCredentialTimer.Tick += async (_, _) => await MaintainTwitchCredentialsAsync();
         twitchCredentialTimer.Start();
         Navigate("Inicio");
