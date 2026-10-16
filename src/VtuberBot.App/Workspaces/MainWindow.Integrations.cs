@@ -89,6 +89,17 @@ public partial class MainWindow
         autoStartObs.Checked += (_, _) => store.SetSetting("obs.autoStart", "true");
         autoStartObs.Unchecked += (_, _) => store.SetSetting("obs.autoStart", "false");
         launchPanel.Children.Add(autoStartObs);
+        var minimizeToTrayObs = new CheckBox
+        {
+            Content = "Iniciar OBS minimizado a la bandeja del sistema",
+            IsChecked = string.Equals(store.GetSetting("obs.startMinimized", "true"), "true", StringComparison.OrdinalIgnoreCase),
+            Foreground = Brush("#F8FAFC"),
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+        minimizeToTrayObs.Checked += (_, _) => store.SetSetting("obs.startMinimized", "true");
+        minimizeToTrayObs.Unchecked += (_, _) => store.SetSetting("obs.startMinimized", "false");
+        launchPanel.Children.Add(minimizeToTrayObs);
+        launchPanel.Children.Add(Label("Usa el parámetro oficial --minimize-to-tray al iniciar una instancia nueva. OBS debe tener habilitado el icono de bandeja. No minimiza una instancia que ya estaba abierta y no confirma por sí solo la conexión.", 11, "#98A4BE"));
         var lightModeObs = new CheckBox
         {
             Content = "Modo ligero: iniciar OBS sin plugins de terceros",
@@ -144,6 +155,76 @@ public partial class MainWindow
         launchPanel.Children.Add(launchActions);
         root.Children.Add(launchPanel);
 
+        var processMetricsPanel = Panel("Consumo real de recursos · VTuberBot y OBS por separado");
+        processMetricsPanel.Children.Add(Label("Mide RAM (working set) y CPU de cada proceso en una ventana breve. Los datos solo aparecen después de una medición local; no son estimaciones ni resultados de CI.", 12, "#98A4BE"));
+        var processMetricsStatus = Label("Todavía no se midió el consumo. Pulsa «Medir procesos» cuando OBS esté abierto.", 12, "#F8FAFC");
+        processMetricsPanel.Children.Add(processMetricsStatus);
+
+        async Task MeasureProcessMetricsAsync()
+        {
+            processMetricsStatus.Text = "Midiendo CPU y memoria de los procesos locales…";
+            var obsProcessId = ProcessResourceSampler.FindFirstProcessId("obs64", "obs32", "obs");
+            var appTask = ProcessResourceSampler.MeasureAsync(Environment.ProcessId);
+            var obsTask = obsProcessId.HasValue
+                ? ProcessResourceSampler.MeasureAsync(obsProcessId.Value)
+                : Task.FromResult<ProcessResourceSnapshot?>(null);
+
+            await Task.WhenAll(appTask, obsTask);
+            var appSnapshot = await appTask;
+            var obsSnapshot = await obsTask;
+            var lines = new List<string>
+            {
+                appSnapshot?.ToDisplayString() ?? "VTuberBot: no se pudo medir el proceso actual."
+            };
+            lines.Add(obsSnapshot?.ToDisplayString() ?? "OBS Studio: proceso no encontrado o medición no disponible.");
+
+            if (obs.IsConnected)
+            {
+                try
+                {
+                    var stats = await obs.GetPerformanceStatsAsync();
+                    lines.Add(stats.DisplayLabel);
+                }
+                catch (Exception exception)
+                {
+                    lines.Add("Estadísticas internas de OBS: no disponibles (" + exception.GetType().Name + ").");
+                }
+            }
+            else
+            {
+                lines.Add("Estadísticas internas de render de OBS: requieren conexión WebSocket autenticada.");
+            }
+
+            processMetricsStatus.Text = string.Join(Environment.NewLine, lines);
+            FooterStatus.Text = "Medición de CPU/RAM realizada; no se cambió la configuración de OBS.";
+            store.Log("OBS", "Medición de procesos completada. VTuberBot y OBS se informan por separado; los valores internos de render requieren WebSocket.");
+        }
+
+        processMetricsPanel.Children.Add(ActionButton("Medir procesos", async (_, _) =>
+        {
+            try { await MeasureProcessMetricsAsync(); }
+            catch (Exception exception)
+            {
+                processMetricsStatus.Text = "La medición no pudo completarse: " + exception.GetType().Name;
+                store.Log("OBS", "Falló la medición de recursos (" + exception.GetType().Name + ").");
+            }
+        }, true));
+        root.Children.Add(processMetricsPanel);
+
+        var amdDiagnosticPanel = Panel("Diagnóstico local de codificación AMD (AMF)");
+        amdDiagnosticPanel.Children.Add(Label("Comprueba señales locales de GPU AMD, archivo del complemento AMF y referencias en logs recientes. Son indicios; el cliente WebSocket no expone el inventario de encoders ni puede confirmar que una grabación haya codificado correctamente.", 12, "#98A4BE"));
+        var amdDiagnosticStatus = Label("Disponibilidad del encoder: aún no verificada en este equipo.", 12, "#F8FAFC");
+        amdDiagnosticPanel.Children.Add(amdDiagnosticStatus);
+        amdDiagnosticPanel.Children.Add(ActionButton("Diagnosticar AMD AMF", (_, _) =>
+        {
+            var report = ObsAmdEncoderDiagnostics.Inspect(ResolveObsExecutable());
+            amdDiagnosticStatus.Text = report.Summary;
+            FooterStatus.Text = "Diagnóstico AMD/AMF terminado: los indicios no equivalen a una prueba de codificación.";
+            store.Log("OBS", report.ToLogSummary());
+            MessageBox.Show(this, report.Details, "Diagnóstico AMD AMF", MessageBoxButton.OK, MessageBoxImage.Information);
+        }, true));
+        root.Children.Add(amdDiagnosticPanel);
+
         root.Loaded += async (_, _) =>
         {
             if (IsObsRunning() && !obs.IsConnected)
@@ -152,6 +233,7 @@ public partial class MainWindow
 
         panel.Children.Add(Label("Conexión autenticada y control de escenas",19,"#F8FAFC",true));
         panel.Children.Add(Label("Activá WebSocket Server en OBS → Herramientas. La app no registra una conexión hasta completar Hello/Identify. La contraseña se cifra con DPAPI CurrentUser.",13,"#98A4BE"));
+        panel.Children.Add(Label("Estado real: las escenas, fuentes, audio y salidas se consultan o modifican en OBS autenticado. Un inicio solicitado, una guía y una previsualización local del avatar no se presentan como una emisión activa.", 12, "#98A4BE"));
         var host=TextField("Host",store.GetSetting("obs.host","127.0.0.1"));
         var port=TextField("Puerto",store.GetSetting("obs.port","4455"));
         var password=new PasswordBox{Password=LoadObsPassword(),Background=Brush("#101525"),Foreground=Brush("#F8FAFC"),BorderBrush=Brush("#34415E"),Padding=new Thickness(10),Margin=new Thickness(0,0,0,8)};
@@ -399,7 +481,13 @@ public partial class MainWindow
         var outputActions = new WrapPanel();
         outputActions.Children.Add(ActionButton("Actualizar estado", async (_, _) => await RefreshOutputStatusAsync()));
         outputActions.Children.Add(ActionButton("Iniciar transmisión", async (_, _) =>
-            await RunOutputActionAsync("Iniciar transmisión", () => obs.StartStreamingAsync()), true));
+        {
+            if (MessageBox.Show(this,
+                    "Esto intentará iniciar una transmisión EN VIVO con el destino y la clave configurados en OBS. No es una previsualización. ¿Querés salir en vivo ahora?",
+                    "Confirmar inicio de transmisión", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+            await RunOutputActionAsync("Iniciar transmisión", () => obs.StartStreamingAsync());
+        }, true));
         outputActions.Children.Add(ActionButton("Detener transmisión", async (_, _) =>
         {
             if (MessageBox.Show(this, "¿Detener la transmisión en vivo de OBS?", "Confirmar detención",
@@ -408,7 +496,13 @@ public partial class MainWindow
             await RunOutputActionAsync("Detener transmisión", () => obs.StopStreamingAsync());
         }));
         outputActions.Children.Add(ActionButton("Iniciar grabación", async (_, _) =>
-            await RunOutputActionAsync("Iniciar grabación", () => obs.StartRecordingAsync())));
+        {
+            if (MessageBox.Show(this,
+                    "OBS comenzará a grabar usando la configuración actual y guardará el archivo en el destino configurado. ¿Iniciar la grabación?",
+                    "Confirmar inicio de grabación", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+            await RunOutputActionAsync("Iniciar grabación", () => obs.StartRecordingAsync());
+        }));
         outputActions.Children.Add(ActionButton("Detener grabación", async (_, _) =>
         {
             if (MessageBox.Show(this, "¿Detener la grabación de OBS?", "Confirmar detención",
