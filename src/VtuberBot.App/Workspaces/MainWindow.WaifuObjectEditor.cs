@@ -44,7 +44,7 @@ public partial class MainWindow
             }
         };
         // Encuadre configurable de cámara; es una guía visual guardada en el proyecto.
-        double cameraX = 80, cameraY = 30, cameraWidth = 480, cameraHeight = 580;
+        double cameraX = 110, cameraY = 30, cameraWidth = 420, cameraHeight = 430;
         double obsX = 1420, obsY = 360, obsWidth = 420, obsHeight = 630;
         var cameraFrame = new System.Windows.Shapes.Rectangle
         {
@@ -85,7 +85,9 @@ public partial class MainWindow
             Canvas.SetTop(obsAvatarRect, obsY / 1080d * obsPreview.Height);
             obsAvatarRect.Width = Math.Max(1, obsWidth / 1920d * obsPreview.Width);
             obsAvatarRect.Height = Math.Max(1, obsHeight / 1080d * obsPreview.Height);
-            var area = Math.Clamp(obsWidth, 0, 1920) * Math.Clamp(obsHeight, 0, 1080) / (1920d * 1080d) * 100;
+            var visibleWidth = Math.Max(0, Math.Min(1920, obsX + obsWidth) - Math.Max(0, obsX));
+            var visibleHeight = Math.Max(0, Math.Min(1080, obsY + obsHeight) - Math.Max(0, obsY));
+            var area = visibleWidth * visibleHeight / (1920d * 1080d) * 100;
             cameraSummary.Text = $"Encuadre: X {cameraX:0}, Y {cameraY:0}, {cameraWidth:0} × {cameraHeight:0} px\nOBS 1920 × 1080: X {obsX:0}, Y {obsY:0}, {obsWidth:0} × {obsHeight:0} px. Ocupa {area:0.0}% del lienzo (ancho {obsWidth / 1920d * 100:0.0}%, alto {obsHeight / 1080d * 100:0.0}%).";
         }
 
@@ -505,6 +507,7 @@ public partial class MainWindow
         ObsSlider("Ancho en OBS", 50, 1920, obsWidth, v => obsWidth = v);
         ObsSlider("Alto en OBS", 50, 1080, obsHeight, v => obsHeight = v);
         RefreshCameraPreview();
+        RenderLayers();
         controls.Children.Add(new TextBlock { Text = "Opacidad", Foreground = Brushes.White, Margin = new Thickness(4, 10, 4, 0) });
         controls.Children.Add(opacity);
         controls.Children.Add(new TextBlock { Text = "Escala", Foreground = Brushes.White, Margin = new Thickness(4, 10, 4, 0) });
