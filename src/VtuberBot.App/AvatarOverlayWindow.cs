@@ -15,6 +15,12 @@ public sealed class AvatarOverlayWindow : Window
     private readonly TextBlock alertText = new() { Foreground = Brushes.White, FontSize = 18, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly ScaleTransform breathing = new(1,1);
     private readonly TranslateTransform talkingBounce = new();
+    private readonly TranslateTransform talkingShake = new();
+    private bool speakingShakeEnabled = true;
+    private bool talkingBounceEnabled = true;
+    private double speakingShakeStrength = 6;
+    private double shakePhase;
+    private DateTimeOffset manualShakeUntil = DateTimeOffset.MinValue;
     private readonly List<(Image Image, BitmapSource Artwork)> intrinsicLayerImages = [];
     private BitmapSource? referenceAvatarBitmap;
     private readonly List<(TranslateTransform Transform, double Factor)> parallaxTransforms = [];
@@ -46,6 +52,7 @@ public sealed class AvatarOverlayWindow : Window
         var avatarMotion = new TransformGroup();
         avatarMotion.Children.Add(breathing);
         avatarMotion.Children.Add(talkingBounce);
+        avatarMotion.Children.Add(talkingShake);
         layerCanvas.RenderTransform = avatarMotion;
         layerCanvas.SizeChanged += (_, _) => UpdateIntrinsicLayerSizes();
         alertCard.Child = alertText;
@@ -97,14 +104,19 @@ public sealed class AvatarOverlayWindow : Window
             UpdateParallax();
             if (ReduceMotion)
             {
-                breathing.ScaleX = 1; breathing.ScaleY = 1; talkingBounce.Y = 0; return;
+                breathing.ScaleX = 1; breathing.ScaleY = 1; talkingBounce.Y = 0; talkingShake.X = 0; return;
             }
             phase += state == "Talking" ? .12 : .035;
             breathing.ScaleY = state switch { "Talking" => 1 + Math.Sin(phase) * .018, "Happy" => 1.008, "Surprised" => 1.025, _ => 1 + Math.Sin(phase) * .008 };
             breathing.ScaleX = state switch { "Happy" => 1.008, "Surprised" => 1.025, _ => 1 + Math.Sin(phase + .6) * .004 };
-            // A visible, state-driven bob helps a PNGTuber feel alive while audio is active.
-            // This follows Talking state; it is not an amplitude- or phoneme-driven lip-sync.
-            talkingBounce.Y = state == "Talking" ? Math.Sin(phase * 1.15) * 4.5 : 0;
+            // Motion stays intentionally cartoon-like: whole-avatar shake/bounce, not a realistic mouth simulation.
+            var talking = state == "Talking" && transientState is null;
+            talkingBounce.Y = AvatarMotionPolicy.GetTalkingBounceOffset(phase, talking && talkingBounceEnabled);
+            shakePhase += .72;
+            var manualShakeRemaining = (manualShakeUntil - now).TotalMilliseconds;
+            var manualShakeStrength = manualShakeRemaining > 0 ? speakingShakeStrength * Math.Clamp(manualShakeRemaining / 160d, 0, 1) : 0;
+            var activeShakeStrength = Math.Max(manualShakeStrength, talking && speakingShakeEnabled ? speakingShakeStrength : 0);
+            talkingShake.X = AvatarMotionPolicy.GetShakeOffset(shakePhase, activeShakeStrength);
         };
         timer.Start();
         Closed += (_, _) => timer.Stop();
@@ -141,6 +153,27 @@ public sealed class AvatarOverlayWindow : Window
             ? Math.Clamp(strength, 0, AvatarParallaxPolicy.MaximumOffsetPixels)
             : 0;
     }
+
+    public void SetMotionEffects(bool speakingShake, double shakeStrength, bool talkingBounce)
+    {
+        speakingShakeEnabled = speakingShake;
+        speakingShakeStrength = AvatarMotionPolicy.NormalizeShakeStrength(shakeStrength);
+        talkingBounceEnabled = talkingBounce;
+        if (!speakingShakeEnabled && DateTimeOffset.UtcNow >= manualShakeUntil)
+            talkingShake.X = 0;
+        if (!talkingBounceEnabled)
+            talkingBounce.Y = 0;
+    }
+
+    /// <summary>Plays a short cartoon-like whole-avatar shake for a button preview or reaction.</summary>
+    public void TriggerShake(TimeSpan? duration = null)
+    {
+        var requestedDuration = duration ?? TimeSpan.FromMilliseconds(650);
+        if (requestedDuration <= TimeSpan.Zero || requestedDuration > TimeSpan.FromSeconds(3))
+            return;
+        manualShakeUntil = DateTimeOffset.UtcNow.Add(requestedDuration);
+    }
+
 
     public void SetImage(string path) => SetLayers([path]);
 
