@@ -152,6 +152,55 @@ public partial class MainWindow
         var beginnerActions = new WrapPanel();
         beginnerActions.Children.Add(ActionButton("Crear PNGTuber con mis imágenes", (_, _) =>
             CreateSimplePngTuber(), true));
+        beginnerActions.Children.Add(ActionButton("Creador de waifu PNG por objetos", (_, _) =>
+        {
+            var studio = new WaifuSpriteStudioWindow(avatarDirectory) { Owner = this };
+            studio.CompositeExported += path =>
+            {
+                try
+                {
+                    var dataDirectory = Path.Combine(avatarDirectory, "waifu-composites");
+                    Directory.CreateDirectory(dataDirectory);
+                    var savedPath = Path.Combine(dataDirectory, Guid.NewGuid().ToString("N") + ".png");
+                    File.Copy(path, savedPath, overwrite: false);
+                    var rawName = Path.GetFileNameWithoutExtension(path).Trim();
+                    if (string.IsNullOrWhiteSpace(rawName)) rawName = "Waifu";
+                    var baseName = rawName + " (Waifu PNG)";
+                    if (baseName.Length > 64) baseName = baseName[..64];
+                    var profileNames = store.GetAvatarProfiles()
+                        .Select(profile => profile.Name)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var profileName = baseName;
+                    for (var suffix = 2; profileNames.Contains(profileName); suffix++)
+                    {
+                        var extra = " (" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
+                        profileName = baseName[..Math.Min(baseName.Length, 64 - extra.Length)] + extra;
+                    }
+
+                    var profile = store.CreateAvatarProfile(profileName, duplicateActiveProfile: false);
+                    store.SetActiveAvatarProfile(profile.Id);
+                    store.SetActiveAvatarProfileBasePath(savedPath);
+                    store.SetAvatarExpression("Idle", savedPath);
+                    avatarPath = savedPath;
+                    store.SetSetting("avatar.state", "Idle");
+                    store.Log("Avatar", "Perfil creado desde el Creador de waifu PNG: " + profileName + ".");
+                    FooterStatus.Text = "PNGTuber compuesto creado y guardado como perfil: " + profileName + ".";
+                    Navigate("Avatar Studio");
+                    ShowOverlay();
+                }
+                catch (Exception exception)
+                {
+                    MessageBox.Show(this, "No se pudo crear el perfil PNGTuber: " + exception.GetBaseException().Message,
+                        "Creador de waifu", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            };
+            studio.CompositeExportedFor2D += path =>
+            {
+                studio.Close();
+                _ = StartLocalAvatarSegmentationAsync(path);
+            };
+            studio.ShowDialog(this);
+        }, true));
         startLocalSegmentation = ActionButton("2 · 2.5D con IA local (experimental)", async (_, _) =>
             await StartLocalAvatarSegmentationAsync());
         beginnerActions.Children.Add(startLocalSegmentation);
@@ -511,19 +560,34 @@ public partial class MainWindow
             }
         }
 
-        async Task StartLocalAvatarSegmentationAsync()
+        async Task StartLocalAvatarSegmentationAsync(string? inputPathOverride = null)
         {
             if (activeLocalAvatarSegmentation is not null)
                 return;
 
-            var dialog = new OpenFileDialog
+            string inputPath;
+            if (!string.IsNullOrWhiteSpace(inputPathOverride))
             {
-                Title = "Elegí una ilustración para separar en capas",
-                Filter = "Imágenes | *.png;*.jpg;*.jpeg;*.bmp",
-                Multiselect = false
-            };
-            if (dialog.ShowDialog(this) != true)
-                return;
+                inputPath = Path.GetFullPath(inputPathOverride);
+                if (!File.Exists(inputPath))
+                {
+                    MessageBox.Show(this, "El PNG exportado ya no existe. Exportalo nuevamente desde el Creador de waifu.",
+                        "Separación local", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+            else
+            {
+                var dialog = new OpenFileDialog
+                {
+                    Title = "Elegí una ilustración para separar en capas",
+                    Filter = "Imágenes | *.png;*.jpg;*.jpeg;*.bmp",
+                    Multiselect = false
+                };
+                if (dialog.ShowDialog(this) != true)
+                    return;
+                inputPath = dialog.FileName;
+            }
 
             var outputDirectory = Path.Combine(
                 avatarDirectory,
@@ -542,7 +606,7 @@ public partial class MainWindow
             try
             {
                 var result = await LocalAvatarSegmentationRunner.RunAsync(
-                    dialog.FileName,
+                    inputPath,
                     outputDirectory,
                     message => Dispatcher.BeginInvoke(new Action(() =>
                         localSegmentationStatus.Text = message)),
@@ -554,7 +618,7 @@ public partial class MainWindow
                 if (usefulPixels < 100)
                     throw new InvalidDataException("La IA no reconoció suficiente contenido del personaje.");
 
-                var rawName = Path.GetFileNameWithoutExtension(dialog.FileName).Trim();
+                var rawName = Path.GetFileNameWithoutExtension(inputPath).Trim();
                 if (string.IsNullOrWhiteSpace(rawName)) rawName = "Avatar";
                 var baseName = rawName + " (IA local)";
                 if (baseName.Length > 64) baseName = baseName[..64];
