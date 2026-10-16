@@ -24,6 +24,7 @@ namespace VtuberBot.App;
 public partial class MainWindow
 {
     private sealed record LocalSoundAsset(string Id, string Name, string Path);
+    private Process? localVoicevoxEngineProcess;
     private UIElement BuildAudioPage()
     {
         var root = new StackPanel();
@@ -234,6 +235,10 @@ public partial class MainWindow
         var voicevoxBaseUrlField = TextField("http://127.0.0.1:50021",
             store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl));
         voicevoxBaseUrlField.MinWidth = 320;
+        var voicevoxEnginePathField = TextField(
+            "Seleccioná el ejecutable oficial vv-engine/run.exe",
+            store.GetSetting("audio.voicevox.executablePath"));
+        voicevoxEnginePathField.MinWidth = 320;
         var outputListLoaded = false;
         var voiceListLoaded = false;
         var voicePicker = new ComboBox
@@ -262,6 +267,31 @@ public partial class MainWindow
             12, "#98A4BE"));
         panel.Children.Add(Label("Dirección local de VOICEVOX Engine", 12, "#98A4BE"));
         panel.Children.Add(voicevoxBaseUrlField);
+        panel.Children.Add(Label("Ejecutable de VOICEVOX Engine (no se incluye en VTuberBot)", 12, "#98A4BE"));
+        panel.Children.Add(Label("En la instalación oficial suele estar en %LOCALAPPDATA%\\Programs\\VOICEVOX\\vv-engine\\run.exe. Seleccioná run.exe; VTuberBot lo iniciará sin exponer el servicio a la red local.", 11, "#98A4BE"));
+        panel.Children.Add(voicevoxEnginePathField);
+        panel.Children.Add(ActionButton("Elegir run.exe oficial", (_, _) =>
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Elegí el ejecutable oficial de VOICEVOX Engine (run.exe)",
+                Filter = "VOICEVOX Engine (run.exe)|run.exe|Programas ejecutables (*.exe)|*.exe",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+            if (dialog.ShowDialog(this) != true) return;
+            if (!string.Equals(Path.GetFileName(dialog.FileName), "run.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(this, "Elegí el archivo run.exe de la carpeta vv-engine de una instalación oficial de VOICEVOX.",
+                    "Ejecutable de VOICEVOX", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            voicevoxEnginePathField.Text = dialog.FileName;
+            store.SetSetting("audio.voicevox.executablePath", dialog.FileName);
+            FooterStatus.Text = "Ruta de VOICEVOX Engine guardada. Podés iniciarlo en segundo plano.";
+        }));
+        panel.Children.Add(ActionButton("Iniciar VOICEVOX Engine en segundo plano", async (_, _) =>
+            await StartVoicevoxEngineAsync(), true));
         panel.Children.Add(Label("Voz / estilo", 12, "#98A4BE"));
         panel.Children.Add(voicePicker);
 
@@ -320,6 +350,132 @@ public partial class MainWindow
                         "VOICEVOX no disponible", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
                 return false;
+            }
+        }
+
+        async Task<bool> IsVoicevoxApiReachableAsync(string baseUrl)
+        {
+            try
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromMilliseconds(750) };
+                using var response = await client.GetAsync(baseUrl.TrimEnd('/') + "/version");
+                return response.IsSuccessStatusCode;
+            }
+            catch (HttpRequestException) { return false; }
+            catch (TaskCanceledException) { return false; }
+        }
+
+        async Task StartVoicevoxEngineAsync()
+        {
+            var executable = voicevoxEnginePathField.Text.Trim();
+            if (!File.Exists(executable) ||
+                !string.Equals(Path.GetFileName(executable), "run.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(this,
+                    "Primero elegí el archivo run.exe de la carpeta vv-engine de una instalación oficial de VOICEVOX.",
+                    "VOICEVOX Engine", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (!VoicevoxEngineLaunchPolicy.TryParseBaseUrl(voicevoxBaseUrlField.Text.Trim(), out var endpoint))
+            {
+                MessageBox.Show(this,
+                    "Para iniciar Engine desde VTuberBot, configurá una dirección HTTP local como http://127.0.0.1:50021. No se permite exponer Engine a una dirección remota.",
+                    "Dirección local no válida", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (await IsVoicevoxApiReachableAsync(endpoint.BaseUrl))
+            {
+                if (await LoadVoicevoxVoicesAsync(showError: false))
+                    FooterStatus.Text = "VOICEVOX ya estaba activo. No se inició otra instancia.";
+                else
+                    FooterStatus.Text = "El Engine responde, pero no hay estilos disponibles. Revisá la instalación de las voces.";
+                return;
+            }
+
+            if (localVoicevoxEngineProcess is { HasExited: false })
+            {
+                FooterStatus.Text = "VOICEVOX ya fue iniciado por VTuberBot, pero todavía no responde. Volvé a comprobar las voces en unos segundos.";
+                return;
+            }
+
+            try
+            {
+                localVoicevoxEngineProcess?.Dispose();
+                localVoicevoxEngineProcess = null;
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = executable,
+                    WorkingDirectory = Path.GetDirectoryName(executable) ?? Environment.CurrentDirectory,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                startInfo.ArgumentList.Add("--host");
+                startInfo.ArgumentList.Add(endpoint.Host);
+                startInfo.ArgumentList.Add("--port");
+                startInfo.ArgumentList.Add(endpoint.Port.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                startInfo.Environment["VV_OUTPUT_LOG_UTF8"] = "1";
+
+                var launchedProcess = Process.Start(startInfo)
+                    ?? throw new InvalidOperationException("Windows no pudo iniciar run.exe.");
+                localVoicevoxEngineProcess = launchedProcess;
+                voicevoxEnginePathField.Text = executable;
+                voicevoxBaseUrlField.Text = endpoint.BaseUrl;
+                store.SetSetting("audio.voicevox.executablePath", executable);
+                store.SetSetting("audio.voicevox.baseUrl", endpoint.BaseUrl);
+                FooterStatus.Text = "VOICEVOX Engine iniciado en segundo plano; esperando respuesta local…";
+
+                var ready = false;
+                using (var probeClient = new HttpClient { Timeout = TimeSpan.FromMilliseconds(750) })
+                {
+                    for (var attempt = 0; attempt < 30; attempt++)
+                    {
+                        await Task.Delay(500);
+                        if (launchedProcess.HasExited)
+                            throw new InvalidOperationException("VOICEVOX run.exe terminó antes de responder. Revisá la instalación oficial y sus requisitos.");
+
+                        try
+                        {
+                            using var response = await probeClient.GetAsync(endpoint.BaseUrl + "/version");
+                            if (response.IsSuccessStatusCode)
+                            {
+                                ready = true;
+                                break;
+                            }
+                        }
+                        catch (HttpRequestException) { }
+                        catch (TaskCanceledException) { }
+                    }
+                }
+
+                if (!ready)
+                {
+                    FooterStatus.Text = "El proceso de VOICEVOX sigue iniciado, pero la API local aún no responde. Podés volver a comprobarlo.";
+                    store.Log("VOICEVOX", "run.exe se inició, pero la API no respondió dentro del plazo de comprobación.");
+                    MessageBox.Show(this,
+                        "Se inició run.exe, pero la API no respondió en 15 segundos. El proceso no se cerró automáticamente; revisá la instalación, la carga inicial de voces y el puerto configurado.",
+                        "VOICEVOX todavía no responde", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (await LoadVoicevoxVoicesAsync(showError: false))
+                {
+                    FooterStatus.Text = "VOICEVOX Engine listo en segundo plano. Seleccioná un estilo y probá la voz.";
+                    store.Log("VOICEVOX", "Engine local iniciado por VTuberBot y estilos disponibles.");
+                }
+                else
+                {
+                    FooterStatus.Text = "VOICEVOX Engine responde, pero no devolvió estilos utilizables.";
+                }
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo iniciar VOICEVOX Engine: " + exception.GetBaseException().Message;
+                store.Log("VOICEVOX", "No se pudo iniciar run.exe (" + exception.GetType().Name + ").");
+                MessageBox.Show(this, exception.GetBaseException().Message, "No se pudo iniciar VOICEVOX Engine",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
