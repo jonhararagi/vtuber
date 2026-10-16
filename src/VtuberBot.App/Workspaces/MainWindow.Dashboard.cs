@@ -50,9 +50,10 @@ public partial class MainWindow
         Grid.SetColumn(preview,1); heroGrid.Children.Add(preview); hero.Child=heroGrid; root.Children.Add(hero);
         var cards = new UniformGrid { Columns = 4, Margin = new Thickness(0,0,0,18) };
         cards.Children.Add(MetricCard("AVATAR", string.IsNullOrWhiteSpace(avatarPath) ? "Sin importar" : "Configurado", "PNG local"));
-        cards.Children.Add(MetricCard("TWITCH", twitch.IsConnected ? "Conectado" : "Desconectado", "IRC / TLS"));
-        cards.Children.Add(MetricCard("COMANDOS", store.GetCommands().Count.ToString(), "Configurables"));
-        cards.Children.Add(MetricCard("COMUNIDAD", store.GetLeaderboard(500).Count.ToString(), "Usuarios guardados"));
+        cards.Children.Add(MetricCard("OBS", obs.IsConnected ? "Conectado" : "Desconectado", "WebSocket v5"));
+        cards.Children.Add(MetricCard("COMANDOS LOCALES", store.GetCommands().Count.ToString(), "Acciones configuradas"));
+        var selectedVoiceId = store.GetSetting("audio.tts.voiceId");
+        cards.Children.Add(MetricCard("VOZ LOCAL", VoicevoxSpeechSession.IsVoiceId(selectedVoiceId) ? "VOICEVOX elegido" : "Sin VOICEVOX elegido", "Motor debe estar disponible"));
         root.Children.Add(cards);
 
         var performancePanel = Panel("Rendimiento en vivo");
@@ -94,7 +95,9 @@ public partial class MainWindow
         };
         ramContent.Children.Add(dashboardRamValue);
         ramContent.Children.Add(dashboardRamBar);
-        ramContent.Children.Add(Label("RAM residente del proceso; el porcentaje usa el límite disponible reportado por .NET.", 11, "#98A4BE"));
+        dashboardRamWarningLabel = Label("Objetivo: aviso anticipado desde 800 MiB y alerta desde 1 GiB.", 11, "#98A4BE");
+        ramContent.Children.Add(dashboardRamWarningLabel);
+        ramContent.Children.Add(Label("RAM residente del proceso; el porcentaje usa el límite disponible reportado por .NET. OBS y VOICEVOX se ejecutan como procesos separados.", 11, "#98A4BE"));
         ramCard.Child = ramContent;
 
         performanceGrid.Children.Add(cpuCard);
@@ -104,13 +107,12 @@ public partial class MainWindow
 
         var lower = new Grid(); lower.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1,GridUnitType.Star) }); lower.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1,GridUnitType.Star) });
         var quick = Panel("Accesos rápidos"); var quickWrap = new WrapPanel();
-        foreach(var item in new[] {("Sorteos","Sorteos"),("Comunidad","Comunidad y puntos"),("Voz y audio","Voz y audio"),("Diagnósticos","Actividad y diagnóstico")})
+        foreach(var item in new[] {("Avatar Studio","Avatar Studio"),("Voz y audio","Voz y audio"),("OBS","OBS"),("Diagnósticos","Actividad y diagnóstico")})
             quickWrap.Children.Add(ActionButton(item.Item1,(_,_)=>Navigate(item.Item2)));
         quick.Children.Add(quickWrap); Grid.SetColumn(quick,0); lower.Children.Add(quick);
         var health = Panel("Estado real de módulos");
         health.Children.Add(StatusRow("Núcleo y SQLite","Disponible",true));
         health.Children.Add(StatusRow("Avatar","",!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath)));
-        health.Children.Add(StatusRow("Twitch",twitch.IsConnected?"Autenticado":"Requiere configuración",twitch.IsConnected));
         health.Children.Add(StatusRow("Micrófono",microphone is null?"No iniciado":"Capturando",microphone is not null));
         health.Children.Add(StatusRow("OBS",obs.IsConnected?"Autenticado":"Requiere configuración",obs.IsConnected));
         Grid.SetColumn(health,1); lower.Children.Add(health); root.Children.Add(lower);
@@ -131,7 +133,7 @@ public partial class MainWindow
     private void UpdateDashboardMetrics()
     {
         if (currentPage != "Inicio" || dashboardCpuValue is null || dashboardCpuBar is null ||
-            dashboardRamValue is null || dashboardRamBar is null)
+            dashboardRamValue is null || dashboardRamBar is null || dashboardRamWarningLabel is null)
             return;
 
         var health = application.LatestHealth;
@@ -149,16 +151,24 @@ public partial class MainWindow
         if (health?.WorkingSetBytes is long residentBytes)
         {
             var residentMegabytes = residentBytes / (1024d * 1024d);
+            // This is VTuberBot's own working set; OBS and VOICEVOX run as separate processes.
+            var memoryWarning = ProcessMemoryWarningPolicy.Evaluate(residentBytes);
+            (dashboardRamWarningLabel.Text, dashboardRamWarningLabel.Foreground) = memoryWarning switch
+            {
+                ProcessMemoryWarningLevel.ApproachingLimit => ("Aviso: VTuberBot se acerca a 1 GiB de RAM (desde 800 MiB).", Brush("#E7B56A")),
+                ProcessMemoryWarningLevel.LimitReached => ("ALERTA: VTuberBot alcanzó o superó 1 GiB. Es un umbral de aviso, no un límite duro.", Brush("#F2A6A6")),
+                _ => ("Sin advertencia de memoria para el proceso VTuberBot. OBS y VOICEVOX son procesos separados.", Brush("#98A4BE"))
+            };
             var availableBytes = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
             if (availableBytes > 0)
             {
                 var percentage = Math.Clamp(residentBytes / (double)availableBytes * 100, 0, 100);
-                dashboardRamValue.Text = $"{residentMegabytes:N0} MB · {percentage:0.0}%";
+                dashboardRamValue.Text = $"{residentMegabytes:N0} MiB · {percentage:0.0}%";
                 dashboardRamBar.Value = percentage;
             }
             else
             {
-                dashboardRamValue.Text = $"{residentMegabytes:N0} MB";
+                dashboardRamValue.Text = $"{residentMegabytes:N0} MiB";
                 dashboardRamBar.Value = 0;
             }
         }
@@ -166,6 +176,8 @@ public partial class MainWindow
         {
             dashboardRamValue.Text = "No disponible";
             dashboardRamBar.Value = 0;
+            dashboardRamWarningLabel.Text = "No se pudo medir la memoria del proceso; no se infiere que esté dentro del umbral.";
+            dashboardRamWarningLabel.Foreground = Brush("#E7B56A");
         }
     }
 }
