@@ -31,4 +31,12 @@ public sealed class AvatarMotionPolicyTests
         Assert.InRange(Math.Abs(AvatarMotionPolicy.GetTalkingBounceOffset(3, enabled: true, strength: 40)), 0, 12);
         Assert.Equal(0, AvatarMotionPolicy.GetTalkingBounceOffset(double.NaN, enabled: true));
     }
+
+    [Fact]
+    public void IdleFloatCanBeDisabledAndRemainsSubtle()
+    {
+        Assert.Equal(0, AvatarMotionPolicy.GetIdleFloatOffset(1, enabled: false));
+        Assert.InRange(Math.Abs(AvatarMotionPolicy.GetIdleFloatOffset(5, enabled: true, strength: 40)), 0, 6);
+        Assert.Equal(0, AvatarMotionPolicy.GetIdleFloatOffset(double.NaN, enabled: true));
+    }
 }
