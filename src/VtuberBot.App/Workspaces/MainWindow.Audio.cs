@@ -255,12 +255,24 @@ public partial class MainWindow
         };
         var initialRate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var rateSetting) ? Math.Clamp(rateSetting, -10, 10) : 0;
         var initialVolume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var volumeSetting) ? Math.Clamp(volumeSetting, 0, 100) : 100;
+        var initialPitch = double.TryParse(store.GetSetting("audio.voicevox.pitchScale", "0"),
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pitchSetting)
+            ? VoicevoxSpeechSession.NormalizePitchScale(pitchSetting) : 0d;
+        var initialIntonation = double.TryParse(store.GetSetting("audio.voicevox.intonationScale", "1"),
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var intonationSetting)
+            ? VoicevoxSpeechSession.NormalizeIntonationScale(intonationSetting) : 1d;
         var rateSlider = new Slider { Minimum = -10, Maximum = 10, Value = initialRate, TickFrequency = 1 };
         var volumeSlider = new Slider { Minimum = 0, Maximum = 100, Value = initialVolume, TickFrequency = 5 };
+        var pitchSlider = new Slider { Minimum = -0.3, Maximum = 0.3, Value = initialPitch, TickFrequency = 0.01 };
+        var intonationSlider = new Slider { Minimum = 0.5, Maximum = 1.5, Value = initialIntonation, TickFrequency = 0.05 };
         var rateLabel = Label($"Velocidad de voz: {initialRate}", 12, "#98A4BE");
         var volumeLabel = Label($"Volumen: {initialVolume}%", 12, "#98A4BE");
+        var pitchLabel = Label($"Tono / pitch: {initialPitch:0.00}", 12, "#98A4BE");
+        var intonationLabel = Label($"Variación de entonación: {initialIntonation:0.00}×", 12, "#98A4BE");
         rateSlider.ValueChanged += (_, _) => rateLabel.Text = $"Velocidad de voz: {rateSlider.Value:0}";
         volumeSlider.ValueChanged += (_, _) => volumeLabel.Text = $"Volumen: {volumeSlider.Value:0}%";
+        pitchSlider.ValueChanged += (_, _) => pitchLabel.Text = $"Tono / pitch: {pitchSlider.Value:0.00}";
+        intonationSlider.ValueChanged += (_, _) => intonationLabel.Text = $"Variación de entonación: {intonationSlider.Value:0.00}×";
 
         panel.Children.Add(Label("Síntesis de voz local · VOICEVOX Engine", 14, "#F8FAFC", true));
         panel.Children.Add(Label(
@@ -513,6 +525,10 @@ public partial class MainWindow
 
         panel.Children.Add(rateLabel);
         panel.Children.Add(rateSlider);
+        panel.Children.Add(pitchLabel);
+        panel.Children.Add(pitchSlider);
+        panel.Children.Add(intonationLabel);
+        panel.Children.Add(intonationSlider);
         panel.Children.Add(volumeLabel);
         panel.Children.Add(volumeSlider);
         panel.Children.Add(ActionButton("Guardar voz y ajustes", (_, _) =>
@@ -536,6 +552,8 @@ public partial class MainWindow
             store.SetSetting("audio.tts.voiceId", savedVoiceId);
             store.SetSetting("audio.voicevox.outputId", savedOutputId);
             store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.voicevox.pitchScale", VoicevoxSpeechSession.NormalizePitchScale(pitchSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.voicevox.intonationScale", VoicevoxSpeechSession.NormalizeIntonationScale(intonationSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
             store.SetSetting("audio.tts.volume", ((int)volumeSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
             FooterStatus.Text = "Preferencias VOICEVOX, salida, velocidad y volumen guardados en SQLite.";
             store.Log("VOICEVOX", "Preferencias de voz local guardadas.");
@@ -584,6 +602,10 @@ public partial class MainWindow
             store.SetSetting("audio.voicevox.voiceId", voiceId);
             store.SetSetting("audio.tts.voiceId", voiceId);
             store.SetSetting("audio.voicevox.outputId", outputId);
+            store.SetSetting("audio.voicevox.pitchScale", VoicevoxSpeechSession.NormalizePitchScale(pitchSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.voicevox.intonationScale", VoicevoxSpeechSession.NormalizeIntonationScale(intonationSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.tts.volume", ((int)volumeSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
 
             if (speechQueue.Enqueue(textToSpeak, selectedPriority, voiceId,
                     (int)rateSlider.Value, (int)volumeSlider.Value, outputId))
