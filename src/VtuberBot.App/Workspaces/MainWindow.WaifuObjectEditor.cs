@@ -445,7 +445,7 @@ public partial class MainWindow
         else
         {
             layers.Add(layer);
-            selected = layers.Count - 1;
+            setSelected(layers.Count - 1);
         }
         refreshList();
         selectLayer();
