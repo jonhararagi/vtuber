@@ -1923,3 +1923,14 @@ Objetivo inicial sugerido, sujeto a la fase de diseño y a la capacidad real de 
 - **Pruebas añadidas:** `tests/VtuberBot.Tests/Tests.cs` verifica que ausencia, cadena vacía y valor desconocido resuelvan local, que una preferencia local siga local y que una preferencia remota explícita (incluyendo espacios/mayúsculas) se preserve como remota.
 - **Limitación importante:** “local” no instala ni incluye un modelo conversacional. La IA local requiere un servidor compatible ejecutándose en loopback; si no está disponible, la generación local puede fallar hasta que el usuario lo configure. SAPI depende de las voces instaladas en Windows. Este cambio no realiza llamadas remotas automáticas ni elimina claves remotas existentes.
 - **CI:** pendiente de comprobar para el SHA final de esta actualización; no declarar validación hasta revisar la ejecución de Windows CI asociada exactamente al commit final.
+
+
+## 2026-10-16 — Creador de waifu PNG por objetos: primer bloque de código
+
+- Rama: `product/complete-vtuber-experience`; `main` no modificado.
+- Se agregó `src/VtuberBot.App/Workspaces/MainWindow.WaifuObjectEditor.cs` y un botón de acceso desde `MainWindow.AvatarStudio.cs`.
+- Implementado en código: importar varias imágenes PNG/JPG/JPEG/BMP/GIF como capas, previsualizar sobre cuadrícula de transparencia, arrastrar capas, ajustar escala/opacidad, reordenar/eliminar, guardar/abrir un proyecto JSON con rutas originales y exportar composición PNG 640×640 con alfa.
+- Commits: `f163e7dc7d5e29acdb6c941fd9cfdd85c22b16c4` (editor), `1a4b65eeb984cd9cee0c0e59bc24082e528918da` (integración UI), `e19bc8470956aa5998f8605c76c9c6fde1b2d10d` (abrir proyecto).
+- **No declarar terminado ni validado todavía:** no se ha ejecutado Windows CI contra el SHA final de este bloque ni compilado localmente en Windows. El chequeo de ejecuciones asociado al commit de integración no devolvió runs PR vinculados.
+- Pendiente explícito respecto a la descripción de producto original: catálogo incorporado de accesorios/ojos/bocas/efectos/fondos HD; borrado de fondo blanco conectado al borde; reproducción animada de GIF; validación visual real del editor y de la exportación; pruebas automatizadas para guardar/abrir/exportar y manejo de archivos faltantes. El GIF actualmente se carga como primer fotograma estático y los proyectos guardan rutas absolutas, por lo que mover los recursos puede romper el proyecto.
+- El bloque implementa un editor de composición básico funcional por código, pero no demuestra todavía que el catálogo original de 10 accesorios, 9 ojos, 7 bocas, 10 efectos y 4 fondos anunciado anteriormente esté integrado. No anunciar esos recursos como entregados hasta que existan, se empaqueten y se validen.
