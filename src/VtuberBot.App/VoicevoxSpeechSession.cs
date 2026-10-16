@@ -53,6 +53,46 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
         return voices.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
     }
 
+    /// <summary>Lists the playback devices exposed by NAudio/WinMM for VOICEVOX WAV output.</summary>
+    public static IReadOnlyList<LocalSpeechOutput> GetInstalledOutputs()
+    {
+        var outputs = new List<LocalSpeechOutput>();
+        var count = WaveOut.DeviceCount;
+        for (var index = 0; index < count; index++)
+        {
+            var capabilities = WaveOut.GetCapabilities(index);
+            var name = string.IsNullOrWhiteSpace(capabilities.ProductName)
+                ? "Dispositivo de audio " + (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : capabilities.ProductName;
+            outputs.Add(new LocalSpeechOutput("waveout:" + index.ToString(System.Globalization.CultureInfo.InvariantCulture), name));
+        }
+        return outputs;
+    }
+
+    /// <summary>
+    /// Resolves a saved NAudio output ID without requiring audio hardware in unit tests.
+    /// Empty or legacy SAPI IDs mean the system-default output; stale explicit waveout IDs fail clearly.
+    /// </summary>
+    public static int ResolveOutputDeviceNumber(string? outputId, int availableDeviceCount)
+    {
+        if (availableDeviceCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(availableDeviceCount));
+        if (string.IsNullOrWhiteSpace(outputId) ||
+            !outputId.StartsWith("waveout:", StringComparison.OrdinalIgnoreCase))
+            return -1;
+
+        var suffix = outputId["waveout:".Length..];
+        if (!int.TryParse(suffix, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var deviceNumber) ||
+            deviceNumber < 0)
+            throw new InvalidOperationException("El dispositivo de salida VOICEVOX guardado no es válido. Actualizá la lista de dispositivos.");
+
+        if (deviceNumber >= availableDeviceCount)
+            throw new InvalidOperationException("El dispositivo de salida VOICEVOX guardado ya no está disponible. Actualizá la lista y elegí otro.");
+
+        return deviceNumber;
+    }
+
     public SpeechPlaybackResult Speak(string text, string requestedVoiceId, string requestedOutputId,
         int rate, int volume, Func<bool> cancellationRequested)
     {
@@ -81,7 +121,8 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
 
         using var stream = new MemoryStream(audio, writable: false);
         using var reader = new WaveFileReader(stream);
-        using var output = new WaveOutEvent();
+        var deviceNumber = ResolveOutputDeviceNumber(requestedOutputId, WaveOut.DeviceCount);
+        using var output = new WaveOutEvent { DeviceNumber = deviceNumber };
         output.Volume = Math.Clamp(volume, 0, 100) / 100f;
         Exception? playbackError = null;
         output.PlaybackStopped += (_, eventArgs) => playbackError = eventArgs.Exception;
