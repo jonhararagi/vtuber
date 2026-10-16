@@ -929,7 +929,7 @@ public partial class MainWindow
         soundPanel.Children.Add(soundActions);
         root.Children.Add(soundPanel);
         
-        root.Children.Add(Label("El dispositivo de micrófono, el umbral acústico y la retención se guardan automáticamente y se recuperan al reiniciar. La cola procesa una frase por vez en un hilo STA separado. Podés elegir una voz SAPI instalada, ajustar velocidad (-10 a 10) y volumen (0 a 100). Las alertas usan las preferencias guardadas. No se descarga ni se promete una voz anime: el resultado depende de las voces que tenga Windows. La salida SAPI se puede seleccionar entre los dispositivos que Windows exponga; si no está disponible, se usa la salida predeterminada. La detección de micrófono usa amplitud suavizada/retención, no reconocimiento semántico ni lip-sync por fonemas.", 12, "#98A4BE"));
+        root.Children.Add(Label("El dispositivo de micrófono, el umbral acústico y la retención se guardan automáticamente y se recuperan al reiniciar. La detección de micrófono usa amplitud suavizada y retención, no reconocimiento semántico ni sincronización fonema a fonema. La voz principal se genera mediante VOICEVOX Engine local: esta página no cambia silenciosamente a SAPI de Windows, Gemini ni a un servicio remoto. Las voces estándar de VOICEVOX están orientadas principalmente al japonés, por lo que la pronunciación natural del español no está garantizada. La cola de voz está limitada a 32 frases.", 12, "#98A4BE"));
         return root;
     }
 
