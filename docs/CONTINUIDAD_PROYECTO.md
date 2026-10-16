@@ -1,3 +1,16 @@
+## 2026-10-16 — Panel operativo de OBS, telemetría de procesos y diagnóstico AMF (en revisión)
+
+- **Rama:** `product/complete-vtuber-experience-obs-panel`, creada sobre `main` en `47054b289fd84c02752cde97b1de68099b03f478`. Esta línea de trabajo evita integrar directamente en `main` sin revisar CI.
+- **Auditoría:** la conexión OBS WebSocket v5 ya existía; permanecen el handshake/autenticación, escenas, cambio de escena, visibilidad de fuentes, estados y control de transmisión/grabación, además de audio compatible. No se sustituye la conexión ni se reescribe el motor de transmisión.
+- **Añadido en esta rama:** inicio de OBS con `--minimize-to-tray` seleccionable (preferencia `obs.startMinimized`); comprobación del proceso tras pedir inicio; confirmaciones antes de iniciar emisión en vivo y grabación; medida local separada de CPU y working set para VTuberBot y OBS; consulta de estadísticas `GetStats` de OBS; diagnóstico de indicios de AMD AMF que expresamente no afirma que el encoder esté disponible.
+- **Pruebas añadidas:** combinaciones de argumentos de inicio, cálculo normalizado de CPU, clasificación conservadora de indicios AMD/AMF y porcentajes de cuadros omitidos de OBS. Falta obtener resultado de Windows CI del SHA final de esta rama.
+- **Documento de análisis:** [`docs/OBS_PANEL_AUDIT.md`](OBS_PANEL_AUDIT.md), con comparación de la arquitectura actual, motor propio y `libobs`, condiciones de benchmark y enlaces técnicos.
+- **No validado en hardware real:** minimización real a la bandeja, sesión OBS WebSocket real, controles con OBS instalado, consumo de procesos en streaming y codificación AMD/AMF. No inferir estas pruebas a partir de tests o CI. La evidencia de AMD AMF exige una grabación local reproducible y revisión del log de esa ejecución.
+- **Seguridad/compatibilidad:** el arranque minimizado solo afecta una instancia nueva y requiere que OBS tenga bandeja habilitada. `ws://` no cifra el tráfico: dejar loopback como valor normal y no exponer el puerto a redes no confiables. El modo `--only-bundled-plugins` puede romper escenas que dependan de plugins externos; es una preferencia independiente y no se presenta como optimización probada.
+- **Próxima puerta:** abrir PR hacia `main`, comprobar Restore/Release Build/tests/package en Windows CI para el SHA exacto del PR; corregir cualquier fallo antes de hablar de candidato validado. Después, un lote único de comprobación manual en Windows debe validar los escenarios anteriores.
+
+---
+
 # Continuidad del proyecto — VTuberBot
 
 ## 2026-10-16 — Candidato de producto integrado y validado por Windows CI
