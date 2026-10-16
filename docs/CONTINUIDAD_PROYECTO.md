@@ -1,5 +1,14 @@
 # Estado prioritario del repositorio — 2026-10-15
 
+## 2026-10-16 — Creador de waifu PNG por objetos
+
+- Rama de trabajo: `migration/waifu-sprite-studio`, derivada del `main` canónico. La implementación se mantiene aislada hasta que Windows CI y la revisión del cambio estén completas.
+- Archivos nuevos: `WaifuSpriteStudioWindow.cs`, `WaifuSpriteAssetCatalog.cs`, `BorderConnectedMatteProcessor.cs` y `BorderConnectedMatteProcessorTests.cs`. `MainWindow.AvatarStudio.cs` conecta la ventana con la creación de perfiles PNGTuber y el flujo de segmentación local 2.5D.
+- El editor genera 40 recursos vectoriales originales localmente; importa imágenes y GIF; aplica eliminación de matte blanco conectado al borde; permite organizar, transformar, ocultar y duplicar capas; guarda JSON y exporta composiciones PNG transparentes. GIF es solo vista previa animada: el resultado PNG es estático.
+- El segmentador 2.5D es el módulo ONNX local existente y continúa siendo experimental. No se afirma reconstrucción 3D, rig Live2D, tracking facial ni segmentación perfecta; la primera ejecución puede necesitar descargar el modelo verificado.
+- Windows CI #898 detectó errores de compilación en una versión intermedia; los cambios posteriores corrigen la asignación de la ruta PNG y la llamada a `Window.ShowDialog`. El resultado de CI para el SHA exacto final de esta rama se debe consultar antes de integrar; no reutilizar el estado de un commit anterior como evidencia del nuevo.
+- **Pendiente:** inspección visual y manual en Windows de la eliminación de matte, colocación de objetos, canal alfa, reapertura del JSON, GIF y conversión 2.5D. Las pruebas automatizadas no sustituyen esa aceptación.
+
 ## Avance real de cierre — simulador de automatizaciones y reconciliación de ramas
 
 - Se portó a la rama de producto el simulador seguro de condiciones que existía únicamente en `main`. Está integrado en el editor de Automatizaciones, usa el evaluador de condiciones existente y solo muestra coincidencia/no coincidencia; no ejecuta el dispatcher, no llama a Streamer.bot y no envía hotkeys.

@@ -36,6 +36,11 @@ Si no coincide la procedencia, **detenete** y marcá la sesión BLOQUEADA.
 - Creá/duplicá un perfil, añadí una capa, alterná visibilidad, cambiá su posición/orden, guardá y navegá fuera/volvé a entrar. Comprobá que se conserva.
 - Si disponés de sprites Idle/Talking/Happy/Surprised, asigná al menos dos y comprobá el cambio de estado. Sin sprites, la app debe permanecer estable y no fingir que la expresión existe.
 - Mostrá el overlay, arrastralo, comprobá el fondo transparente y capturalo como fuente de **Captura de ventana** en OBS. Probá parallax y «Reducir movimiento».
+- Abrí **Creador de waifu PNG por objetos**. Importá una copia de PNG con fondo blanco y comprobá que el archivo original no se modifica y que se vuelve transparente el blanco conectado al borde; revisá que un brillo blanco interior se conserve.
+- Añadí sombrero, ojos, una boca y un efecto (lágrimas/sudor/rubor/tristeza), arrastrá, cambiá tamaño/giro/opacidad, ocultá y reordená capas. Verificá que cada acción afecte la vista previa.
+- Importá un GIF y confirma que anima en la vista previa. Guardá y volvé a abrir el proyecto JSON, y exportá el PNG; confirma que la salida sea estática de 1024×1024 con canal alfa, salvo que hayas añadido un fondo.
+- Probá **Crear PNGTuber en VTuberBot** y comprobá que se crea un perfil nuevo. En otra copia, usá **Crear PNGTuber + IA local 2.5D** y registrá resultado, errores y ajustes manuales necesarios. No marques como fallo la falta de reconstrucción 3D/Live2D: esta ruta solo ofrece segmentación semántica experimental.
+
 - **Resultado:** APROBADO / FALLIDO — notas:
 
 ## 4. Micrófono, VAD, SAPI y sonidos
