@@ -582,7 +582,7 @@ public sealed class ObsSetupWizardWindow : Window
     {
         if (completed) completedSteps.Add(currentStep);
         else completedSteps.Remove(currentStep);
-        saveSetting("help.obsWizard.completed", string.Join(',', completedSteps.Order()));
+        saveSetting("help.obsWizard.completed", string.Join(",", completedSteps.Order()));
         progressBar.Value = completedSteps.Count;
         statusText.Text = completedSteps.Count == Steps.Length
             ? "Todos los pasos están marcados como completados."
