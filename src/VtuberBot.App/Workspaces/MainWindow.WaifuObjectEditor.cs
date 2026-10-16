@@ -164,7 +164,7 @@ public partial class MainWindow
                         Y = (640 - Math.Min(420, bitmap.PixelHeight)) / 2,
                         OriginalPath = path
                     });
-                    selected = layers.Count - 1;
+                    setSelected(layers.Count - 1);
                 }
                 catch (Exception ex) { status.Text = $"No se pudo cargar {Path.GetFileName(path)}: {ex.Message}"; }
             }
@@ -380,7 +380,7 @@ public partial class MainWindow
                     Content = names[index], Width = 104, MinHeight = 30, Margin = new Thickness(2),
                     Padding = new Thickness(3), ToolTip = "Añadir " + names[index] + " como capa editable"
                 };
-                button.Click += (_, _) => AddCatalogLayer(category, index, names[index]);
+                button.Click += (_, _) => AddCatalogLayer(layers, RefreshList, SelectLayer, value => selected = value, value => status.Text = value, category, index, names[index]);
                 items.Children.Add(button);
             }
             catalogStack.Children.Add(items);
@@ -415,7 +415,7 @@ public partial class MainWindow
     }
 
 
-    private void AddCatalogLayer(string category, int index, string name)
+    private void AddCatalogLayer(List<WaifuLayer> layers, Action refreshList, Action selectLayer, Action<int> setSelected, Action<string> setStatus, string category, int index, string name)
     {
         // El catálogo se dibuja con primitivas vectoriales locales: no requiere descargas,
         // cuentas ni API externa. Los fondos se crean en resolución 1280x720.
@@ -440,16 +440,16 @@ public partial class MainWindow
         {
             // El índice 0 se dibuja primero, por detrás de los demás objetos.
             layers.Insert(0, layer);
-            selected = 0;
+            setSelected(0);
         }
         else
         {
             layers.Add(layer);
             selected = layers.Count - 1;
         }
-        RefreshList();
-        SelectLayer();
-        status.Text = $"Se añadió «{name}» como una capa independiente. El catálogo usa arte vectorial de muestra, editable por posición, escala, opacidad y orden.";
+        refreshList();
+        selectLayer();
+        setStatus($"Se añadió «{name}» como una capa independiente. El catálogo usa arte vectorial de muestra, editable por posición, escala, opacidad y orden.");
     }
 
     private static string SaveCatalogAsset(BitmapSource source, string name)
