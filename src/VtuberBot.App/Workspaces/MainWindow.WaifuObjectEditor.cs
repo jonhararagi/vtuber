@@ -175,6 +175,38 @@ public partial class MainWindow
             if (selected < 0 || selected >= layers.Count) return;
             layers.RemoveAt(selected); selected = Math.Min(selected, layers.Count - 1); RefreshList(); SelectLayer();
         });
+        ButtonFor("Abrir proyecto", () =>
+        {
+            var dialog = new OpenFileDialog { Filter = "Proyecto waifu (*.waifu.json)|*.waifu.json|JSON|*.json" };
+            if (dialog.ShowDialog(editor) != true) return;
+            try
+            {
+                var project = JsonSerializer.Deserialize<WaifuProject>(File.ReadAllText(dialog.FileName))
+                    ?? throw new InvalidDataException("El proyecto está vacío o no es válido.");
+                var loaded = new List<WaifuLayer>();
+                foreach (var item in project.Layers)
+                {
+                    if (string.IsNullOrWhiteSpace(item.Path) || !File.Exists(item.Path))
+                        throw new FileNotFoundException("No se encuentra el archivo de una capa: " + item.Path);
+                    using var stream = File.OpenRead(item.Path);
+                    var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                    var bitmap = new WriteableBitmap(decoder.Frames[0]);
+                    loaded.Add(new WaifuLayer
+                    {
+                        Name = item.Name, Source = bitmap, PixelWidth = bitmap.PixelWidth, PixelHeight = bitmap.PixelHeight,
+                        OriginalPath = item.Path, X = item.X, Y = item.Y, Width = item.Width, Height = item.Height,
+                        Scale = Math.Clamp(item.Scale, 0.1, 3), Opacity = Math.Clamp(item.Opacity, 0, 1)
+                    });
+                }
+                layers.Clear();
+                layers.AddRange(loaded);
+                selected = layers.Count - 1;
+                RefreshList();
+                SelectLayer();
+                status.Text = "Proyecto abierto. Se recuperaron las capas y sus transformaciones.";
+            }
+            catch (Exception ex) { status.Text = "No se pudo abrir el proyecto: " + ex.Message; }
+        });
         ButtonFor("Guardar proyecto", () =>
         {
             var dialog = new SaveFileDialog { Filter = "Proyecto waifu (*.waifu.json)|*.waifu.json", FileName = "mi-waifu.waifu.json" };
