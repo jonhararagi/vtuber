@@ -40,7 +40,10 @@ public sealed class AvatarMouthSpritePolicyTests
             var layer = new AvatarLayer(1, "Boca", basePath, 0, true, ClosedMouthPath: closedPath, OpenMouthPath: openPath);
 
             Assert.Equal(closedPath, AvatarMouthSpritePolicy.ResolvePath(layer, "Talking"));
-            Assert.Equal(basePath, AvatarMouthSpritePolicy.ResolvePath(layer, "Happy"));
+            Assert.Equal(closedPath, AvatarMouthSpritePolicy.ResolvePath(layer, "Happy"));
+
+            var unassigned = layer with { ClosedMouthPath = null, OpenMouthPath = null };
+            Assert.Equal(basePath, AvatarMouthSpritePolicy.ResolvePath(unassigned, "Happy"));
         }
         finally { Directory.Delete(folder.FullName, true); }
     }
