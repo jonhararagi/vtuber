@@ -33,6 +33,32 @@ public sealed class VoicevoxSpeechSessionTests
         Assert.Equal(expected, VoicevoxSpeechSession.IsVoiceId(id));
 
     [Theory]
+    [InlineData(-0.5, -0.3)]
+    [InlineData(-0.2, -0.2)]
+    [InlineData(0.0, 0.0)]
+    [InlineData(0.2, 0.2)]
+    [InlineData(0.5, 0.3)]
+    public void NormalizePitchScaleClampsToEngineRange(double value, double expected) =>
+        Assert.Equal(expected, VoicevoxSpeechSession.NormalizePitchScale(value), 5);
+
+    [Fact]
+    public void NormalizePitchScaleHandlesNonFiniteValues() =>
+        Assert.Equal(0, VoicevoxSpeechSession.NormalizePitchScale(double.NaN));
+
+    [Theory]
+    [InlineData(0.1, 0.5)]
+    [InlineData(0.8, 0.8)]
+    [InlineData(1.0, 1.0)]
+    [InlineData(1.2, 1.2)]
+    [InlineData(2.0, 1.5)]
+    public void NormalizeIntonationScaleClampsToEngineRange(double value, double expected) =>
+        Assert.Equal(expected, VoicevoxSpeechSession.NormalizeIntonationScale(value), 5);
+
+    [Fact]
+    public void NormalizeIntonationScaleHandlesNonFiniteValues() =>
+        Assert.Equal(1, VoicevoxSpeechSession.NormalizeIntonationScale(double.PositiveInfinity));
+
+    [Theory]
     [InlineData(null, 0, -1)]
     [InlineData("", 2, -1)]
     [InlineData("sapi:legacy-device", 3, -1)]
