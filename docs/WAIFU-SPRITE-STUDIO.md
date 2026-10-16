@@ -1,3 +1,7 @@
+> **Nota de alcance vigente (2026-10-16):** esta guía describe el editor complementario de capas y recursos. No es el flujo obligatorio ni un catálogo que debas combinar para usar tu propio arte. El flujo principal es importar tu imagen, ajustar el encuadre y asignar solo `Idle` (reposo) y `Talking` (hablando). La galería prefabricada y el flujo 2.5D/parallax están fuera del alcance principal. Consultá [la guía actual de Avatar Studio](AVATAR_EDITOR_GUIDE.md) y [la especificación definitiva](ESPECIFICACION_DEFINITIVA.md).
+
+---
+
 # Creador de waifu PNG por objetos
 
 ## Qué es y dónde abrirlo
