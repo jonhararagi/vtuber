@@ -143,6 +143,7 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
             .Where(name => name.Length > 0).ToArray();
     }
 
+    // OBS v5 identifies a scene item by sceneItemId; sourceName alone may not be unique.
     public async Task<IReadOnlyList<ObsSceneItem>> GetSceneItemsAsync(string sceneName, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(sceneName))
