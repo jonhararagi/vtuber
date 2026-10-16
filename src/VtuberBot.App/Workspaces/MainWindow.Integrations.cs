@@ -299,6 +299,99 @@ public partial class MainWindow
         sceneRow.Children.Add(ActionButton("Cambiar escena",async (_,_)=>{try{if(scenes.SelectedItem is not string selected)throw new InvalidOperationException("Primero cargá y elegí una escena.");await obs.SetCurrentSceneAsync(selected);store.Log("OBS","Escena cambiada a "+selected);FooterStatus.Text="Escena activa: "+selected;}catch(Exception ex){MessageBox.Show(this,ex.Message);}} ,true));
         panel.Children.Add(Label("Control de escenas",14,"#F8FAFC",true));panel.Children.Add(sceneRow);
 
+        var sourceControls = Panel("Fuentes de escena y audio");
+        sourceControls.Children.Add(Label("Estos controles actúan sobre OBS conectado. No modifican la previsualización local del avatar.", 12, "#98A4BE"));
+        var sceneItemPicker = new ComboBox { MinWidth = 280, DisplayMemberPath = nameof(ObsSceneItem.Name), Margin = new Thickness(0, 0, 8, 8) };
+        async Task RefreshSceneItemsAsync()
+        {
+            if (scenes.SelectedItem is not string selectedScene)
+                throw new InvalidOperationException("Primero actualizá las escenas y elegí una.");
+            var items = await obs.GetSceneItemsAsync(selectedScene);
+            sceneItemPicker.ItemsSource = items;
+            sceneItemPicker.SelectedIndex = items.Count > 0 ? 0 : -1;
+            FooterStatus.Text = $"Fuentes de la escena «{selectedScene}»: {items.Count}.";
+        }
+        var sceneSourceActions = new WrapPanel();
+        sceneSourceActions.Children.Add(ActionButton("Actualizar fuentes de escena", async (_, _) =>
+        {
+            try { await RefreshSceneItemsAsync(); }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudieron consultar las fuentes de OBS.";
+                store.Log("OBS", "Falló la consulta de fuentes de escena (" + exception.GetType().Name + ").");
+                MessageBox.Show(this, exception.GetBaseException().Message, "Fuentes de OBS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }, true));
+        sceneSourceActions.Children.Add(sceneItemPicker);
+        sceneSourceActions.Children.Add(ActionButton("Alternar visibilidad", async (_, _) =>
+        {
+            try
+            {
+                if (scenes.SelectedItem is not string selectedScene || sceneItemPicker.SelectedItem is not ObsSceneItem selectedItem)
+                    throw new InvalidOperationException("Elegí una escena y una fuente.");
+                var enabled = !selectedItem.Enabled;
+                await obs.SetSceneItemEnabledAsync(selectedScene, selectedItem.Id, enabled);
+                var items = await obs.GetSceneItemsAsync(selectedScene);
+                sceneItemPicker.ItemsSource = items;
+                sceneItemPicker.SelectedItem = items.FirstOrDefault(item => item.Id == selectedItem.Id);
+                FooterStatus.Text = $"Fuente «{selectedItem.Name}»: {(enabled ? "visible" : "oculta")} en OBS.";
+                store.Log("OBS", $"Visibilidad de fuente cambiada: {selectedItem.Name}.");
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo cambiar la visibilidad de la fuente.";
+                store.Log("OBS", "Falló el cambio de visibilidad (" + exception.GetType().Name + ").");
+                MessageBox.Show(this, exception.GetBaseException().Message, "Fuentes de OBS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }));
+        sourceControls.Children.Add(Label("Visibilidad de fuente en la escena seleccionada", 13, "#F8FAFC", true));
+        sourceControls.Children.Add(sceneSourceActions);
+
+        var audioInputPicker = new ComboBox { MinWidth = 280, DisplayMemberPath = nameof(ObsAudioInput.Name), Margin = new Thickness(0, 0, 8, 8) };
+        async Task RefreshAudioInputsAsync()
+        {
+            var inputs = await obs.GetAudioInputsAsync();
+            audioInputPicker.ItemsSource = inputs;
+            audioInputPicker.SelectedIndex = inputs.Count > 0 ? 0 : -1;
+            FooterStatus.Text = inputs.Count == 0
+                ? "OBS no informó fuentes con control de silencio compatible."
+                : $"Fuentes de audio controlables detectadas: {inputs.Count} (máximo 32).";
+        }
+        var audioSourceActions = new WrapPanel();
+        audioSourceActions.Children.Add(ActionButton("Actualizar fuentes de audio", async (_, _) =>
+        {
+            try { await RefreshAudioInputsAsync(); }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudieron consultar las fuentes de audio de OBS.";
+                store.Log("OBS", "Falló la consulta de audio (" + exception.GetType().Name + ").");
+                MessageBox.Show(this, exception.GetBaseException().Message, "Audio de OBS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }, true));
+        audioSourceActions.Children.Add(audioInputPicker);
+        audioSourceActions.Children.Add(ActionButton("Alternar silencio", async (_, _) =>
+        {
+            try
+            {
+                if (audioInputPicker.SelectedItem is not ObsAudioInput selectedInput)
+                    throw new InvalidOperationException("Primero actualizá y elegí una fuente de audio.");
+                var muted = !selectedInput.Muted;
+                await obs.SetInputMuteAsync(selectedInput.Name, muted);
+                await RefreshAudioInputsAsync();
+                FooterStatus.Text = $"Audio «{selectedInput.Name}»: {(muted ? "silenciado" : "activo")} en OBS.";
+                store.Log("OBS", $"Silencio de fuente de audio cambiado: {selectedInput.Name}.");
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo cambiar el silencio de la fuente de audio.";
+                store.Log("OBS", "Falló el cambio de silencio (" + exception.GetType().Name + ").");
+                MessageBox.Show(this, exception.GetBaseException().Message, "Audio de OBS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }));
+        sourceControls.Children.Add(Label("Silencio de fuentes de audio compatibles", 13, "#F8FAFC", true));
+        sourceControls.Children.Add(audioSourceActions);
+        root.Children.Add(sourceControls);
+
         var outputPanel = Panel("Transmisión y grabación");
         outputPanel.Margin = new Thickness(0, 14, 0, 0);
         outputPanel.Children.Add(obsStreamOutputStatusLabel);
