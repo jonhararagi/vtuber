@@ -785,6 +785,7 @@ public partial class MainWindow
                 MessageBox.Show(this, "No se pudo preparar el fondo blanco: " + ex.Message, "VTuberBot", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }));
+        right.Children.Add(ActionButton("✂ Limpiar zona de la boca de la imagen base", (_, _) => OpenMouthCutoutEditor(), true));
         right.Children.Add(Label("Capas adicionales — orden de abajo hacia arriba", 13, "#F8FAFC", true));
 
         var layerList = new ListBox { Height = 142 };
@@ -1146,6 +1147,7 @@ public partial class MainWindow
         columns.Children.Add(left);
         columns.Children.Add(right);
         root.Children.Add(columns);
+        root.Children.Add(BuildProjectFinishChecklistPanel());
         return root;
 
         void MoveSelectedLayer(int direction)
