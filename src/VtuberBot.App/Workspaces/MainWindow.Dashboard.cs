@@ -32,8 +32,9 @@ public partial class MainWindow
         text.Children.Add(Label("Tu stream, bajo control.", 28, "#F8FAFC", true));
         text.Children.Add(Label("Configurá el avatar y probá la lógica local antes de conectar servicios externos.", 14, "#A8B3CC"));
         var buttons = new WrapPanel { Margin = new Thickness(0,18,0,0) };
-        buttons.Children.Add(ActionButton("Abrir Avatar Studio", (_,_)=>Navigate("Avatar Studio"), true));
-        buttons.Children.Add(ActionButton("Probar comandos", (_,_)=>Navigate("Comandos")));
+        buttons.Children.Add(ActionButton("🎭 Configurar PNGTuber 2D", (_,_)=>Navigate("PNGTuber 2D"), true));
+        buttons.Children.Add(ActionButton("⚙ Configurar OBS", (_,_)=>Navigate("OBS")));
+        buttons.Children.Add(ActionButton("🟣 Conectar Twitch", (_,_)=>Navigate("Twitch y chat")));
         text.Children.Add(buttons); Grid.SetColumn(text,0); heroGrid.Children.Add(text);
         var preview = new Border { Background = Brush("#101525"), CornerRadius = new CornerRadius(14), Padding = new Thickness(12), Margin = new Thickness(18,0,0,0), MinHeight = 220 };
         if (!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath))
@@ -103,10 +104,13 @@ public partial class MainWindow
         root.Children.Add(performancePanel);
 
         var lower = new Grid(); lower.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1,GridUnitType.Star) }); lower.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1,GridUnitType.Star) });
-        var quick = Panel("Accesos rápidos"); var quickWrap = new WrapPanel();
-        foreach(var item in new[] {("Sorteos","Sorteos"),("Comunidad","Comunidad y puntos"),("Voz y audio","Voz y audio"),("Diagnósticos","Actividad y diagnóstico")})
-            quickWrap.Children.Add(ActionButton(item.Item1,(_,_)=>Navigate(item.Item2)));
-        quick.Children.Add(quickWrap); Grid.SetColumn(quick,0); lower.Children.Add(quick);
+        var quick = Panel("Qué hacer ahora");
+        var quickWrap = new WrapPanel();
+        quickWrap.Children.Add(ActionButton("Importar personaje y efectos", (_,_)=>Navigate("PNGTuber 2D"), true));
+        quickWrap.Children.Add(ActionButton("Probar micrófono", (_,_)=>Navigate("Voz y audio")));
+        quickWrap.Children.Add(ActionButton("Abrir herramientas avanzadas", (_,_)=>Navigate("Avatar Studio")));
+        quick.Children.Add(quickWrap);
+        Grid.SetColumn(quick,0); lower.Children.Add(quick);
         var health = Panel("Estado real de módulos");
         health.Children.Add(StatusRow("Núcleo y SQLite","Disponible",true));
         health.Children.Add(StatusRow("Avatar","",!string.IsNullOrWhiteSpace(avatarPath) && File.Exists(avatarPath)));
