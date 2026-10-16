@@ -44,6 +44,17 @@ La animación avanzada se implementa como opción. Para el modo básico solo se 
 - No introducir APIs pagas ni generación automática obligatoria.
 - No alterar perfiles previos ni `main`; aplicar cambios solo a `product/complete-vtuber-experience`.
 
+
+## Encuadre de cámara y composición para OBS
+
+El creador por objetos incorpora un marco azul de encuadre dentro del lienzo de 640 × 640, con presets de **Rostro**, **Busto**, **Cuerpo completo** y **Personalizado**. Los controles X/Y/ancho/alto permiten decidir qué porción de la ilustración queda dentro del recorte; el marco no se exporta como parte del personaje.
+
+También muestra una previsualización simplificada del lienzo OBS de 1920 × 1080. Permite ajustar la posición X/Y y el ancho/alto previstos para la fuente del avatar, e informa el porcentaje aproximado del lienzo total que ocuparía. El encuadre y la colocación se guardan dentro del archivo de proyecto `.waifu.json`.
+
+El botón **Exportar encuadre de cámara** genera un PNG transparente del recorte seleccionado, para importarlo como fuente de imagen en OBS. Esto permite mostrar solo rostro, busto u otra porción en lugar de todo el cuerpo.
+
+**Límite actual:** la vista OBS es una previsualización y el PNG exportado es una imagen estática. Este cambio no crea por sí solo una cámara virtual en tiempo real, no sigue el estado de voz y no mueve ni redimensiona automáticamente una fuente dentro de OBS. Esas capacidades requieren conectar el encuadre a la ventana overlay/runtime y/o al control de fuentes de OBS, confirmando la resolución real de la escena.
+
 ## Criterios de aceptación
 
 - Se puede importar una imagen de rostro y un PNG de boca por separado.
@@ -55,6 +66,7 @@ La animación avanzada se implementa como opción. Para el modo básico solo se 
 - No aparecen ojos, rubores, corazones, brillos ni efectos por defecto en el perfil sobrio.
 - Hay pruebas para persistencia, exportación PNG transparente, asignación de estados y ausencia de pérdida de recursos.
 - Windows CI se comprueba contra el SHA exacto del cambio final; no sustituye la validación manual del overlay y del micrófono.
+- El encuadre de cámara se guarda/reabre, el PNG recortado conserva alfa y el porcentaje/posición de OBS corresponde a la resolución seleccionada.
 
 ## Nota de implementación
 
