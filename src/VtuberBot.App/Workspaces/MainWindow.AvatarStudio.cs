@@ -149,10 +149,20 @@ public partial class MainWindow
             Visibility = Visibility.Collapsed
         };
 
+        // Wayfinding for users who confuse the five avatar creation modes.
+        var editorGuide = Panel("¿Qué editor tengo que abrir?");
+        editorGuide.Margin = new Thickness(0, 0, 0, 10);
+        editorGuide.BorderBrush = Brush("#2B879E");
+        editorGuide.BorderThickness = new Thickness(1);
+        editorGuide.Children.Add(Label(
+            "• EDITOR PNGTUBER · capas y piezas: el editor principal para importar PNG/GIF, combinar accesorios, mover capas y exportar el personaje.\n• ENCUADRE DE CÁMARA / OBS: herramienta complementaria para recortar rostro, busto o cuerpo y preparar un PNG recortado; su vista OBS es orientativa, no controla OBS en tiempo real.\n• Crear PNGTuber con mis imágenes: asistente rápido.\n• 2.5D experimental: separa una imagen con IA local aproximada.\n• Taller 3D / VRM / VRoid: otros flujos; no son necesarios para editar capas PNG.",
+            12, "#D8E5F5"));
+        beginnerPanel.Children.Add(editorGuide);
+
         var beginnerActions = new WrapPanel();
         beginnerActions.Children.Add(ActionButton("Crear PNGTuber con mis imágenes", (_, _) =>
             CreateSimplePngTuber(), true));
-        beginnerActions.Children.Add(ActionButton("Creador de waifu PNG por objetos", (_, _) =>
+        beginnerActions.Children.Add(ActionButton("🎨 ABRIR EDITOR PNGTUBER · capas y piezas", (_, _) =>
         {
             var studio = new WaifuSpriteStudioWindow(avatarDirectory) { Owner = this };
             studio.CompositeExported += path =>
@@ -269,7 +279,8 @@ public partial class MainWindow
         root.Children.Add(referencePanel);
         var waifuEditorButton = new Button
         {
-            Content = "🎨 Abrir creador de waifu PNG por objetos",
+            Content = "🎥 Encuadre de cámara y vista previa OBS (editor avanzado)",
+            ToolTip = "Recorta rostro, busto o cuerpo, ajusta el encuadre y exporta un PNG transparente. La vista OBS es una guía visual; no mueve fuentes de OBS en tiempo real.",
             Padding = new Thickness(14, 10, 14, 10),
             Margin = new Thickness(0, 0, 0, 12),
             HorizontalAlignment = HorizontalAlignment.Stretch,
