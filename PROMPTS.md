@@ -1,3 +1,7 @@
+> **Aviso de alcance vigente (2026-10-16):** los prompts antiguos de este archivo pueden mencionar Twitch, comunidad, Telegram, Streamer.bot, PNGTuber Plus, personajes prefabricados o 2.5D. No se deben ejecutar esas instrucciones como requisitos actuales. La fuente de verdad es [`docs/ESPECIFICACION_DEFINITIVA.md`](docs/ESPECIFICACION_DEFINITIVA.md) y la continuidad es [`docs/CONTINUIDAD_PROYECTO.md`](docs/CONTINUIDAD_PROYECTO.md). Antes de implementar, consultar el estado real de `main`, PR y CI; conservar código/datos hasta revisar dependencias y nunca afirmar validación sin evidencia.
+
+---
+
 # Prompts de desarrollo — VTuber Bot
 
 Repositorio: https://github.com/jonhararagi/vtuber
