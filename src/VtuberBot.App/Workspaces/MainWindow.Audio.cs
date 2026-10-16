@@ -308,6 +308,90 @@ public partial class MainWindow
         panel.Children.Add(Label("Hilos de CPU para el Engine (se aplica al iniciarlo)", 12, "#98A4BE"));
         panel.Children.Add(voicevoxCpuThreadsPicker);
         panel.Children.Add(Label("El valor inicial es 2 hilos para no ocupar todos los núcleos al transmitir. El Engine usa un proceso separado y esta opción no limita su RAM.", 11, "#98A4BE"));
+        var voicevoxProcessMetricsLabel = Label("CPU/RAM de VOICEVOX: todavía no se midió.", 11, "#98A4BE");
+        panel.Children.Add(voicevoxProcessMetricsLabel);
+
+        int? FindVoicevoxEngineProcessId()
+        {
+            try
+            {
+                if (localVoicevoxEngineProcess is { HasExited: false } ownedProcess)
+                    return ownedProcess.Id;
+            }
+            catch (InvalidOperationException) { }
+
+            var configuredPath = store.GetSetting("audio.voicevox.executablePath");
+            if (string.IsNullOrWhiteSpace(configuredPath) || !File.Exists(configuredPath))
+                return null;
+
+            string expectedPath;
+            try { expectedPath = Path.GetFullPath(configuredPath); }
+            catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException)
+            {
+                return null;
+            }
+
+            foreach (var process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(expectedPath)))
+            {
+                using (process)
+                {
+                    try
+                    {
+                        var modulePath = process.MainModule?.FileName;
+                        if (!string.IsNullOrWhiteSpace(modulePath) &&
+                            string.Equals(Path.GetFullPath(modulePath), expectedPath, StringComparison.OrdinalIgnoreCase))
+                            return process.Id;
+                    }
+                    catch (Exception exception) when (
+                        exception is InvalidOperationException or System.ComponentModel.Win32Exception or
+                        NotSupportedException or UnauthorizedAccessException or IOException or ArgumentException)
+                    {
+                        // MainModule can be restricted by Windows. Skip rather than attributing
+                        // another process's resource usage to VOICEVOX.
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        async Task MeasureVoicevoxProcessAsync()
+        {
+            var processId = FindVoicevoxEngineProcessId();
+            if (processId is null)
+            {
+                voicevoxProcessMetricsLabel.Text =
+                    "No se encontró un proceso activo que coincida con la ruta configurada de VOICEVOX Engine.";
+                voicevoxProcessMetricsLabel.Foreground = Brush("#E7B56A");
+                return;
+            }
+
+            voicevoxProcessMetricsLabel.Text = "Midiendo CPU y memoria de VOICEVOX…";
+            try
+            {
+                var snapshot = await ProcessResourceSampler.MeasureAsync(processId.Value);
+                if (snapshot is null)
+                {
+                    voicevoxProcessMetricsLabel.Text = "El proceso de VOICEVOX terminó antes de completar la medición.";
+                    voicevoxProcessMetricsLabel.Foreground = Brush("#E7B56A");
+                    return;
+                }
+
+                voicevoxProcessMetricsLabel.Text = "VOICEVOX (proceso separado): " + snapshot.ToDisplayString();
+                voicevoxProcessMetricsLabel.Foreground = Brush("#98A4BE");
+            }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or System.ComponentModel.Win32Exception or
+                NotSupportedException or UnauthorizedAccessException or IOException or ArgumentException)
+            {
+                voicevoxProcessMetricsLabel.Text =
+                    "No se pudo medir VOICEVOX (" + exception.GetType().Name + "). El motor puede seguir funcionando.";
+                voicevoxProcessMetricsLabel.Foreground = Brush("#E7B56A");
+            }
+        }
+
+        panel.Children.Add(ActionButton("Medir CPU/RAM del proceso VOICEVOX", async (_, _) =>
+            await MeasureVoicevoxProcessAsync()));
         panel.Children.Add(ActionButton("Elegir run.exe oficial", (_, _) =>
         {
             var dialog = new OpenFileDialog

@@ -41,6 +41,7 @@ Si solo tenés una imagen, podrás utilizar el avatar estático, pero no habrá 
 - VTuberBot limita el inicio integrado del Engine a una URL HTTP local y lo liga a 127.0.0.1; no uses ni publiques una dirección del Engine expuesta a la red.
 - La voz se genera en el Engine local. Esta función no necesita un token de Gemini ni una API TTS remota.
 - El Engine es un proceso separado: su consumo se suma al del resto de aplicaciones aunque no cuente como memoria del proceso VTuberBot. El objetivo de alerta de 1 GiB corresponde al proceso VTuberBot, no al conjunto de todo el sistema.
+- En **Voz y audio**, usá **Medir CPU/RAM del proceso VOICEVOX** para muestrear brevemente el proceso cuyo ejecutable coincide con la ruta configurada. Es una lectura puntual de CPU y memoria residente, no un historial ni una medición de GPU. Si el proceso no se puede identificar o Windows restringe el acceso, la interfaz lo informa en lugar de atribuir cifras de otro programa.
 - VTuberBot no incluye el Engine/voicebanks ni los actualiza automáticamente. Conservá la instalación oficial; las opciones y el comportamiento pueden variar por versión.
 - El botón **Detener Engine iniciado por VTuberBot** permite finalizar únicamente el proceso que abrió esta instancia. Al cerrar VTuberBot, si ese proceso sigue activo, se pregunta si querés detenerlo (Sí), dejarlo activo para otro cliente local (No) o cancelar el cierre. Si el cierre no puede confirmarse, la aplicación avisa que el proceso podría seguir consumiendo memoria.
 
