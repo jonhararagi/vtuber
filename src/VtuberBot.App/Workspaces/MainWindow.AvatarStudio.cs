@@ -758,6 +758,33 @@ public partial class MainWindow
         right.Children.Add(Label("Avatar activo", 14, "#F8FAFC", true));
         right.Children.Add(Label(string.IsNullOrWhiteSpace(avatarPath) ? "Ningún archivo seleccionado" : Path.GetFileName(avatarPath), 12, "#98A4BE"));
         right.Children.Add(ActionButton("＋  Importar PNG / imagen base", (_, _) => ImportAvatar(), true));
+        right.Children.Add(ActionButton("Quitar fondo blanco conectado al borde", (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(avatarPath) || !File.Exists(avatarPath))
+            {
+                MessageBox.Show(this, "Importá primero la imagen base del personaje.");
+                return;
+            }
+            var confirm = MessageBox.Show(this,
+                "Se creará una copia PNG con transparencia eliminando únicamente los píxeles casi blancos conectados con los bordes. El dibujo original no se modifica. Revisá el resultado: si el pelo o la ropa blanca toca el borde, también podría volverse transparente. ¿Continuar?",
+                "Preparar personaje con fondo blanco", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (confirm != MessageBoxResult.Yes) return;
+            try
+            {
+                var processed = RemoveWhiteBackgroundConnectedToEdges(LoadImage(avatarPath));
+                var destination = Path.Combine(avatarDirectory, "avatar-transparent-" + Guid.NewGuid().ToString("N") + ".png");
+                SaveBitmapAsPng(processed, destination);
+                avatarPath = destination;
+                store.SetActiveAvatarProfileBasePath(destination);
+                RefreshActiveAvatarOverlay();
+                FooterStatus.Text = "Se creó una copia PNG con transparencia. Revisá el pelo, la ropa y los bordes antes de usarla en directo.";
+                Navigate("Avatar Studio");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "No se pudo preparar el fondo blanco: " + ex.Message, "VTuberBot", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }));
         right.Children.Add(Label("Capas adicionales — orden de abajo hacia arriba", 13, "#F8FAFC", true));
 
         var layerList = new ListBox { Height = 142 };
@@ -798,6 +825,69 @@ public partial class MainWindow
             RefreshAvatarPresentation();
         }));
         right.Children.Add(layerActions);
+
+        var mouthPanel = Panel("Boca animada · capa independiente");
+        mouthPanel.Margin = new Thickness(0, 10, 0, 0);
+        mouthPanel.Children.Add(Label("Seleccioná la capa PNG de la boca. Asigná un dibujo con la boca cerrada y otro con la boca abierta. Ambos usarán la misma posición, escala y rotación de la capa, así podés ajustarlos exactamente sobre la cara aunque cada personaje tenga un diseño anime diferente.", 12, "#98A4BE"));
+        string? PickMouthSprite(string title)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = title,
+                Filter = "PNG con transparencia recomendado (*.png)|*.png|Imágenes compatibles|*.png;*.jpg;*.jpeg;*.bmp",
+                Multiselect = false,
+                CheckFileExists = true
+            };
+            if (dialog.ShowDialog(this) != true) return null;
+            var info = new FileInfo(dialog.FileName);
+            if (info.Length > 25 * 1024 * 1024)
+                throw new InvalidOperationException("El archivo supera el límite de 25 MB.");
+            _ = LoadImage(dialog.FileName);
+            var extension = Path.GetExtension(dialog.FileName).ToLowerInvariant();
+            var destination = Path.Combine(avatarDirectory, "mouth-" + Guid.NewGuid().ToString("N") + extension);
+            File.Copy(dialog.FileName, destination, false);
+            return destination;
+        }
+        void AssignMouthSprite(bool open)
+        {
+            var id = SelectedLayerId();
+            if (id is null)
+            {
+                MessageBox.Show(this, "Primero seleccioná en la lista la capa que representa la boca.", "Boca animada", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            var layer = store.GetAvatarLayers().FirstOrDefault(item => item.Id == id.Value);
+            if (layer is null) return;
+            try
+            {
+                var path = PickMouthSprite(open ? "Elegí el PNG de boca abierta" : "Elegí el PNG de boca cerrada");
+                if (path is null) return;
+                store.SetAvatarLayerMouthSprites(id.Value, open ? layer.ClosedMouthPath : path, open ? path : layer.OpenMouthPath);
+                RefreshAvatarPresentation();
+                FooterStatus.Text = $"Boca {(open ? "abierta" : "cerrada")} asignada a «{layer.Name}». Su posición se ajusta con los controles de transformación de esta capa.";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "No se pudo asignar el sprite de boca: " + ex.Message, "Boca animada", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        var mouthActions = new WrapPanel();
+        mouthActions.Children.Add(ActionButton("Asignar boca cerrada", (_, _) => AssignMouthSprite(false)));
+        mouthActions.Children.Add(ActionButton("Asignar boca abierta", (_, _) => AssignMouthSprite(true)));
+        mouthActions.Children.Add(ActionButton("Quitar animación de boca", (_, _) =>
+        {
+            var id = SelectedLayerId();
+            if (id is null) return;
+            try
+            {
+                store.SetAvatarLayerMouthSprites(id.Value, null, null);
+                RefreshAvatarPresentation();
+                FooterStatus.Text = "Se quitaron las asignaciones de boca; la capa y su transformación se conservaron.";
+            }
+            catch (Exception ex) { MessageBox.Show(this, "No se pudieron quitar las asignaciones: " + ex.Message); }
+        }));
+        mouthPanel.Children.Add(mouthActions);
+        right.Children.Add(mouthPanel);
 
         var transforms = Panel("Transformar capa seleccionada");
         transforms.Margin = new Thickness(0, 10, 0, 0);
