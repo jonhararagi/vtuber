@@ -1,12 +1,15 @@
 # VTuberBot — escritorio VTuber local para Windows
 
-VTuberBot está pensado para ser un programa de escritorio completo para gestionar avatar, audio, Twitch, comandos, comunidad, sorteos, minijuegos, moderación, automatizaciones, OBS, Telegram Web y diagnóstico desde una experiencia visual coherente.
+VTuberBot se orienta a una experiencia local y gratuita para editar la imagen propia del avatar, trabajar con dos estados (reposo/habla), gestionar voz local VOICEVOX y controlar las operaciones compatibles de OBS desde un panel unificado. La especificación definitiva limita el alcance social: Twitch, Telegram, Streamer.bot y automatizaciones comunitarias quedan fuera del alcance aprobado actual.
+
+**Fuente de alcance vigente:** [Especificación definitiva y plan de integración](docs/ESPECIFICACION_DEFINITIVA.md). Documentos antiguos que describan funciones sociales o proveedores anteriores deben reconciliarse con esta especificación antes de implementarlos o eliminarlos.
 
 **Objetivo de diseño:** una aplicación moderna con Dashboard y espacios de trabajo reales, controles con estados visuales consistentes y una navegación que marca la sección activa. No se considera terminado por mostrar estado RUNNING o por compilar.
 
 ## Especificación del producto
 
-- [Especificación funcional, interfaz, carpetas y arquitectura objetivo](docs/PRODUCT_BLUEPRINT.md)
+- [Especificación definitiva y plan de integración aprobado](docs/ESPECIFICACION_DEFINITIVA.md)
+- [Especificación funcional, interfaz, carpetas y arquitectura objetivo](docs/PRODUCT_BLUEPRINT.md) (pendiente de reconciliar con la especificación definitiva)
 - [Especificación central](PROJECT_SPEC.md)
 - [Roadmap de integración completa](ROADMAP.md)
 - [Prompt oficial para GPT Obrero — implementación integral](PROMPTS.md)
