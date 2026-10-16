@@ -1962,3 +1962,7 @@ Objetivo inicial sugerido, sujeto a la fase de diseño y a la capacidad real de 
 - Se mantiene sincronizada la selección de capa al refrescar la lista; así, importar una imagen o insertar un fondo no pierde la selección activa.
 - Último SHA de código consultado antes de este apunte: `b2a312ba6db74ee84297f5b2e6217fc0806c5634`.
 - Windows CI #939 estaba **en progreso** para el SHA anterior `c67b0357f37482264c4dabaf4ab1cecca8e44deb`: build en curso y pruebas aún sin comenzar. Ese run no valida el código posterior ni el HEAD de este documento. Seguimos sin afirmar que la versión final compiló hasta comprobar un run del SHA exacto.
+
+
+- Corrección adicional de selección: `RefreshList` ahora conserva el índice seleccionado al reiniciar `ItemsSource`, evitando que el evento `SelectionChanged` borre la selección al importar o insertar piezas.
+- SHA de código más reciente: `ef4a257cb63495010ed727b1b74386c9117c72a6`. La validación debe comprobar ese SHA o uno posterior que lo contenga; el CI anterior no lo valida.
