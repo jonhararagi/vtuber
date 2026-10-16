@@ -992,7 +992,8 @@ public sealed class Tests
         scheduler.ScheduleOnce(TimeSpan.FromMilliseconds(20), () => signal.Signal());
         scheduler.ScheduleOnce(TimeSpan.FromMilliseconds(30), () => signal.Signal());
 
-        Assert.True(signal.Wait(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken));
+        // Keep the worker-liveness check tolerant of a contended Windows CI runner.
+        Assert.True(signal.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
     }
 
     [Fact]

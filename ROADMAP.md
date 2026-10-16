@@ -1,3 +1,11 @@
+## 2026-10-16 — Creador de waifu PNG por objetos
+
+- Se añadió `WaifuSpriteStudioWindow` y se conectó a Avatar Studio. La biblioteca local genera 40 recursos originales (10 accesorios de cabeza, 9 ojos, 7 bocas, 10 efectos y 4 fondos de 1920×1080) sin llamadas web ni licencias de terceros para esos dibujos.
+- El editor admite importar PNG/JPG/JPEG/BMP/GIF, mover/escalar/girar/cambiar opacidad y orden, ocultar/duplicar/eliminar capas, guardar proyecto JSON y exportar PNG transparente de 1024×1024. Los GIF se animan en previsualización; la salida PNG solo captura el fotograma visible.
+- La eliminación de matte blanco se ejecuta localmente sobre píxeles conectados al borde, con suavizado parcial de bordes y preservación de blancos interiores desconectados. No promete recortar perfectamente cabellos o contornos blancos.
+- **Crear PNGTuber en VTuberBot** crea un perfil desde la composición. **Crear PNGTuber + IA local 2.5D** transfiere el PNG al segmentador ONNX local existente; la calidad es aproximada, puede descargar el modelo en la primera ejecución y no es un rig 3D/Live2D.
+- La CI #898 detectó dos errores de compilación en una versión intermedia; fueron corregidos en commits posteriores. No declarar aceptado el editor hasta que Windows CI pase para el SHA exacto de la rama y se complete la validación visual en Windows.
+
 ## 2026-10-15 — Simulador seguro de reglas y reconciliación de documentación
 
 - Se portó desde `main` el simulador local de condiciones a **Automatizaciones** en la rama de producto. Evalúa el JSON de ejemplo con el evaluador existente, limita el payload a 65.536 caracteres, rechaza JSON inválido, raíces que no sean objetos y condiciones mal formadas; no llama a Streamer.bot, no envía hotkeys y no ejecuta acciones.

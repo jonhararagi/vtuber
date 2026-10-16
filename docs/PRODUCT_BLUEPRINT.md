@@ -63,6 +63,9 @@ Las páginas no pueden ser botones muertos ni contenido decorativo. Cada página
 
 ### Avatar PNG/2.5D
 - Importación de imágenes propias y validación de formato/tamaño; almacenamiento de assets del usuario en LocalAppData.
+- Creador de waifu PNG por objetos: catálogo local de accesorios/ojos/bocas/efectos y fondos HD originales; importación de piezas PNG/JPG/BMP/GIF; matte blanco conectado al borde; capas transformables, visibilidad/orden, proyecto JSON y exportación PNG transparente.
+- El GIF puede animarse en la vista previa, pero las composiciones exportadas son PNG estáticos. La integración 2.5D llama al segmentador local experimental ya existente y no implica rig 3D, tracking facial ni reconstrucción perfecta.
+
 - Perfiles de avatar y estados: idle, talking, blink, expresiones y reacción/evento.
 - Renderizador de sprites/capas, composición, orden, posición, escala, pivote, parentado opcional y configuración de movimiento leve/parallax. No fingir tracking facial si no existe una fuente real.
 - Parpadeo y movimiento de boca/ojos; respiración y movimiento ligero con consumo limitado.
