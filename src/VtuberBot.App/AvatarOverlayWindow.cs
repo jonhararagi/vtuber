@@ -226,16 +226,8 @@ public sealed class AvatarOverlayWindow : Window
         layerCanvas.Children.Add(alertCard);
     }
 
-    private static string ResolveLayerArtwork(AvatarLayer layer, string visualState)
-    {
-        // Mouth art is an overlay layer: keep its saved transform and never replace the full character.
-        if (string.Equals(visualState, "Talking", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(layer.OpenMouthPath) && File.Exists(layer.OpenMouthPath))
-            return layer.OpenMouthPath;
-        if (!string.IsNullOrWhiteSpace(layer.ClosedMouthPath) && File.Exists(layer.ClosedMouthPath))
-            return layer.ClosedMouthPath;
-        return layer.Path;
-    }
+    private static string ResolveLayerArtwork(AvatarLayer layer, string visualState) =>
+        AvatarMouthSpritePolicy.ResolvePath(layer, visualState);
 
     private void AddLayerImage(string path, AvatarLayer? layer)
     {
