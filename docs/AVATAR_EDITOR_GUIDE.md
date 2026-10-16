@@ -1,39 +1,39 @@
 # Guía rápida de Avatar Studio y encuadre PNGTuber
 
-Esta guía distingue los dos editores disponibles para evitar probar todos los modos.
+Esta guía describe el flujo vigente de VTuberBot. La fuente de alcance es [la especificación definitiva](ESPECIFICACION_DEFINITIVA.md).
 
-## 1. Editor principal: capas y piezas
+## 1. Usar tu propia imagen
 
-1. Abrí **Avatar Studio** en el menú lateral.
-2. En el panel superior **Crear y personalizar tu personaje**, pulsá **🎨 ABRIR EDITOR PNGTUBER · capas y piezas**.
-3. En **Biblioteca de objetos**, elegí una categoría (Sombreros, Ojos, Bocas, Emociones, Fondos o Personalizados) y añadí piezas, o importá tus propios PNG/JPG/BMP/GIF.
-4. Seleccioná una capa y arrastrala sobre el lienzo. En el panel derecho podés cambiar posición, tamaño, giro, opacidad, visibilidad y orden.
-5. Guardá el proyecto para seguir editando las capas después. **Exportar PNG transparente** aplana las capas visibles; para conservar la edición, guardá también el proyecto.
+1. Abrí **Avatar Studio**.
+2. En **Editar mi propia imagen de avatar**, elegí **Crear PNGTuber con mis imágenes** o importá tu arte desde el editor.
+3. No necesitás elegir un personaje de una galería. Usá tu propia ilustración.
+4. Si tenés una imagen con la boca cerrada, asignala a **Idle** (reposo).
+5. Para que el avatar cambie al hablar, asigná una segunda imagen con la boca abierta a **Talking** (hablando). Si solo asignás una imagen, VTuberBot no puede inventar una boca animada.
 
-El editor principal usa una biblioteca local de recursos y no necesita una clave de IA.
+## 2. Editar y encuadrar
 
-## 2. Encuadre de cámara y vista previa de OBS
+- **🎨 Abrir editor de imagen y capas** abre el editor complementario para importar y organizar imágenes/capas.
+- **🎥 Encuadre de cámara y vista previa OBS (editor avanzado)** permite ajustar posición, escala y recorte para rostro, busto, cuerpo completo o un tamaño personalizado.
+- Guardá el proyecto de edición para recuperar el encuadre. Exportá un PNG transparente cuando quieras usar la imagen fuera del editor.
+- La vista previa de 1920 × 1080 es orientativa. No modifica escenas ni fuentes de OBS en tiempo real.
 
-En **Avatar Studio**, bajá hasta el botón **🎥 Encuadre de cámara y vista previa OBS (editor avanzado)**. Esta herramienta complementaria sirve para:
+## 3. Probar reposo/hablando
 
-- elegir presets de recorte: Rostro, Busto, Cuerpo completo o Personalizado;
-- ajustar el rectángulo del recorte mediante X/Y/ancho/alto;
-- ver una maqueta orientativa del lienzo OBS 1920×1080 y ajustar la colocación/tamaño previstos;
-- guardar los valores de encuadre dentro del proyecto `.waifu.json`;
-- exportar un PNG transparente del recorte seleccionado para usarlo como fuente de imagen.
+1. En Avatar Studio, confirmá que existan las imágenes **Idle** y **Talking**.
+2. Mostrá el overlay del avatar.
+3. Desde **Voz y audio**, configurá la dirección local de VOICEVOX Engine y pulsá **Comprobar VOICEVOX y actualizar voces**.
+4. Elegí un estilo de VOICEVOX y reproducí una prueba. Durante el audio, el avatar debe pasar a **Talking** y volver a **Idle** al terminar o detenerse.
+5. También podés probar el estado manualmente desde las herramientas de avatar, sin micrófono ni OBS conectado.
 
-**Importante:** la vista de OBS es una previsualización, no una conexión en tiempo real. El PNG exportado es estático; esta herramienta no sigue automáticamente la voz ni mueve o redimensiona una fuente de OBS.
+## 4. OBS
 
-## 3. ¿Qué hacen los otros modos?
+Conectá OBS desde su panel mediante WebSocket v5. Capturá la ventana del overlay o la fuente correspondiente en OBS. El encuadre del editor no controla la escena de OBS por sí solo.
 
-- **Crear PNGTuber con mis imágenes:** asistente corto para crear un perfil a partir de imágenes propias.
-- **2.5D con IA local (experimental):** intenta separar una ilustración en regiones aproximadas; no reconstruye perfectamente partes ocultas ni crea un rig Live2D.
-- **Mini estudio 3D integrado:** crea un modelo paramétrico y puede exportar un GLB estático; no es el editor de capas PNG.
-- **VRM / VRoid:** sirven para trabajar con modelos 3D compatibles; no son necesarios para editar un PNG.
+## 5. Límites importantes
 
-## 4. Limitaciones que conviene conocer
-
-- Un PNG exportado es una imagen estática. Para cambiar boca cerrada/abierta automáticamente se necesitan sprites de expresión configurados en el perfil y un runtime que cambie esos estados.
-- Los GIF importados se animan en la vista previa, pero la exportación PNG guarda un fotograma.
-- La galería de inicio contiene recursos originales de prototipado, no reemplaza una ilustración anime profesional.
-- La CI de Windows verifica compilación, pruebas y empaquetado para el SHA correspondiente; no sustituye la revisión visual ni las conexiones con aplicaciones reales en tu PC.
+- Solo se exponen los dos estados básicos **Idle** y **Talking** en el flujo principal.
+- No hay sincronización de boca por fonemas ni lip-sync avanzado.
+- Una imagen única no se convierte automáticamente en dos poses.
+- La generación de personajes prefabricados y el flujo 2.5D/parallax no forman parte del flujo principal.
+- El modelo VRM/3D es opcional y no es necesario para usar el avatar PNG.
+- La conexión real con VOICEVOX u OBS depende de que esos programas estén instalados y ejecutándose; VTuberBot debe mostrar el error si no están disponibles.
