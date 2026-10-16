@@ -17,6 +17,25 @@ public sealed record ObsAudioInput(string Name, string Kind, bool Muted)
     public string DisplayLabel => $"{Name} — {(Muted ? "silenciado" : "activo")}";
 }
 
+public sealed record ObsPerformanceStats(
+    double ActiveFps,
+    double AverageFrameRenderTimeMs,
+    long RenderSkippedFrames,
+    long RenderTotalFrames,
+    long OutputSkippedFrames,
+    long OutputTotalFrames)
+{
+    public double RenderSkippedPercent => CalculatePercentage(RenderSkippedFrames, RenderTotalFrames);
+    public double OutputSkippedPercent => CalculatePercentage(OutputSkippedFrames, OutputTotalFrames);
+
+    public string DisplayLabel =>
+        $"OBS render: {ActiveFps:0.0} FPS · {AverageFrameRenderTimeMs:0.00} ms/cuadro · " +
+        $"omisiones de render {RenderSkippedPercent:0.##}% · salida {OutputSkippedPercent:0.##}%";
+
+    private static double CalculatePercentage(long skipped, long total) =>
+        total <= 0 ? 0 : Math.Clamp(skipped / (double)total * 100d, 0d, 100d);
+}
+
 /// <summary>OBS Studio WebSocket v5 client with automatic reconnect after transient connection loss.</summary>
 /// <remarks>Connection is reported as active only after Hello/Identify succeeds. Credentials stay in memory only.</remarks>
 public sealed class ObsWebSocketClient : IAsyncDisposable
@@ -140,6 +159,38 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
     {
         var response = await RequestAsync("GetVersion").ConfigureAwait(false);
         return response.GetProperty("responseData").GetProperty("obsVersion").GetString() ?? "Versión desconocida";
+    }
+
+    /// <summary>Reads OBS's own render/output counters; this is separate from Windows process CPU/RAM metrics.</summary>
+    public async Task<ObsPerformanceStats> GetPerformanceStatsAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await RequestAsync("GetStats", cancellationToken: cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(response, "OBS no pudo devolver sus estadísticas de render.");
+
+        var data = response.GetProperty("responseData");
+        static double ReadDouble(JsonElement element, string name)
+        {
+            if (element.TryGetProperty(name, out var value) &&
+                value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var result))
+                return result;
+            throw new InvalidOperationException("OBS no devolvió la estadística numérica «" + name + "».");
+        }
+
+        static long ReadCount(JsonElement element, string name)
+        {
+            if (element.TryGetProperty(name, out var value) &&
+                value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var result))
+                return result;
+            throw new InvalidOperationException("OBS no devolvió el contador «" + name + "».");
+        }
+
+        return new ObsPerformanceStats(
+            ReadDouble(data, "activeFps"),
+            ReadDouble(data, "averageFrameRenderTime"),
+            ReadCount(data, "renderSkippedFrames"),
+            ReadCount(data, "renderTotalFrames"),
+            ReadCount(data, "outputSkippedFrames"),
+            ReadCount(data, "outputTotalFrames"));
     }
 
     public async Task<IReadOnlyList<string>> GetScenesAsync()
