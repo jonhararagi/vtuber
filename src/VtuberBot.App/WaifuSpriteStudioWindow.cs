@@ -17,8 +17,8 @@ namespace VtuberBot.App;
 /// </summary>
 public sealed class WaifuSpriteStudioWindow : Window
 {
-    private const int DefaultcanvasWidth = 1024;
-    private const int DefaultcanvasHeight = 1024;
+    private const int DefaultCanvasWidth = 1024;
+    private const int DefaultCanvasHeight = 1024;
     private const int MaximumLayers = 150;
     private const long MaxFileBytes = 25L * 1024 * 1024;
     private const long MaxFramePixels = 20_000_000;
@@ -33,10 +33,10 @@ public sealed class WaifuSpriteStudioWindow : Window
     private readonly List<WaifuSpriteAsset> catalog;
     private readonly List<SpriteLayer> layers = [];
     private readonly Dictionary<Guid, Border> visuals = [];
-    private int canvasWidth = DefaultcanvasWidth;
-    private int canvasHeight = DefaultcanvasHeight;
-    private readonly Canvas canvas = new() { Width = DefaultcanvasWidth, Height = DefaultcanvasHeight, Background = Brushes.Transparent, ClipToBounds = true, AllowDrop = true };
-    private readonly Grid stageGrid = new() { Width = DefaultcanvasWidth, Height = DefaultcanvasHeight, ClipToBounds = true };
+    private int canvasWidth = DefaultCanvasWidth;
+    private int canvasHeight = DefaultCanvasHeight;
+    private readonly Canvas canvas = new() { Width = DefaultCanvasWidth, Height = DefaultCanvasHeight, Background = Brushes.Transparent, ClipToBounds = true, AllowDrop = true };
+    private readonly Grid stageGrid = new() { Width = DefaultCanvasWidth, Height = DefaultCanvasHeight, ClipToBounds = true };
     private readonly ListBox layerList = new() { MinHeight = 170, MaxHeight = 260 };
     private readonly ListBox catalogList = new() { MinHeight = 250, MaxHeight = 390 };
     private readonly ComboBox categoryPicker = new() { MinWidth = 200 };
@@ -1160,7 +1160,7 @@ public sealed class WaifuSpriteStudioWindow : Window
         };
     }
 
-    private sealed record WaifuProjectDocument(int canvasWidth, int canvasHeight, List<WaifuProjectLayer> Layers);
+    private sealed record WaifuProjectDocument(int CanvasWidth, int CanvasHeight, List<WaifuProjectLayer> Layers);
     private sealed record WaifuProjectLayer(Guid Id, string Name, string Category, string Path, double X, double Y,
         double Width, double Height, double Scale, double Rotation, double Opacity, bool Visible, int ZIndex,
         bool RemoveMatte, int FrameIndex);
