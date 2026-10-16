@@ -1981,3 +1981,12 @@ Objetivo inicial sugerido, sujeto a la fase de diseño y a la capacidad real de 
 
 - Corrección adicional de selección: `RefreshList` ahora conserva el índice seleccionado al reiniciar `ItemsSource`, evitando que el evento `SelectionChanged` borre la selección al importar o insertar piezas.
 - SHA de código más reciente: `ef4a257cb63495010ed727b1b74386c9117c72a6`. La validación debe comprobar ese SHA o uno posterior que lo contenga; el CI anterior no lo valida.
+
+
+## 2026-10-16 — Integración de la rama de producto en main
+
+- La PR #20 se fusionó mediante merge normal: https://github.com/jonhararagi/vtuber/pull/20. Commit de integración publicado en `main`: `e99d918f7d631f2023ffc7869d19213ae656a1d0`. La comparación GitHub confirma que `main` apunta a ese commit.
+- Se preservaron ambos bloques del editor de avatar: el creador de sprites por objetos `WaifuSpriteStudioWindow` con catálogo local y procesamiento de matte, y el editor/capas `MainWindow.WaifuObjectEditor.cs` de la rama de producto. En `main` existen también `WaifuSpriteAssetCatalog.cs`, `BorderConnectedMatteProcessor.cs`, sus pruebas y `docs/WAIFU-SPRITE-STUDIO.md`; el código integrado de `MainWindow.AvatarStudio.cs` conserva la galería chibi y el acceso al creador.
+- La guía y este documento conservan tanto la documentación del estudio de sprites que ya estaba en `main` como las actualizaciones del editor y los últimos arreglos de selección/GIF de la rama de producto.
+- Windows CI #946 pasó Restore, Build Release, pruebas automatizadas y publicación del paquete autocontenido x64 para el candidato de merge de la PR. El artefacto pre-merge está asociado al candidato de merge `dfc88d452df5b76ddcd0ac5e17b45e10a04c9c5d`, no al SHA final del commit publicado `e99d918f7d631f2023ffc7869d19213ae656a1d0`; no se debe presentar como paquete validado para ese SHA exacto.
+- **Pendiente de cierre:** confirmar Windows CI y artefacto sobre el commit publicado exacto (o un commit posterior que lo contenga), y completar validación visual/manual real en Windows. La fusión no equivale a aceptación funcional de integraciones externas ni a lanzamiento final.
