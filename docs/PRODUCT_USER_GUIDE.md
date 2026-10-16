@@ -140,13 +140,14 @@ El estado visual Talking permanece activo si hay actividad del micrófono o una 
 ## Personalizar el avatar
 
 1. Cada perfil conserva su propia imagen base, capas/transformaciones y sprites de expresión. Podés crear un perfil vacío, duplicar el actual o cambiar entre perfiles desde la parte superior. Eliminar un perfil no borra los archivos de imagen importados, y siempre debe quedar al menos un perfil. **Exportar perfil (.vtuberavatar)** guarda base, capas, transformaciones y expresiones juntos; al importarlo se crea otro perfil sin sobrescribir los existentes.
-2. Importá una imagen base propia si querés reemplazar el personaje de ejemplo.
-3. Importá capas PNG/JPG adicionales transparentes. Podés ocultar o eliminar una capa sin borrar el archivo original, cambiar su orden visual y ajustar X/Y, escala y rotación.
-4. En **Sprites por expresión**, asigná imágenes con el mismo tamaño para Idle, Talking, Blink, Happy o Surprised. La imagen base se usa como fallback para estados normales sin sprite; para Blink necesitás una imagen explícita de ojos cerrados.
-5. En la previsualización, seleccioná una capa visible a la derecha, arrastrala para ajustar X/Y y pulsá **Aplicar y guardar transformación**.
-6. Abrí **Mostrar overlay transparente**.
-7. En OBS agregá una fuente **Captura de ventana** y seleccioná `VTuberBot Avatar Overlay`.
-8. Arrastrá la ventana del overlay para ubicarla y redimensionala con el borde. Doble clic alterna la prioridad Topmost.
+2. Importá una imagen base propia si querés reemplazar el personaje de ejemplo. Si tiene fondo blanco, probá **Quitar fondo blanco conectado al borde**: crea una copia PNG y no toca el original. Revisá el resultado, especialmente si el pelo o la ropa blanca toca los bordes.
+3. Importá una capa para la boca y seleccionála en la lista. Las piezas PNG deben tener transparencia alrededor del dibujo; si el personaje base conserva la boca original dibujada, prepará una base sin esa boca para evitar que se vea debajo del sprite nuevo.
+4. En **Boca animada · capa independiente**, asigná el PNG de boca cerrada y el PNG de boca abierta. VTuberBot los guarda por capa y perfil; no reemplaza el personaje completo.
+5. Con esa capa seleccionada, arrastrá la boca en la previsualización o ajustá X/Y, escala y rotación. Pulsá **Aplicar y guardar transformación**. La misma transformación se aplica a ambos dibujos, así quedan alineados al alternar.
+6. En **Sprites por expresión**, asigná imágenes completas solo para Idle, Talking, Blink, Happy o Surprised si querés cambiar la cara entera. Para animar únicamente la boca, usá las asignaciones de capa del paso anterior. Para Blink necesitás una imagen explícita de ojos cerrados.
+7. Abrí **Mostrar overlay transparente**.
+8. En OBS agregá una fuente **Captura de ventana** y seleccioná `VTuberBot Avatar Overlay`.
+9. Arrastrá la ventana del overlay para ubicarla y redimensionala con el borde. Doble clic alterna la prioridad Topmost.
 
 El overlay compone la imagen base con capas transformables, reproduce el sprite asignado al estado activo y aplica movimiento respiratorio sutil. El parpadeo automático requiere un sprite Blink de ojos cerrados asignado: sin ese archivo, no se atenúa la imagen completa ni se simula un parpadeo falso. “Reducir movimiento” suspende el parpadeo y la respiración. El micrófono activa Talking con un detector acústico configurable. Esto no equivale a un rig con huesos/física ni a lip-sync por fonemas; usá sprites de expresión con el mismo lienzo para evitar desalineaciones.
 
