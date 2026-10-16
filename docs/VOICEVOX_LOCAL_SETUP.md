@@ -12,6 +12,8 @@ Esta guía describe cómo utilizar el TTS local. El motor y las bibliotecas de v
 
 Instalá VOICEVOX Engine para Windows siguiendo las instrucciones oficiales y las condiciones vigentes. Las voces y bibliotecas no necesariamente comparten una sola licencia: revisá las reglas de la voz/estilo que elijas y cualquier requisito de atribución antes de usarla en público.
 
+**Límite de idioma importante:** las voces habituales de VOICEVOX están orientadas al japonés. La API puede aceptar texto en otros idiomas, pero eso no convierte una voz japonesa en una voz española y la pronunciación natural del español no está garantizada. Por eso la prueba predeterminada usa una frase japonesa. Si necesitás narración natural en español, hay que escoger un motor/voicebank que declare soporte real para español; VTuberBot no debe fingir que VOICEVOX lo ofrece.
+
 ## 2. Configurarlo dentro de VTuberBot
 
 1. Abrí **Voz y audio**.
