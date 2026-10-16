@@ -218,6 +218,17 @@ public partial class MainWindow
             "Plantillas de inspiración originales: Océano pop, Reaper rock, Cantante estelar, Dragona cyber, Demonio gamer y Kitsune idol. No son modelos oficiales ni contienen ilustraciones descargadas de terceros.",
             12, "#98A4BE"));
         root.Children.Add(referencePanel);
+        var waifuEditorButton = new Button
+        {
+            Content = "🎨 Abrir creador de waifu PNG por objetos",
+            Padding = new Thickness(14, 10, 14, 10),
+            Margin = new Thickness(0, 0, 0, 12),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            FontSize = 15,
+            FontWeight = FontWeights.SemiBold
+        };
+        waifuEditorButton.Click += (_, _) => OpenWaifuObjectEditor();
+        root.Children.Add(waifuEditorButton);
         root.Children.Add(BuildAvatarAssetLibraryPanel());
 
         var profilePanel = Panel("Perfiles de avatar");
