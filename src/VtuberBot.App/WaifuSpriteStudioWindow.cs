@@ -259,9 +259,10 @@ public sealed class WaifuSpriteStudioWindow : Window
             var width = Math.Max(1, first.PixelWidth * factor);
             var height = Math.Max(1, first.PixelHeight * factor);
             var processedPath = imported;
-            if (removeWhite && Path.GetExtension(imported).Equals(".gif", StringComparison.OrdinalIgnoreCase) == false)
+            if (removeWhite && !Path.GetExtension(imported).Equals(".gif", StringComparison.OrdinalIgnoreCase))
             {
-                processedPath = SavePng(frames[0], Path.Combine(importDirectory, "base-" + Guid.NewGuid().ToString("N") + ".png"));
+                processedPath = Path.Combine(importDirectory, "base-" + Guid.NewGuid().ToString("N") + ".png");
+                SavePng(frames[0], processedPath);
             }
 
             layers.RemoveAll(layer => layer.Category == "Personaje base");
