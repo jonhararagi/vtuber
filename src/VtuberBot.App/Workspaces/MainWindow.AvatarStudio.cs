@@ -1096,10 +1096,24 @@ public partial class MainWindow
                 dragOrigin = e.GetPosition(dragCanvas);
                 dragStartX = xSlider.Value;
                 dragStartY = ySlider.Value;
-                var overlayWidth = overlay is { ActualWidth: > 0 } ? overlay.ActualWidth : 420d;
-                var overlayHeight = overlay is { ActualHeight: > 0 } ? overlay.ActualHeight : 520d;
-                dragScaleX = overlayWidth / Math.Max(1, dragCanvas.ActualWidth);
-                dragScaleY = overlayHeight / Math.Max(1, dragCanvas.ActualHeight);
+                var referenceBitmap = basePreviewImage?.Source as BitmapSource;
+                if (referenceBitmap is not null)
+                {
+                    var overlayWidth = overlay is { ActualWidth: > 0 } ? overlay.ActualWidth : 420d;
+                    var overlayHeight = overlay is { ActualHeight: > 0 } ? overlay.ActualHeight : 520d;
+                    var previewFitScale = AvatarLayerSizingPolicy.GetFitScale(
+                        referenceBitmap.PixelWidth, referenceBitmap.PixelHeight,
+                        Math.Max(1, dragCanvas.ActualWidth), Math.Max(1, dragCanvas.ActualHeight));
+                    var overlayFitScale = AvatarLayerSizingPolicy.GetFitScale(
+                        referenceBitmap.PixelWidth, referenceBitmap.PixelHeight,
+                        overlayWidth, overlayHeight);
+                    // The drag is measured in preview DIPs but saved as overlay DIPs.
+                    // Use the avatar's Uniform-fit ratio for both axes so tall art doesn't
+                    // get a different X/Y calibration than the visible character.
+                    var dragToOverlayScale = overlayFitScale / Math.Max(0.0001, previewFitScale);
+                    dragScaleX = dragToOverlayScale;
+                    dragScaleY = dragToOverlayScale;
+                }
                 isDraggingLayer = dragCanvas.CaptureMouse();
                 if (isDraggingLayer)
                     e.Handled = true;
