@@ -150,7 +150,7 @@ public partial class MainWindow
             request.AppendLine();
             request.AppendLine("PASOS QUE QUIERO PRIORIZAR");
             foreach (var item in chosen)
-                request.AppendLine("- [" + item.Key + "] " + item.Title + " — " + item.Check.Content);
+                request.AppendLine("- [" + item.Key + "] " + item.Title);
             if (includeAdvanced && !chosen.Any(item => item.Key == "ADVANCED"))
                 request.AppendLine("- [ADVANCED] Incluir evaluación de funciones avanzadas aunque no estén marcadas individualmente.");
             request.AppendLine();
