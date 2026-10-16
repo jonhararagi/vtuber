@@ -374,7 +374,7 @@ public partial class MainWindow
                 if (ReferenceEquals(localVoicevoxEngineProcess, engine))
                     localVoicevoxEngineProcess = null;
                 engine.Dispose();
-                FooterStatus.Text = "VOCEVOX Engine iniciado por VTuberBot se detuvo. La memoria de ese proceso quedará liberada por Windows.";
+                FooterStatus.Text = "VOICEVOX Engine iniciado por VTuberBot se detuvo. La memoria de ese proceso quedará liberada por Windows.";
                 store.Log("VOICEVOX", "Se detuvo por confirmación del usuario la instancia de Engine iniciada por VTuberBot.");
             }
             catch (OperationCanceledException)
