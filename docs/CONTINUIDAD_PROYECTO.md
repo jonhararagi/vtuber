@@ -1,5 +1,14 @@
 # Estado prioritario del repositorio — 2026-10-16
 
+## 2026-10-16 — Diagnóstico de Windows CI #1028/#1029 y corrección de compilación
+
+- Los runs [#1028](https://github.com/jonhararagi/vtuber/actions/runs/38957552826) y [#1029](https://github.com/jonhararagi/vtuber/actions/runs/38957569225) terminaron en `failure`. El restore fue correcto; ambos fallaron en `Build Release`, por errores de compilación preexistentes en el árbol de la rama, no por la documentación.
+- Errores concretos observados en el log: `MainWindow.AvatarStudio.cs` asignaba `BorderBrush` y `BorderThickness` a un `StackPanel`; `MainWindow.WaifuObjectEditor.cs` usaba `cropX/cropY/cropW/cropH` dentro del callback de apertura de proyecto antes de que sus variables locales estuvieran declaradas.
+- Corrección registrada en la rama de producto: el borde visual de la guía se aplica a un `Border` contenedor y los sliders de recorte se declaran antes de registrar callbacks. Esto corrige los seis errores CS1061/CS0841 vistos en CI. La nueva CI del commit correctivo debe terminar antes de declarar el build validado.
+- No se modificó `main`, no se fusionaron ramas y no se cambió el estado de la PR #29 desde esta tarea.
+
+---
+
 ## Cambio reciente: exportar piezas PNG individuales desde el editor
 
 - Commit de código: [5ddfb7df6804052b4331162ff8723a6913175ac5](https://github.com/jonhararagi/vtuber/commit/5ddfb7df6804052b4331162ff8723a6913175ac5), en `product/complete-vtuber-experience`.
