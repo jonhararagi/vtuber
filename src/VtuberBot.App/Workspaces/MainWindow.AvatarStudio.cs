@@ -219,16 +219,20 @@ public partial class MainWindow
             12, "#98A4BE"));
         root.Children.Add(referencePanel);
         // Explicit wayfinding: Avatar Studio offers several different creation modes.
-        var editorGuide = Panel("¿Buscabas el editor para acomodar las piezas del PNGTuber?");
-        editorGuide.Margin = new Thickness(0, 0, 0, 8);
-        editorGuide.BorderBrush = Brush("#2B879E");
-        editorGuide.BorderThickness = new Thickness(1);
-        editorGuide.Children.Add(Label(
+        var editorGuideContent = Panel("¿Buscabas el editor para acomodar las piezas del PNGTuber?");
+        editorGuideContent.Children.Add(Label(
             "Está aquí, dentro de Avatar Studio: el botón de abajo abre el editor por objetos. No hace falta elegir 2.5D, el taller 3D ni VRoid.",
             13, "#E2E8F0"));
-        editorGuide.Children.Add(Label(
+        editorGuideContent.Children.Add(Label(
             "• Editor por objetos: importar PNGs, mover capas y ajustar el encuadre.\n• Crear PNGTuber con mis imágenes: asistente rápido para empezar con imágenes propias.\n• 2.5D experimental: intenta separar una imagen con IA local.\n• Taller 3D / VRM: opciones para modelos 3D; no son el editor de boca PNG.",
             12, "#98A4BE"));
+        var editorGuide = new Border
+        {
+            Margin = new Thickness(0, 0, 0, 8),
+            BorderBrush = Brush("#2B879E"),
+            BorderThickness = new Thickness(1),
+            Child = editorGuideContent
+        };
         root.Children.Add(editorGuide);
 
         var waifuEditorButton = new Button
