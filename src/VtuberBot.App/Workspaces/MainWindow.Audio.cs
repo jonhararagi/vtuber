@@ -330,6 +330,63 @@ public partial class MainWindow
         }));
         panel.Children.Add(ActionButton("Iniciar VOICEVOX Engine en segundo plano", async (_, _) =>
             await StartVoicevoxEngineAsync(), true));
+        panel.Children.Add(ActionButton("Detener Engine iniciado por VTuberBot", async (_, _) =>
+        {
+            if (Volatile.Read(ref voicevoxEngineStartInProgress) != 0)
+            {
+                FooterStatus.Text = "Esperá a que termine la comprobación de inicio antes de detener VOICEVOX.";
+                return;
+            }
+
+            var engine = localVoicevoxEngineProcess;
+            if (engine is null)
+            {
+                FooterStatus.Text = "VTuberBot no inició la instancia actual de VOICEVOX. No se detuvo ningún proceso externo.";
+                return;
+            }
+
+            try
+            {
+                if (engine.HasExited)
+                {
+                    localVoicevoxEngineProcess = null;
+                    engine.Dispose();
+                    FooterStatus.Text = "La instancia de VOICEVOX iniciada por VTuberBot ya estaba detenida.";
+                    return;
+                }
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                FooterStatus.Text = "No se pudo consultar el estado de VOICEVOX. No se envió una orden de cierre.";
+                return;
+            }
+
+            if (MessageBox.Show(this,
+                    "Se detendrá únicamente el proceso de VOICEVOX Engine que esta instancia de VTuberBot inició, incluidos sus procesos secundarios. Las frases de voz dejarán de estar disponibles hasta volver a iniciarlo. ¿Continuar?",
+                    "Detener VOICEVOX Engine", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                engine.Kill(entireProcessTree: true);
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                await engine.WaitForExitAsync(timeout.Token);
+                if (ReferenceEquals(localVoicevoxEngineProcess, engine))
+                    localVoicevoxEngineProcess = null;
+                engine.Dispose();
+                FooterStatus.Text = "VOCEVOX Engine iniciado por VTuberBot se detuvo. La memoria de ese proceso quedará liberada por Windows.";
+                store.Log("VOICEVOX", "Se detuvo por confirmación del usuario la instancia de Engine iniciada por VTuberBot.");
+            }
+            catch (OperationCanceledException)
+            {
+                FooterStatus.Text = "Se solicitó cerrar VOICEVOX, pero el proceso no confirmó la salida en 8 segundos. Revisá su estado antes de reintentarlo.";
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception or UnauthorizedAccessException)
+            {
+                FooterStatus.Text = "No se pudo detener VOICEVOX Engine: " + exception.GetType().Name + ".";
+                store.Log("VOICEVOX", "No se pudo detener la instancia propia de Engine (" + exception.GetType().Name + ").");
+            }
+        }));
         panel.Children.Add(Label("Voz / estilo", 12, "#98A4BE"));
         panel.Children.Add(voicePicker);
 
