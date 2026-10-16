@@ -1,5 +1,21 @@
 # Continuidad del proyecto — VTuberBot
 
+## 2026-10-16 — Navegación local, VOICEVOX y avisos de memoria (PR #25)
+
+- Rama de implementación: `product/focus-local-avatar-obs-voice`. Base de trabajo: `main` en `a72ae5c7d09e3123056a0d745f5a1a108429565c` (merge de PR #23).
+- La navegación principal se reduce a Inicio, Avatar Studio, Comandos, Voz y audio, OBS, Actividad/diagnóstico y Ajustes. Las páginas Twitch/sociales, Telegram Web, Streamer.bot, puntos/minijuegos y aplicaciones externas obligatorias quedan fuera de la UI principal; se conserva el código histórico mientras se revisan dependencias.
+- El panel de voz permite configurar la URL local de VOICEVOX Engine, consultar estilos reales, combinar la lista con voces SAPI instaladas y preseleccionar un estilo VOICEVOX cuando exista. El botón informa el fallo de conexión; no se afirma que el motor esté instalado ni probado en una máquina real.
+- El editor de Avatar Studio ahora presenta como flujo principal la imagen propia, encuadre y exactamente dos estados configurables desde la UI: `Idle` (reposo) y `Talking` (hablando). La galería chibi, referencias, catálogo de piezas, prompts y herramientas 2.5D/externas se ocultan sin borrar su código histórico; la vista OBS sigue siendo orientativa.
+- Se añade `ProcessMemoryWarningPolicy`: aviso anticipado desde 800 MiB y alerta desde 1 GiB de working set del proceso VTuberBot. El umbral es una advertencia, no un límite duro; OBS y VOICEVOX son procesos separados.
+- Se retira la UI de comandos integrados de comunidad/puntos/minijuegos. Los comandos personalizados visibles se ejecutan localmente y muestran su resultado; no leen chat Twitch, no envían mensajes y no accionan OBS. La selección de rol es simulada, no autenticación Twitch.
+- Las reglas de automatización persistidas se conservan pero el timer de ejecución automática no arranca mientras sus fuentes/destinos externos estén fuera de alcance; no se borran datos de usuario.
+- Estado de validación al redactar: CI de Windows pendiente para el HEAD actualizado de PR #25. Los intentos intermedios fallaron por `CS0649` porque el label de advertencia de memoria todavía no estaba asignado; el código posterior añade la asignación. Debe revisarse la ejecución más reciente antes de integrar.
+- Sin validación manual real de OBS ni VOICEVOX en esta máquina. No se afirma aún que la aplicación completa esté terminada ni que haya un artefacto final verificado.
+
+---
+
+# Continuidad del proyecto — VTuberBot
+
 ## 2026-10-16 — Reconciliación del alcance y editor de encuadre
 
 - HEAD de `main` antes de esta rama documental: `0857fae922c199af2a607626f4e858b8393a59a9`.

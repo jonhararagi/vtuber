@@ -231,6 +231,8 @@ public partial class MainWindow
         };
         var savedVoiceId = store.GetSetting("audio.tts.voiceId");
         var savedOutputId = store.GetSetting("audio.tts.outputId");
+        var voicevoxBaseUrlField = TextField("http://127.0.0.1:50021", store.GetSetting("audio.voicevox.baseUrl", VoicevoxSpeechSession.DefaultBaseUrl));
+        voicevoxBaseUrlField.MinWidth = 320;
         var outputListLoaded = false;
         var voiceListLoaded = false;
         var voicePicker = new ComboBox
@@ -245,13 +247,15 @@ public partial class MainWindow
         var initialVolume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var volumeSetting) ? Math.Clamp(volumeSetting, 0, 100) : 100;
         var rateSlider = new Slider { Minimum = -10, Maximum = 10, Value = initialRate, TickFrequency = 1 };
         var volumeSlider = new Slider { Minimum = 0, Maximum = 100, Value = initialVolume, TickFrequency = 5 };
-        var rateLabel = Label($"Velocidad SAPI: {initialRate}", 12, "#98A4BE");
-        var volumeLabel = Label($"Volumen SAPI: {initialVolume}%", 12, "#98A4BE");
-        rateSlider.ValueChanged += (_, _) => rateLabel.Text = $"Velocidad SAPI: {rateSlider.Value:0}";
-        volumeSlider.ValueChanged += (_, _) => volumeLabel.Text = $"Volumen SAPI: {volumeSlider.Value:0}%";
+        var rateLabel = Label($"Velocidad de voz: {initialRate}", 12, "#98A4BE");
+        var volumeLabel = Label($"Volumen: {initialVolume}%", 12, "#98A4BE");
+        rateSlider.ValueChanged += (_, _) => rateLabel.Text = $"Velocidad de voz: {rateSlider.Value:0}";
+        volumeSlider.ValueChanged += (_, _) => volumeLabel.Text = $"Volumen: {volumeSlider.Value:0}%";
 
-        panel.Children.Add(Label("Síntesis de voz de Windows (SAPI)", 14, "#F8FAFC", true));
-        panel.Children.Add(Label("Voces que ya están instaladas en Windows", 12, "#98A4BE"));
+        panel.Children.Add(Label("Voces locales: VOICEVOX y Windows", 14, "#F8FAFC", true));
+        panel.Children.Add(Label("VOICEVOX es el motor prioritario. Debe estar instalado y ejecutándose localmente; VTuberBot no simula una conexión ni usa una API remota como sustituto.", 12, "#98A4BE"));
+        panel.Children.Add(Label("Dirección local de VOICEVOX Engine", 12, "#98A4BE"));
+        panel.Children.Add(voicevoxBaseUrlField);
         panel.Children.Add(voicePicker);
         var outputPicker = new ComboBox
         {
@@ -281,23 +285,50 @@ public partial class MainWindow
                 MessageBox.Show(this, "Se mantiene la salida predeterminada de Windows.\\n\\n" + exception.Message, "Salidas de audio", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }));
-        panel.Children.Add(ActionButton("Actualizar lista de voces", async (_, _) =>
+        panel.Children.Add(ActionButton("Comprobar VOICEVOX y actualizar voces", async (_, _) =>
         {
+            var configuredUrl = voicevoxBaseUrlField.Text.Trim();
+            // VoicevoxSpeechSession rejects non-loopback hosts before sending any request.
+            store.SetSetting("audio.voicevox.baseUrl", configuredUrl);
+            var voices = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") };
+            string windowsStatus;
             try
             {
-                var installed = await Task.Run(LocalSpeechQueue.GetInstalledVoices);
-                var voices = new List<LocalSpeechVoice> { new(string.Empty, "Voz predeterminada de Windows") };
-                voices.AddRange(installed);
-                voicePicker.ItemsSource = voices;
-                voiceListLoaded = true;
-                voicePicker.SelectedItem = voices.FirstOrDefault(voice => string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
-                    ?? voices[0];
-                FooterStatus.Text = $"Voces SAPI encontradas: {installed.Count}.";
+                var installedWindows = await Task.Run(LocalSpeechQueue.GetInstalledVoices);
+                voices.AddRange(installedWindows);
+                windowsStatus = $"Windows: {installedWindows.Count} voces";
             }
             catch (Exception exception)
             {
-                FooterStatus.Text = "No se pudieron leer las voces SAPI: " + exception.Message;
-                MessageBox.Show(this, "No se pudo enumerar las voces instaladas. Se mantiene la voz predeterminada de Windows.\n\n" + exception.Message);
+                windowsStatus = "Windows SAPI no disponible (" + exception.GetType().Name + ")";
+                store.Log("VOICEVOX", "No se pudieron enumerar voces Windows SAPI (" + exception.GetType().Name + ").");
+            }
+
+            try
+            {
+                var installedVoicevox = await Task.Run(() => VoicevoxSpeechSession.GetInstalledVoices(configuredUrl));
+                voices.AddRange(installedVoicevox);
+                voicePicker.ItemsSource = voices;
+                voiceListLoaded = true;
+                voicePicker.SelectedItem = voices.FirstOrDefault(voice => string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
+                    ?? voices.FirstOrDefault(voice => VoicevoxSpeechSession.IsVoiceId(voice.Id))
+                    ?? voices[0];
+                FooterStatus.Text = $"VOICEVOX conectado: {installedVoicevox.Count} estilos disponibles. {windowsStatus}.";
+                store.Log("VOICEVOX", $"Motor local disponible; {installedVoicevox.Count} estilos detectados.");
+            }
+            catch (Exception exception)
+            {
+                voicePicker.ItemsSource = voices;
+                voiceListLoaded = true;
+                voicePicker.SelectedItem = voices.FirstOrDefault(voice => string.Equals(voice.Id, savedVoiceId, StringComparison.OrdinalIgnoreCase))
+                    ?? voices.FirstOrDefault(voice => VoicevoxSpeechSession.IsVoiceId(voice.Id))
+                    ?? voices[0];
+                FooterStatus.Text = "VOICEVOX no disponible. Revisá que Engine esté iniciado y que la dirección sea local. " + windowsStatus + ".";
+                store.Log("VOICEVOX", "No se pudo consultar el motor local (" + exception.GetType().Name + ").");
+                MessageBox.Show(this,
+                    "No se pudo conectar con VOICEVOX Engine en la dirección configurada. La aplicación no generó una voz alternativa.\n\n" +
+                    exception.GetBaseException().Message,
+                    "VOICEVOX no disponible", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }));
         panel.Children.Add(rateLabel);

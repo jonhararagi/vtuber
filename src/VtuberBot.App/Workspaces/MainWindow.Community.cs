@@ -68,7 +68,7 @@ public partial class MainWindow
         list.SelectionChanged+=(_,_)=>{if(list.SelectedItem is not string selectedText)return;try{var selectedId=long.Parse(selectedText.Split((char)32)[0]);var selected=store.GetCommands().FirstOrDefault(c=>c.Id==selectedId);if(selected is null)return;editingCommandId=selected.Id;name.Text=selected.Name;aliases.Text=selected.Aliases;response.Text=selected.Response;cooldown.Text=selected.CooldownSeconds.ToString();cooldownScope.SelectedIndex=selected.CooldownScope=="user"?1:0;permissionScope.SelectedIndex=selected.PermissionScope switch{"subscriber"=>1,"vip"=>2,"moderator"=>3,"broadcaster"=>4,_=>0};enabled.IsChecked=selected.Enabled;}catch{}};
         panel.Children.Add(Label("Crear o editar",13,"#F8FAFC",true));panel.Children.Add(name);panel.Children.Add(aliases);panel.Children.Add(response);panel.Children.Add(cooldown);panel.Children.Add(Label("Tipo de cooldown",12,"#98A4BE"));panel.Children.Add(cooldownScope);panel.Children.Add(Label("Permiso mínimo",12,"#98A4BE"));panel.Children.Add(permissionScope);
         panel.Children.Add(Label("Usuario simulado",12,"#98A4BE"));panel.Children.Add(testUsername);
-        panel.Children.Add(Label("Rol de Twitch para simular permisos",12,"#98A4BE"));panel.Children.Add(testRole);
+        panel.Children.Add(Label("Rol simulado para comprobar permisos (no se verifica una cuenta Twitch)",12,"#98A4BE"));panel.Children.Add(testRole);
         panel.Children.Add(testArguments);panel.Children.Add(enabled);
         var row=new WrapPanel();
         row.Children.Add(ActionButton("Guardar comando",(_,_)=>{try{store.SaveCommand(editingCommandId,name.Text,response.Text,int.Parse(cooldown.Text),enabled.IsChecked==true,cooldownScope.SelectedIndex==1?"user":"global",aliases.Text,SelectedPermissionScope());Reload();list.SelectedItem=null;editingCommandId=null;name.Clear();aliases.Clear();response.Clear();testArguments.Clear();testUsername.Text="preview_user";testRole.SelectedIndex=0;cooldownScope.SelectedIndex=0;permissionScope.SelectedIndex=0;FooterStatus.Text="Comando guardado en SQLite.";}catch(Exception ex){MessageBox.Show(this,ex.Message);}},true));
@@ -104,36 +104,13 @@ public partial class MainWindow
             MessageBox.Show(this, result.Message, "Ejecución local · sin enviar a Twitch", MessageBoxButton.OK,
                 result.Success ? MessageBoxImage.Information : MessageBoxImage.Warning);
             FooterStatus.Text = result.Success
-                ? "Comando ejecutado localmente; se aplicaron sus efectos locales y cooldown."
+                ? "Respuesta del comando procesada localmente; no se envió a ningún chat ni se accionó OBS."
                 : "Comando local rechazado; revisá permiso, estado y cooldown.";
         }));
         row.Children.Add(ActionButton("Eliminar seleccionado",(_,_)=>{if(list.SelectedIndex<0)return;var id=long.Parse(list.SelectedItem!.ToString()!.Split(' ')[0]);if(MessageBox.Show(this,"¿Eliminar el comando seleccionado?","Confirmar",MessageBoxButton.YesNo)==MessageBoxResult.Yes){store.DeleteCommand(id);Reload();}}));
         panel.Children.Add(row);
 
-        var builtIns = Panel("Comandos de comunidad integrados");
-        builtIns.Margin = new Thickness(0, 14, 0, 0);
-        builtIns.Children.Add(Label("Estos comandos funcionan localmente y en Twitch sin crear comandos personalizados. !puntos muestra tu saldo; !top muestra los cinco primeros; !jugar moneda cara 10, !jugar ruleta rojo 10 o !jugar dado alto 10 juega una ronda persistida. Usá apuesta 0 para practicar gratis. Los nombres puntos, top y jugar quedan reservados para estas funciones.",12,"#98A4BE"));
-        var builtInInput = TextField("Comando de prueba (ej.: !jugar dado alto 0)");
-        builtIns.Children.Add(builtInInput);
-        builtIns.Children.Add(ActionButton("Ejecutar localmente",(_,_) =>
-        {
-            var input = builtInInput.Text.Trim();
-            var separator = input.IndexOf(' ');
-            var commandName = separator < 0 ? input : input[..separator];
-            var arguments = separator < 0 ? string.Empty : input[(separator + 1)..].Trim();
-            var result = communityCommandRouter.TryExecute(commandName, testUsername.Text, arguments);
-            if (result is null)
-            {
-                MessageBox.Show(this,"Usá !puntos, !top o !jugar desde esta prueba local.","Comandos de comunidad",MessageBoxButton.OK,MessageBoxImage.Information);
-                return;
-            }
-            store.Log("Comunidad","Prueba local de !" + commandName.TrimStart('!') + (result.Success ? " completada." : " rechazada: " + result.Message));
-            MessageBox.Show(this,result.Message,"Prueba local · sin enviar a Twitch",MessageBoxButton.OK,
-                result.Success?MessageBoxImage.Information:MessageBoxImage.Warning);
-            FooterStatus.Text = result.Success ? "Comando de comunidad ejecutado localmente." : "Comando de comunidad rechazado; revisá el mensaje.";
-        },true));
-        root.Children.Add(builtIns);
-        root.Children.Add(Label("El cooldown puede ser global o por usuario. El permiso mínimo se comprueba con etiquetas autenticadas de Twitch: Todos, Suscriptores, VIP, Moderadores o solo Broadcaster. Moderadores pueden usar los niveles de suscriptor/VIP; solo el broadcaster puede usar los comandos exclusivos del broadcaster. Un uso denegado se registra y no consume cooldown.",12,"#98A4BE"));
+        root.Children.Add(Label("El ejecutor local procesa la respuesta configurada, aplica sus límites y muestra el resultado en pantalla. No lee mensajes de Twitch, no valida roles de una cuenta real, no envía mensajes al chat y no dispara acciones de OBS. Las etiquetas de rol son solo datos de prueba.",12,"#98A4BE"));
         return root;
     }
 

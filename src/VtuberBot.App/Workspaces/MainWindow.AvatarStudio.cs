@@ -123,21 +123,21 @@ public partial class MainWindow
     {
         var root = new StackPanel();
 
-        // Keep the built-in chibi gallery visible as the quickest path to a usable avatar.
-        var beginnerPanel = Panel("Crear y personalizar tu personaje");
+        // Keep the primary workflow centered on the user's own imported image.
+        var beginnerPanel = Panel("Editar mi propia imagen de avatar");
         beginnerPanel.Margin = new Thickness(0, 0, 0, 14);
         beginnerPanel.Children.Add(Label(
-            "Elegí uno de los personajes chibi de la galería de abajo o importá tu propia ilustración. El taller 3D integrado es otra opción para experimentar con un modelo paramétrico.",
+            "Importá la ilustración que quieras usar. Desde aquí podés editar la imagen, ajustar el encuadre y asignar las dos poses básicas: reposo y hablando.",
             12, "#98A4BE"));
 
         beginnerPanel.Children.Add(Label(
-            "El taller 3D genera un personaje paramétrico dentro de VTuberBot, permite cambiar silueta, piel, pelo e inner hair, ojos, ropa y accesorios, y guardar la apariencia en JSON o exportar un GLB estático. Requiere Internet para cargar Three.js. No es un editor VRM: el GLB no tiene rig ni animaciones y todavía no se puede usar como modelo animado en el overlay.",
+            "El modo principal no requiere un catálogo de piezas ni un generador de personajes. Si solo tenés una imagen, asignala a reposo y agregá una segunda imagen con la boca abierta para el estado hablando.",
             12, "#98A4BE"));
 
         Button startLocalSegmentation = null!;
         Button cancelLocalSegmentation = null!;
         var localSegmentationStatus = Label(
-            "Listo. PNGTuber recomendado para empezar. Para 2.5D, el modelo local es experimental y separa tres clases aproximadas.",
+            "Listo. Importá una imagen propia y configurá reposo/hablando. La separación 2.5D queda fuera del flujo principal.",
             12, "#98A4BE");
         var localSegmentationProgress = new ProgressBar
         {
@@ -149,19 +149,19 @@ public partial class MainWindow
             Visibility = Visibility.Collapsed
         };
 
-        // Wayfinding for users who confuse the five avatar creation modes.
+        // Keep the guide focused on the two basic avatar states and image framing.
         var editorGuide = Panel("¿Qué editor tengo que abrir?");
         editorGuide.Margin = new Thickness(0, 0, 0, 10);
         editorGuide.Background = Brush("#1C2A3D");
         editorGuide.Children.Add(Label(
-            "• EDITOR PNGTUBER · capas y piezas: el editor principal para importar PNG/GIF, combinar accesorios, mover capas y exportar el personaje.\n• ENCUADRE DE CÁMARA / OBS: herramienta complementaria para recortar rostro, busto o cuerpo y preparar un PNG recortado; su vista OBS es orientativa, no controla OBS en tiempo real.\n• Crear PNGTuber con mis imágenes: asistente rápido.\n• 2.5D experimental: separa una imagen con IA local aproximada.\n• Taller 3D / VRM / VRoid: otros flujos; no son necesarios para editar capas PNG.",
+            "• IMPORTAR IMAGEN PROPIA: seleccioná el arte que ya tenés.\n• REPOSO / HABLANDO: asigná una imagen con boca cerrada y otra con boca abierta.\n• ENCUADRE DE CÁMARA / OBS: recorta rostro, busto o cuerpo y exporta PNG; la vista OBS es orientativa y no controla fuentes OBS en tiempo real.",
             12, "#D8E5F5"));
         beginnerPanel.Children.Add(editorGuide);
 
         var beginnerActions = new WrapPanel();
         beginnerActions.Children.Add(ActionButton("Crear PNGTuber con mis imágenes", (_, _) =>
             CreateSimplePngTuber(), true));
-        beginnerActions.Children.Add(ActionButton("🎨 ABRIR EDITOR PNGTUBER · capas y piezas", (_, _) =>
+        beginnerActions.Children.Add(ActionButton("🎨 Abrir editor de imagen y capas", (_, _) =>
         {
             var studio = new WaifuSpriteStudioWindow(avatarDirectory) { Owner = this };
             studio.CompositeExported += path =>
@@ -212,17 +212,16 @@ public partial class MainWindow
         }, true));
         startLocalSegmentation = ActionButton("2 · 2.5D con IA local (experimental)", async (_, _) =>
             await StartLocalAvatarSegmentationAsync());
+        startLocalSegmentation.Visibility = Visibility.Collapsed;
         beginnerActions.Children.Add(startLocalSegmentation);
-        beginnerActions.Children.Add(ActionButton("Abrir mini estudio 3D integrado", (_, _) =>
-            OpenAvatarWardrobeStudio(), true));
-        beginnerActions.Children.Add(ActionButton("Cargar modelo VRM y abrir overlay 3D", (_, _) =>
+        beginnerActions.Children.Add(ActionButton("Cargar modelo VRM (opcional)", (_, _) =>
             ImportVrmAndOpenOverlay(), true));
-        beginnerActions.Children.Add(ActionButton("Abrir VRoid Studio (externo)", (_, _) =>
-            OpenAvatarExternalTool("https://vroid.com/en/studio", "VRoid Studio")));
         cancelLocalSegmentation = ActionButton("Cancelar IA", (_, _) =>
             activeLocalAvatarSegmentation?.Cancel());
         cancelLocalSegmentation.IsEnabled = false;
         cancelLocalSegmentation.Visibility = Visibility.Collapsed;
+        localSegmentationStatus.Visibility = Visibility.Collapsed;
+        localSegmentationProgress.Visibility = Visibility.Collapsed;
         beginnerActions.Children.Add(cancelLocalSegmentation);
         beginnerPanel.Children.Add(beginnerActions);
         beginnerPanel.Children.Add(localSegmentationProgress);
@@ -240,7 +239,7 @@ public partial class MainWindow
         foreach (var preset in ChibiAvatarPresets)
             sampleGalleryItems.Children.Add(BuildChibiPresetButton(preset));
         sampleGallery.Children.Add(sampleGalleryItems);
-        root.Children.Add(sampleGallery);
+        // The historical prefab gallery remains in code for dependency-safe cleanup, but is not part of the product UI.
 
         var referencePanel = Panel("Referencias públicas · buscá estilos para inspirarte");
         referencePanel.Margin = new Thickness(0, 0, 0, 14);
@@ -275,7 +274,7 @@ public partial class MainWindow
         referencePanel.Children.Add(Label(
             "Plantillas de inspiración originales: Océano pop, Reaper rock, Cantante estelar, Dragona cyber, Demonio gamer y Kitsune idol. No son modelos oficiales ni contienen ilustraciones descargadas de terceros.",
             12, "#98A4BE"));
-        root.Children.Add(referencePanel);
+        // Reference searches and prefab inspiration are intentionally not shown in the primary workflow.
         var waifuEditorButton = new Button
         {
             Content = "🎥 Encuadre de cámara y vista previa OBS (editor avanzado)",
@@ -288,11 +287,11 @@ public partial class MainWindow
         };
         waifuEditorButton.Click += (_, _) => OpenWaifuObjectEditor();
         root.Children.Add(waifuEditorButton);
-        root.Children.Add(BuildAvatarAssetLibraryPanel());
+        // Do not expose the built-in piece catalog in the user-owned-image workflow.
 
         var profilePanel = Panel("Perfiles de avatar");
         profilePanel.Margin = new Thickness(0, 0, 0, 14);
-        profilePanel.Children.Add(Label("Cada perfil conserva su imagen base, capas, transformaciones y sprites de expresión.", 12, "#98A4BE"));
+        profilePanel.Children.Add(Label("Cada perfil conserva su imagen base, capas, encuadre y las dos poses básicas: reposo y hablando.", 12, "#98A4BE"));
         var profileList = store.GetAvatarProfiles();
         var activeProfile = store.GetActiveAvatarProfile();
         MigrateLegacyAvatarArtPrompts(activeProfile.Id);
@@ -480,7 +479,8 @@ public partial class MainWindow
         advancedTools.Children.Add(imageToAvatarPanel);
         root.Children.Add(new Expander
         {
-            Header = "Personalización avanzada (capas, ropa, colores y herramientas externas)",
+            Visibility = Visibility.Collapsed,
+            Header = "Herramientas históricas fuera del flujo principal",
             Content = advancedTools,
             IsExpanded = false,
             Foreground = Brush("#F8FAFC"),
@@ -979,7 +979,8 @@ public partial class MainWindow
         right.Children.Add(ActionButton("Ocultar overlay", (_, _) => { overlay?.Hide(); store.Log("Avatar", "Overlay ocultado."); }));
         right.Children.Add(Label("Estados disponibles", 14, "#F8FAFC", true));
         var states = new WrapPanel();
-        foreach (var state in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised", "Angry", "LeftEyeClose" })
+        // Expose only the two approved talk states; legacy expression assets remain stored for compatibility.
+        foreach (var state in new[] { "Idle", "Talking" })
             states.Children.Add(ActionButton(state, (_, _) =>
             {
                 store.SetSetting("avatar.state", state == "Blink" ? "Idle" : state);
@@ -999,10 +1000,10 @@ public partial class MainWindow
                 : LoadImage(avatarPath);
         }
 
-        var expressionPanel = Panel("Sprites por expresión");
+        var expressionPanel = Panel("Imágenes de reposo y hablando");
         expressionPanel.Margin = new Thickness(0, 12, 0, 0);
-        expressionPanel.Children.Add(Label("Asigná imágenes del mismo tamaño para cambiar la cara cuando el micrófono activa Talking o al elegir una expresión. Si no asignás una imagen, se usa la base.", 12, "#98A4BE"));
-        foreach (var expressionName in new[] { "Idle", "Talking", "Blink", "Happy", "Surprised", "Angry", "LeftEyeClose" })
+        expressionPanel.Children.Add(Label("Asigná una imagen con boca cerrada para reposo y otra con boca abierta para hablar. Si falta la segunda, se usará la imagen base y no habrá animación de boca.", 12, "#98A4BE"));
+        foreach (var expressionName in new[] { "Idle", "Talking" })
         {
             var savedPath = store.GetAvatarExpression(expressionName) ?? string.Empty;
             var row = new WrapPanel { Margin = new Thickness(0, 4, 0, 4) };
@@ -1095,7 +1096,7 @@ public partial class MainWindow
             }
         }, true));
         artPanel.Children.Add(artActions);
-        right.Children.Add(artPanel);
+        // Prompt templates are retained for compatibility but not exposed as a character-generation workflow.
 
         right.Children.Add(Label("X/Y, escala, rotación y orden se guardan localmente. El runtime admite sprites por estado; la física por huesos y el lip-sync por fonemas/visemas todavía requieren un rig más avanzado.", 12, "#98A4BE"));
 
