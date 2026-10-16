@@ -7,6 +7,9 @@ using VtuberBot.Core;
 
 namespace VtuberBot.App;
 
+public sealed record ObsSceneItem(string Name, int Id, bool Enabled);
+public sealed record ObsAudioInput(string Name, string Kind, bool Muted);
+
 /// <summary>OBS Studio WebSocket v5 client with automatic reconnect after transient connection loss.</summary>
 /// <remarks>Connection is reported as active only after Hello/Identify succeeds. Credentials stay in memory only.</remarks>
 public sealed class ObsWebSocketClient : IAsyncDisposable
@@ -138,6 +141,80 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         return response.GetProperty("responseData").GetProperty("scenes").EnumerateArray()
             .Select(scene => scene.GetProperty("sceneName").GetString() ?? "")
             .Where(name => name.Length > 0).ToArray();
+    }
+
+    public async Task<IReadOnlyList<ObsSceneItem>> GetSceneItemsAsync(string sceneName, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sceneName))
+            throw new ArgumentException("Elegí una escena antes de consultar sus fuentes.", nameof(sceneName));
+
+        var response = await RequestAsync("GetSceneItemList", new { sceneName }, cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(response, "OBS no pudo devolver las fuentes de la escena.");
+        var items = response.GetProperty("responseData").GetProperty("sceneItems");
+        return items.EnumerateArray()
+            .Select(item => new ObsSceneItem(
+                item.GetProperty("sourceName").GetString() ?? string.Empty,
+                item.GetProperty("sceneItemId").GetInt32(),
+                item.TryGetProperty("sceneItemEnabled", out var enabled) && enabled.GetBoolean()))
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name))
+            .ToArray();
+    }
+
+    public async Task SetSceneItemEnabledAsync(string sceneName, int sceneItemId, bool enabled, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sceneName))
+            throw new ArgumentException("Elegí una escena.", nameof(sceneName));
+        if (sceneItemId < 0)
+            throw new ArgumentOutOfRangeException(nameof(sceneItemId));
+
+        var response = await RequestAsync("SetSceneItemEnabled",
+            new { sceneName, sceneItemId, sceneItemEnabled = enabled }, cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(response, "OBS no pudo cambiar la visibilidad de la fuente.");
+    }
+
+    public async Task<IReadOnlyList<ObsAudioInput>> GetAudioInputsAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await RequestAsync("GetInputList", cancellationToken: cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(response, "OBS no pudo consultar las fuentes de entrada.");
+        var candidates = response.GetProperty("responseData").GetProperty("inputs").EnumerateArray()
+            .Select(input => new
+            {
+                Name = input.GetProperty("inputName").GetString() ?? string.Empty,
+                Kind = input.GetProperty("inputKind").GetString() ?? string.Empty
+            })
+            .Where(input => !string.IsNullOrWhiteSpace(input.Name) && ObsInputKindPolicy.IsPotentialAudioInput(input.Kind))
+            .Take(32)
+            .ToArray();
+
+        var result = new List<ObsAudioInput>(candidates.Length);
+        foreach (var input in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            // A failed GetInputMute response means this source has no controllable audio mixer;
+            // transport failures still propagate from RequestAsync and are not hidden.
+            var muteResponse = await RequestAsync("GetInputMute", new { inputName = input.Name }, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                EnsureRequestSucceeded(muteResponse, "La fuente no expone un estado de silencio.");
+                var muted = muteResponse.GetProperty("responseData").GetProperty("inputMuted").GetBoolean();
+                result.Add(new ObsAudioInput(input.Name, input.Kind, muted));
+            }
+            catch (InvalidOperationException)
+            {
+                continue;
+            }
+        }
+
+        return result;
+    }
+
+    public async Task SetInputMuteAsync(string inputName, bool muted, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(inputName))
+            throw new ArgumentException("Elegí una fuente de audio.", nameof(inputName));
+
+        var response = await RequestAsync("SetInputMute", new { inputName, inputMuted = muted }, cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(response, "OBS no pudo cambiar el silencio de la fuente.");
     }
 
     public async Task SetCurrentSceneAsync(string sceneName)
