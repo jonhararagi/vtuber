@@ -215,15 +215,26 @@ public sealed class AvatarOverlayWindow : Window
             : baseImagePath;
         var visibleLayers = avatarLayers.Where(layer => layer.Visible && File.Exists(layer.Path)).ToArray();
         foreach (var layer in AvatarLayerOrdering.BackgroundLayers(visibleLayers))
-            AddLayerImage(layer.Path, layer);
+            AddLayerImage(ResolveLayerArtwork(layer, visualState), layer);
         if (!string.IsNullOrWhiteSpace(activeBasePath) && File.Exists(activeBasePath))
             AddLayerImage(activeBasePath, null);
         foreach (var layer in AvatarLayerOrdering.ForegroundLayers(visibleLayers))
-            AddLayerImage(layer.Path, layer);
+            AddLayerImage(ResolveLayerArtwork(layer, visualState), layer);
         if (additionalPaths is not null)
             foreach (var path in additionalPaths.Where(File.Exists))
                 AddLayerImage(path, null);
         layerCanvas.Children.Add(alertCard);
+    }
+
+    private static string ResolveLayerArtwork(AvatarLayer layer, string visualState)
+    {
+        // Mouth art is an overlay layer: keep its saved transform and never replace the full character.
+        if (string.Equals(visualState, "Talking", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(layer.OpenMouthPath) && File.Exists(layer.OpenMouthPath))
+            return layer.OpenMouthPath;
+        if (!string.IsNullOrWhiteSpace(layer.ClosedMouthPath) && File.Exists(layer.ClosedMouthPath))
+            return layer.ClosedMouthPath;
+        return layer.Path;
     }
 
     private void AddLayerImage(string path, AvatarLayer? layer)
