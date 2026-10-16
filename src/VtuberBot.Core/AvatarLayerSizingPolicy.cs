@@ -24,7 +24,22 @@ public static class AvatarLayerSizingPolicy
 
         // The avatar base uses Uniform inside the viewport; apply the exact same scale
         // to the cropped artwork so its real pixel dimensions stay relative to the face.
-        var fitScale = Math.Min(viewportWidth / canvasPixelWidth, viewportHeight / canvasPixelHeight);
+        var fitScale = GetFitScale(canvasPixelWidth, canvasPixelHeight, viewportWidth, viewportHeight);
         return (Math.Max(1, artworkPixelWidth * fitScale), Math.Max(1, artworkPixelHeight * fitScale));
+    }
+
+    public static double GetFitScale(
+        double canvasPixelWidth,
+        double canvasPixelHeight,
+        double viewportWidth,
+        double viewportHeight)
+    {
+        if (!double.IsFinite(canvasPixelWidth) || canvasPixelWidth <= 0 ||
+            !double.IsFinite(canvasPixelHeight) || canvasPixelHeight <= 0 ||
+            !double.IsFinite(viewportWidth) || viewportWidth <= 0 ||
+            !double.IsFinite(viewportHeight) || viewportHeight <= 0)
+            throw new ArgumentOutOfRangeException(nameof(canvasPixelWidth), "Las dimensiones del avatar y de la vista deben ser positivas y finitas.");
+
+        return Math.Min(viewportWidth / canvasPixelWidth, viewportHeight / canvasPixelHeight);
     }
 }
