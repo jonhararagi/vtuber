@@ -84,6 +84,7 @@ public partial class MainWindow : Window
     private ProgressBar? dashboardCpuBar;
     private TextBlock? dashboardRamValue;
     private ProgressBar? dashboardRamBar;
+    private TextBlock? dashboardRamWarningLabel;
 
     // Keep PRIVMSG processing ordered and bounded when commands await network calls.
     private const int MaxPendingTwitchMessages = 1000;
