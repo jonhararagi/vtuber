@@ -1,3 +1,9 @@
+> **Alcance vigente (2026-10-16):** OBS WebSocket v5 y VOICEVOX Engine local son las integraciones prioritarias. Streamer.bot y PNGTuber Plus no son dependencias del producto y no deben configurarse para el funcionamiento básico. No hay conexión directa de cuenta Twitch ni funciones sociales en el alcance aprobado. Conservá las secciones históricas de abajo solo como referencia; no las interpretes como funciones activas.
+>
+> Fuente de verdad: [`docs/ESPECIFICACION_DEFINITIVA.md`](ESPECIFICACION_DEFINITIVA.md).
+
+---
+
 # Centro de integraciones externas
 
 La página **Integraciones** coordina aplicaciones de escritorio existentes. No descarga, instala ni incluye ejecutables de terceros.
