@@ -29,6 +29,7 @@ public sealed class WaifuSpriteStudioWindow : Window
     private readonly string workDirectory;
     private readonly string importDirectory;
     private readonly string assetsDirectory;
+    private readonly string userCatalogPath;
     private readonly List<WaifuSpriteAsset> catalog;
     private readonly List<SpriteLayer> layers = [];
     private readonly Dictionary<Guid, Border> visuals = [];
@@ -61,8 +62,10 @@ public sealed class WaifuSpriteStudioWindow : Window
         workDirectory = Path.Combine(Path.GetFullPath(avatarDataDirectory), "waifu-studio");
         importDirectory = Path.Combine(workDirectory, "imports");
         assetsDirectory = Path.Combine(workDirectory, "built-in-assets");
+        userCatalogPath = Path.Combine(workDirectory, "user-assets.json");
         Directory.CreateDirectory(importDirectory);
         catalog = WaifuSpriteAssetCatalog.EnsureAssets(assetsDirectory).ToList();
+        LoadPersistedUserAssets();
 
         Title = "VTuberBot · Creador de waifu PNG por objetos";
         Width = 1500;
@@ -203,6 +206,122 @@ public sealed class WaifuSpriteStudioWindow : Window
         UpdateCatalogDescription();
     }
 
+    private void LoadPersistedUserAssets()
+    {
+        try
+        {
+            var info = new FileInfo(userCatalogPath);
+            if (!info.Exists)
+                return;
+            if (info.Length <= 0 || info.Length > 2 * 1024 * 1024)
+                throw new InvalidDataException("El catálogo local de objetos debe ocupar menos de 2 MB.");
+
+            var saved = JsonSerializer.Deserialize<List<PersistedUserAsset>>(File.ReadAllText(userCatalogPath), JsonOptions)
+                ?? throw new InvalidDataException("El catálogo local de objetos no contiene una lista válida.");
+            if (saved.Count > 500)
+                throw new InvalidDataException("El catálogo local supera el máximo de 500 objetos importados.");
+
+            var importRoot = GetImportRootPrefix();
+            foreach (var entry in saved)
+            {
+                if (string.IsNullOrWhiteSpace(entry.Id) || string.IsNullOrWhiteSpace(entry.Path))
+                    continue;
+                var path = Path.GetFullPath(entry.Path);
+                if (!path.StartsWith(importRoot, StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
+                    continue;
+                if (catalog.Any(item => string.Equals(item.Path, path, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                var category = SupportedCategories.Contains(entry.Category, StringComparer.OrdinalIgnoreCase)
+                    ? entry.Category
+                    : "Personalizados";
+                catalog.Add(new WaifuSpriteAsset(
+                    entry.Id.StartsWith("user-", StringComparison.Ordinal) ? entry.Id : "user-" + Guid.NewGuid().ToString("N"),
+                    string.IsNullOrWhiteSpace(entry.Name) ? Path.GetFileNameWithoutExtension(path) : entry.Name,
+                    category,
+                    string.IsNullOrWhiteSpace(entry.Description) ? "Objeto local importado por el usuario." : entry.Description,
+                    path,
+                    Math.Clamp(entry.Width, 1, 16384),
+                    Math.Clamp(entry.Height, 1, 16384),
+                    entry.RemoveMatte));
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or ArgumentException)
+        {
+            // A damaged optional asset catalog must never stop the avatar studio from opening.
+            SetStatus("No se pudo restaurar la biblioteca de objetos importados: " + exception.GetBaseException().Message);
+        }
+    }
+
+    private void RegisterImportedAsset(string path, string name, string category, BitmapSource image, bool removeMatte)
+    {
+        var fullPath = Path.GetFullPath(path);
+        if (!fullPath.StartsWith(GetImportRootPrefix(), StringComparison.OrdinalIgnoreCase) || !File.Exists(fullPath))
+            return;
+
+        var existing = catalog.FirstOrDefault(item => string.Equals(item.Path, fullPath, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            var index = catalog.IndexOf(existing);
+            catalog[index] = existing with { Category = category, RemoveMatte = removeMatte };
+        }
+        else
+        {
+            catalog.Add(new WaifuSpriteAsset(
+                "user-" + Guid.NewGuid().ToString("N"),
+                string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(fullPath) : name,
+                category,
+                "Objeto importado por el usuario. Archivo local; no se ha subido a Internet.",
+                fullPath,
+                image.PixelWidth,
+                image.PixelHeight,
+                removeMatte));
+        }
+
+        PersistUserAssetsCatalog();
+        if (Equals(categoryPicker.SelectedItem, category))
+            RefreshCatalog();
+    }
+
+    private string GetImportRootPrefix() =>
+        Path.GetFullPath(importDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+        + Path.DirectorySeparatorChar;
+
+    private void PersistUserAssetsCatalog()
+    {
+        string? temporaryPath = null;
+        try
+        {
+            var importRoot = GetImportRootPrefix();
+            var entries = catalog
+                .Where(item => item.Id.StartsWith("user-", StringComparison.Ordinal) &&
+                    item.Path.StartsWith(importRoot, StringComparison.OrdinalIgnoreCase) && File.Exists(item.Path))
+                .TakeLast(500)
+                .Select(item => new PersistedUserAsset(
+                    item.Id, item.Name, item.Category, item.Description, Path.GetFullPath(item.Path),
+                    item.Width, item.Height, item.RemoveMatte))
+                .ToArray();
+
+            temporaryPath = userCatalogPath + ".tmp";
+            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(entries, JsonOptions));
+            File.Move(temporaryPath, userCatalogPath, overwrite: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        {
+            SetStatus("El objeto está disponible durante esta sesión, pero no se pudo guardar el catálogo local: "
+                + exception.GetBaseException().Message);
+        }
+        finally
+        {
+            if (temporaryPath is not null && File.Exists(temporaryPath))
+            {
+                try { File.Delete(temporaryPath); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+    }
+
     private void UpdateCatalogDescription()
     {
         if (catalogList.SelectedItem is WaifuSpriteAsset asset)
@@ -274,6 +393,8 @@ public sealed class WaifuSpriteStudioWindow : Window
                 Width = width, Height = height, Scale = 1, Rotation = 0, Opacity = 1, Visible = true,
                 ZIndex = 100, RemoveMatte = removeWhite && Path.GetExtension(imported).Equals(".gif", StringComparison.OrdinalIgnoreCase)
             });
+            RegisterImportedAsset(imported, Path.GetFileNameWithoutExtension(path), "Personalizados", first,
+                removeWhite && Path.GetExtension(imported).Equals(".gif", StringComparison.OrdinalIgnoreCase));
             SetStatus(removeWhite
                 ? "Personaje importado. Se eliminó localmente el blanco conectado al borde; el archivo original no se modificó. Revisá los bordes claros y ajustá a mano si hace falta."
                 : "Personaje importado sin quitar el fondo. Podés usar «Quitar fondo blanco a una imagen» después.");
@@ -314,6 +435,7 @@ public sealed class WaifuSpriteStudioWindow : Window
                 Width = size.Width, Height = size.Height, Scale = 1, Rotation = 0, Opacity = 1, Visible = true,
                 ZIndex = NextZ(), RemoveMatte = false
             });
+            RegisterImportedAsset(output, Path.GetFileNameWithoutExtension(dialog.FileName), "Personalizados", frames[0], removeMatte: false);
             SetStatus("Se creó una copia PNG con transparencia. El archivo original quedó intacto.");
         }
         catch (Exception exception)
@@ -339,20 +461,7 @@ public sealed class WaifuSpriteStudioWindow : Window
                 Scale = 1, Rotation = 0, Opacity = 1, Visible = true, ZIndex = isBackground ? -100 : NextZ(), RemoveMatte = removeWhite
             };
             AddLayer(layer);
-            if (!catalog.Any(item => string.Equals(item.Path, imported, StringComparison.OrdinalIgnoreCase)))
-            {
-                catalog.Add(new WaifuSpriteAsset(
-                    "user-" + Guid.NewGuid().ToString("N"),
-                    Path.GetFileNameWithoutExtension(path),
-                    category,
-                    "Objeto importado por el usuario. Archivo local; no se ha subido a Internet.",
-                    imported,
-                    frames[0].PixelWidth,
-                    frames[0].PixelHeight,
-                    removeWhite));
-                if (Equals(categoryPicker.SelectedItem, category))
-                    RefreshCatalog();
-            }
+            RegisterImportedAsset(imported, Path.GetFileNameWithoutExtension(path), category, frames[0], removeWhite);
             SetStatus(Path.GetExtension(path).Equals(".gif", StringComparison.OrdinalIgnoreCase)
                 ? "GIF agregado y animado en la vista previa. La exportación será una imagen PNG del fotograma visible."
                 : "Objeto importado. Si el fondo blanco seguía conectado al borde se procesó localmente.");
@@ -931,6 +1040,10 @@ public sealed class WaifuSpriteStudioWindow : Window
     {
         public override string ToString() => Display;
     }
+
+    private sealed record PersistedUserAsset(
+        string Id, string Name, string Category, string Description, string Path,
+        int Width, int Height, bool RemoveMatte);
 
     private sealed class SpriteLayer
     {
