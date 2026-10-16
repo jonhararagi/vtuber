@@ -7,7 +7,7 @@ using VtuberBot.Core;
 
 namespace VtuberBot.App;
 
-public sealed record ObsSceneItem(string Name, int Id, bool Enabled);
+public sealed record ObsSceneItem(string Name, long Id, bool Enabled);
 public sealed record ObsAudioInput(string Name, string Kind, bool Muted);
 
 /// <summary>OBS Studio WebSocket v5 client with automatic reconnect after transient connection loss.</summary>
@@ -155,13 +155,13 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         return items.EnumerateArray()
             .Select(item => new ObsSceneItem(
                 item.GetProperty("sourceName").GetString() ?? string.Empty,
-                item.GetProperty("sceneItemId").GetInt32(),
+                item.GetProperty("sceneItemId").GetInt64(),
                 item.TryGetProperty("sceneItemEnabled", out var enabled) && enabled.GetBoolean()))
             .Where(item => !string.IsNullOrWhiteSpace(item.Name))
             .ToArray();
     }
 
-    public async Task SetSceneItemEnabledAsync(string sceneName, int sceneItemId, bool enabled, CancellationToken cancellationToken = default)
+    public async Task SetSceneItemEnabledAsync(string sceneName, long sceneItemId, bool enabled, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(sceneName))
             throw new ArgumentException("Elegí una escena.", nameof(sceneName));
