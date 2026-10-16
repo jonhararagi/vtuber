@@ -514,13 +514,13 @@ public partial class MainWindow
                 var pen = new Pen(new SolidColorBrush(Color.FromRgb(119, 43, 65)), 7);
                 switch (index)
                 {
-                    case 0: dc.DrawGeometry(null, pen, MakePath(new Point(77, 124), new Point(105, 153), new Point(151, 153), new Point(179, 124)); break;
+                    case 0: dc.DrawGeometry(null, pen, MakePath(new Point(77, 124), new Point(105, 153), new Point(151, 153), new Point(179, 124))); break;
                     case 1: dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(139, 42, 72)), new Pen(new SolidColorBrush(Color.FromRgb(93, 32, 53)), 4), new Point(128, 139), 25, 34); dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(245, 132, 160)), null, new Point(128, 158), 14, 7); break;
-                    case 2: dc.DrawGeometry(null, pen, MakePath(new Point(96, 134), new Point(112, 122), new Point(128, 134), new Point(144, 122), new Point(160, 134)); break;
+                    case 2: dc.DrawGeometry(null, pen, MakePath(new Point(96, 134), new Point(112, 122), new Point(128, 134), new Point(144, 122), new Point(160, 134))); break;
                     case 3: dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(139, 42, 72)), null, new Point(128, 140), 10, 7); break;
                     case 4: dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(139, 42, 72)), new Pen(new SolidColorBrush(Color.FromRgb(93, 32, 53)), 4), new Point(128, 142), 24, 29); break;
-                    case 5: dc.DrawGeometry(null, pen, MakePath(new Point(90, 143), new Point(108, 132), new Point(128, 142), new Point(148, 132), new Point(166, 143)); break;
-                    default: dc.DrawGeometry(null, pen, MakePath(new Point(83, 121), new Point(101, 146), new Point(128, 155), new Point(155, 146), new Point(173, 121)); break;
+                    case 5: dc.DrawGeometry(null, pen, MakePath(new Point(90, 143), new Point(108, 132), new Point(128, 142), new Point(148, 132), new Point(166, 143))); break;
+                    default: dc.DrawGeometry(null, pen, MakePath(new Point(83, 121), new Point(101, 146), new Point(128, 155), new Point(155, 146), new Point(173, 121))); break;
                 }
             }
             else if (category == "head")
