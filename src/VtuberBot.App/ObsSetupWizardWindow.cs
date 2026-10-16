@@ -126,6 +126,7 @@ public sealed class ObsSetupWizardWindow : Window
     private readonly Button backButton = new();
     private readonly Button nextButton = new();
     private ComboBox? platformSelector;
+    private bool isRenderingStep;
     private readonly HashSet<int> completedSteps = [];
     private int currentStep;
 
@@ -289,12 +290,12 @@ public sealed class ObsSetupWizardWindow : Window
         completedCheck.Content = "Ya hice este paso";
         completedCheck.Foreground = Brush("#F1F5F9");
         completedCheck.Margin = new Thickness(2, 4, 2, 7);
-        completedCheck.Checked += (_, _) => SetStepCompleted(true);
-        completedCheck.Unchecked += (_, _) => SetStepCompleted(false);
+        completedCheck.Checked += (_, _) => { if (!isRenderingStep) SetStepCompleted(true); };
+        completedCheck.Unchecked += (_, _) => { if (!isRenderingStep) SetStepCompleted(false); }
         Grid.SetRow(completedCheck, 2);
         lower.Children.Add(completedCheck);
 
-        var footer = new DockPanel();
+        var footer = new DockPanel { LastChildFill = false };
         actionPanel.VerticalAlignment = VerticalAlignment.Center;
         DockPanel.SetDock(actionPanel, Dock.Top);
         footer.Children.Add(actionPanel);
@@ -332,7 +333,9 @@ public sealed class ObsSetupWizardWindow : Window
         var step = Steps[currentStep];
         titleText.Text = step.Title;
         subtitleText.Text = step.Subtitle;
+        isRenderingStep = true;
         completedCheck.IsChecked = completedSteps.Contains(currentStep);
+        isRenderingStep = false;
         navigation.Children.Clear();
         for (var i = 0; i < Steps.Length; i++)
         {
@@ -485,7 +488,7 @@ public sealed class ObsSetupWizardWindow : Window
                 actionPanel.Children.Add(NewButton("Copiar enlace", false, () => CopyText("https://obsproject.com/download")));
                 break;
             case 1:
-                actionPanel.Children.Add(NewButton("Abrir OBS Studio", true, async () => await RunAsync(openObsAsync, "OBS abierto o solicitud enviada.")));
+                actionPanel.Children.Add(NewButton("Abrir OBS Studio", true, asyncAction: () => RunAsync(openObsAsync, "OBS abierto o solicitud enviada.")));
                 break;
             case 2:
                 actionPanel.Children.Add(NewButton("Mostrar overlay de VTuberBot", true, () =>
@@ -502,7 +505,7 @@ public sealed class ObsSetupWizardWindow : Window
                     statusText.Text = "En la página OBS, guardá host/puerto/contraseña y pulsa «Guardar y conectar». Después volvés aquí para comprobar.";
                 }));
                 actionPanel.Children.Add(NewButton("Copiar host y puerto", false, () => CopyText("Host: 127.0.0.1\r\nPuerto WebSocket de OBS: 4455")));
-                actionPanel.Children.Add(NewButton("Comprobar conexión real", false, async () =>
+                actionPanel.Children.Add(NewButton("Comprobar conexión real", false, asyncAction: async () =>
                 {
                     var result = await testConnectionAsync();
                     statusText.Text = result
@@ -519,7 +522,8 @@ public sealed class ObsSetupWizardWindow : Window
                     Margin = new Thickness(0, 0, 8, 7),
                     Padding = new Thickness(7)
                 };
-                platformSelector.SelectionChanged += (_, _) => saveSetting("help.obsWizard.platform", platformSelector.SelectedItem?.ToString() == "YouTube" ? "YouTube" : "Twitch");
+                var platformControl = platformSelector;
+                platformControl.SelectionChanged += (_, _) => saveSetting("help.obsWizard.platform", platformControl.SelectedItem?.ToString() == "YouTube" ? "YouTube" : "Twitch");
                 actionPanel.Children.Add(platformSelector);
                 actionPanel.Children.Add(NewButton("Abrir panel oficial", true, () =>
                 {
@@ -532,7 +536,7 @@ public sealed class ObsSetupWizardWindow : Window
                 break;
             case 5:
                 actionPanel.Children.Add(NewButton("Ir a página OBS", false, navigateToObsSettings));
-                actionPanel.Children.Add(NewButton("Aplicar 720p / 30 FPS", true, async () =>
+                actionPanel.Children.Add(NewButton("Aplicar 720p / 30 FPS", true, asyncAction: async () =>
                 {
                     if (MessageBox.Show(this,
                         "Se cambiarán el lienzo y la salida global de OBS a 1280×720 y 30 FPS. Puede afectar todas las escenas. ¿Querés continuar?",
@@ -612,7 +616,7 @@ public sealed class ObsSetupWizardWindow : Window
         RenderCurrentStep();
     }
 
-    private Button NewButton(string label, bool primary, Action? action = null)
+    private Button NewButton(string label, bool primary, Action? action = null, Func<Task>? asyncAction = null)
     {
         var button = new Button
         {
@@ -627,11 +631,20 @@ public sealed class ObsSetupWizardWindow : Window
             Cursor = Cursors.Hand,
             FontSize = 12
         };
-        if (action is not null)
+        if (action is not null || asyncAction is not null)
             button.Click += async (_, _) =>
             {
-                try { await Task.CompletedTask; action(); }
-                catch (Exception exception) { statusText.Text = "No se completó la acción: " + exception.Message; }
+                try
+                {
+                    if (asyncAction is not null)
+                        await asyncAction();
+                    else
+                        action?.Invoke();
+                }
+                catch (Exception exception)
+                {
+                    statusText.Text = "No se completó la acción: " + exception.Message;
+                }
             };
         return button;
     }
