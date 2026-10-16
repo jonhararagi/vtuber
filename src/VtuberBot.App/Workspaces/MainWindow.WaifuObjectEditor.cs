@@ -43,6 +43,16 @@ public partial class MainWindow
                 layer.PreviewImage.Source = layer.Source;
             }
         };
+        // Encuadre configurable de cámara; es una guía visual guardada en el proyecto.
+        double cameraX = 80, cameraY = 30, cameraWidth = 480, cameraHeight = 580;
+        double obsX = 1420, obsY = 360, obsWidth = 420, obsHeight = 630;
+        var cameraFrame = new System.Windows.Shapes.Rectangle
+        {
+            Stroke = Brushes.DeepSkyBlue, StrokeThickness = 2,
+            StrokeDashArray = new DoubleCollection { 6, 3 },
+            Fill = new SolidColorBrush(Color.FromArgb(20, 40, 170, 255)),
+            IsHitTestVisible = false
+        };
         var canvas = new Canvas { Width = 640, Height = 640, ClipToBounds = true, Background = Brushes.Transparent };
         var checker = new Grid { Width = 640, Height = 640, Background = new SolidColorBrush(Color.FromRgb(37, 45, 63)) };
         for (var y = 0; y < 16; y++)
@@ -63,6 +73,21 @@ public partial class MainWindow
         var opacity = new Slider { Minimum = 0, Maximum = 1, Value = 1, Width = 180, IsEnabled = false };
         var scale = new Slider { Minimum = 0.1, Maximum = 3, Value = 1, Width = 180, IsEnabled = false };
         var status = new TextBlock { Foreground = Brushes.LightGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) };
+        var cameraSummary = new TextBlock { Foreground = Brushes.LightSkyBlue, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) };
+        var obsPreview = new Canvas { Width = 220, Height = 124, Background = new SolidColorBrush(Color.FromRgb(8, 12, 20)), ClipToBounds = true };
+        var obsAvatarRect = new System.Windows.Shapes.Rectangle { Fill = new SolidColorBrush(Color.FromArgb(95, 40, 170, 255)), Stroke = Brushes.DeepSkyBlue, StrokeThickness = 1 };
+        obsPreview.Children.Add(obsAvatarRect);
+        void RefreshCameraPreview()
+        {
+            Canvas.SetLeft(cameraFrame, cameraX); Canvas.SetTop(cameraFrame, cameraY);
+            cameraFrame.Width = cameraWidth; cameraFrame.Height = cameraHeight;
+            Canvas.SetLeft(obsAvatarRect, obsX / 1920d * obsPreview.Width);
+            Canvas.SetTop(obsAvatarRect, obsY / 1080d * obsPreview.Height);
+            obsAvatarRect.Width = Math.Max(1, obsWidth / 1920d * obsPreview.Width);
+            obsAvatarRect.Height = Math.Max(1, obsHeight / 1080d * obsPreview.Height);
+            var area = Math.Clamp(obsWidth, 0, 1920) * Math.Clamp(obsHeight, 0, 1080) / (1920d * 1080d) * 100;
+            cameraSummary.Text = $"Encuadre: X {cameraX:0}, Y {cameraY:0}, {cameraWidth:0} × {cameraHeight:0} px\nOBS 1920 × 1080: X {obsX:0}, Y {obsY:0}, {obsWidth:0} × {obsHeight:0} px. Ocupa {area:0.0}% del lienzo (ancho {obsWidth / 1920d * 100:0.0}%, alto {obsHeight / 1080d * 100:0.0}%).";
+        }
 
         void RefreshList()
         {
@@ -119,6 +144,11 @@ public partial class MainWindow
                 layer.PreviewImage = image;
                 canvas.Children.Add(image);
             }
+            Canvas.SetLeft(cameraFrame, cameraX);
+            Canvas.SetTop(cameraFrame, cameraY);
+            cameraFrame.Width = cameraWidth;
+            cameraFrame.Height = cameraHeight;
+            canvas.Children.Add(cameraFrame);
         }
 
         void SelectLayer()
@@ -278,6 +308,14 @@ public partial class MainWindow
                 }
                 layers.Clear();
                 layers.AddRange(loaded);
+                cameraX = Math.Clamp(project.CameraX, 0, 640); cameraY = Math.Clamp(project.CameraY, 0, 640);
+                cameraWidth = Math.Clamp(project.CameraWidth <= 0 ? 480 : project.CameraWidth, 80, 640);
+                cameraHeight = Math.Clamp(project.CameraHeight <= 0 ? 580 : project.CameraHeight, 80, 640);
+                obsX = Math.Clamp(project.ObsX, 0, 1920); obsY = Math.Clamp(project.ObsY, 0, 1080);
+                obsWidth = Math.Clamp(project.ObsWidth <= 0 ? 420 : project.ObsWidth, 50, 1920);
+                obsHeight = Math.Clamp(project.ObsHeight <= 0 ? 630 : project.ObsHeight, 50, 1080);
+                cropX.Value = cameraX; cropY.Value = cameraY; cropW.Value = cameraWidth; cropH.Value = cameraHeight;
+                RefreshCameraPreview();
                 selected = layers.Count - 1;
                 RefreshList();
                 SelectLayer();
@@ -316,7 +354,7 @@ public partial class MainWindow
                         Width = layer.Width, Height = layer.Height, Scale = layer.Scale, Opacity = layer.Opacity
                     });
                 }
-                var project = new WaifuProject { Width = 640, Height = 640, Layers = savedLayers };
+                var project = new WaifuProject { Width = 640, Height = 640, CameraX = cameraX, CameraY = cameraY, CameraWidth = cameraWidth, CameraHeight = cameraHeight, ObsX = obsX, ObsY = obsY, ObsWidth = obsWidth, ObsHeight = obsHeight, Layers = savedLayers };
                 File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(project, new JsonSerializerOptions { WriteIndented = true }));
                 status.Text = "Proyecto guardado con una copia PNG de cada capa en una carpeta de recursos junto al JSON. Podés mover el proyecto completo sin depender de las rutas originales.";
             }
@@ -398,6 +436,48 @@ public partial class MainWindow
         controls.Children.Add(new TextBlock { Text = "Catálogo local de piezas vectoriales", Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 10, 4, 2) });
         controls.Children.Add(new TextBlock { Text = "Piezas originales de muestra generadas localmente; cada una se agrega como capa que podés mover, escalar y ordenar.", Foreground = Brushes.LightGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4, 0, 4, 4) });
         controls.Children.Add(catalogScroll);
+        controls.Children.Add(new TextBlock { Text = "Encuadre de cámara / recorte visible", Foreground = Brushes.DeepSkyBlue, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 12, 4, 3) });
+        controls.Children.Add(new TextBlock { Text = "El marco azul indica qué parte del personaje mostrar. Elegí rostro, busto o cuerpo completo y ajustá el recorte.", Foreground = Brushes.LightGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
+        var framingPreset = new ComboBox { Margin = new Thickness(4), ItemsSource = new[] { "Personalizado", "Rostro", "Busto", "Cuerpo completo" }, SelectedIndex = 2 };
+        framingPreset.SelectionChanged += (_, _) =>
+        {
+            switch (framingPreset.SelectedItem as string)
+            {
+                case "Rostro": cameraWidth = 280; cameraHeight = 300; cameraX = 180; cameraY = 25; break;
+                case "Busto": cameraWidth = 420; cameraHeight = 430; cameraX = 110; cameraY = 30; break;
+                case "Cuerpo completo": cameraWidth = 600; cameraHeight = 620; cameraX = 20; cameraY = 10; break;
+                default: return;
+            }
+            cropX.Value = cameraX; cropY.Value = cameraY; cropW.Value = cameraWidth; cropH.Value = cameraHeight;
+            RefreshCameraPreview(); RenderLayers();
+        };
+        controls.Children.Add(framingPreset);
+        Slider CropSlider(string title, double min, double max, double value, Action<double> set)
+        {
+            controls.Children.Add(new TextBlock { Text = title, Foreground = Brushes.White, Margin = new Thickness(4, 5, 4, 0) });
+            var slider = new Slider { Minimum = min, Maximum = max, Value = value, Width = 210, Margin = new Thickness(4) };
+            slider.ValueChanged += (_, _) => { set(slider.Value); RefreshCameraPreview(); RenderLayers(); };
+            controls.Children.Add(slider); return slider;
+        }
+        var cropX = CropSlider("Recorte X", 0, 640, cameraX, v => cameraX = v);
+        var cropY = CropSlider("Recorte Y", 0, 640, cameraY, v => cameraY = v);
+        var cropW = CropSlider("Ancho del recorte", 80, 640, cameraWidth, v => cameraWidth = v);
+        var cropH = CropSlider("Alto del recorte", 80, 640, cameraHeight, v => cameraHeight = v);
+        controls.Children.Add(new TextBlock { Text = "Lienzo completo de OBS (1920 × 1080)", Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 10, 4, 3) });
+        controls.Children.Add(obsPreview);
+        controls.Children.Add(cameraSummary);
+        Slider ObsSlider(string title, double min, double max, double value, Action<double> set)
+        {
+            controls.Children.Add(new TextBlock { Text = title, Foreground = Brushes.White, Margin = new Thickness(4, 4, 4, 0) });
+            var slider = new Slider { Minimum = min, Maximum = max, Value = value, Width = 210, Margin = new Thickness(4) };
+            slider.ValueChanged += (_, _) => { set(slider.Value); RefreshCameraPreview(); };
+            controls.Children.Add(slider); return slider;
+        }
+        ObsSlider("Posición en OBS X", 0, 1920, obsX, v => obsX = v);
+        ObsSlider("Posición en OBS Y", 0, 1080, obsY, v => obsY = v);
+        ObsSlider("Ancho en OBS", 50, 1920, obsWidth, v => obsWidth = v);
+        ObsSlider("Alto en OBS", 50, 1080, obsHeight, v => obsHeight = v);
+        RefreshCameraPreview();
         controls.Children.Add(new TextBlock { Text = "Opacidad", Foreground = Brushes.White, Margin = new Thickness(4, 10, 4, 0) });
         controls.Children.Add(opacity);
         controls.Children.Add(new TextBlock { Text = "Escala", Foreground = Brushes.White, Margin = new Thickness(4, 10, 4, 0) });
@@ -771,6 +851,14 @@ public partial class MainWindow
     {
         public int Width { get; set; }
         public int Height { get; set; }
+        public double CameraX { get; set; } = 80;
+        public double CameraY { get; set; } = 30;
+        public double CameraWidth { get; set; } = 480;
+        public double CameraHeight { get; set; } = 580;
+        public double ObsX { get; set; } = 1420;
+        public double ObsY { get; set; } = 360;
+        public double ObsWidth { get; set; } = 420;
+        public double ObsHeight { get; set; } = 630;
         public List<WaifuLayerData> Layers { get; set; } = [];
     }
 
