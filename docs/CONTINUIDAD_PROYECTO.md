@@ -3,7 +3,7 @@
 ## 2026-10-16 — OBS: visibilidad de fuentes y silencio de audio (PR #26)
 
 - `main` base de esta rama: `af58e80c49b965970273f51e6779a3842f5965d7`, integración de PR #25.
-- PR #25 tuvo CI de Windows exitosa para el candidato de merge `a0ee7a9e8780581fed9274a177b3a8386572b572` (HEAD de la PR `65dc0c23e715da329c1d9dd512f889f2caafa02d)); el paquete de esa ejecución era un artefacto de PR, no el artefacto final de `main`. La CI de `main` para `af58e80` se consulta por separado.
+- PR #25 tuvo CI de Windows exitosa para el candidato de merge `a0ee7a9e8780581fed9274a177b3a8386572b572` (HEAD de la PR `65dc0c23e715da329c1d9dd512f889f2caafa02d)); el paquete de esa ejecución era un artefacto de PR, no el artefacto final de `main`. La CI de `main` para `af58e80c49b965970273f51e6779a3842f5965d7` terminó `success` en [run 38942008780](https://github.com/jonhararagi/vtuber/actions/runs/38942008780). El paquete correspondiente es el artefacto `12062579294`, con nombre `VTuberBot-Product-Candidate-win-x64-af58e80c49b965970273f51e6779a3842f5965d7`; caduca el 30 de octubre de 2026.
 - Esta rama amplía el cliente OBS WebSocket v5 con `GetSceneItemList`, `SetSceneItemEnabled`, `GetInputList`, `GetInputMute` y `SetInputMute`, y añade controles en el panel OBS para consultar/alternar visibilidad de fuentes y silencio de audio.
 - Las fuentes de audio se filtran por tipo probable y se limitan a 32 candidatas. Los tipos que no expongan estado de silencio se omiten; los fallos de transporte siguen propagándose y se muestran como errores.
 - Se añaden pruebas unitarias de la política de tipos de entrada. No se ha probado la conexión contra una instalación real de OBS en esta sesión; CI solo valida compilación y pruebas automatizadas.
