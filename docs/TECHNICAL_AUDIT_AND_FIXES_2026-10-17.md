@@ -65,16 +65,16 @@ No considerar estable un cambio solo porque compila una máquina del desarrollad
 
 La revisión del log de Windows CI mostró una advertencia real: `actions/checkout@v4` y `actions/setup-dotnet@v4` estaban utilizando los runtimes antiguos basados en Node 20. GitHub anunció que Node 20 dejó de estar disponible para JavaScript Actions el **23 de septiembre de 2026** y exige actualizar las acciones a releases compatibles con Node 24.
 
-**Cambio aplicado en esta integración:** `.github/workflows/windows-ci.yml` pasa de `actions/checkout@v4` a `actions/checkout@v7` y de `actions/setup-dotnet@v4` a `actions/setup-dotnet@v6`. La función del workflow no cambia: sigue usando un runner Windows, instala el SDK .NET 10 y ejecuta restore/build/tests/publish. La CI debe comprobar que las nuevas versiones de las acciones funcionan con el runner y el flujo completos.
+**Cambio aplicado y comprobado en main:** `.github/workflows/windows-ci.yml` usa `actions/checkout@v7` y `actions/setup-dotnet@v6`. La ejecución de Windows CI #1099 para el merge commit `33dbf1e6743d0f6ae3f097f22469fa3cd0ae158a` completó restore/build/tests/publish/upload sin advertencias ni errores de compilación.
 
 Fuentes oficiales:
 - GitHub Changelog: retirada de Node 20, 23/09/2026: https://github.blog/changelog/2026-09-23-node-20-is-no-longer-available-in-github-actions/
-- Acción checkout v5 usa Node 24: https://github.com/actions/checkout
+- Acción checkout v7 y runtime Node 24: https://github.com/actions/checkout
 - setup-dotnet v5 y posteriores utilizan Node 24; release actual consultada: https://github.com/actions/setup-dotnet/releases
 
 ### 6. Retiro de Node 20 en `upload-artifact`
 
-La CI del candidato confirmó que `checkout@v7` y `setup-dotnet@v6` ya no emitían la advertencia de Node 20, pero el propio log mostró que `actions/upload-artifact@v4` seguía usando Node 20 y generaba advertencias de `punycode`/URL. Se actualiza a `actions/upload-artifact@v7`, una versión actual compatible con Node 24. Es necesario volver a ejecutar la CI porque esta acción forma parte del camino de publicación del ZIP.
+La ejecución posterior en `main` mostró que `actions/upload-artifact@v4` aún emitía la advertencia de Node 20 y deprecaciones de `punycode`/URL. Se actualizó a `actions/upload-artifact@v7`, versión que usa Node 24. La CI #1099 del commit de implementación confirmó que el paso de subida también terminó correctamente y el log no mostró esas advertencias.
 
 Fuente oficial: https://github.com/actions/upload-artifact/releases
 
