@@ -2461,7 +2461,8 @@ public sealed class Tests
             Assert.True(
                 SpinWait.SpinUntil(
                     () => GetActiveWaiters(process) > 0,
-                    TimeSpan.FromSeconds(1)));
+                    TimeSpan.FromSeconds(5)),
+                "The waiter should be scheduled and registered before Stop is requested.");
 
             var stopStarted = new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
@@ -2474,12 +2475,12 @@ public sealed class Tests
                 TestContext.Current.CancellationToken);
 
             await stopStarted.Task.WaitAsync(
-                TimeSpan.FromSeconds(1),
+                TimeSpan.FromSeconds(5),
                 TestContext.Current.CancellationToken);
 
             await Task.WhenAll(
-                stopTask.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken),
-                waitTask.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken));
+                stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken),
+                waitTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
 
             Assert.False(process.IsRunning);
             Assert.Null(process.Pid);

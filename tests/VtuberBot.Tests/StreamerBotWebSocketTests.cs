@@ -259,20 +259,37 @@ public sealed class StreamerBotWebSocketTests
         var port = ReservePort();
         using var listener = new HttpListener();
         listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
+        var allowInvalidJson = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var server = RunServer(async () =>
         {
-            var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+            var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
             using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
             await SendTextAsync(socket, """{"request":"Hello","info":{"instanceId":"json","name":"Test","version":"1","os":"windows"}}""");
-            await Task.Delay(100, TestContext.Current.CancellationToken);
+            // Do not send malformed data until ConnectAsync has returned. A fixed 100 ms delay
+            // races with the client's Hello continuation on heavily loaded Windows CI runners.
+            var shouldSendInvalidJson = await allowInvalidJson.Task.WaitAsync(
+                TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            if (!shouldSendInvalidJson) return;
             await SendTextAsync(socket, "{this is not json");
             await Task.Delay(200, TestContext.Current.CancellationToken);
         });
-        await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(2));
-        await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port), cancellationToken: TestContext.Current.CancellationToken);
+
+        await using var client = new StreamerBotWebSocketClient(TimeSpan.FromSeconds(5));
+        var connected = false;
+        try
+        {
+            await client.ConnectAsync(new StreamerBotEndpoint("127.0.0.1", port),
+                cancellationToken: TestContext.Current.CancellationToken);
+            connected = true;
+        }
+        finally
+        {
+            allowInvalidJson.TrySetResult(connected);
+        }
+
         await WaitForStateAsync(client, StreamerBotConnectionState.ProtocolError);
         Assert.Equal(StreamerBotConnectionState.ProtocolError, client.Snapshot.State);
-        await server.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await server.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
     }
 
     [Fact]
