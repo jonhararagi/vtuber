@@ -720,4 +720,32 @@ public sealed class ProductStoreTests
         Assert.Equal(ProductStore.CurrentProductSchemaVersion + 1,
             Convert.ToInt32(versionQuery.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture));
     }
+    [Fact]
+    public void AvatarLayerMouthSpritesPersistAndCanBeCleared()
+    {
+        using var temp = new TempDb();
+        var basePath = Path.Combine(temp.DirectoryPath, "mouth-layer.png");
+        var closedPath = Path.Combine(temp.DirectoryPath, "mouth-closed.png");
+        var openPath = Path.Combine(temp.DirectoryPath, "mouth-open.png");
+        File.WriteAllBytes(basePath, [1]);
+        File.WriteAllBytes(closedPath, [2]);
+        File.WriteAllBytes(openPath, [3]);
+
+        var store = new ProductStore(temp.DatabasePath);
+        var layerId = store.AddAvatarLayer("Boca anime", basePath);
+        store.SetAvatarLayerMouthSprites(layerId, closedPath, openPath);
+
+        var reopened = new ProductStore(temp.DatabasePath);
+        var layer = Assert.Single(reopened.GetAvatarLayers(), item => item.Id == layerId);
+        Assert.Equal(Path.GetFullPath(closedPath), layer.ClosedMouthPath);
+        Assert.Equal(Path.GetFullPath(openPath), layer.OpenMouthPath);
+
+        reopened.SetAvatarLayerMouthSprites(layerId, null, null);
+        var cleared = Assert.Single(new ProductStore(temp.DatabasePath).GetAvatarLayers(), item => item.Id == layerId);
+        Assert.Null(cleared.ClosedMouthPath);
+        Assert.Null(cleared.OpenMouthPath);
+        Assert.Throws<FileNotFoundException>(() => reopened.SetAvatarLayerMouthSprites(
+            layerId, closedPath, Path.Combine(temp.DirectoryPath, "missing.png")));
+    }
+
 }

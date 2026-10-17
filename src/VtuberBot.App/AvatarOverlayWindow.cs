@@ -13,7 +13,18 @@ public sealed class AvatarOverlayWindow : Window
     private readonly Grid layerCanvas = new();
     private readonly Border alertCard = new() { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(12), Padding = new Thickness(12), Background = new SolidColorBrush(Color.FromArgb(230, 16, 21, 37)), CornerRadius = new CornerRadius(12), MaxWidth = 390 };
     private readonly TextBlock alertText = new() { Foreground = Brushes.White, FontSize = 18, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
-    private readonly ScaleTransform breathing = new(1,1);
+    // Motion stays inside the two approved visual states (Idle/Talking); no blink or 2.5D animation.
+    private readonly TranslateTransform idleFloat = new();
+    private readonly TranslateTransform talkingBounce = new();
+    private readonly TranslateTransform talkingShake = new();
+    private bool speakingShakeEnabled = true;
+    private bool talkingBounceEnabled = true;
+    private bool idleFloatEnabled = true;
+    private double speakingShakeStrength = 6;
+    private double phase;
+    private DateTimeOffset manualShakeUntil = DateTimeOffset.MinValue;
+    private readonly List<(Image Image, BitmapSource Artwork)> intrinsicMouthImages = [];
+    private BitmapSource? referenceAvatarBitmap;
     private readonly List<(TranslateTransform Transform, double Factor)> parallaxTransforms = [];
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(80) };
     private bool parallaxEnabled;
@@ -36,7 +47,12 @@ public sealed class AvatarOverlayWindow : Window
         WindowStyle = WindowStyle.None; AllowsTransparency = true; Background = Brushes.Transparent;
         Topmost = true; ShowInTaskbar = false; ResizeMode = ResizeMode.CanResizeWithGrip;
         layerCanvas.RenderTransformOrigin = new Point(.5,.5);
-        layerCanvas.RenderTransform = breathing;
+        var avatarMotion = new TransformGroup();
+        avatarMotion.Children.Add(idleFloat);
+        avatarMotion.Children.Add(talkingBounce);
+        avatarMotion.Children.Add(talkingShake);
+        layerCanvas.RenderTransform = avatarMotion;
+        layerCanvas.SizeChanged += (_, _) => UpdateIntrinsicMouthSizes();
         alertCard.Child = alertText;
         layerCanvas.Children.Add(alertCard);
         Content = layerCanvas;
@@ -55,13 +71,28 @@ public sealed class AvatarOverlayWindow : Window
             targetParallaxX = 0;
             targetParallaxY = 0;
         };
-        // Only the timed informational card animates; the character itself has no breathing,
-        // automatic blink, mouse parallax, or expression reactions in the approved two-state mode.
+        // The avatar can move cartoonishly while preserving the two actual face states.
+        // Reduced-motion mode also cancels the shake preview and every transform.
         timer.Tick += (_, _) =>
         {
-            alertCard.Visibility = DateTimeOffset.UtcNow < alertUntil
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            var now = DateTimeOffset.UtcNow;
+            alertCard.Visibility = now < alertUntil ? Visibility.Visible : Visibility.Collapsed;
+            if (ReduceMotion)
+            {
+                idleFloat.Y = talkingBounce.Y = talkingShake.X = 0;
+                return;
+            }
+
+            phase += state == "Talking" ? .12 : .035;
+            idleFloat.Y = state == "Idle" && idleFloatEnabled
+                ? AvatarMotionPolicy.GetIdleFloatOffset(phase, enabled: true)
+                : 0;
+            talkingBounce.Y = state == "Talking" && talkingBounceEnabled
+                ? AvatarMotionPolicy.GetTalkingBounceOffset(phase, enabled: true)
+                : 0;
+            talkingShake.X = now < manualShakeUntil || (state == "Talking" && speakingShakeEnabled)
+                ? AvatarMotionPolicy.GetShakeOffset(phase, speakingShakeStrength)
+                : 0;
         };
         timer.Start();
         Closed += (_, _) => timer.Stop();
@@ -98,6 +129,27 @@ public sealed class AvatarOverlayWindow : Window
     public void SetParallaxStrength(double strength)
     {
         parallaxStrength = 0;
+    }
+
+    public void SetMotionEffects(bool speakingShake, double shakeStrength, bool enableTalkingBounce, bool enableIdleFloat = true)
+    {
+        speakingShakeEnabled = speakingShake;
+        speakingShakeStrength = AvatarMotionPolicy.NormalizeShakeStrength(shakeStrength);
+        talkingBounceEnabled = enableTalkingBounce;
+        idleFloatEnabled = enableIdleFloat;
+        if (!speakingShakeEnabled && DateTimeOffset.UtcNow >= manualShakeUntil)
+            talkingShake.X = 0;
+        if (!talkingBounceEnabled)
+            talkingBounce.Y = 0;
+    }
+
+    /// <summary>Plays a short cartoon-like shake for a preview button.</summary>
+    public void TriggerShake(TimeSpan? duration = null)
+    {
+        var requestedDuration = duration ?? TimeSpan.FromMilliseconds(650);
+        if (requestedDuration <= TimeSpan.Zero || requestedDuration > TimeSpan.FromSeconds(3))
+            return;
+        manualShakeUntil = DateTimeOffset.UtcNow.Add(requestedDuration);
     }
 
     public void SetImage(string path) => SetLayers([path]);
@@ -140,33 +192,49 @@ public sealed class AvatarOverlayWindow : Window
     {
         layerCanvas.Children.Clear();
         parallaxTransforms.Clear();
+        intrinsicMouthImages.Clear();
         var visualState = AvatarTalkStatePolicy.NormalizeVisualState(state);
         var activeBasePath = expressionImages.TryGetValue(visualState, out var expressionPath) && File.Exists(expressionPath)
             ? expressionPath
             : baseImagePath;
+        referenceAvatarBitmap = !string.IsNullOrWhiteSpace(activeBasePath) && File.Exists(activeBasePath)
+            ? AvatarImageLoader.Load(activeBasePath, decodePixelWidth: 1000)
+            : null;
         var visibleLayers = avatarLayers.Where(layer => layer.Visible && File.Exists(layer.Path)).ToArray();
         foreach (var layer in AvatarLayerOrdering.BackgroundLayers(visibleLayers))
-            AddLayerImage(layer.Path, layer);
-        if (!string.IsNullOrWhiteSpace(activeBasePath) && File.Exists(activeBasePath))
-            AddLayerImage(activeBasePath, null);
+            AddLayerImage(ResolveLayerArtwork(layer, visualState), layer, referenceAvatarBitmap);
+        if (referenceAvatarBitmap is not null && !string.IsNullOrWhiteSpace(activeBasePath))
+            AddLayerImage(activeBasePath, null, referenceAvatarBitmap, referenceAvatarBitmap);
         foreach (var layer in AvatarLayerOrdering.ForegroundLayers(visibleLayers))
-            AddLayerImage(layer.Path, layer);
+            AddLayerImage(ResolveLayerArtwork(layer, visualState), layer, referenceAvatarBitmap);
         if (additionalPaths is not null)
             foreach (var path in additionalPaths.Where(File.Exists))
-                AddLayerImage(path, null);
+                AddLayerImage(path, null, referenceAvatarBitmap);
         layerCanvas.Children.Add(alertCard);
+        UpdateIntrinsicMouthSizes();
     }
 
-    private void AddLayerImage(string path, AvatarLayer? layer)
+    private static string ResolveLayerArtwork(AvatarLayer layer, string visualState) =>
+        AvatarMouthSpritePolicy.ResolvePath(layer, visualState);
+
+    private void AddLayerImage(string path, AvatarLayer? layer, BitmapSource? referenceBitmap, BitmapSource? preloadedBitmap = null)
     {
-        var bitmap = AvatarImageLoader.Load(path, decodePixelWidth: 1000);
+        var bitmap = preloadedBitmap ?? AvatarImageLoader.Load(path, decodePixelWidth: 1000);
+        var isBackground = AvatarLayerOrdering.IsBackground(layer);
+        var isMouthArtwork = layer is not null &&
+            ((!string.IsNullOrWhiteSpace(layer.ClosedMouthPath) && string.Equals(path, layer.ClosedMouthPath, StringComparison.OrdinalIgnoreCase)) ||
+             (!string.IsNullOrWhiteSpace(layer.OpenMouthPath) && string.Equals(path, layer.OpenMouthPath, StringComparison.OrdinalIgnoreCase)));
+        var intrinsicMouthPiece = isMouthArtwork && referenceBitmap is { PixelWidth: > 0, PixelHeight: > 0 };
         var image = new Image
         {
-            Source = bitmap, Stretch = AvatarLayerOrdering.IsBackground(layer) ? Stretch.UniformToFill : Stretch.Uniform,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Stretch,
+            Source = bitmap,
+            Stretch = isBackground ? Stretch.UniformToFill : Stretch.Uniform,
+            HorizontalAlignment = intrinsicMouthPiece ? HorizontalAlignment.Center : HorizontalAlignment.Stretch,
+            VerticalAlignment = intrinsicMouthPiece ? VerticalAlignment.Center : VerticalAlignment.Stretch,
             IsHitTestVisible = false
         };
+        if (intrinsicMouthPiece)
+            intrinsicMouthImages.Add((image, bitmap));
         if (layer is not null)
         {
             image.RenderTransformOrigin = new Point(.5, .5);
@@ -180,6 +248,23 @@ public sealed class AvatarOverlayWindow : Window
             image.RenderTransform = transform;
         }
         layerCanvas.Children.Add(image);
+    }
+
+    private void UpdateIntrinsicMouthSizes()
+    {
+        if (referenceAvatarBitmap is null || referenceAvatarBitmap.PixelWidth <= 0 || referenceAvatarBitmap.PixelHeight <= 0)
+            return;
+        var viewportWidth = layerCanvas.ActualWidth > 0 ? layerCanvas.ActualWidth : Width;
+        var viewportHeight = layerCanvas.ActualHeight > 0 ? layerCanvas.ActualHeight : Height;
+        foreach (var (image, artwork) in intrinsicMouthImages)
+        {
+            var size = AvatarLayerSizingPolicy.GetStickerSize(
+                artwork.PixelWidth, artwork.PixelHeight,
+                referenceAvatarBitmap.PixelWidth, referenceAvatarBitmap.PixelHeight,
+                viewportWidth, viewportHeight);
+            image.Width = size.Width;
+            image.Height = size.Height;
+        }
     }
 
     private void UpdateParallax()

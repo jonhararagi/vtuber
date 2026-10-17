@@ -464,3 +464,24 @@ Abrí **Avatar Studio** y pulsá **Abrir creador de waifu PNG por objetos**.
 
 
 **GIF y proyectos:** si guardás una capa GIF sin procesarla, el proyecto copia el GIF original y vuelve a animarlo al abrirlo. Si aplicás eliminación de fondo a un GIF, la capa pasa a ser estática porque el recorte se aplica al fotograma actual.
+
+
+## PNGTuber 2D: recorrido principal simple
+
+Al abrir VTuberBot se muestra **PNGTuber 2D**. Esta es la ruta para salir en pantalla con un personaje 2D, sin configurar un modelo 3D ni usar IA.
+
+1. **Importá tu personaje.** Usá el PNG completo con transparencia. No se altera el archivo original.
+2. **Asigná las bocas dibujadas (opcional).** Elegí un PNG recortado de boca cerrada y otro de boca abierta. VTuberBot muestra la boca cerrada en `Idle` y la abierta en `Talking`. No inventa ni dibuja una boca realista.
+3. **Acomodá la boca.** Arrastrá el sticker sobre la vista previa, ajustá X/Y y escala, y guardá la posición. Se mantiene proporcional al tamaño con el que se presenta el avatar en pantalla; no se estira por toda la ventana.
+4. **Probá movimiento.** Elegí vibración al hablar, rebote suave al hablar y flotación en reposo. La intensidad de vibración tiene un máximo para evitar desplazamientos excesivos. El botón de prueba hace una sacudida breve.
+5. **Mostrá el avatar transparente.** Activá la ventana de avatar y en OBS agregala como **Captura de ventana**. Configurar WebSocket en la página OBS permite controlar OBS desde VTuberBot, pero no sustituye agregar la fuente del avatar a la escena.
+
+**Si ves dos bocas:** el personaje base ya trae una y el sticker agrega otra. Usá una base sin boca o prepará una copia transparente en tu editor de imágenes. VTuberBot no sobrescribe la imagen original ni incluye todavía un recortador de boca integrado en esta página. Lo ideal es que los stickers de boca sean PNG con transparencia y estén recortados alrededor del dibujo, no una captura de toda la cara.
+
+**Si la boca sale enorme:** asegurate de estar importando un sticker recortado, no la imagen completa del rostro. El render de la boca conserva sus dimensiones en relación con el PNG base.
+
+**Si no cambia al hablar:** comprobá que el archivo de boca abierta esté asignado, que el overlay esté visible y que la detección de micrófono/voz marque el estado `Talking`. La comprobación automatizada no valida el micrófono físico de tu PC.
+
+**Si el avatar no aparece en OBS:** primero confirmá que la ventana transparente esté abierta; luego agregá la fuente Captura de ventana en la escena correcta. WebSocket y Captura de ventana son dos configuraciones diferentes.
+
+Los ajustes de movimiento se guardan en la base de datos local. `Reducir movimiento` los desactiva. Se conservan solo los dos estados faciales principales: `Idle` y `Talking`; la vibración y el rebote son movimientos de todo el dibujo, no físicas independientes por pieza.

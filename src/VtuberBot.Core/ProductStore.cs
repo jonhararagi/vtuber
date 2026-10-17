@@ -8,12 +8,12 @@ public sealed record GiveawayRecord(long Id, string Name, string Status, string?
 public sealed record ProductActivity(DateTimeOffset At, string Module, string Message);
 public sealed record AutomationRule(long Id, string Name, string Message, int IntervalMinutes, bool Enabled, DateTimeOffset? LastRunUtc = null);
 public sealed record AvatarProfile(long Id, string Name, string? BasePath, DateTimeOffset CreatedUtc);
-public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrder, bool Visible, double OffsetX = 0, double OffsetY = 0, double Scale = 1, double RotationDegrees = 0);
+public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrder, bool Visible, double OffsetX = 0, double OffsetY = 0, double Scale = 1, double RotationDegrees = 0, string? ClosedMouthPath = null, string? OpenMouthPath = null);
 
 /// <summary>Persistence for product-level features. Uses the same local SQLite file as the core.</summary>
 public sealed class ProductStore : IProductSettingsStore
 {
-    public const int CurrentProductSchemaVersion = 1;
+    public const int CurrentProductSchemaVersion = 2;
     public const int DefaultActivityRetention = 100_000;
     private const int ActivityPruneInterval = 5_000;
     private readonly string connectionString;
@@ -98,7 +98,8 @@ public sealed class ProductStore : IProductSettingsStore
               sort_order INTEGER NOT NULL, visible INTEGER NOT NULL DEFAULT 1,
               offset_x REAL NOT NULL DEFAULT 0, offset_y REAL NOT NULL DEFAULT 0,
               scale REAL NOT NULL DEFAULT 1, rotation_degrees REAL NOT NULL DEFAULT 0,
-              profile_id INTEGER NOT NULL DEFAULT 1);
+              profile_id INTEGER NOT NULL DEFAULT 1,
+              closed_mouth_path TEXT NULL, open_mouth_path TEXT NULL);
             CREATE TABLE IF NOT EXISTS product_settings(
               key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS idx_activity_time ON product_activity(id DESC);
@@ -140,6 +141,8 @@ public sealed class ProductStore : IProductSettingsStore
         EnsureColumn(connection, "avatar_layers", "scale", "REAL NOT NULL DEFAULT 1");
         EnsureColumn(connection, "avatar_layers", "rotation_degrees", "REAL NOT NULL DEFAULT 0");
         EnsureColumn(connection, "avatar_layers", "profile_id", "INTEGER NOT NULL DEFAULT 1");
+        EnsureColumn(connection, "avatar_layers", "closed_mouth_path", "TEXT NULL");
+        EnsureColumn(connection, "avatar_layers", "open_mouth_path", "TEXT NULL");
         EnsureDefaultAvatarProfile(connection);
         SeedDefaults(connection);
         PruneActivityLog(connection, DefaultActivityRetention);
@@ -1627,13 +1630,14 @@ public sealed class ProductStore : IProductSettingsStore
         {
             using var c = Open();
             using var cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT id,name,path,sort_order,visible,offset_x,offset_y,scale,rotation_degrees FROM avatar_layers WHERE profile_id=$profileId ORDER BY sort_order,id";
+            cmd.CommandText = "SELECT id,name,path,sort_order,visible,offset_x,offset_y,scale,rotation_degrees,closed_mouth_path,open_mouth_path FROM avatar_layers WHERE profile_id=$profileId ORDER BY sort_order,id";
             cmd.Parameters.AddWithValue("$profileId", GetActiveAvatarProfileId(c));
             using var r = cmd.ExecuteReader();
             var list = new List<AvatarLayer>();
             while (r.Read())
                 list.Add(new AvatarLayer(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetInt32(4) != 0,
-                    r.GetDouble(5), r.GetDouble(6), r.GetDouble(7), r.GetDouble(8)));
+                    r.GetDouble(5), r.GetDouble(6), r.GetDouble(7), r.GetDouble(8),
+                    r.IsDBNull(9) ? null : r.GetString(9), r.IsDBNull(10) ? null : r.GetString(10)));
             return list;
         }
     }
@@ -1653,6 +1657,34 @@ public sealed class ProductStore : IProductSettingsStore
             cmd.Parameters.AddWithValue("$p", Path.GetFullPath(path));
             return (long)cmd.ExecuteScalar()!;
         }
+    }
+
+    /// <summary>Assigns optional closed/open mouth artwork to one independently positioned avatar layer.</summary>
+    public void SetAvatarLayerMouthSprites(long id, string? closedMouthPath, string? openMouthPath)
+    {
+        var closedPath = NormalizeOptionalAvatarLayerAsset(closedMouthPath);
+        var openPath = NormalizeOptionalAvatarLayerAsset(openMouthPath);
+        lock (gate)
+        {
+            using var c = Open();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "UPDATE avatar_layers SET closed_mouth_path=$closed,open_mouth_path=$open WHERE id=$id AND profile_id=$profileId";
+            cmd.Parameters.AddWithValue("$closed", (object?)closedPath ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$open", (object?)openPath ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$profileId", GetActiveAvatarProfileId(c));
+            if (cmd.ExecuteNonQuery() == 0) throw new KeyNotFoundException($"No existe la capa {id}.");
+        }
+        Log("Avatar", $"Sprites de boca guardados para la capa {id}.");
+    }
+
+    private static string? NormalizeOptionalAvatarLayerAsset(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        var normalized = Path.GetFullPath(path.Trim());
+        if (!File.Exists(normalized))
+            throw new FileNotFoundException("No existe el archivo asignado a la boca.", normalized);
+        return normalized;
     }
 
     public void SetAvatarLayerVisibility(long id, bool visible)
