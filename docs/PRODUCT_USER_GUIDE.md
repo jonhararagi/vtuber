@@ -476,7 +476,7 @@ Al abrir VTuberBot se muestra **PNGTuber 2D**. Esta es la ruta para salir en pan
 4. **Probá movimiento.** Elegí vibración al hablar, rebote suave al hablar y flotación en reposo. La intensidad de vibración tiene un máximo para evitar desplazamientos excesivos. El botón de prueba hace una sacudida breve.
 5. **Mostrá el avatar transparente.** Activá la ventana de avatar y en OBS agregala como **Captura de ventana**. Configurar WebSocket en la página OBS permite controlar OBS desde VTuberBot, pero no sustituye agregar la fuente del avatar a la escena.
 
-**Si ves dos bocas:** el personaje base probablemente ya tiene la boca original. Usá una base que no la tenga o la herramienta de recorte/copia disponible en el editor para crear una copia; no sobrescribas el original. Lo ideal es que los stickers de boca sean PNG con transparencia y estén recortados alrededor del dibujo, no una captura de toda la cara.
+**Si ves dos bocas:** el personaje base ya trae una y el sticker agrega otra. Usá una base sin boca o prepará una copia transparente en tu editor de imágenes. VTuberBot no sobrescribe la imagen original ni incluye todavía un recortador de boca integrado en esta página. Lo ideal es que los stickers de boca sean PNG con transparencia y estén recortados alrededor del dibujo, no una captura de toda la cara.
 
 **Si la boca sale enorme:** asegurate de estar importando un sticker recortado, no la imagen completa del rostro. El render de la boca conserva sus dimensiones en relación con el PNG base.
 
