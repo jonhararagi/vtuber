@@ -184,6 +184,7 @@
             <Button Content="◈  Inicio" Tag="Inicio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
             <Expander Header="AVATAR Y VOZ" IsExpanded="True" Foreground="#98A4BE" Background="Transparent" BorderThickness="0" Padding="4,2" Margin="0,2,0,0">
               <StackPanel>
+                <Button Content="🎭  PNGTuber 2D" Tag="PNGTuber 2D" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
                 <Button Content="✧  Avatar Studio" Tag="Avatar Studio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
                 <Button Content="♫  Voz y audio" Tag="Voz y audio" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
               </StackPanel>
