@@ -51,14 +51,14 @@ El movimiento usa valores finitos acotados: vibración hasta 18 px, rebote hasta
 
 ## Hallazgos que siguen sin poder darse por cerrados
 
-- La rama de integración debe pasar Windows CI en su SHA exacto y después de fusionarse se debe verificar otra vez la CI de `main`.
+- Validación automatizada ya comprobada para el merge commit de `main` `33dbf1e6743d0f6ae3f097f22469fa3cd0ae158a`, run `39068191033`: Restore, Build Release, 661/661 tests correctos, Publish y Upload completos; build con 0 advertencias / 0 errores y ZIP verificado con 490 entradas.
 - Falta una sesión manual de Windows para probar: calibración visual de la boca con el arte real, detección del micrófono, conexión WebSocket autenticada a OBS, fuente de captura en la escena y una grabación corta.
 - La publicación de varios archivos no implica que exista un modelo, voicebank o audio profesional incluido; sus licencias e instalación siguen siendo independientes.
 - No se comprobó captura de tráfico real, ACL de Windows en la instalación del usuario ni rendimiento en vivo; no se declara auditoría de seguridad completa.
 
 ## Criterio de cierre
 
-No considerar estable un cambio solo porque compila una máquina del desarrollador. La evidencia esperada es Restore + Build Release + pruebas + Publish + validación del ZIP en Windows CI para el SHA exacto, seguida de verificación de la CI para el merge en `main` y anotación explícita de la validación manual pendiente.
+No considerar estable un cambio solo porque compila una máquina del desarrollador. Para la integración actual se ejecutó Restore + Build Release + 661 pruebas + Publish + validación del ZIP en Windows CI para el SHA exacto del merge en `main` (run `39068191033`). Las comprobaciones manuales pendientes se mantienen explícitas; no se atribuye a la CI validación del micrófono físico, la contraseña real de OBS, la alineación del arte ni una transmisión real.
 
 
 ### 5. Retiro de Node 20 en GitHub Actions: actualización aplicada
@@ -77,3 +77,8 @@ Fuentes oficiales:
 La CI del candidato confirmó que `checkout@v7` y `setup-dotnet@v6` ya no emitían la advertencia de Node 20, pero el propio log mostró que `actions/upload-artifact@v4` seguía usando Node 20 y generaba advertencias de `punycode`/URL. Se actualiza a `actions/upload-artifact@v7`, una versión actual compatible con Node 24. Es necesario volver a ejecutar la CI porque esta acción forma parte del camino de publicación del ZIP.
 
 Fuente oficial: https://github.com/actions/upload-artifact/releases
+
+
+## Verificación final de main — 17 de octubre de 2026
+
+El merge `33dbf1e6743d0f6ae3f097f22469fa3cd0ae158a` pasó Windows CI #1099: https://github.com/jonhararagi/vtuber/actions/runs/39068191033. El resumen registró Build con 0 advertencias y 0 errores; tests 661/661 correctos, 0 fallidos, 0 omitidos; Publish y Upload exitosos; ZIP con 490 entradas y 85.076.961 bytes. Se usaron `actions/checkout@v7`, `actions/setup-dotnet@v6` y `actions/upload-artifact@v7`, sin las advertencias anteriores de Node 20 / `punycode`/URL en el log final. Artefacto `12114555719`, vence el 31/10/2026 20:49:24 UTC.
