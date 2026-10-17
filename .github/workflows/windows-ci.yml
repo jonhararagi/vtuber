@@ -65,7 +65,7 @@ jobs:
 
         "PACKAGE_ZIP=$zipPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
     - name: Upload temporary validation artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: VTuberBot-Product-Candidate-win-x64-${{ github.sha }}
         path: ${{ runner.temp }}/VTuberBot-Product-Candidate-win-x64.zip

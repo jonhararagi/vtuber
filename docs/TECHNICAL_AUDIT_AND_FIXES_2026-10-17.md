@@ -71,3 +71,9 @@ Fuentes oficiales:
 - GitHub Changelog: retirada de Node 20, 23/09/2026: https://github.blog/changelog/2026-09-23-node-20-is-no-longer-available-in-github-actions/
 - Acción checkout v5 usa Node 24: https://github.com/actions/checkout
 - setup-dotnet v5 y posteriores utilizan Node 24; release actual consultada: https://github.com/actions/setup-dotnet/releases
+
+### 6. Retiro de Node 20 en `upload-artifact`
+
+La CI del candidato confirmó que `checkout@v7` y `setup-dotnet@v6` ya no emitían la advertencia de Node 20, pero el propio log mostró que `actions/upload-artifact@v4` seguía usando Node 20 y generaba advertencias de `punycode`/URL. Se actualiza a `actions/upload-artifact@v7`, una versión actual compatible con Node 24. Es necesario volver a ejecutar la CI porque esta acción forma parte del camino de publicación del ZIP.
+
+Fuente oficial: https://github.com/actions/upload-artifact/releases

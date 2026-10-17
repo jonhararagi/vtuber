@@ -2117,3 +2117,5 @@ Objetivo inicial sugerido, sujeto a la fase de diseño y a la capacidad real de 
 - Validación pendiente para esta rama: Windows CI (restore, build Release, tests, publish y ZIP) sobre el SHA exacto; en caso de fallo hay que corregirlo y repetir. Aun con CI verde, quedan fuera de la automatización la alineación visual en el equipo, prueba real de micrófono, prueba de captura en OBS y conexión física de streaming.
 
 - 17/10/2026 — Se ajustó `.github/workflows/windows-ci.yml` a `actions/checkout@v7` y `actions/setup-dotnet@v6` tras encontrar una advertencia de que las acciones v4 usaban Node 20, retirado por GitHub el 23/09/2026. La ejecución del workflow en PR #32 debe validar estas versiones nuevas.
+
+- 17/10/2026 — Segunda observación de CI: después de actualizar checkout/setup-dotnet, el log aisló la única advertencia de runtime restante en `actions/upload-artifact@v4` (Node 20 y deprecaciones de dependencias). Se actualizó de forma preventiva a `actions/upload-artifact@v7`, respaldado por las notas oficiales del proyecto. La CI del nuevo HEAD debe verificar el paso de subida de artefactos.
