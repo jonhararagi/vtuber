@@ -102,7 +102,7 @@ public partial class MainWindow : Window
 
     private static readonly string[] Pages =
     [
-        "Inicio", "Avatar Studio", "Comandos", "Voz y audio", "OBS", "Actividad y diagnóstico", "Ajustes"
+        "Inicio", "PNGTuber 2D", "Avatar Studio", "Comandos", "Voz y audio", "OBS", "Actividad y diagnóstico", "Ajustes"
     ];
 
     private void UpdateAvatarTalkState()
@@ -493,7 +493,7 @@ public partial class MainWindow : Window
         automationTimer.Tick += async (_, _) => await ProcessAutomationsAsync();
         twitchCredentialTimer.Tick += async (_, _) => await MaintainTwitchCredentialsAsync();
         twitchCredentialTimer.Start();
-        Navigate("Inicio");
+        Navigate("PNGTuber 2D");
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -666,7 +666,8 @@ public partial class MainWindow : Window
         PageSubtitle.Text = currentPage switch
         {
             "Inicio" => "Todo lo importante del stream, en un solo lugar.",
-            "Avatar Studio" => "Importá tu propia imagen, ajustá el encuadre y prepará los estados de reposo/habla.",
+            "PNGTuber 2D" => "Importá tu PNG, ajustá la boca dibujada y elegí movimientos suaves para Idle/Talking.",
+            "Avatar Studio" => "Herramientas avanzadas del avatar y sus capas.",
             "Comandos" => "Acciones locales disponibles desde VTuberBot; no se activan desde el chat de Twitch.",
             "Voz y audio" => "Micrófono, detección de actividad y síntesis local; VOICEVOX es la opción de voz prioritaria.",
             "OBS" => "Conexión real mediante OBS WebSocket v5 y operaciones que la API permita ejecutar.",
@@ -678,6 +679,7 @@ public partial class MainWindow : Window
         Workspace.Content = currentPage switch
         {
             "Inicio" => BuildDashboard(),
+            "PNGTuber 2D" => BuildPngtuber2DWorkspace(),
             "Avatar Studio" => BuildAvatarStudio(),
             "Comandos" => BuildCommandsPage(),
             "Voz y audio" => BuildAudioPage(),
