@@ -59,3 +59,15 @@ El movimiento usa valores finitos acotados: vibración hasta 18 px, rebote hasta
 ## Criterio de cierre
 
 No considerar estable un cambio solo porque compila una máquina del desarrollador. La evidencia esperada es Restore + Build Release + pruebas + Publish + validación del ZIP en Windows CI para el SHA exacto, seguida de verificación de la CI para el merge en `main` y anotación explícita de la validación manual pendiente.
+
+
+### 5. Retiro de Node 20 en GitHub Actions: actualización aplicada
+
+La revisión del log de Windows CI mostró una advertencia real: `actions/checkout@v4` y `actions/setup-dotnet@v4` estaban utilizando los runtimes antiguos basados en Node 20. GitHub anunció que Node 20 dejó de estar disponible para JavaScript Actions el **23 de septiembre de 2026** y exige actualizar las acciones a releases compatibles con Node 24.
+
+**Cambio aplicado en esta integración:** `.github/workflows/windows-ci.yml` pasa de `actions/checkout@v4` a `actions/checkout@v5` y de `actions/setup-dotnet@v4` a `actions/setup-dotnet@v6`. La función del workflow no cambia: sigue usando un runner Windows, instala el SDK .NET 10 y ejecuta restore/build/tests/publish. La CI debe comprobar que las nuevas versiones de las acciones funcionan con el runner y el flujo completos.
+
+Fuentes oficiales:
+- GitHub Changelog: retirada de Node 20, 23/09/2026: https://github.blog/changelog/2026-09-23-node-20-is-no-longer-available-in-github-actions/
+- Acción checkout v5 usa Node 24: https://github.com/actions/checkout
+- setup-dotnet v5 y posteriores utilizan Node 24; release actual consultada: https://github.com/actions/setup-dotnet/releases
