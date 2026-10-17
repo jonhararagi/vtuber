@@ -227,17 +227,9 @@ public partial class MainWindow
         controlsPanel.Children.Add(yLabel); controlsPanel.Children.Add(ySlider);
         controlsPanel.Children.Add(scaleLabel); controlsPanel.Children.Add(scaleSlider);
         controlsPanel.Children.Add(ActionButton("💾 Guardar posición de boca", (_, _) => SaveMouthPosition(), true));
-        controlsPanel.Children.Add(ActionButton("La boca vieja sigue debajo · limpiarla", (_, _) =>
-        {
-            if (string.IsNullOrWhiteSpace(avatarPath) || !File.Exists(avatarPath))
-            {
-                MessageBox.Show(this, "Primero importá el personaje base.");
-                return;
-            }
-            OpenMouthCutoutEditor();
-            Navigate("PNGTuber 2D");
-        }));
-        controlsPanel.Children.Add(Label("Si ves dos bocas superpuestas, limpiá la boca anterior. Se crea una copia de la imagen; el archivo original no se sobrescribe.", 11, "#98A4BE"));
+        controlsPanel.Children.Add(Label(
+            "¿Se ven dos bocas? La imagen base ya trae una y el sticker agrega otra. Elegí una base sin boca o prepará una copia transparente en tu editor de imágenes. VTuberBot no modifica ni sobrescribe tu PNG original.",
+            11, "#98A4BE"));
 
         controlsPanel.Children.Add(new Border { Margin = new Thickness(0, 12, 0, 10), Background = Brush("#34415E"), Height = 1 });
         controlsPanel.Children.Add(Label("EFECTOS DE DIBUJO · SIN IA", 13, "#F8FAFC", true));
