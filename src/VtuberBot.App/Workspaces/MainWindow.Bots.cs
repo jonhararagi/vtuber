@@ -12,7 +12,7 @@ public partial class MainWindow
         var root = new StackPanel();
         root.Children.Add(Label("Bots y plataformas", 22, "#F8FAFC", true));
         root.Children.Add(Label(
-            "VTuberBot es el centro de reglas y respuestas. Cada plataforma conserva sus cuentas, permisos y funciones propias; OBS sigue siendo el motor de transmisión. Los estados se basan en conexiones o respuestas reales, nunca en indicadores simulados.",
+            "Twitch ya dispone de chat y EventSub dentro de VTuberBot. Kick ofrece actualmente autorización, consulta de canal y envío manual de chat; su lectura automática de mensajes/eventos sigue pendiente. Cada plataforma mantiene sus cuentas y permisos, y OBS sigue siendo el motor de transmisión.",
             12, "#98A4BE"));
 
         var summary = Panel("Estado real de conexiones");
@@ -22,11 +22,16 @@ public partial class MainWindow
         var eventSubState = Label(
             eventSub.IsConnected ? "Twitch EventSub: conectado" : "Twitch EventSub: desconectado",
             12, eventSub.IsConnected ? "#8FE6D0" : "#98A4BE");
-        var kickState = Label(
-            secretStore.HasSecret("kick-access-token")
-                ? "Kick: existe un token cifrado localmente; todavía no verificado en esta vista."
-                : "Kick: sin autorización guardada.",
-            12, "#E7B56A");
+        string KickSummaryText()
+        {
+            if (!secretStore.HasSecret("kick-access-token"))
+                return "Kick: sin autorización guardada.";
+            var verifiedText = store.GetSetting("kick.token.lastVerifiedAtUtc");
+            if (DateTimeOffset.TryParse(verifiedText, CultureInfo.InvariantCulture, DateTimeStyles.None, out var verifiedAt))
+                return $"Kick: token local; última verificación API {verifiedAt.ToLocalTime():dd/MM/yyyy HH:mm} (no es conexión de chat entrante).";
+            return "Kick: token cifrado local, aún sin verificación de API.";
+        }
+        var kickState = Label(KickSummaryText(), 12, "#98A4BE");
         summary.Children.Add(twitchState);
         summary.Children.Add(eventSubState);
         summary.Children.Add(kickState);
@@ -36,17 +41,15 @@ public partial class MainWindow
             twitchState.Foreground = Brush(twitch.IsConnected ? "#8FE6D0" : "#E7B56A");
             eventSubState.Text = eventSub.IsConnected ? "Twitch EventSub: conectado" : "Twitch EventSub: desconectado";
             eventSubState.Foreground = Brush(eventSub.IsConnected ? "#8FE6D0" : "#98A4BE");
-            kickState.Text = secretStore.HasSecret("kick-access-token")
-                ? "Kick: existe un token cifrado localmente; todavía no verificado en esta vista."
-                : "Kick: sin autorización guardada.";
-            kickState.Foreground = Brush(secretStore.HasSecret("kick-access-token") ? "#E7B56A" : "#98A4BE");
+            kickState.Text = KickSummaryText();
+            kickState.Foreground = Brush("#98A4BE");
             FooterStatus.Text = "Estados locales actualizados; Kick solo se marca como verificado tras una consulta real a su API.";
         }));
 
         var tabs = new TabControl { MinHeight = 640, Margin = new Thickness(0, 0, 0, 10) };
         tabs.Items.Add(new TabItem { Header = "Twitch", Content = BuildTwitchPage() });
         tabs.Items.Add(new TabItem { Header = "Kick", Content = BuildKickBotPage() });
-        tabs.Items.Add(new TabItem { Header = "Comportamiento del bot", Content = BuildSocialBotPage() });
+        tabs.Items.Add(new TabItem { Header = "Reglas y voz (Twitch actual)", Content = BuildSocialBotPage() });
         tabs.Items.Add(new TabItem { Header = "Streamer.bot (opcional)", Content = BuildStreamerBotWorkspace() });
 
         root.Children.Add(summary);
@@ -89,7 +92,7 @@ public partial class MainWindow
 
         var credentialStatus = Label(
             secretStore.HasSecret("kick-access-token")
-                ? "Hay una sesión guardada cifrada; todavía no se validó su token."
+                ? "Hay una sesión guardada cifrada. Pulsa Verificar canal para consultar de nuevo la API."
                 : "Sin token de Kick guardado. Autorizá tu cuenta para continuar.",
             12, secretStore.HasSecret("kick-access-token") ? "#E7B56A" : "#98A4BE", true);
         config.Children.Add(credentialStatus);
@@ -138,6 +141,7 @@ public partial class MainWindow
                 credentialStatus.Text = "Esperando autorización de Kick; no se considera conectado hasta recibir el token.";
                 var credentials = await KickOAuthClient.AuthorizeAsync(clientId.Text.Trim(), clientSecret.Password);
                 SaveKickCredentials(credentials);
+                store.SetSetting("kick.token.lastVerifiedAtUtc", "");
                 credentialStatus.Text = "OAuth completado. Token y refresh token guardados cifrados con DPAPI. Verificá el canal antes de enviar mensajes.";
                 credentialStatus.Foreground = Brush("#8FE6D0");
                 FooterStatus.Text = "Kick OAuth completado; la sesión está guardada, pero todavía no se validó envío de chat.";
@@ -223,6 +227,7 @@ public partial class MainWindow
                 SaveKickSettings();
                 var credentials = await GetValidKickCredentialsAsync();
                 var result = await new KickApiClient().GetChannelAsync(credentials.AccessToken, slug);
+                store.SetSetting("kick.token.lastVerifiedAtUtc", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
                 channelStatus.Text = $"API Kick verificada: {result.Slug} · ID {result.BroadcasterUserId}" +
                     (result.IsLive.HasValue ? (result.IsLive.Value ? " · EN VIVO" : " · offline") : "");
                 channelStatus.Foreground = Brush("#8FE6D0");
@@ -291,6 +296,7 @@ public partial class MainWindow
             secretStore.Delete("kick-refresh-token");
             store.SetSetting("kick.token.expiresAtUtc", "");
             store.SetSetting("kick.token.scopes", "");
+            store.SetSetting("kick.token.lastVerifiedAtUtc", "");
             credentialStatus.Text = "Sesión eliminada de este equipo. La autorización remota no fue revocada.";
             credentialStatus.Foreground = Brush("#98A4BE");
             channelStatus.Text = "Canal: sesión local eliminada.";
