@@ -166,8 +166,8 @@ public partial class MainWindow
             12, "#E7B56A");
         var messageType = new ComboBox
         {
-            ItemsSource = new[] { "Bot (canal asociado al token)", "Usuario (canal indicado)" },
-            SelectedIndex = store.GetSetting("kick.chat.messageType", "bot") == "user" ? 1 : 0,
+            ItemsSource = new[] { "Usuario (canal indicado)", "Bot (canal asociado al token)" },
+            SelectedIndex = store.GetSetting("kick.chat.messageType", "user") == "bot" ? 1 : 0,
             MinWidth = 270,
             Margin = new Thickness(0, 0, 8, 8)
         };
@@ -175,6 +175,9 @@ public partial class MainWindow
         actionPanel.Children.Add(channelStatus);
         actionPanel.Children.Add(Label("Tipo de envío", 12, "#98A4BE"));
         actionPanel.Children.Add(messageType);
+        actionPanel.Children.Add(Label(
+            "Recomendado para empezar: Usuario. Para aparecer como Bot, autorizá al dueño del canal destino y creá/activá el bot de esa app desde Kick Developer. El reporte público #343 documenta errores HTTP 500 cuando falta esa configuración o se usa el token de otra cuenta.",
+            11, "#E7B56A"));
         actionPanel.Children.Add(Label("Mensaje de prueba (máximo oficial: 500 caracteres percibidos)", 12, "#98A4BE"));
         actionPanel.Children.Add(testMessage);
         actionPanel.Children.Add(eventStatus);
@@ -234,7 +237,7 @@ public partial class MainWindow
 
         actionPanel.Children.Add(ActionButton("Enviar mensaje de prueba", async (_, _) =>
         {
-            var type = messageType.SelectedIndex == 1 ? "user" : "bot";
+            var type = messageType.SelectedIndex == 1 ? "bot" : "user";
             if (MessageBox.Show(this,
                     $"Se enviará un mensaje REAL a Kick como «{type}». No se puede retirar desde esta confirmación. ¿Continuar?",
                     "Confirmar envío al chat de Kick", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
