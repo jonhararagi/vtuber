@@ -1,3 +1,16 @@
+## 2026-10-18 — Guía fácil para principiantes integrada (PR #34)
+
+- **PR #34 fusionada en main:** https://github.com/jonhararagi/vtuber/pull/34. Merge commit: e4c12da189a800eb5654dbef7b8050ac0ede346c.
+- **Interfaz:** navegación con **Guía fácil**. Incluye pestañas Empezar, Avatar 2D, Voz y audio, Bots y plataformas, OBS, Comandos, Cuentas y privacidad y Problemas frecuentes. Los paneles explican en lenguaje cotidiano la función, el orden recomendado y los límites reales, con botones para abrir las áreas pertinentes.
+- **Ayuda contextual de bots:** se agregó la pestaña **¿Cómo funciona?** dentro de Bots y plataformas para explicar Twitch, Kick, Reglas y voz, y Streamer.bot.
+- **Documentación:** docs/GUIA_PRINCIPIANTES.md contiene instrucciones paso a paso, problemas y referencias públicas; README y docs/PRODUCT_USER_GUIDE.md enlazan la nueva guía.
+- **Windows CI #1112 del candidato PR:** https://github.com/jonhararagi/vtuber/actions/runs/39141654199 pasó Restore, Build Release (0 advertencias, 0 errores), tests, Publish self-contained Windows x64 y Upload. El artefacto de esta ejecución es solo el candidato de la PR/commit de merge preparado por GitHub, no el paquete final de main.
+- **Precisión funcional preservada:** Twitch continúa con su cliente de chat y EventSub existentes; Kick permite OAuth, consulta del canal y envío manual de prueba, pero no recepción automática de mensajes/eventos. La guía no presenta esos eventos como ya implementados ni describe los comandos locales como comandos del chat.
+- **Fuentes y soluciones de errores consultadas:** documentación de OBS WebSocket, scopes/chat/EventSub de Twitch, OAuth/Chat/Events de Kick y los reportes públicos KickDevDocs #211 (redirect_uri y uso de localhost), #413 (secreto requerido en aplicación de escritorio; cada usuario configura su app, secreto cifrado localmente), #428 (HTTP 400 sin cuerpo: sin causa pública concluyente), #403 (un proxy/WAF bloqueaba el User-Agent del webhook; excepción de ruta/WAF corrigió el caso) y #343 (fallo type=bot frente a type=user), además de dotnet/wpf #11775 (NETSDK1022 en DesignTimeBuild, no necesariamente en build normal). Referencias en docs/GUIA_PRINCIPIANTES.md y docs/TECHNICAL_AUDIT_BOTS_2026-10-18.md.
+- **Pendiente manual honesto:** Windows CI no autentica las cuentas reales del usuario ni prueba la voz/micrófono físicos, recepción de eventos de Kick, OBS instalado o una emisión en vivo. Para Kick, la entrada de chat requiere un futuro receptor público con verificación criptográfica de firmas; la guía deja visible esta limitación.
+- **Siguiente comprobación:** validar la nueva ejecución de Windows CI que se dispara para el SHA documental actualizado de main; no reutilizar artefactos o resultados de otra revisión como evidencia del HEAD final.
+
+---
 ## 2026-10-18 — Panel de bots Twitch/Kick integrado y validado en main (PR #33)
 
 - **PR #33 fusionada:** https://github.com/jonhararagi/vtuber/pull/33. El merge commit de `main` fue `069c72ab95ba1fb483e293d5c67d2d4e6adc42e4`. Se añadió la navegación **Bots y plataformas**, reutilizando los clientes de Twitch ya existentes y sumando una primera integración de Kick.
