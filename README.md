@@ -13,6 +13,7 @@ VTuberBot es una aplicación de escritorio para Windows centrada en editar tu pr
 - [Prompt oficial para GPT Obrero — implementación integral](PROMPTS.md)
 - [Registro central de continuidad](docs/CONTINUIDAD_PROYECTO.md)
 - [Guía de configuración del candidato integral](docs/PRODUCT_USER_GUIDE.md)
+- [Guía fácil para principiantes: cada panel y solución de problemas](docs/GUIA_PRINCIPIANTES.md)
 - [Instalar e iniciar VOICEVOX Engine localmente](docs/VOICEVOX_LOCAL_SETUP.md)
 - [Guía del editor de avatar y encuadre OBS](docs/AVATAR_EDITOR_GUIDE.md)
 
