@@ -366,7 +366,7 @@ public sealed class KickApiClient
         string accessToken,
         string channelSlug,
         string content,
-        string messageType = "bot",
+        string messageType = "user",
         CancellationToken cancellationToken = default)
     {
         RequireToken(accessToken);
