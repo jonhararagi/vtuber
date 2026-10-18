@@ -122,8 +122,19 @@ public static class KickOAuthClient
             throw new InvalidOperationException("Kick no devolvió un código de autorización válido.");
         }
 
-        await WriteCallbackResponseAsync(stream, true, timeout.Token).ConfigureAwait(false);
-        return await ExchangeCodeAsync(clientId, clientSecret, code, verifier, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var credentials = await ExchangeCodeAsync(clientId, clientSecret, code, verifier, cancellationToken).ConfigureAwait(false);
+            await WriteCallbackResponseAsync(stream, true, timeout.Token).ConfigureAwait(false);
+            return credentials;
+        }
+        catch
+        {
+            // Do not tell the browser the sign-in succeeded before the token exchange did.
+            try { await WriteCallbackResponseAsync(stream, false, CancellationToken.None).ConfigureAwait(false); }
+            catch { /* Preserve the actual OAuth/token-exchange error for the app UI. */ }
+            throw;
+        }
     }
 
     public static async Task<KickOAuthCredentials> RefreshAsync(
@@ -242,7 +253,7 @@ public static class KickOAuthClient
     {
         var html = success
             ? "<!doctype html><meta charset=\"utf-8\"><title>VTuberBot</title><p>Autorización recibida. Podés volver a VTuberBot.</p>"
-            : "<!doctype html><meta charset=\"utf-8\"><title>VTuberBot</title><p>Autorización rechazada. Volvé a VTuberBot para ver el detalle.</p>";
+            : "<!doctype html><meta charset=\"utf-8\"><title>VTuberBot</title><p>No se completó la autorización. Volvé a VTuberBot para ver el detalle.</p>";
         var body = Encoding.UTF8.GetBytes(html);
         var header = Encoding.ASCII.GetBytes(
             "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: " +
