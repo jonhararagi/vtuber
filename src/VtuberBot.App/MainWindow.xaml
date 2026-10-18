@@ -192,6 +192,7 @@
             <Expander Header="OPERACIÓN" IsExpanded="True" Foreground="#98A4BE" Background="Transparent" BorderThickness="0" Padding="4,2" Margin="0,2,0,0">
               <StackPanel>
                 <Button Content="▣  OBS y transmisiones" Tag="OBS" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="🤖  Bots y plataformas" Tag="Bots y plataformas" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
                 <Button Content="⌘  Comandos locales" Tag="Comandos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
               </StackPanel>
             </Expander>
