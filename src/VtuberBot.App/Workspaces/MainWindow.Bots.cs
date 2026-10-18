@@ -96,8 +96,12 @@ public partial class MainWindow
 
         void SaveKickSettings()
         {
-            store.SetSetting("kick.client_id", clientId.Text.Trim());
-            store.SetSetting("kick.channel_slug", KickApiClient.NormalizeChannelSlug(channel.Text));
+            var normalizedSlug = KickApiClient.NormalizeChannelSlug(channel.Text);
+            var configuredClientId = clientId.Text.Trim();
+            if (string.IsNullOrWhiteSpace(configuredClientId))
+                throw new InvalidOperationException("Ingresá el Client ID de tu aplicación Kick.");
+            store.SetSetting("kick.client_id", configuredClientId);
+            store.SetSetting("kick.channel_slug", normalizedSlug);
             if (string.IsNullOrWhiteSpace(clientSecret.Password))
                 secretStore.Delete("kick-client-secret");
             else
@@ -294,6 +298,8 @@ public partial class MainWindow
         secretStore.Save("kick-access-token", credentials.AccessToken);
         if (!string.IsNullOrWhiteSpace(credentials.RefreshToken))
             secretStore.Save("kick-refresh-token", credentials.RefreshToken);
+        else
+            secretStore.Delete("kick-refresh-token");
         store.SetSetting("kick.token.expiresAtUtc", credentials.ExpiresAtUtc.ToString("O", CultureInfo.InvariantCulture));
         store.SetSetting("kick.token.scopes", string.Join(' ', credentials.Scopes));
     }
