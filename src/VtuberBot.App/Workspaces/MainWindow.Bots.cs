@@ -194,7 +194,7 @@ public partial class MainWindow
             if (!DateTimeOffset.TryParse(
                     store.GetSetting("kick.token.expiresAtUtc"),
                     CultureInfo.InvariantCulture,
-                    DateTimeStyles.RoundtripKind,
+                    DateTimeStyles.None,
                     out var expiresAt))
                 expiresAt = DateTimeOffset.MinValue;
 
@@ -242,8 +242,19 @@ public partial class MainWindow
         actionPanel.Children.Add(ActionButton("Enviar mensaje de prueba", async (_, _) =>
         {
             var type = messageType.SelectedIndex == 1 ? "bot" : "user";
+            string destinationSlug;
+            try
+            {
+                destinationSlug = KickApiClient.NormalizeChannelSlug(channel.Text);
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Canal Kick no válido", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            var preview = testMessage.Text.Length > 160 ? testMessage.Text[..160] + "…" : testMessage.Text;
             if (MessageBox.Show(this,
-                    $"Se enviará un mensaje REAL a Kick como «{type}». No se puede retirar desde esta confirmación. ¿Continuar?",
+                    $"Se enviará un mensaje REAL a kick.com/{destinationSlug} como «{type}»:\n\n{preview}\n\nNo se puede retirar desde esta confirmación. ¿Continuar?",
                     "Confirmar envío al chat de Kick", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
                 return;
 
