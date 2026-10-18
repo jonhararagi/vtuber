@@ -42,7 +42,11 @@ El reporte [KickDevDocs issue #428](https://github.com/KickEngineering/KickDevDo
 
 En [KickDevDocs issue #403](https://github.com/KickEngineering/KickDevDocs/issues/403), un operador investigó cero entregas; los comentarios posteriores aclararon que una regla propia del proxy bloqueaba el User-Agent Go-http-client/2.0. La solución fue excluir la ruta del webhook de la regla equivocada o usar un endpoint adecuado sin esa interferencia. Si se incorpora el receptor en una fase posterior, la guía de diagnóstico debe comprobar llegada desde Internet, challenge de verificación, headers de firma y logs del proxy/WAF; no debe desactivar globalmente la protección anti-bots ni ignorar la firma.
 
-### 5. WPF/.NET 10: distinguir fallos de análisis de diseño de fallos de compilación/ejecución normales
+### 5. Kick Chat API: los mensajes tipo Bot pueden necesitar configuración de la cuenta dueña del canal
+
+El issue abierto [KickDevDocs issue #343](https://github.com/KickEngineering/KickDevDocs/issues/343) reporta HTTP 500 al enviar con type=bot, aunque type=user funciona. Los comentarios técnicos señalan dos distinciones útiles: el modo Usuario puede enviar al canal indicado con token de la cuenta emisora; el modo Bot está ligado al canal de la persona que autorizó el token y requiere crear/activar el bot para esa cuenta/app en Kick Developer. La interfaz usa Usuario por defecto; Bot es opt-in y verifica que el canal coincida con el token antes de enviar. No se intenta cambiar silenciosamente de identidad si el tipo Bot falla.
+
+### 6. WPF/.NET 10: distinguir fallos de análisis de diseño de fallos de compilación/ejecución normales
 
 [dotnet/wpf issue #11775](https://github.com/dotnet/wpf/issues/11775) recoge un fallo NETSDK1022 que afecta a DesignTimeBuild=true y al proyecto temporal *_wpftmp.csproj al referenciar tipos locales desde XAML. El workaround publicado afecta al análisis de diseño (evitar ese conjunto de propiedades o fijar SDK solo para esa herramienta); el propio reporte indica que la build normal puede funcionar. No se añade un global.json arbitrario para ocultar ese problema: el workflow de Windows ejecuta compilación y pruebas normales.
 
@@ -59,6 +63,7 @@ En [KickDevDocs issue #403](https://github.com/KickEngineering/KickDevDocs/issue
 - [Kick issue #413: client secret en clientes de escritorio](https://github.com/KickEngineering/KickDevDocs/issues/413)
 - [Kick issue #428: 400 sin cuerpo en token exchange](https://github.com/KickEngineering/KickDevDocs/issues/428)
 - [Kick issue #403: webhook bloqueado en un proxy/WAF](https://github.com/KickEngineering/KickDevDocs/issues/403)
+- [Kick issue #343: HTTP 500 al usar type=bot y aclaraciones sobre autorización](https://github.com/KickEngineering/KickDevDocs/issues/343)
 - [WPF issue #11775: NETSDK1022 en DesignTimeBuild](https://github.com/dotnet/wpf/issues/11775)
 - [WPF issue #11678: problemas de SDK en publish single-file](https://github.com/dotnet/wpf/issues/11678)
 
