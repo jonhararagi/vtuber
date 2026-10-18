@@ -51,6 +51,7 @@ public partial class MainWindow
         tabs.Items.Add(new TabItem { Header = "Kick", Content = BuildKickBotPage() });
         tabs.Items.Add(new TabItem { Header = "Reglas y voz (Twitch actual)", Content = BuildSocialBotPage() });
         tabs.Items.Add(new TabItem { Header = "Streamer.bot (opcional)", Content = BuildStreamerBotWorkspace() });
+        tabs.Items.Add(new TabItem { Header = "¿Cómo funciona?", Content = BuildBotsQuickGuide() });
 
         root.Children.Add(summary);
         root.Children.Add(tabs);
