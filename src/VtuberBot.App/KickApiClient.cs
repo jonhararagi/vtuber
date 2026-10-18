@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Net.Http;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
