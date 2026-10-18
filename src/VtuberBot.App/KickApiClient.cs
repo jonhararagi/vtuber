@@ -205,10 +205,10 @@ public static class KickOAuthClient
         if (string.IsNullOrWhiteSpace(refreshToken))
             refreshToken = previousRefreshToken ?? "";
 
-        var expiresIn = root.TryGetProperty("expires_in", out var expiresElement) &&
-                        expiresElement.TryGetInt32(out var seconds)
-            ? Math.Clamp(seconds, 60, 60 * 60 * 24 * 90)
-            : 3600;
+        if (!root.TryGetProperty("expires_in", out var expiresElement) ||
+            !expiresElement.TryGetInt32(out var seconds) || seconds <= 0)
+            throw new InvalidOperationException("Kick devolvió un token sin una expiración válida.");
+        var expiresIn = seconds;
         var scopes = new List<string>();
         if (root.TryGetProperty("scope", out var scopeElement))
         {
