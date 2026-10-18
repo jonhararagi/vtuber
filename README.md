@@ -19,6 +19,7 @@ VTuberBot es una aplicación de escritorio para Windows centrada en editar tu pr
 ## Auditorías y continuidad
 
 - [Análisis de Morphy y recomendaciones de flujo de agentes](docs/ANALISIS-MORPHY.md)
+- [Auditoría técnica del panel de bots y reportes públicos](docs/TECHNICAL_AUDIT_BOTS_2026-10-18.md)
 - [Continuidad del proyecto y evidencia por SHA](docs/CONTINUIDAD_PROYECTO.md)
 
 ## Tecnología y restricciones
@@ -26,12 +27,12 @@ VTuberBot es una aplicación de escritorio para Windows centrada en editar tu pr
 - C# / .NET 10 / WPF / SQLite.
 - Windows como plataforma objetivo; equipo de referencia Ryzen 5 5600G y 16 GB RAM.
 - Sin dependencia obligatoria de APIs de IA pagas.
-- OBS se conecta de forma opcional y explícita; Twitch y sus funciones sociales quedan fuera del alcance aprobado.
+- OBS se conecta de forma opcional y explícita. El panel **Bots y plataformas** reutiliza las conexiones existentes de Twitch y agrega una primera integración de Kick (OAuth, consulta de canal y envío de prueba); la recepción de chat y eventos de Kick por webhooks sigue pendiente.
 - Los datos de usuario se guardan fuera del repositorio y del paquete de distribución.
 
 ## Estructura actual
 
-**Estado de producto:** el alcance vigente excluye la conexión directa de Twitch y sus funciones sociales, Telegram Web, Streamer.bot y PNGTuber Plus como dependencias. El producto prioritario es el editor de imagen propia con encuadre/exportación, dos estados de avatar reposo/habla, control real de operaciones compatibles de OBS, voz local VOICEVOX, configuración persistente, seguridad y diagnóstico de memoria. Algunas funciones históricas siguen presentes en el código o en la documentación y no deben considerarse aceptadas hasta que se auditen y se retiren de la UI de forma segura. La guía y el registro de continuidad deben distinguir funciones probadas, parciales y pendientes. El encuadre de OBS es una previsualización orientativa, no un control en tiempo real de fuentes OBS.
+**Estado de producto:** Twitch ya tiene un cliente de chat integrado; la página de bots lo hace accesible junto a EventSub, ChatSpeak y el puente opcional de Streamer.bot. Kick tiene OAuth, consulta de canal y envío de mensajes de prueba; el consumo de chat/eventos entrantes mediante webhooks todavía no está implementado. Ninguna credencial externa se empaqueta. El producto prioritario es el editor de imagen propia con encuadre/exportación, dos estados de avatar reposo/habla, control real de operaciones compatibles de OBS, voz local VOICEVOX, configuración persistente, seguridad y diagnóstico de memoria. Algunas funciones históricas siguen presentes en el código o en la documentación y no deben considerarse aceptadas hasta que se auditen y se retiren de la UI de forma segura. La guía y el registro de continuidad deben distinguir funciones probadas, parciales y pendientes. El encuadre de OBS es una previsualización orientativa, no un control en tiempo real de fuentes OBS.
 
 
 ## Compilar y ejecutar en Windows
@@ -45,7 +46,7 @@ dotnet run --project src/VtuberBot.App --configuration Release
 
 ## Descargar el candidato de Windows
 
-No hace falta clonar ni compilar el repositorio para probar el paquete. Abrí [Windows CI de `main`](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml?query=branch%3Amain), elegí una ejecución con estado **success** y verificá que **Head SHA** coincida con el commit que querés probar. Descargá el ZIP de **Artifacts**, extraelo y ejecutá `VtuberBot.App.exe`. Revisá `BUILD-INFO.txt` y compará el SHA del paquete con el de la ejecución. El artefacto es temporal y no equivale a una release pública. VOICEVOX Engine requiere una instalación local compatible; Twitch, Streamer.bot y PNGTuber Plus no son dependencias del alcance actual.
+No hace falta clonar ni compilar el repositorio para probar el paquete. Abrí [Windows CI de `main`](https://github.com/jonhararagi/vtuber/actions/workflows/windows-ci.yml?query=branch%3Amain), elegí una ejecución con estado **success** y verificá que **Head SHA** coincida con el commit que querés probar. Descargá el ZIP de **Artifacts**, extraelo y ejecutá `VtuberBot.App.exe`. Revisá `BUILD-INFO.txt` y compará el SHA del paquete con el de la ejecución. El artefacto es temporal y no equivale a una release pública. VOICEVOX Engine requiere una instalación local compatible. Twitch y Kick requieren que el usuario autorice sus cuentas; para Kick hay que crear una aplicación propia y guardar sus credenciales localmente.
 
 ## Criterio de finalización
 

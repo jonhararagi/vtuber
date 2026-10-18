@@ -32,13 +32,16 @@ El objetivo no es reconstruir Twitch ni sustituir OBS como motor de transmisión
 - **Eliminar del alcance:** parallax/2.5D, editor enfocado en un catálogo de piezas prefabricadas y requisito de instalar/operar PNGTuber Plus como parte del flujo normal.
 - **Importante:** retirar PNGTuber Plus como dependencia de usuario no autoriza a borrar código reutilizable sin revisar referencias, perfiles, datos guardados y pruebas. La eliminación se realiza solo después de una auditoría de dependencias y migración.
 
-### 2.3 Twitch y comandos
+### 2.3 Bots y plataformas Twitch/Kick (alcance ampliado el 2026-10-18)
 
-- **Fuera del alcance actual:** conexión directa de cuenta Twitch, eventos de canal, mensajes automáticos, moderación, puntos/rankings, sorteos, minijuegos, reacciones de avatar, controles público/privado y panel social de Twitch.
-- **Conservar comandos personalizados con alcance local:** permitir definir acciones/comandos ejecutables desde VTuberBot o mediante una integración OBS compatible, siempre que la interfaz describa qué los dispara y qué acción realizan.
-- **Límite explícito:** sin una conexión Twitch, un comando personalizado no puede activarse automáticamente por un mensaje de chat de Twitch ni leer eventos de Twitch. OBS por sí solo no sustituye la autenticación/API/EventSub/IRC de Twitch ni ofrece automáticamente un panel de chat completo.
-- No añadir conectores Twitch ocultos ni solicitar credenciales Twitch en el flujo actual. Si más adelante se quiere activar comandos desde chat, debe aprobarse como alcance separado y explicarse la autenticación, los permisos y el mantenimiento requerido.
-- Streamer.bot queda fuera del producto previsto y no debe ser una dependencia obligatoria.
+- **Aprobado ahora:** una página opcional **Bots y plataformas** para administrar desde la misma interfaz los conectores de Twitch y Kick, el comportamiento del bot, el estado real de conexión y el puente opcional de Streamer.bot. OBS continúa siendo el motor de escenas/transmisión; las plataformas siguen siendo autoridades de sus cuentas y permisos.
+- **Twitch:** reutilizar la conexión OAuth/chat IRC y EventSub que ya están implementados. Los mensajes entrantes solo procesan comandos, ChatSpeak, reacciones y reglas existentes cuando la cuenta está autorizada y las funciones correspondientes están habilitadas. No duplicar las mismas reglas en otro servicio ni solicitar permisos que no se usen.
+- **Kick — fase implementada:** OAuth Authorization Code + PKCE de una app creada por el usuario, secretos/tokens protegidos con DPAPI local, consulta real de canal y envío manual de chat por la API oficial después de confirmar destino y contenido. El Client Secret no se comparte ni se incluye en el binario.
+- **Kick — pendiente explícito:** recepción de mensajes/eventos del chat y conexión automática con el router de comandos/TTS/reacciones. La API de eventos usa webhooks públicos y exige validación de firma; no fingir que abrir VTuberBot crea por sí solo un endpoint público.
+- **No prometer paridad multiplataforma:** las acciones exclusivas, recompensas, moderación y eventos disponibles dependen de cada API, scopes y cuentas. Un comando o acción común solo se ejecutará en una plataforma cuando su adaptador esté realmente implementado y probado.
+- **Comandos personalizados con alcance local:** pueden seguir ejecutándose desde VTuberBot o mediante una integración OBS compatible, siempre que la interfaz describa qué los dispara y qué acción realizan.
+- **Streamer.bot:** puede usarse como puente opcional para flujos concretos; no es una dependencia obligatoria ni debe duplicar reglas que VTuberBot ya ejecuta.
+- **Seguridad:** pedir autorización explícita, scopes mínimos, cifrar tokens/secretos fuera de SQLite/logs/repositorio/paquete, confirmar envíos reales y mostrar errores de las API con sus límites. Sin conexión válida no mostrar estado “conectado”.
 
 ### 2.4 OBS Studio
 
@@ -54,7 +57,7 @@ El objetivo no es reconstruir Twitch ni sustituir OBS como motor de transmisión
 - **Motor local:** integrar el control de VOICEVOX Engine mediante su interfaz local documentada (por defecto suele utilizar localhost y el puerto 50021, pero el puerto real debe poder configurarse y verificarse). El proceso del motor puede gestionarse en segundo plano por VTuberBot si la distribución/licencia y el empaquetado lo permiten; de lo contrario, el asistente debe detectar una instalación local y explicar cómo prepararla sin esconder la dependencia.
 - **No asumir que se puede redistribuir cualquier voz:** verificar las licencias y condiciones actuales de VOICEVOX Engine y de cada personaje/voicebank. No empaquetar voces ni recursos sin permiso; mostrar avisos/créditos requeridos y enlazar las fuentes oficiales.
 - **No usar Gemini ni una API remota como sustituto silencioso.** Sin motor disponible, mostrar “VOICEVOX no disponible” y pasos concretos. La app no debe simular una voz generada ni declarar éxito si falla la síntesis.
-- Limitar longitud de texto, tamaño de cola, cancelación y manejo de errores. No procesar mensajes de Twitch, ya que Twitch queda fuera del alcance actual; la entrada puede ser texto manual, prueba o futuras fuentes explícitamente aprobadas.
+- Limitar longitud de texto, tamaño de cola, cancelación y manejo de errores. La voz/chat reactivo puede consumir mensajes de Twitch solo cuando su conector real esté conectado y la función correspondiente habilitada; Kick no alimenta aún la cola de TTS porque su chat entrante por webhooks sigue pendiente.
 
 ### 2.6 Seguridad y configuración
 
