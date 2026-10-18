@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Globalization;
 using System.Net.Http;
 using System.Net;
@@ -94,7 +95,11 @@ public static class KickOAuthClient
             if (string.IsNullOrEmpty(header)) break;
         }
 
-        var callbackUri = new Uri("http://localhost" + requestParts[1], UriKind.Absolute);
+        if (!System.Uri.TryCreate("http://localhost" + requestParts[1], System.UriKind.Absolute, out var callbackUri))
+        {
+            await WriteCallbackResponseAsync(stream, false, timeout.Token).ConfigureAwait(false);
+            throw new InvalidOperationException("La URL del callback OAuth de Kick no es válida.");
+        }
         if (!string.Equals(callbackUri.AbsolutePath, "/callback/", StringComparison.Ordinal))
         {
             await WriteCallbackResponseAsync(stream, false, timeout.Token).ConfigureAwait(false);
