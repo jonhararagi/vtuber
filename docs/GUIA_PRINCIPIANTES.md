@@ -1,0 +1,90 @@
+# Guía de VTuberBot para principiantes
+
+Esta guía está escrita para quien empieza a usar un programa VTuber. También está disponible dentro de la aplicación, en **Guía fácil**, mediante pestañas para cada tema. No hace falta saber programar.
+
+## Cómo repartir el trabajo
+
+- **VTuberBot**: controla el avatar PNG, la voz local, el comportamiento compatible del bot, las conexiones y las operaciones disponibles de OBS.
+- **OBS Studio**: captura y mezcla las fuentes de vídeo/audio y es el motor que graba o transmite.
+- **Twitch y Kick**: son los servicios de chat; cada uno conserva su propia cuenta, autorización y funciones exclusivas.
+- **Streamer.bot**: es un puente opcional, no un requisito para usar el flujo básico. Evitá duplicar en él y en VTuberBot la misma respuesta.
+
+## Orden recomendado
+
+1. Abrí **PNGTuber 2D** e importá un PNG propio. Comprobá la posición, la transparencia y las imágenes de reposo/hablando.
+2. Abrí **Voz y audio**, elegí micrófono y salida y probá la voz. VOICEVOX Engine y sus voicebanks se instalan por separado y sus licencias deben respetarse.
+3. Abrí **OBS** y habilitá WebSocket con contraseña. El puerto por defecto suele ser 4455. Confirmá la conexión antes de ejecutar acciones reales.
+4. Abrí **Bots y plataformas** y conectá solo una plataforma para empezar. Probá en un canal controlado por vos antes de habilitar automatizaciones.
+5. Si algo falla, revisá **Actividad y diagnóstico** y exportá un diagnóstico sin secretos.
+
+## Qué hace cada sección
+
+### PNGTuber 2D
+Usa tu ilustración PNG y permite asignar sprites de boca y movimiento global simple. Los estados **Idle** y **Talking** no son lip-sync por fonemas. Si el PNG de base ya tiene una boca, la boca dibujada seguirá debajo del sticker; el editor no incluye una herramienta para borrarla, así que prepará una copia transparente sin boca con un editor de imagen.
+
+### Voz y audio
+Selecciona micrófono, salida y opciones de síntesis. VOICEVOX se ejecuta en el equipo y no viene dentro del paquete. Las voces estándar están orientadas principalmente al japonés; el español natural no está garantizado.
+
+### OBS y transmisiones
+VTuberBot envía acciones compatibles a OBS mediante OBS WebSocket. OBS sigue siendo responsable de componer y transmitir el directo. Nunca compartas la contraseña WebSocket o la clave de emisión. Hacé una grabación local antes de salir en vivo.
+
+### Bots y plataformas
+- **Twitch**: el código actual tiene cliente de chat y EventSub. La cuenta bot, canal destino y permisos deben coincidir con la autorización real.
+- **Kick**: esta versión autoriza una app creada por el usuario, verifica el canal y permite enviar manualmente un mensaje de prueba. **La lectura automática de chat/eventos de Kick y su enrutamiento a comandos/TTS aún no están implementados.**
+- **Reglas y voz**: la implementación actual consume chat de Twitch; una regla no se ejecuta en Kick solo por estar guardada.
+- **Streamer.bot**: integración opcional. Elegí un solo lugar como autoridad para cada regla para evitar mensajes o acciones duplicadas.
+
+### Comandos locales
+La pantalla Comandos sirve para acciones locales. No uses que un comando se ejecutó en esa página como prueba de que el mismo nombre funciona desde el chat de Twitch. Las reglas vinculadas al chat están en el panel Bots y plataformas.
+
+### Ajustes, privacidad y datos
+Las credenciales admitidas por la app se protegen con DPAPI para el usuario actual de Windows. No pegues tokens, Client Secret, contraseña WebSocket ni clave de emisión en GitHub, capturas o logs. Borrar el token local no siempre revoca el permiso remoto: para revocarlo, entrá en el sitio de la plataforma y retirá el acceso de la aplicación.
+
+## Solución de problemas sin reinstalar
+
+### Twitch no conecta
+1. Revisá Internet y el nombre real del usuario que inicia sesión.
+2. Comprobá por separado el login del bot y el canal destino.
+3. Revisá que la autorización conserve los permisos necesarios; si se revocaron, volvé a autorizar desde el panel.
+4. Mirá Actividad y diagnóstico. No compartas el token al pedir ayuda.
+
+### Kick no autoriza: error de redirect_uri o HTTP 400 vacío
+La Redirect URL registrada en Kick Developer debe coincidir exactamente con la que muestra el panel: http://localhost:17564/callback/. El reporte público [KickDevDocs #211](https://github.com/KickEngineering/KickDevDocs/issues/211) documentó que el flujo podía cambiar 127.0.0.1 a localhost; la documentación oficial recomienda usar localhost o aplicar su workaround si es imprescindible la IP. El panel de VTuberBot usa localhost.
+
+Otro informe, [KickDevDocs #428](https://github.com/KickEngineering/KickDevDocs/issues/428), describe un HTTP 400 sin cuerpo aunque el desarrollador ya había comprobado PKCE, scopes y redirect_uri. En ese caso, verificá que Client ID y Client Secret pertenezcan a la misma aplicación y que los scopes estén habilitados. Si persiste con un cuerpo vacío, registrá hora y estado HTTP: el reporte no ofrece una causa técnica pública confirmada, por lo que no hay que atribuirlo automáticamente a contraseña incorrecta.
+
+### Kick envía como usuario pero no como bot
+[KickDevDocs #343](https://github.com/KickEngineering/KickDevDocs/issues/343) documenta un 500 al usar type=bot mientras type=user funcionaba para el autor. Empezá con el modo Usuario, que el panel usa por defecto. El modo Bot puede requerir configuración del bot y autorización de la cuenta dueña del canal. No cambies de identidad silenciosamente ni repitas el mensaje muchas veces.
+
+### Kick no recibe mensajes o eventos
+Es una limitación conocida de esta versión. La Events API requiere un webhook públicamente accesible y verificación de la firma. [KickDevDocs #403](https://github.com/KickEngineering/KickDevDocs/issues/403) describe un caso de entregas ausentes relacionado con una regla propia del proxy/WAF. Si se construye ese receptor más adelante, inspeccioná logs del proxy y los headers; nunca desactives globalmente la seguridad ni aceptes eventos con firma inválida.
+
+### OBS WebSocket no conecta
+La guía oficial confirma que obs-websocket está incorporado desde OBS Studio 28. Abrí las preferencias de WebSocket, habilitá autenticación, comprobá que puerto y contraseña coincidan y mantené la conexión en loopback salvo que entiendas la configuración de red. La [guía oficial de control remoto](https://obsproject.com/kb/remote-control-guide) recomienda proteger el control con contraseña.
+
+### La voz no sale
+Confirmá que el Engine esté instalado y en ejecución, que la URL sea local, que haya estilos disponibles y que Windows use el dispositivo de salida correcto. Ni Engine ni voicebanks forman parte del ZIP de VTuberBot.
+
+### Un analizador de WPF falla aunque la compilación normal pasa
+El reporte [dotnet/wpf #11775](https://github.com/dotnet/wpf/issues/11775) describe NETSDK1022 en un proyecto temporal wpftmp durante DesignTimeBuild con el SDK .NET 10; el reporte indica que una compilación normal podía funcionar. Primero distinguí el análisis de diseño del build de Release de verdad. No fijes un SDK viejo ni cambies las propiedades del proyecto a ciegas sin reproducir el caso.
+
+## Fuentes oficiales y reportes públicos consultados
+
+- [OBS Remote Control Guide](https://obsproject.com/kb/remote-control-guide)
+- [OBS WebSocket](https://github.com/obsproject/obs-websocket)
+- [Twitch: Chat and Chatbots](https://dev.twitch.tv/docs/chat)
+- [Twitch OAuth scopes](https://dev.twitch.tv/docs/authentication/scopes/)
+- [Kick OAuth 2.1](https://github.com/KickEngineering/KickDevDocs/blob/main/getting-started/generating-tokens-oauth2-flow.md)
+- [Kick Chat API](https://github.com/KickEngineering/KickDevDocs/blob/main/apis/chat.md)
+- [Kick Events API](https://github.com/KickEngineering/KickDevDocs/blob/main/events/introduction.md)
+- [Kick webhook security](https://github.com/KickEngineering/KickDevDocs/blob/main/events/webhook-security.md)
+- [KickDevDocs #211: redirect URI](https://github.com/KickEngineering/KickDevDocs/issues/211)
+- [KickDevDocs #413: secretos OAuth en apps de escritorio](https://github.com/KickEngineering/KickDevDocs/issues/413)
+- [KickDevDocs #428: error 400 sin cuerpo](https://github.com/KickEngineering/KickDevDocs/issues/428)
+- [KickDevDocs #403: webhook y proxy/WAF](https://github.com/KickEngineering/KickDevDocs/issues/403)
+- [KickDevDocs #343: mensajes como bot](https://github.com/KickEngineering/KickDevDocs/issues/343)
+- [dotnet/wpf #11775: NETSDK1022 durante análisis de diseño](https://github.com/dotnet/wpf/issues/11775)
+
+## Qué prueba cada tipo de validación
+
+Una compilación y tests verdes prueban que el código puede compilar y que los escenarios automatizados pasan. No prueban que las cuentas personales estén autenticadas, que haya eventos entrantes de Kick, que VOICEVOX esté instalado, que el micrófono funcione en tu PC o que una transmisión real de OBS haya salido bien. Esas acciones necesitan una comprobación real en Windows.

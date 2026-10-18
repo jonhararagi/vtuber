@@ -102,7 +102,7 @@ public partial class MainWindow : Window
 
     private static readonly string[] Pages =
     [
-        "Inicio", "PNGTuber 2D", "Avatar Studio", "Comandos", "Voz y audio", "OBS", "Bots y plataformas", "Actividad y diagnóstico", "Ajustes"
+        "Inicio", "Guía fácil", "PNGTuber 2D", "Avatar Studio", "Comandos", "Voz y audio", "OBS", "Bots y plataformas", "Actividad y diagnóstico", "Ajustes"
     ];
 
     private void UpdateAvatarTalkState()
@@ -666,6 +666,7 @@ public partial class MainWindow : Window
         PageSubtitle.Text = currentPage switch
         {
             "Inicio" => "Todo lo importante del stream, en un solo lugar.",
+            "Guía fácil" => "Explicaciones sencillas por pestañas, orden recomendado y soluciones a errores frecuentes.",
             "PNGTuber 2D" => "Importá tu PNG, ajustá la boca dibujada y elegí movimientos suaves para Idle/Talking.",
             "Avatar Studio" => "Herramientas avanzadas del avatar y sus capas.",
             "Comandos" => "Acciones locales disponibles desde VTuberBot; no se activan desde el chat de Twitch.",
@@ -680,6 +681,7 @@ public partial class MainWindow : Window
         Workspace.Content = currentPage switch
         {
             "Inicio" => BuildDashboard(),
+            "Guía fácil" => BuildBeginnerGuidePage(),
             "PNGTuber 2D" => BuildPngtuber2DWorkspace(),
             "Avatar Studio" => BuildAvatarStudio(),
             "Comandos" => BuildCommandsPage(),
