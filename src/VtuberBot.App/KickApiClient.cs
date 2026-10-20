@@ -528,12 +528,13 @@ public sealed class KickApiClient
     {
         RequireToken(accessToken);
         var normalizedId = (messageId ?? "").Trim();
-        if (!Guid.TryParse(normalizedId, out var parsedId))
-            throw new ArgumentException("Ingresá el ID UUID válido del mensaje de Kick.", nameof(messageId));
+        if (normalizedId.Length is 0 or > 128 ||
+            normalizedId.Any(character => char.IsWhiteSpace(character) || char.IsControl(character)))
+            throw new ArgumentException("Ingresá el ID real del mensaje de Kick (máximo 128 caracteres, sin espacios).", nameof(messageId));
 
         using var request = new HttpRequestMessage(
             HttpMethod.Delete,
-            "https://api.kick.com/public/v1/chat/" + Uri.EscapeDataString(parsedId.ToString()));
+            "https://api.kick.com/public/v1/chat/" + Uri.EscapeDataString(normalizedId));
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken.Trim());
         using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
