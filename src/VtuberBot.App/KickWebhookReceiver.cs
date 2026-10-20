@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -182,6 +183,8 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
     private readonly Queue<string> seenMessageOrder = new();
     private readonly SemaphoreSlim connectionSlots = new(16, 16);
     private readonly SemaphoreSlim publicKeyGate = new(1, 1);
+    private readonly object activeTasksGate = new();
+    private readonly HashSet<Task> activeTasks = [];
     private string? cachedPublicKey;
     private DateTimeOffset cachedPublicKeyAt = DateTimeOffset.MinValue;
     private TcpListener? listener;
@@ -252,6 +255,14 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
             catch (SocketException) { }
         }
 
+        Task[] requests;
+        lock (activeTasksGate) requests = activeTasks.ToArray();
+        try { await Task.WhenAll(requests).ConfigureAwait(false); }
+        catch (Exception exception)
+        {
+            StatusChanged?.Invoke("El cierre del receptor Kick terminó con un error de solicitud (" + exception.GetType().Name + ").");
+        }
+
         source.Dispose();
         StatusChanged?.Invoke("Receptor local de Kick detenido.");
     }
@@ -288,23 +299,37 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
                 continue;
             }
 
-            _ = Task.Run(async () =>
+            Task requestTask;
+            lock (activeTasksGate)
             {
-                using (client)
+                requestTask = Task.Run(async () =>
                 {
-                    try { await HandleClientAsync(client, cancellationToken).ConfigureAwait(false); }
-                    catch (OperationCanceledException) { }
-                    catch (IOException) { }
-                    catch (SocketException) { }
-                    catch (Exception exception)
+                    using (client)
                     {
-                        StatusChanged?.Invoke("Se rechazó una solicitud de webhook Kick por un error interno (" + exception.GetType().Name + ").");
-                        try { await WriteResponseAsync(client.GetStream(), 503, "Retry", CancellationToken.None).ConfigureAwait(false); }
-                        catch (Exception responseException) when (responseException is IOException or SocketException or ObjectDisposedException) { }
+                        try { await HandleClientAsync(client, cancellationToken).ConfigureAwait(false); }
+                        catch (OperationCanceledException) { }
+                        catch (IOException) { }
+                        catch (SocketException) { }
+                        catch (ObjectDisposedException) { }
+                        catch (Exception exception)
+                        {
+                            StatusChanged?.Invoke("Se rechazó una solicitud de webhook Kick por un error interno (" + exception.GetType().Name + ").");
+                            try { await WriteResponseAsync(client.GetStream(), 503, "Retry", CancellationToken.None).ConfigureAwait(false); }
+                            catch (Exception responseException) when (responseException is IOException or SocketException or ObjectDisposedException) { }
+                        }
+                        finally { connectionSlots.Release(); }
                     }
-                    finally { connectionSlots.Release(); }
-                }
-            }, CancellationToken.None);
+                }, CancellationToken.None);
+                activeTasks.Add(requestTask);
+            }
+            _ = requestTask.ContinueWith(
+                completed =>
+                {
+                    lock (activeTasksGate) activeTasks.Remove(completed);
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
     }
 
@@ -368,12 +393,6 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
             return;
         }
 
-        if (!TryRememberMessageId(messageId))
-        {
-            await WriteResponseAsync(stream, 204, "Duplicate Event", timeout.Token).ConfigureAwait(false);
-            return;
-        }
-
         KickWebhookEvent webhookEvent;
         try
         {
@@ -383,6 +402,12 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
         {
             StatusChanged?.Invoke("Se recibió un webhook Kick firmado con payload no válido (" + exception.GetType().Name + ").");
             await WriteResponseAsync(stream, 400, "Invalid Event Payload", timeout.Token).ConfigureAwait(false);
+            return;
+        }
+
+        if (!TryRememberMessageId(messageId))
+        {
+            await WriteResponseAsync(stream, 204, "Duplicate Event", timeout.Token).ConfigureAwait(false);
             return;
         }
 
