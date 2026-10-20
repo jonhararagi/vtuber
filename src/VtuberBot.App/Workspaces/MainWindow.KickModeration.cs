@@ -40,7 +40,7 @@ public partial class MainWindow
         var panel = Panel("Acciones de Kick — manuales y con confirmación");
         panel.Margin = new Thickness(0, 12, 0, 0);
         panel.Children.Add(Label(
-            "Las acciones modifican el chat real y exigen los permisos de moderación de Kick. Si faltan permisos, volvé a autorizar Kick desde Bots y plataformas. La automatización del chat de Kick no está activa: aún falta el receptor público de webhooks y su verificación de firma.",
+            "Las acciones modifican el chat real y exigen los permisos de moderación de Kick. Si faltan permisos, volvé a autorizar Kick desde Bots y plataformas. Las reglas automáticas de Kick permanecen apagadas por defecto y solo se aplican a mensajes que lleguen por un webhook público configurado y con firma válida.",
             12, "#E7B56A"));
 
         var channel = TextField("Canal de Kick (slug)", store.GetSetting("kick.channel_slug"));
@@ -201,7 +201,7 @@ public partial class MainWindow
         }));
 
         panel.Children.Add(Label(
-            "Importante: las acciones de Kick aquí son manuales. La recepción automática de mensajes y la ejecución de reglas automáticas para Kick no están conectadas todavía.",
+            "Importante: estas acciones manuales siempre piden confirmación. Las reglas automáticas de Kick se activan por separado y requieren configurar el túnel HTTPS, iniciar el receptor en Bots y plataformas y suscribir los eventos; el listener local por sí solo no demuestra que Kick esté entregando chat.",
             12, "#98A4BE"));
         return panel;
     }
