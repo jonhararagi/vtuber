@@ -62,6 +62,13 @@ Es una limitación conocida de esta versión. La Events API requiere un webhook 
 ### OBS WebSocket no conecta
 La guía oficial confirma que obs-websocket está incorporado desde OBS Studio 28. Abrí las preferencias de WebSocket, habilitá autenticación, comprobá que puerto y contraseña coincidan y mantené la conexión en loopback salvo que entiendas la configuración de red. La [guía oficial de control remoto](https://obsproject.com/kb/remote-control-guide) recomienda proteger el control con contraseña.
 
+### Cómo leer el progreso del asistente de OBS
+El asistente separa ahora los pasos que confirmás vos de las comprobaciones que puede ejecutar VTuberBot. **M✓** significa «confirmado manualmente»: la aplicación guarda tu confirmación, pero no inspecciona automáticamente ese resultado. **✓** significa que la aplicación recibió una respuesta válida en una comprobación real anterior; no garantiza que la conexión siga activa para siempre.
+
+Los pasos de conexión WebSocket y de aplicación del perfil 720p/30 FPS no se pueden completar marcando una casilla. Para el primero, usá **Comprobar conexión real**: la app intenta conectarse/autenticarse y leer la versión de OBS. Para el segundo, confirmá el cambio global y esperá que OBS acepte la operación. Si falla, el paso queda pendiente; corregí el puerto/contraseña o revisá el estado de OBS antes de volver a intentarlo. El perfil modifica ajustes reales de OBS y puede afectar todas las escenas.
+
+El progreso se guarda en este equipo. Las marcas manuales y las verificaciones automáticas son tipos de evidencia distintos; ninguna de ellas demuestra que una grabación o un directo completo se vean y escuchen bien. Para eso, hacé una grabación local y reproducí el archivo.
+
 ### La voz no sale
 Confirmá que el Engine esté instalado y en ejecución, que la URL sea local, que haya estilos disponibles y que Windows use el dispositivo de salida correcto. Ni Engine ni voicebanks forman parte del ZIP de VTuberBot.
 
