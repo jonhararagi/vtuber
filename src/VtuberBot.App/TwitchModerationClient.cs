@@ -67,7 +67,7 @@ public sealed class TwitchModerationClient : IDisposable
         if (!LoginPattern.IsMatch(channelLogin))
             throw new ArgumentException("El canal debe ser un login de Twitch válido.");
 
-        var safeMessage = (message ?? string.Empty).Replace("\\r", " ").Replace("\\n", " ").Trim();
+        var safeMessage = (message ?? string.Empty).Replace("\r", " ").Replace("\n", " ").Trim();
         if (safeMessage.Length is 0 or > 500)
             throw new ArgumentException("El aviso debe tener entre 1 y 500 caracteres.", nameof(message));
 
