@@ -18,7 +18,7 @@ public sealed class TwitchModerationClientTests
         using var client = new TwitchModerationClient(http);
 
         var result = await client.SendChatMessageAsync("client-id", "access-token", "#Streamer",
-            "viewer, respetá las reglas.");
+            "viewer, respetá las reglas.", TestContext.Current.CancellationToken);
 
         Assert.Contains("Twitch confirmó el envío", result, StringComparison.Ordinal);
         Assert.Contains("msg-300", result, StringComparison.Ordinal);
@@ -44,7 +44,7 @@ public sealed class TwitchModerationClientTests
         using var client = new TwitchModerationClient(http);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            client.SendChatMessageAsync("client-id", "access-token", "streamer", "unwanted link"));
+            client.SendChatMessageAsync("client-id", "access-token", "streamer", "unwanted link", TestContext.Current.CancellationToken));
 
         Assert.Contains("Twitch no confirmó el envío", error.Message, StringComparison.Ordinal);
         Assert.Contains("automod_held", error.Message, StringComparison.Ordinal);
