@@ -444,7 +444,7 @@ public partial class MainWindow
                 var storedIds = previouslyTrackedIds.ToHashSet(StringComparer.Ordinal);
                 foreach (var item in accepted)
                     storedIds.Add(item.SubscriptionId!);
-                store.SetSetting("kick.webhook.subscription_ids", string.Join('\n', storedIds));
+                store.SetSetting("kick.webhook.subscription_ids", string.Join("\n", storedIds));
                 if (accepted.Length > 0)
                     store.SetSetting("kick.webhook.broadcaster_user_id", channelInfo.BroadcasterUserId.ToString(CultureInfo.InvariantCulture));
                 var summary = "Kick devolvió " + accepted.Length + " suscripciones aceptadas para " + channelInfo.Slug +
