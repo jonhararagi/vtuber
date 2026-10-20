@@ -428,17 +428,25 @@ public partial class MainWindow
                 var userCredentials = await GetValidKickCredentialsAsync();
                 var api = new KickApiClient();
                 var channelInfo = await api.GetChannelAsync(userCredentials.AccessToken, channel.Text);
+                var previouslyTrackedIds = store.GetSetting("kick.webhook.subscription_ids")
+                    .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (previouslyTrackedIds.Length > 0 &&
+                    (!long.TryParse(store.GetSetting("kick.webhook.broadcaster_user_id"),
+                        NumberStyles.None, CultureInfo.InvariantCulture, out var previousBroadcasterId) ||
+                     previousBroadcasterId != channelInfo.BroadcasterUserId))
+                    throw new InvalidOperationException(
+                        "Ya hay suscripciones guardadas para otro canal. Cancelalas desde este panel antes de cambiar el canal de eventos; esto evita mezclar eventos de distintos canales.");
+
                 var appToken = await GetValidKickAppAccessTokenAsync();
                 var results = await api.SubscribeToDefaultEventsAsync(appToken, channelInfo.BroadcasterUserId);
-                var storedIds = store.GetSetting("kick.webhook.subscription_ids")
-                    .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .ToHashSet(StringComparer.Ordinal);
-                foreach (var item in results.Where(item => !string.IsNullOrWhiteSpace(item.SubscriptionId) && string.IsNullOrWhiteSpace(item.Error)))
-                    storedIds.Add(item.SubscriptionId!);
-                store.SetSetting("kick.webhook.subscription_ids", string.Join('\n', storedIds));
-
                 var failures = results.Where(item => !string.IsNullOrWhiteSpace(item.Error)).ToArray();
                 var accepted = results.Where(item => !string.IsNullOrWhiteSpace(item.SubscriptionId) && string.IsNullOrWhiteSpace(item.Error)).ToArray();
+                var storedIds = previouslyTrackedIds.ToHashSet(StringComparer.Ordinal);
+                foreach (var item in accepted)
+                    storedIds.Add(item.SubscriptionId!);
+                store.SetSetting("kick.webhook.subscription_ids", string.Join('\n', storedIds));
+                if (accepted.Length > 0)
+                    store.SetSetting("kick.webhook.broadcaster_user_id", channelInfo.BroadcasterUserId.ToString(CultureInfo.InvariantCulture));
                 var summary = "Kick devolvió " + accepted.Length + " suscripciones aceptadas para " + channelInfo.Slug +
                     " y " + failures.Length + " errores. Esto confirma el resultado API, no la entrega al webhook.";
                 if (failures.Length > 0)
@@ -485,6 +493,7 @@ public partial class MainWindow
                 var appToken = await GetValidKickAppAccessTokenAsync();
                 await new KickApiClient().DeleteEventSubscriptionsAsync(appToken, subscriptionIds);
                 store.SetSetting("kick.webhook.subscription_ids", "");
+                store.SetSetting("kick.webhook.broadcaster_user_id", "");
                 var status = "Kick confirmó la cancelación de las suscripciones que VTuberBot tenía registradas.";
                 store.SetSetting("kick.webhook.lastStatus", status);
                 webhookStatus.Text = status;
