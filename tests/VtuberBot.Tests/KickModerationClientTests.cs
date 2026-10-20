@@ -13,7 +13,7 @@ public sealed class KickModerationClientTests
     public async Task BanOrTimeoutRejectsInvalidTargetBeforeNetwork(long userId)
     {
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            client.BanOrTimeoutUserAsync("test-token", "valid-channel", userId, 10, ""));
+            client.BanOrTimeoutUserAsync("test-token", "valid-channel", userId, 10, "", TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -22,14 +22,14 @@ public sealed class KickModerationClientTests
     public async Task BanOrTimeoutRejectsInvalidDurationBeforeNetwork(int durationMinutes)
     {
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            client.BanOrTimeoutUserAsync("test-token", "valid-channel", 123, durationMinutes, ""));
+            client.BanOrTimeoutUserAsync("test-token", "valid-channel", 123, durationMinutes, "", TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task BanOrTimeoutRejectsReasonOverApiLimitBeforeNetwork()
     {
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            client.BanOrTimeoutUserAsync("test-token", "valid-channel", 123, 10, new string('x', 101)));
+            client.BanOrTimeoutUserAsync("test-token", "valid-channel", 123, 10, new string('x', 101), TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -38,7 +38,7 @@ public sealed class KickModerationClientTests
     public async Task UnbanRejectsInvalidTargetBeforeNetwork(long userId)
     {
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            client.UnbanUserAsync("test-token", "valid-channel", userId));
+            client.UnbanUserAsync("test-token", "valid-channel", userId, TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -47,6 +47,6 @@ public sealed class KickModerationClientTests
     public async Task DeleteMessageRejectsInvalidIdBeforeNetwork(string messageId)
     {
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            client.DeleteChatMessageAsync("test-token", messageId));
+            client.DeleteChatMessageAsync("test-token", messageId, TestContext.Current.CancellationToken));
     }
 }
