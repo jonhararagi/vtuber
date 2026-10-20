@@ -132,15 +132,15 @@ public partial class MainWindow
             await ExecuteUserAction("retirar sanción", null, true)));
         panel.Children.Add(userActions);
 
-        var messageId = TextField("ID UUID del mensaje de Kick");
+        var messageId = TextField("ID del mensaje de Kick");
         panel.Children.Add(Label("Eliminar un mensaje específico", 12, "#98A4BE", true));
         panel.Children.Add(messageId);
         panel.Children.Add(ActionButton("Eliminar mensaje de Kick", async (_, _) =>
         {
             var id = messageId.Text.Trim();
-            if (!Guid.TryParse(id, out _))
+            if (id.Length is 0 or > 128 || id.Any(character => char.IsWhiteSpace(character) || char.IsControl(character)))
             {
-                MessageBox.Show(this, "Ingresá el ID UUID real del mensaje de Kick.", "ID de mensaje no válido",
+                MessageBox.Show(this, "Ingresá el ID real del mensaje de Kick (máximo 128 caracteres, sin espacios).", "ID de mensaje no válido",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
