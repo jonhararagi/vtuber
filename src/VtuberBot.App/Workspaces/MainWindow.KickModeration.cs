@@ -66,6 +66,33 @@ public partial class MainWindow
         panel.Children.Add(Label(
             "Este panel acepta el ID numérico de usuario porque la consulta pública integrada no convierte nombres visibles en IDs. El ID del mensaje para borrado debe ser el UUID real devuelto por Kick.",
             11, "#98A4BE"));
+        var autoModeration = new CheckBox
+        {
+            Content = "Activar las reglas automáticas también para mensajes de Kick",
+            IsChecked = store.GetSetting("kick.auto_moderation.enabled", "false") == "true",
+            Foreground = Brush("#F8FAFC"),
+            Margin = new Thickness(0, 8, 0, 8)
+        };
+        autoModeration.Checked += (_, _) =>
+        {
+            var choice = MessageBox.Show(this,
+                "Las mismas reglas que configuraste arriba podrán publicar avisos, borrar mensajes o sancionar usuarios en Kick cuando llegue un webhook con firma válida. Broadcaster y moderadores se protegen; hay un cooldown de 5 minutos por usuario/regla. ¿Activar acciones automáticas reales en Kick?",
+                "Activar moderación automática de Kick", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (choice != MessageBoxResult.Yes)
+            {
+                autoModeration.IsChecked = false;
+                return;
+            }
+            store.SetSetting("kick.auto_moderation.enabled", "true");
+            store.Log("Moderación Kick", "Moderación automática activada explícitamente por el usuario.");
+        };
+        autoModeration.Unchecked += (_, _) =>
+        {
+            store.SetSetting("kick.auto_moderation.enabled", "false");
+            store.Log("Moderación Kick", "Moderación automática desactivada.");
+        };
+        panel.Children.Add(autoModeration);
+
         async Task ExecuteUserAction(string action, int? durationMinutes, bool removeSanction)
         {
             if (!long.TryParse(target.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var targetId) || targetId <= 0)
