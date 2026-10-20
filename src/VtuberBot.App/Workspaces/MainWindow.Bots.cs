@@ -201,7 +201,9 @@ public partial class MainWindow
         var actionPanel = Panel("2. Verificar canal y probar el chat");
         var channelStatus = Label("Canal: aún no consultado a Kick.", 12, "#98A4BE", true);
         var eventStatus = Label(
-            "Webhook Kick aún no iniciado. Configurá una URL pública HTTPS, un túnel seguro hacia localhost y las suscripciones de eventos; los mensajes solo se procesan si la firma es válida.",
+            kickWebhookReceiver?.IsRunning == true
+                ? "Receptor local activo. La llegada real se confirma al ver mensajes verificados aquí."
+                : "Receptor local detenido. Configurá URL pública HTTPS y túnel, iniciá el receptor y suscribí eventos; la firma se verifica antes del procesamiento.",
             12, "#E7B56A");
         var messageType = new ComboBox
         {
