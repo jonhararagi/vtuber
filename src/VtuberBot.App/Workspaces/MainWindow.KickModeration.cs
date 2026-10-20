@@ -132,6 +132,50 @@ public partial class MainWindow
             await ExecuteUserAction("retirar sanción", null, true)));
         panel.Children.Add(userActions);
 
+        var messageId = TextField("ID UUID del mensaje de Kick");
+        panel.Children.Add(Label("Eliminar un mensaje específico", 12, "#98A4BE", true));
+        panel.Children.Add(messageId);
+        panel.Children.Add(ActionButton("Eliminar mensaje de Kick", async (_, _) =>
+        {
+            var id = messageId.Text.Trim();
+            if (!Guid.TryParse(id, out _))
+            {
+                MessageBox.Show(this, "Ingresá el ID UUID real del mensaje de Kick.", "ID de mensaje no válido",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            string slug;
+            try { slug = KickApiClient.NormalizeChannelSlug(channel.Text); }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Canal Kick no válido", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (MessageBox.Show(this,
+                    $"Se eliminará el mensaje {id} del chat de Kick. Canal de referencia: kick.com/{slug}.\n\n¿Confirmás?",
+                    "Confirmar borrado de Kick", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+            try
+            {
+                var credentials = await GetValidKickModerationCredentialsAsync();
+                var result = await new KickApiClient().DeleteChatMessageAsync(credentials.AccessToken, id);
+                store.Log("Moderación Kick", "Borrado de mensaje confirmado por API en " + slug + ".");
+                FooterStatus.Text = result;
+                MessageBox.Show(this, result, "Moderación de Kick", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "Kick no confirmó el borrado: " + exception.GetType().Name;
+                store.Log("Moderación Kick", "Falló el borrado de mensaje (" + exception.GetType().Name + "); sin declarar éxito.");
+                MessageBox.Show(this,
+                    "Kick no confirmó el borrado. Revisá el ID UUID, los permisos y el scope moderation:chat_message:manage. Si faltan scopes, reautorizá Kick desde Bots y plataformas.\n\n" + exception.Message,
+                    "Borrado fallido", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }));
+
+        panel.Children.Add(Label(
+            "Importante: las acciones de Kick aquí son manuales. La recepción automática de mensajes y la ejecución de reglas automáticas para Kick no están conectadas todavía.",
+            12, "#98A4BE"));
         return panel;
     }
 }
