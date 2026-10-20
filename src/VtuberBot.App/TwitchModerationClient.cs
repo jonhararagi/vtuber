@@ -10,7 +10,21 @@ namespace VtuberBot.App;
 public sealed class TwitchModerationClient : IDisposable
 {
     private static readonly Regex LoginPattern = new("^[a-zA-Z0-9_]{1,25}$", RegexOptions.CultureInvariant);
-    private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private readonly HttpClient http;
+    private readonly bool ownsHttp;
+
+    public TwitchModerationClient()
+    {
+        http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        ownsHttp = true;
+    }
+
+    /// <summary>Allows deterministic API contract tests without contacting Twitch.</summary>
+    public TwitchModerationClient(HttpClient http)
+    {
+        this.http = http ?? throw new ArgumentNullException(nameof(http));
+        ownsHttp = false;
+    }
 
     public async Task<string> BanOrTimeoutAsync(
         string clientId, string accessToken, string channelLogin, string targetLogin,
@@ -40,6 +54,60 @@ public sealed class TwitchModerationClient : IDisposable
         return durationSeconds.HasValue
             ? "Timeout aplicado a " + targetLogin + " por " + durationSeconds.Value + " segundos."
             : "Ban permanente aplicado a " + targetLogin + ".";
+    }
+
+    /// <summary>Sends a chat warning through Helix and requires Twitch's explicit is_sent acknowledgement.</summary>
+    public async Task<string> SendChatMessageAsync(
+        string clientId, string accessToken, string channelLogin, string message,
+        CancellationToken cancellationToken = default)
+    {
+        channelLogin = NormalizeLogin(channelLogin, '#');
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(accessToken))
+            throw new ArgumentException("Configurá Client ID y autorizá la cuenta Twitch.");
+        if (!LoginPattern.IsMatch(channelLogin))
+            throw new ArgumentException("El canal debe ser un login de Twitch válido.");
+
+        var safeMessage = (message ?? string.Empty).Replace("\r", " ").Replace("\n", " ").Trim();
+        if (safeMessage.Length is 0 or > 500)
+            throw new ArgumentException("El aviso debe tener entre 1 y 500 caracteres.", nameof(message));
+
+        var token = NormalizeToken(accessToken);
+        var broadcasterId = await ResolveUserIdAsync(clientId, token, channelLogin, cancellationToken).ConfigureAwait(false);
+        var senderId = await GetAuthenticatedUserIdAsync(clientId, token, cancellationToken).ConfigureAwait(false);
+        using var request = CreateRequest(HttpMethod.Post, "https://api.twitch.tv/helix/chat/messages", clientId, token);
+        request.Content = new StringContent(
+            JsonSerializer.Serialize(new { broadcaster_id = broadcasterId, sender_id = senderId, message = safeMessage }),
+            Encoding.UTF8,
+            "application/json");
+
+        using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw ApiError(response.StatusCode, body, "user:write:chat");
+
+        using var document = JsonDocument.Parse(body);
+        if (!document.RootElement.TryGetProperty("data", out var data) ||
+            data.ValueKind != JsonValueKind.Array ||
+            data.GetArrayLength() == 0)
+            throw new InvalidOperationException("Twitch respondió sin datos de envío; el aviso no se puede considerar confirmado.");
+
+        var sent = data[0];
+        if (!sent.TryGetProperty("is_sent", out var isSent) || isSent.ValueKind != JsonValueKind.True)
+        {
+            var reason = string.Empty;
+            if (sent.TryGetProperty("drop_reason", out var dropReason) && dropReason.ValueKind == JsonValueKind.Object)
+            {
+                var code = dropReason.TryGetProperty("code", out var codeElement) ? codeElement.GetString() : null;
+                var detail = dropReason.TryGetProperty("message", out var messageElement) ? messageElement.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(code)) reason += " Código: " + code + ".";
+                if (!string.IsNullOrWhiteSpace(detail)) reason += " " + detail;
+            }
+            throw new InvalidOperationException("Twitch no confirmó el envío del aviso." + reason);
+        }
+
+        var sentId = sent.TryGetProperty("message_id", out var messageId) ? messageId.GetString() : null;
+        return "Twitch confirmó el envío del aviso a #" + channelLogin +
+            (string.IsNullOrWhiteSpace(sentId) ? "." : " (ID " + sentId + ").");
     }
 
     /// <summary>Removes the single message whose IRCv3 id tag was received from Twitch.</summary>
@@ -175,5 +243,8 @@ public sealed class TwitchModerationClient : IDisposable
         return new InvalidOperationException(detail);
     }
 
-    public void Dispose() => http.Dispose();
+    public void Dispose()
+    {
+        if (ownsHttp) http.Dispose();
+    }
 }
