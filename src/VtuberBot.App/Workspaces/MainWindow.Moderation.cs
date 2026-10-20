@@ -158,7 +158,7 @@ public partial class MainWindow
                 return;
             }
             if (MessageBox.Show(this,
-                    $"Vas a eliminar un mensaje REAL del canal {channelName}.\\nID: {messageId}\\n\\n¿Confirmás?",
+                    $"Vas a eliminar un mensaje REAL del canal {channelName}.\nID: {messageId}\n\n¿Confirmás?",
                     "Confirmar eliminación de mensaje", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
                 return;
             try
@@ -173,11 +173,11 @@ public partial class MainWindow
             {
                 FooterStatus.Text = "No se confirmó la eliminación en Twitch: " + ex.GetType().Name;
                 store.Log("Moderación", "Falló el borrado manual de un mensaje Twitch (" + ex.GetType().Name + ").");
-                MessageBox.Show(this, "Twitch no confirmó el borrado. Verificá el ID, el permiso moderator:manage:chat_messages y el rol de la cuenta.\\n\\n" + ex.Message,
+                MessageBox.Show(this, "Twitch no confirmó el borrado. Verificá el ID, el permiso moderator:manage:chat_messages y el rol de la cuenta.\n\n" + ex.Message,
                     "Eliminación fallida", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }));
-        remotePanel.Children.Add(Label("Si Twitch rechaza la solicitud, la aplicación registra el tipo de error pero nunca presenta la sanción como exitosa. No se ejecutan sanciones por coincidencias regex.", 12, "#98A4BE"));
+        remotePanel.Children.Add(Label("Si Twitch rechaza una solicitud, la acción queda registrada como fallida. Las acciones automáticas solo se ejecutan si activás explícitamente el interruptor global y configurás reglas.", 12, "#98A4BE"));
         root.Children.Add(remotePanel);
         root.Children.Add(BuildKickModerationPanel());
         var auto=Panel("Mensajes automáticos programados");auto.Margin=new Thickness(0,12,0,0);
