@@ -38,7 +38,7 @@ VTuberBot envía acciones compatibles a OBS mediante OBS WebSocket. OBS sigue si
 La pantalla Comandos sirve para acciones locales. No uses que un comando se ejecutó en esa página como prueba de que el mismo nombre funciona desde el chat de Twitch. Las reglas vinculadas al chat están en el panel Bots y plataformas.
 
 ### Ajustes, privacidad y datos
-Las credenciales admitidas por la app se protegen con DPAPI para el usuario actual de Windows. No pegues tokens, Client Secret, contraseña WebSocket ni clave de emisión en GitHub, capturas o logs. Borrar el token local no siempre revoca el permiso remoto: para revocarlo, entrá en el sitio de la plataforma y retirá el acceso de la aplicación.
+Las credenciales admitidas por la app se protegen con DPAPI para el usuario actual de Windows. No pegues tokens, Client Secret, contraseña WebSocket ni clave de emisión en GitHub, capturas o logs. En Kick, dejar vacío el campo Client Secret al guardar otra configuración conserva el secreto ya guardado; para eliminarlo, usá el botón específico de eliminación y confirmá la acción. Esa eliminación local no borra los tokens OAuth ni revoca el permiso remoto. Para revocar el acceso, entrá en el sitio de la plataforma y retiralo allí.
 
 ## Solución de problemas sin reinstalar
 
