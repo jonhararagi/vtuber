@@ -88,7 +88,7 @@ public partial class MainWindow
         config.Children.Add(channel);
         config.Children.Add(Label(
             "En Kick Developer registrá exactamente esta Redirect URL: " + KickOAuthClient.RedirectUri +
-            " · Scopes mínimos solicitados: user:read, channel:read y chat:write. No pegues el secreto en GitHub ni en mensajes de soporte.",
+            " · Scopes solicitados: user:read, channel:read, chat:write, moderation:ban y moderation:chat_message:manage. Volvé a autorizar Kick para conceder los nuevos permisos. No pegues el secreto en GitHub ni en mensajes de soporte.",
             11, "#98A4BE"));
 
         var credentialStatus = Label(
