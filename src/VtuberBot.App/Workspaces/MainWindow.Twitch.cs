@@ -298,11 +298,8 @@ public partial class MainWindow
         }
         var text = parsed.Trailing;
         var messageId = parsed.Tags.TryGetValue("id", out var taggedMessageId) ? taggedMessageId : string.Empty;
-        // Both consumers share this one validated IRC PRIVMSG; no extra Twitch subscription is created.
-        try { socialBot.OnChatMessage(username, text, store.GetSetting("twitch.channel")); }
-        catch (Exception exception) { store.Log("Bot social", "Se aisló un error de recepción social (" + exception.GetType().Name + ")."); }
-        try { chatReactions.OnChatMessage(username, text, messageId); }
-        catch (Exception exception) { store.Log("Reacciones chat", "Se aisló un error de recepción (" + exception.GetType().Name + ")."); }
+        // Evaluate moderation before allowing chat-triggered consumers or automations to react.
+        // Keep the validated message in the UI even when its downstream side effects are suppressed.
         PruneExpiredTwitchCooldowns(DateTimeOffset.UtcNow);
 
         chatLines.Insert(0, username + ": " + text);
@@ -375,6 +372,13 @@ public partial class MainWindow
 
         if (skipMessageSideEffects)
             return;
+
+        // Both consumers share this one validated IRC PRIVMSG; no extra Twitch subscription is created.
+        // They run only after moderation has decided this message is safe for downstream side effects.
+        try { socialBot.OnChatMessage(username, text, store.GetSetting("twitch.channel")); }
+        catch (Exception exception) { store.Log("Bot social", "Se aisló un error de recepción social (" + exception.GetType().Name + ")."); }
+        try { chatReactions.OnChatMessage(username, text, messageId); }
+        catch (Exception exception) { store.Log("Reacciones chat", "Se aisló un error de recepción (" + exception.GetType().Name + ")."); }
 
         // Publish only after moderation has decided that this message may cause side effects.
         // This lets user-authored automation rules react to real IRC chat without bypassing
