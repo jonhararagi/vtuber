@@ -106,10 +106,9 @@ public partial class MainWindow
                 throw new InvalidOperationException("Ingresá el Client ID de tu aplicación Kick.");
             store.SetSetting("kick.client_id", configuredClientId);
             store.SetSetting("kick.channel_slug", normalizedSlug);
-            if (string.IsNullOrWhiteSpace(clientSecret.Password))
-                secretStore.Delete("kick-client-secret");
-            else
-                secretStore.Save("kick-client-secret", clientSecret.Password);
+            // An empty optional password field means "keep the saved secret".
+            // Deletion is exposed separately and asks for explicit confirmation.
+            secretStore.SaveIfProvided("kick-client-secret", clientSecret.Password);
         }
 
         var credentialActions = new WrapPanel();
@@ -117,12 +116,19 @@ public partial class MainWindow
         {
             try
             {
+                var secretWasProvided = !string.IsNullOrWhiteSpace(clientSecret.Password);
                 SaveKickSettings();
-                credentialStatus.Text = secretStore.HasSecret("kick-access-token")
+                var secretExists = secretStore.HasSecret("kick-client-secret");
+                var secretStatus = secretWasProvided
+                    ? "Client Secret guardado cifrado con DPAPI."
+                    : secretExists
+                        ? "Se conservó el Client Secret cifrado que ya estaba guardado."
+                        : "No hay Client Secret guardado; ingresalo antes de autorizar Kick.";
+                credentialStatus.Text = (secretStore.HasSecret("kick-access-token")
                     ? "Configuración guardada. El token existe, pero el canal debe verificarse al usar «Verificar canal»."
-                    : "Configuración guardada localmente; todavía no hay sesión Kick.";
+                    : "Configuración guardada localmente; todavía no hay sesión Kick.") + " " + secretStatus;
                 credentialStatus.Foreground = Brush("#E7B56A");
-                FooterStatus.Text = "Configuración Kick guardada; Client Secret cifrado con DPAPI y sin escribirlo en logs.";
+                FooterStatus.Text = "Configuración Kick guardada. " + secretStatus + " No se escribieron secretos en logs.";
                 store.Log("Kick", "Se guardó configuración local sin registrar Client Secret ni tokens.");
             }
             catch (Exception exception)
@@ -160,6 +166,30 @@ public partial class MainWindow
                     "Autorización Kick", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }, true));
+        credentialActions.Children.Add(ActionButton("Eliminar Client Secret guardado…", (_, _) =>
+        {
+            if (MessageBox.Show(this,
+                "Se eliminará únicamente el Client Secret guardado en este equipo. No se eliminarán los tokens OAuth ni se revocará el acceso en Kick. Para autorizar de nuevo, tendrás que ingresar el secreto otra vez. ¿Continuar?",
+                "Eliminar Client Secret local", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                secretStore.Delete("kick-client-secret");
+                clientSecret.Clear();
+                credentialStatus.Text = secretStore.HasSecret("kick-access-token")
+                    ? "Client Secret local eliminado. La sesión existente se conserva; renovar o autorizar puede requerir ingresar el secreto otra vez."
+                    : "Client Secret local eliminado. No se modificó ninguna autorización remota.";
+                credentialStatus.Foreground = Brush("#E7B56A");
+                FooterStatus.Text = "Client Secret local eliminado tras confirmación; no se borraron tokens ni configuración del canal.";
+                store.Log("Kick", "El usuario eliminó el Client Secret local tras confirmación; no se registraron secretos.");
+            }
+            catch (Exception exception)
+            {
+                credentialStatus.Text = "No se pudo eliminar el Client Secret: " + exception.GetType().Name;
+                FooterStatus.Text = "No se eliminó el Client Secret local.";
+            }
+        }));
         credentialActions.Children.Add(ActionButton("Abrir Kick Developer", (_, _) =>
         {
             try { Process.Start(new ProcessStartInfo("https://kick.com/settings/developer") { UseShellExecute = true }); }

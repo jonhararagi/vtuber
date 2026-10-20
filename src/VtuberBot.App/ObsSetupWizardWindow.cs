@@ -123,11 +123,13 @@ public sealed class ObsSetupWizardWindow : Window
     private readonly WrapPanel actionPanel = new();
     private readonly ProgressBar progressBar = new();
     private readonly CheckBox completedCheck = new();
+    private readonly TextBlock evidenceText = new();
     private readonly Button backButton = new();
     private readonly Button nextButton = new();
     private ComboBox? platformSelector;
     private bool isRenderingStep;
     private readonly HashSet<int> completedSteps = [];
+    private readonly HashSet<int> verifiedSteps = [];
     private int currentStep;
 
     public ObsSetupWizardWindow(
@@ -159,8 +161,15 @@ public sealed class ObsSetupWizardWindow : Window
         Foreground = Brush("#F1F5F9");
 
         foreach (var value in readSetting("help.obsWizard.completed").Split(',', StringSplitOptions.RemoveEmptyEntries))
-            if (int.TryParse(value, out var index) && index >= 0 && index < Steps.Length)
+            if (int.TryParse(value, out var index) && index >= 0 && index < Steps.Length &&
+                !ObsSetupStepEvidencePolicy.RequiresApplicationVerification(index))
                 completedSteps.Add(index);
+
+        foreach (var value in readSetting("help.obsWizard.verified").Split(',', StringSplitOptions.RemoveEmptyEntries))
+            if (int.TryParse(value, out var index) && index >= 0 && index < Steps.Length &&
+                ObsSetupStepEvidencePolicy.RequiresApplicationVerification(index))
+                verifiedSteps.Add(index);
+
         currentStep = int.TryParse(readSetting("help.obsWizard.step"), out var savedStep)
             ? Math.Clamp(savedStep, 0, Steps.Length - 1)
             : 0;
@@ -223,7 +232,7 @@ public sealed class ObsSetupWizardWindow : Window
         sideDock.Children.Add(navScroll);
         var sideFooter = new TextBlock
         {
-            Text = "No compartas claves de transmisión ni contraseñas. Los pasos sin conexión real se marcan manualmente.",
+            Text = "No compartas claves ni contraseñas. La app verifica la conexión y el perfil solo cuando OBS responde; los demás pasos se confirman manualmente.",
             Foreground = Brush("#E7B56A"),
             FontSize = 11,
             TextWrapping = TextWrapping.Wrap,
@@ -287,13 +296,20 @@ public sealed class ObsSetupWizardWindow : Window
         Grid.SetRow(instructionScroll, 1);
         lower.Children.Add(instructionScroll);
 
-        completedCheck.Content = "Ya hice este paso";
+        completedCheck.Content = "Confirmo que lo completé manualmente";
         completedCheck.Foreground = Brush("#F1F5F9");
-        completedCheck.Margin = new Thickness(2, 4, 2, 7);
+        completedCheck.Margin = new Thickness(2, 4, 2, 3);
         completedCheck.Checked += (_, _) => { if (!isRenderingStep) SetStepCompleted(true); };
         completedCheck.Unchecked += (_, _) => { if (!isRenderingStep) SetStepCompleted(false); };
         Grid.SetRow(completedCheck, 2);
         lower.Children.Add(completedCheck);
+
+        evidenceText.Foreground = Brush("#E7B56A");
+        evidenceText.FontSize = 11;
+        evidenceText.TextWrapping = TextWrapping.Wrap;
+        evidenceText.Margin = new Thickness(2, 2, 6, 6);
+        Grid.SetRow(evidenceText, 3);
+        lower.Children.Add(evidenceText);
 
         var footer = new DockPanel { LastChildFill = false };
         actionPanel.VerticalAlignment = VerticalAlignment.Center;
@@ -333,21 +349,6 @@ public sealed class ObsSetupWizardWindow : Window
         var step = Steps[currentStep];
         titleText.Text = step.Title;
         subtitleText.Text = step.Subtitle;
-        isRenderingStep = true;
-        completedCheck.IsChecked = completedSteps.Contains(currentStep);
-        isRenderingStep = false;
-        navigation.Children.Clear();
-        for (var i = 0; i < Steps.Length; i++)
-        {
-            var index = i;
-            var prefix = completedSteps.Contains(i) ? "✓" : (i + 1).ToString("00");
-            var button = NewButton(prefix + "  " + Steps[i].Title[(Steps[i].Title.IndexOf(' ') + 1)..], i == currentStep);
-            button.HorizontalContentAlignment = HorizontalAlignment.Left;
-            button.Margin = new Thickness(0, 0, 0, 7);
-            button.Click += (_, _) => ChangeStep(index);
-            navigation.Children.Add(button);
-        }
-        progressBar.Value = completedSteps.Count;
         backButton.IsEnabled = currentStep > 0;
         nextButton.IsEnabled = currentStep < Steps.Length - 1;
         nextButton.Content = currentStep == Steps.Length - 1 ? "Último paso" : "Siguiente →";
@@ -376,9 +377,7 @@ public sealed class ObsSetupWizardWindow : Window
         actionPanel.Children.Clear();
         platformSelector = null;
         AddStepActions(currentStep);
-        statusText.Text = completedSteps.Count == Steps.Length
-            ? "Todos los pasos están marcados como completados en este equipo."
-            : completedSteps.Count + " de " + Steps.Length + " pasos marcados. Podés cerrar la ventana y continuar más tarde.";
+        RefreshEvidenceUi();
         saveSetting("help.obsWizard.step", currentStep.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
@@ -507,10 +506,19 @@ public sealed class ObsSetupWizardWindow : Window
                 actionPanel.Children.Add(NewButton("Copiar host y puerto", false, () => CopyText("Host: 127.0.0.1\r\nPuerto WebSocket de OBS: 4455")));
                 actionPanel.Children.Add(NewButton("Comprobar conexión real", false, asyncAction: async () =>
                 {
-                    var result = await testConnectionAsync();
-                    statusText.Text = result
-                        ? "Conexión confirmada: VTuberBot autenticó con OBS y leyó su versión."
-                        : "Todavía no hay conexión autenticada. Volvé a la página OBS, revisá el puerto y guardá la contraseña correcta.";
+                    try
+                    {
+                        var result = await testConnectionAsync();
+                        SetStepVerified(ObsSetupStepEvidencePolicy.ObsConnectionStep, result);
+                        statusText.Text = result
+                            ? "Conexión real comprobada: VTuberBot autenticó con OBS y leyó su versión. Esta prueba puede caducar si se desconecta."
+                            : "Conexión no comprobada. Revisá OBS, el puerto y la contraseña; el paso sigue pendiente.";
+                    }
+                    catch (Exception exception)
+                    {
+                        SetStepVerified(ObsSetupStepEvidencePolicy.ObsConnectionStep, false);
+                        statusText.Text = "No se pudo comprobar la conexión real: " + exception.Message;
+                    }
                 }));
                 break;
             case 4:
@@ -542,9 +550,18 @@ public sealed class ObsSetupWizardWindow : Window
                         "Se cambiarán el lienzo y la salida global de OBS a 1280×720 y 30 FPS. Puede afectar todas las escenas. ¿Querés continuar?",
                         "Confirmar perfil de OBS", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
                         return;
-                    var result = await RunStringAsync(apply720p30Async);
-                    if (!string.IsNullOrWhiteSpace(result))
-                        statusText.Text = result;
+
+                    try
+                    {
+                        var result = await apply720p30Async();
+                        SetStepVerified(ObsSetupStepEvidencePolicy.VideoProfileStep, true);
+                        statusText.Text = "OBS aceptó la aplicación del perfil 720p/30 FPS. " + result;
+                    }
+                    catch (Exception exception)
+                    {
+                        SetStepVerified(ObsSetupStepEvidencePolicy.VideoProfileStep, false);
+                        statusText.Text = "No se aplicó el perfil a OBS: " + exception.Message;
+                    }
                 }));
                 break;
             case 6:
@@ -567,26 +584,72 @@ public sealed class ObsSetupWizardWindow : Window
         }
     }
 
-    private async Task<string> RunStringAsync(Func<Task<string>> operation)
-    {
-        try { return await operation(); }
-        catch (Exception exception)
-        {
-            var message = "No se aplicó el perfil. " + exception.Message;
-            statusText.Text = message;
-            return message;
-        }
-    }
-
     private void SetStepCompleted(bool completed)
     {
+        if (ObsSetupStepEvidencePolicy.RequiresApplicationVerification(currentStep))
+        {
+            statusText.Text = "Este paso requiere una comprobación real de VTuberBot; una confirmación manual no cuenta como verificación.";
+            isRenderingStep = true;
+            completedCheck.IsChecked = verifiedSteps.Contains(currentStep);
+            isRenderingStep = false;
+            return;
+        }
+
         if (completed) completedSteps.Add(currentStep);
         else completedSteps.Remove(currentStep);
+
         saveSetting("help.obsWizard.completed", string.Join(",", completedSteps.Order()));
-        progressBar.Value = completedSteps.Count;
-        statusText.Text = completedSteps.Count == Steps.Length
-            ? "Todos los pasos están marcados como completados."
-            : completedSteps.Count + " de " + Steps.Length + " pasos marcados.";
+        RefreshEvidenceUi();
+    }
+
+    private void SetStepVerified(int stepIndex, bool verified)
+    {
+        if (!ObsSetupStepEvidencePolicy.RequiresApplicationVerification(stepIndex))
+            throw new ArgumentOutOfRangeException(nameof(stepIndex), "Este paso no tiene una comprobación automática definida.");
+
+        if (verified) verifiedSteps.Add(stepIndex);
+        else verifiedSteps.Remove(stepIndex);
+
+        saveSetting("help.obsWizard.verified", string.Join(",", verifiedSteps.Order()));
+        RefreshEvidenceUi();
+    }
+
+    private void RefreshEvidenceUi()
+    {
+        var requiresVerification = ObsSetupStepEvidencePolicy.RequiresApplicationVerification(currentStep);
+        var state = ObsSetupStepEvidencePolicy.Resolve(
+            currentStep,
+            completedSteps.Contains(currentStep),
+            verifiedSteps.Contains(currentStep));
+
+        isRenderingStep = true;
+        completedCheck.IsEnabled = !requiresVerification;
+        completedCheck.Content = requiresVerification
+            ? "Estado de verificación (lo confirma la aplicación)"
+            : "Confirmo que lo completé manualmente (la app no puede comprobarlo)";
+        completedCheck.IsChecked = state == ObsSetupStepEvidenceState.VerifiedByApplication ||
+                                   state == ObsSetupStepEvidenceState.ConfirmedManually;
+        isRenderingStep = false;
+
+        evidenceText.Text = state switch
+        {
+            ObsSetupStepEvidenceState.VerifiedByApplication when currentStep == ObsSetupStepEvidencePolicy.ObsConnectionStep =>
+                "Verificación guardada: VTuberBot autenticó con OBS y leyó la versión en la última comprobación. Volvé a comprobar antes de operar; no garantiza que siga conectado.",
+            ObsSetupStepEvidenceState.VerifiedByApplication =>
+                "Verificación guardada: OBS aceptó el perfil 720p/30 FPS en la última aplicación. Esto no prueba la calidad de una grabación ni de un directo.",
+            ObsSetupStepEvidenceState.ConfirmedManually =>
+                "Confirmado por vos, manualmente. VTuberBot guarda esta confirmación, pero no ha comprobado automáticamente el resultado externo.",
+            _ when requiresVerification && currentStep == ObsSetupStepEvidencePolicy.ObsConnectionStep =>
+                "Pendiente de verificación: guardá host/puerto/contraseña y usá «Comprobar conexión real». Tildar una casilla no valida la conexión.",
+            _ when requiresVerification =>
+                "Pendiente de verificación: aplicá el perfil desde este asistente y esperá una respuesta satisfactoria de OBS. Se pedirá confirmación antes de cambiarlo.",
+            _ => "Pendiente de confirmación manual: marcá la casilla solo después de terminar los pasos de esta pantalla."
+        };
+
+        var manualCount = completedSteps.Count;
+        var automaticCount = verifiedSteps.Count;
+        progressBar.Value = manualCount + automaticCount;
+        statusText.Text = $"Progreso guardado: {automaticCount}/2 comprobaciones de la aplicación verificadas y {manualCount}/5 pasos confirmados manualmente. Las confirmaciones manuales no prueban conexiones externas.";
         RefreshNavigation();
     }
 
@@ -596,10 +659,25 @@ public sealed class ObsSetupWizardWindow : Window
         for (var i = 0; i < Steps.Length; i++)
         {
             var index = i;
-            var prefix = completedSteps.Contains(i) ? "✓" : (i + 1).ToString("00");
+            var state = ObsSetupStepEvidencePolicy.Resolve(
+                i,
+                completedSteps.Contains(i),
+                verifiedSteps.Contains(i));
+            var prefix = state switch
+            {
+                ObsSetupStepEvidenceState.VerifiedByApplication => "✓",
+                ObsSetupStepEvidenceState.ConfirmedManually => "M✓",
+                _ => (i + 1).ToString("00")
+            };
             var label = Steps[i].Title;
             var space = label.IndexOf(' ');
             var button = NewButton(prefix + "  " + (space >= 0 ? label[(space + 1)..] : label), i == currentStep);
+            button.ToolTip = state switch
+            {
+                ObsSetupStepEvidenceState.VerifiedByApplication => "Comprobado por VTuberBot (resultado de la última prueba).",
+                ObsSetupStepEvidenceState.ConfirmedManually => "Confirmado manualmente por el usuario; no comprobado por la aplicación.",
+                _ => "Pendiente."
+            };
             button.HorizontalContentAlignment = HorizontalAlignment.Left;
             button.Margin = new Thickness(0, 0, 0, 7);
             button.Click += (_, _) => ChangeStep(index);

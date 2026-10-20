@@ -30,6 +30,21 @@ public sealed class UserSecretStore
         finally { try { if (File.Exists(temporary)) File.Delete(temporary); } catch { } }
     }
 
+    /// <summary>
+    /// Saves an optional secret only when the user supplies a non-empty value.
+    /// A blank field means "leave the existing value unchanged", not "delete it".
+    /// Use Delete only from an explicit, separately confirmed user action.
+    /// </summary>
+    public bool SaveIfProvided(string name, string? secret)
+    {
+        ValidateName(name);
+        if (string.IsNullOrWhiteSpace(secret))
+            return false;
+
+        Save(name, secret);
+        return true;
+    }
+
     public string Read(string name)
     {
         ValidateName(name);
