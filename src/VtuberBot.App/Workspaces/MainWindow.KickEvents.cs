@@ -83,17 +83,25 @@ public partial class MainWindow
 
     private static bool IsPublicWebhookIp(IPAddress address)
     {
-        if (IPAddress.IsLoopback(address) || address.IsIPv6LinkLocal || address.IsIPv6SiteLocal ||
-            address.IsIPv6Multicast || address.IsIPv6UniqueLocal)
+        if (IPAddress.IsLoopback(address) || address.IsIPv6LinkLocal || address.IsIPv6Multicast)
             return false;
 
         if (address.IsIPv4MappedToIPv6)
             address = address.MapToIPv4();
 
-        if (address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
-            return true;
-
         var bytes = address.GetAddressBytes();
+        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+        {
+            if (address.Equals(IPAddress.IPv6Any) ||
+                (bytes[0] & 0xFE) == 0xFC || // unique-local fc00::/7
+                (bytes[0] == 0xFE && (bytes[1] & 0xC0) == 0xC0)) // deprecated site-local fec0::/10
+                return false;
+            return true;
+        }
+
+        if (address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+            return false;
+
         var first = bytes[0];
         var second = bytes[1];
         return first != 0 &&
@@ -103,7 +111,11 @@ public partial class MainWindow
             !(first == 100 && second is >= 64 and <= 127) &&
             !(first == 169 && second == 254) &&
             !(first == 172 && second is >= 16 and <= 31) &&
-            !(first == 192 && second == 168);
+            !(first == 192 && second == 168) &&
+            !(first == 192 && second == 0) &&
+            !(first == 198 && second is 18 or 19) &&
+            !(first == 198 && second == 51 && bytes[2] == 100) &&
+            !(first == 203 && second == 0 && bytes[2] == 113);
     }
 
     private void HandleKickWebhookEvent(KickWebhookEvent webhookEvent)
