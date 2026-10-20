@@ -607,6 +607,33 @@ public sealed class KickApiClient
         return results;
     }
 
+    public async Task DeleteEventSubscriptionsAsync(
+        string appAccessToken,
+        IEnumerable<string> subscriptionIds,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(appAccessToken);
+        var ids = subscriptionIds
+            .Select(id => (id ?? "").Trim())
+            .Where(id => id.Length is > 0 and <= 128 && !id.Any(char.IsControl))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (ids.Length == 0)
+            throw new ArgumentException("Seleccioná al menos un ID de suscripción válido.", nameof(subscriptionIds));
+
+        var query = string.Join("&", ids.Select(id => "id=" + Uri.EscapeDataString(id)));
+        using var request = new HttpRequestMessage(HttpMethod.Delete,
+            "https://api.kick.com/public/v1/events/subscriptions?" + query);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", appAccessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw CreateApiError(response.StatusCode, body, "Kick rechazó cancelar las suscripciones de webhook",
+                "App Access Token");
+        }
+    }
+
     private static string? GetJsonString(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
