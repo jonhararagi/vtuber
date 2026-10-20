@@ -56,17 +56,54 @@ public partial class MainWindow
             !string.Equals(parsed.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
             string.IsNullOrWhiteSpace(parsed.Host) ||
             parsed.IsLoopback ||
-            !string.Equals(parsed.AbsolutePath.TrimEnd('/'), "/kick-webhook", StringComparison.Ordinal) ||
+            !parsed.AbsolutePath.TrimEnd('/').Equals("/kick-webhook", StringComparison.Ordinal) ||
             !string.IsNullOrEmpty(parsed.Query) ||
             !string.IsNullOrEmpty(parsed.Fragment))
             return false;
 
-        if (IPAddress.TryParse(parsed.Host, out var address) &&
-            (IPAddress.IsLoopback(address) || address.IsIPv6LinkLocal || address.IsIPv6SiteLocal))
+        var host = parsed.Host.TrimEnd('.').ToLowerInvariant();
+        if (host is "localhost" or "localhost.localdomain" ||
+            host.EndsWith(".localhost", StringComparison.Ordinal) ||
+            host.EndsWith(".local", StringComparison.Ordinal) ||
+            host.EndsWith(".internal", StringComparison.Ordinal) ||
+            host.EndsWith(".lan", StringComparison.Ordinal) ||
+            host.EndsWith(".home", StringComparison.Ordinal) ||
+            host.EndsWith(".test", StringComparison.Ordinal) ||
+            host.EndsWith(".invalid", StringComparison.Ordinal) ||
+            host.EndsWith(".example", StringComparison.Ordinal) ||
+            !host.Contains('.', StringComparison.Ordinal))
+            return false;
+
+        if (IPAddress.TryParse(host, out var address) && !IsPublicWebhookIp(address))
             return false;
 
         uri = parsed;
         return true;
+    }
+
+    private static bool IsPublicWebhookIp(IPAddress address)
+    {
+        if (IPAddress.IsLoopback(address) || address.IsIPv6LinkLocal || address.IsIPv6SiteLocal ||
+            address.IsIPv6Multicast || address.IsIPv6UniqueLocal)
+            return false;
+
+        if (address.IsIPv4MappedToIPv6)
+            address = address.MapToIPv4();
+
+        if (address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+            return true;
+
+        var bytes = address.GetAddressBytes();
+        var first = bytes[0];
+        var second = bytes[1];
+        return first != 0 &&
+            first != 10 &&
+            first != 127 &&
+            first < 224 &&
+            !(first == 100 && second is >= 64 and <= 127) &&
+            !(first == 169 && second == 254) &&
+            !(first == 172 && second is >= 16 and <= 31) &&
+            !(first == 192 && second == 168);
     }
 
     private void HandleKickWebhookEvent(KickWebhookEvent webhookEvent)
