@@ -1,6 +1,7 @@
+using VtuberBot.App;
 using Xunit;
 
-namespace VtuberBot.App.Tests;
+namespace VtuberBot.Tests;
 
 public sealed class ObsSetupStepEvidencePolicyTests
 {
