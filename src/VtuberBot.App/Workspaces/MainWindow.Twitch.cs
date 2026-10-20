@@ -517,11 +517,11 @@ public partial class MainWindow
             switch (action)
             {
                 case "warn":
-                    if (!twitch.IsConnected)
-                        throw new InvalidOperationException("El chat IRC no está conectado para enviar el aviso.");
-                    await twitch.SendMessageAsync(channel,
+                    result = await moderator.SendChatMessageAsync(
+                        clientId,
+                        accessToken,
+                        channel,
                         username + ", tu mensaje coincidió con la regla de moderación '" + ruleName + "'. Revisá las normas del canal.");
-                    result = "Aviso enviado a " + username + ".";
                     break;
                 case "delete":
                     result = await moderator.DeleteChatMessageAsync(clientId, accessToken, channel, messageId);
