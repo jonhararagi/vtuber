@@ -66,6 +66,72 @@ public partial class MainWindow
         panel.Children.Add(Label(
             "Este panel acepta el ID numérico de usuario porque la consulta pública integrada no convierte nombres visibles en IDs. El ID del mensaje para borrado debe ser el UUID real devuelto por Kick.",
             11, "#98A4BE"));
+        async Task ExecuteUserAction(string action, int? durationMinutes, bool removeSanction)
+        {
+            if (!long.TryParse(target.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var targetId) || targetId <= 0)
+            {
+                MessageBox.Show(this, "Ingresá el ID numérico positivo del usuario de Kick.", "ID de usuario no válido",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            string slug;
+            try { slug = KickApiClient.NormalizeChannelSlug(channel.Text); }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Canal Kick no válido", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var description = removeSanction
+                ? $"Se intentará retirar la sanción del usuario ID {targetId} en kick.com/{slug}."
+                : durationMinutes.HasValue
+                    ? $"Se aplicará un timeout de {durationMinutes.Value} minutos al usuario ID {targetId} en kick.com/{slug}."
+                    : $"Se aplicará un ban permanente al usuario ID {targetId} en kick.com/{slug}.";
+            if (!removeSanction && !string.IsNullOrWhiteSpace(reason.Text))
+                description += "\nMotivo: " + reason.Text.Trim();
+            description += "\n\nEsta acción afecta al chat real de Kick. ¿Confirmás?";
+            if (MessageBox.Show(this, description, "Confirmar moderación de Kick",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                store.SetSetting("kick.channel_slug", slug);
+                var credentials = await GetValidKickModerationCredentialsAsync();
+                var client = new KickApiClient();
+                var result = removeSanction
+                    ? await client.UnbanUserAsync(credentials.AccessToken, slug, targetId)
+                    : await client.BanOrTimeoutUserAsync(credentials.AccessToken, slug, targetId, durationMinutes, reason.Text.Trim());
+                store.Log("Moderación Kick", action + " confirmado por API para usuario ID " + targetId + " en " + slug + ".");
+                FooterStatus.Text = result;
+                MessageBox.Show(this, result, "Moderación de Kick", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "Kick no confirmó la acción: " + exception.GetType().Name;
+                store.Log("Moderación Kick", "Falló " + action + " (" + exception.GetType().Name + "); sin declarar éxito.");
+                MessageBox.Show(this,
+                    "Kick no confirmó la acción. Comprobá los permisos en el canal, los scopes y si hace falta reautorizar la cuenta.\n\n" + exception.Message,
+                    "Acción de Kick fallida", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        var userActions = new WrapPanel();
+        userActions.Children.Add(ActionButton("Aplicar timeout", async (_, _) =>
+        {
+            if (duration.SelectedItem is not string selected || !durations.TryGetValue(selected, out var minutes))
+            {
+                MessageBox.Show(this, "Elegí una duración válida.");
+                return;
+            }
+            await ExecuteUserAction("timeout", minutes, false);
+        }, true));
+        userActions.Children.Add(ActionButton("Ban permanente", async (_, _) =>
+            await ExecuteUserAction("ban permanente", null, false)));
+        userActions.Children.Add(ActionButton("Quitar ban / timeout", async (_, _) =>
+            await ExecuteUserAction("retirar sanción", null, true)));
+        panel.Children.Add(userActions);
+
         return panel;
     }
 }
