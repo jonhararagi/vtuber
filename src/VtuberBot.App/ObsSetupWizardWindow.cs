@@ -232,7 +232,7 @@ public sealed class ObsSetupWizardWindow : Window
         sideDock.Children.Add(navScroll);
         var sideFooter = new TextBlock
         {
-            Text = "No compartas claves de transmisión ni contraseñas. Los pasos sin conexión real se marcan manualmente.",
+            Text = "No compartas claves ni contraseñas. La app verifica la conexión y el perfil solo cuando OBS responde; los demás pasos se confirman manualmente.",
             Foreground = Brush("#E7B56A"),
             FontSize = 11,
             TextWrapping = TextWrapping.Wrap,
