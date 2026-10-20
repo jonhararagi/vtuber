@@ -554,7 +554,7 @@ public sealed class KickApiClient
         if (broadcasterUserId <= 0)
             throw new ArgumentOutOfRangeException(nameof(broadcasterUserId), "Kick requiere un ID numérico válido del canal.");
 
-        var events = new[]
+        var desiredEvents = new[]
         {
             new { name = "chat.message.sent", version = 1 },
             new { name = "channel.followed", version = 1 },
@@ -564,6 +564,22 @@ public sealed class KickApiClient
             new { name = "livestream.status.updated", version = 1 },
             new { name = "moderation.banned", version = 1 }
         };
+        var existingSubscriptions = await GetEventSubscriptionsAsync(appAccessToken, broadcasterUserId, cancellationToken).ConfigureAwait(false);
+        var results = existingSubscriptions
+            .Where(subscription => string.Equals(subscription.Method, "webhook", StringComparison.OrdinalIgnoreCase) &&
+                desiredEvents.Any(desired => desired.name == subscription.Event && desired.version == subscription.Version))
+            .Select(subscription => new KickEventSubscriptionResult(
+                subscription.Event, subscription.Version, subscription.Id, null))
+            .ToList();
+        var events = desiredEvents
+            .Where(desired => !existingSubscriptions.Any(existing =>
+                string.Equals(existing.Method, "webhook", StringComparison.OrdinalIgnoreCase) &&
+                existing.Event == desired.name && existing.Version == desired.version))
+            .ToArray();
+
+        if (events.Length == 0)
+            return results;
+
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.kick.com/public/v1/events/subscriptions")
         {
             Content = new StringContent(
@@ -588,7 +604,6 @@ public sealed class KickApiClient
         if (!document.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
             throw new InvalidOperationException("Kick no devolvió la lista de resultados de suscripción; no se puede afirmar que los eventos estén suscritos.");
 
-        var results = new List<KickEventSubscriptionResult>();
         foreach (var item in data.EnumerateArray())
         {
             var name = GetJsonString(item, "name");
