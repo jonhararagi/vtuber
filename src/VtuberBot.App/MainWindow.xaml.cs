@@ -599,6 +599,10 @@ public partial class MainWindow : Window
         try { vrmOverlay?.Close(); }
         catch (Exception exception) { LogShutdownFailure("overlay VRM", exception); }
 
+        // Stop the local Kick webhook listener before disposing platform clients.
+        try { await StopKickWebhookReceiverAsync(); }
+        catch (Exception exception) { LogShutdownFailure("receptor webhook Kick", exception); }
+
         // Dispose each client independently so one failed network shutdown does not
         // prevent cleanup of the remaining clients.
         try { await twitch.DisposeAsync(); }
