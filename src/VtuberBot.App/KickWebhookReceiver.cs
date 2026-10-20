@@ -21,7 +21,8 @@ public sealed record KickWebhookEvent(
     string EventMessageId,
     string Version,
     string Summary,
-    KickChatMessageEvent? ChatMessage);
+    KickChatMessageEvent? ChatMessage,
+    string SubscriptionId);
 
 public static class KickWebhookSignatureVerifier
 {
@@ -75,7 +76,8 @@ public static class KickWebhookPayloadParser
         string eventType,
         string version,
         string eventMessageId,
-        string rawBody)
+        string rawBody,
+        string subscriptionId = "")
     {
         if (string.IsNullOrWhiteSpace(eventType) || eventType.Length > 120)
             throw new InvalidDataException("El tipo de evento Kick no es válido.");
@@ -92,7 +94,7 @@ public static class KickWebhookPayloadParser
         if (!root.TryGetProperty("broadcaster", out var broadcaster) ||
             broadcaster.ValueKind != JsonValueKind.Object)
         {
-            return new KickWebhookEvent(eventType, eventMessageId, version, "Evento verificado de Kick.", null);
+            return new KickWebhookEvent(eventType, eventMessageId, version, "Evento verificado de Kick.", null, subscriptionId);
         }
 
         var broadcasterId = GetInt64(broadcaster, "user_id");
@@ -124,7 +126,7 @@ public static class KickWebhookPayloadParser
                 isBroadcaster);
             return new KickWebhookEvent(eventType, eventMessageId, version,
                 "Chat de " + username + " en " + (string.IsNullOrWhiteSpace(channelName) ? "el canal Kick" : channelName) + ".",
-                chat);
+                chat, subscriptionId);
         }
 
         var summary = eventType switch
@@ -137,7 +139,7 @@ public static class KickWebhookPayloadParser
             "moderation.banned" => "Kick notificó una sanción en " + channelName + ".",
             _ => "Evento verificado de Kick: " + eventType + "."
         };
-        return new KickWebhookEvent(eventType, eventMessageId, version, summary, null);
+        return new KickWebhookEvent(eventType, eventMessageId, version, summary, null, subscriptionId);
     }
 
     private static bool HasBadge(JsonElement sender, string badgeType)
@@ -360,11 +362,13 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
         }
 
         var messageId = GetHeader(request.Headers, "Kick-Event-Message-Id");
+        var subscriptionId = GetHeader(request.Headers, "Kick-Event-Subscription-Id");
         var timestamp = GetHeader(request.Headers, "Kick-Event-Message-Timestamp");
         var signature = GetHeader(request.Headers, "Kick-Event-Signature");
         var eventType = GetHeader(request.Headers, "Kick-Event-Type");
         var version = GetHeader(request.Headers, "Kick-Event-Version");
         if (string.IsNullOrWhiteSpace(messageId) ||
+            string.IsNullOrWhiteSpace(subscriptionId) ||
             string.IsNullOrWhiteSpace(timestamp) ||
             string.IsNullOrWhiteSpace(signature) ||
             string.IsNullOrWhiteSpace(eventType) ||
@@ -395,7 +399,7 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
         KickWebhookEvent webhookEvent;
         try
         {
-            webhookEvent = KickWebhookPayloadParser.Parse(eventType, version, messageId, rawBody);
+            webhookEvent = KickWebhookPayloadParser.Parse(eventType, version, messageId, rawBody, subscriptionId!);
         }
         catch (Exception exception) when (exception is JsonException or InvalidDataException)
         {
