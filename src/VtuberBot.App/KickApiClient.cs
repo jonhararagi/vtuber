@@ -20,6 +20,7 @@ public sealed record KickOAuthCredentials(
 public sealed record KickChannelInfo(long BroadcasterUserId, string Slug, string? Name, bool? IsLive);
 
 public sealed record KickChatSendResult(bool IsSent, string? MessageId);
+public sealed record KickEventSubscriptionResult(string Name, int Version, string? SubscriptionId, string? Error);
 
 /// <summary>
 /// Kick OAuth 2.1 authorization-code flow for the user's own registered application.
@@ -541,6 +542,74 @@ public sealed class KickApiClient
 
         return "Kick confirmó borrar el mensaje " + parsedId + ".";
     }
+
+    public async Task<IReadOnlyList<KickEventSubscriptionResult>> SubscribeToDefaultEventsAsync(
+        string appAccessToken,
+        long broadcasterUserId,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(appAccessToken);
+        if (broadcasterUserId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(broadcasterUserId), "Kick requiere un ID numérico válido del canal.");
+
+        var events = new[]
+        {
+            new { name = "chat.message.sent", version = 1 },
+            new { name = "channel.followed", version = 1 },
+            new { name = "channel.subscription.new", version = 1 },
+            new { name = "channel.subscription.renewal", version = 1 },
+            new { name = "channel.subscription.gifts", version = 1 },
+            new { name = "livestream.status.updated", version = 1 },
+            new { name = "moderation.banned", version = 1 }
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.kick.com/public/v1/events/subscriptions")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    broadcaster_user_id = broadcasterUserId,
+                    method = "webhook",
+                    events
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", appAccessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateApiError(response.StatusCode, json,
+                "Kick rechazó la suscripción a eventos para el canal ID " + broadcasterUserId,
+                "App Access Token; verificá que Webhooks esté habilitado y la URL pública esté configurada");
+
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
+            throw new InvalidOperationException("Kick no devolvió la lista de resultados de suscripción; no se puede afirmar que los eventos estén suscritos.");
+
+        var results = new List<KickEventSubscriptionResult>();
+        foreach (var item in data.EnumerateArray())
+        {
+            var name = GetJsonString(item, "name");
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            var version = item.TryGetProperty("version", out var versionElement) && versionElement.TryGetInt32(out var parsedVersion)
+                ? parsedVersion
+                : 0;
+            var subscriptionId = GetJsonString(item, "subscription_id");
+            var error = GetJsonString(item, "error");
+            if (string.IsNullOrWhiteSpace(error) && string.IsNullOrWhiteSpace(subscriptionId))
+                error = "Kick no devolvió un subscription_id para este evento.";
+            results.Add(new KickEventSubscriptionResult(name, version, subscriptionId, error));
+        }
+
+        if (results.Count == 0)
+            throw new InvalidOperationException("Kick respondió sin resultados individuales de suscripción; no se puede afirmar que el chat esté suscrito.");
+        return results;
+    }
+
+    private static string? GetJsonString(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     private static void RequireToken(string token)
     {
