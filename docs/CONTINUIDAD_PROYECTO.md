@@ -1,3 +1,16 @@
+## 2026-10-20 — Moderación manual integrada en la rama de trabajo
+
+- **Base exacta:** `main` parte del SHA de documentación `dffdb48e6a774ae28dff2d2884aa6c883c2df640`; rama de trabajo `feature/cross-platform-moderation-2026-10-20`. No se ha cambiado `main` en este bloque.
+- **Navegación:** se conectó la página `BuildModerationPage()` a `Pages`, al `switch` de `Navigate` y al menú lateral. El panel incluye reglas de Twitch y acciones manuales; la moderación automática de Twitch conserva el valor predeterminado desactivado y exige una confirmación explícita para activarse.
+- **Twitch:** se añadió al panel un borrado manual de mensaje por el ID IRCv3 real con confirmación. La aplicación ya tenía métodos Helix para timeout, ban permanente, retirar sanciones y borrar mensajes; este cambio los hace accesibles en una sección principal.
+- **Kick:** se añadieron a `KickApiClient` llamadas a la API oficial para timeout/ban, retirar sanción y borrar por UUID de mensaje. OAuth ahora solicita `moderation:ban` y `moderation:chat_message:manage`; las credenciales requieren reautorización para que esos scopes nuevos se concedan. La UI exige un ID numérico de usuario porque el cliente actual no traduce nombres visibles a IDs. Los botones de sanción/borrado son manuales y muestran confirmación antes de la operación real.
+- **Eventos de Kick:** la recepción de chat/eventos sigue pendiente. No se activaron reglas automáticas de Kick ni se declaró conectada la entrada de mensajes: falta implementar un receptor webhook HTTPS públicamente accesible y verificar las firmas de cada evento.
+- **Pruebas añadidas:** `tests/VtuberBot.Tests/KickModerationClientTests.cs` comprueba validación de IDs, duración, motivo y UUID inválidos sin llamar a la API.
+- **Documentación:** `docs/GUIA_PRINCIPIANTES.md` y los textos de la interfaz distinguen las acciones disponibles del trabajo pendiente de webhooks.
+- **Validación pendiente:** aún no se han revisado Windows CI, build Release ni todas las pruebas para el SHA final de la PR. No se probaron acciones con cuentas reales de Twitch/Kick durante el trabajo de código; el CI futuro solo validará compilación/pruebas automatizadas, no permisos reales de las cuentas. No fusionar ni llamar “listo” hasta verificar el SHA final.
+- **Referencias oficiales consultadas:** [Kick API — moderation](https://docs.kick.com/apis/moderation), [Kick scopes](https://docs.kick.com/getting-started/scopes), [Kick Events](https://docs.kick.com/events/introduction) y [Twitch API Reference](https://dev.twitch.tv/docs/api/reference).
+
+---
 ## 2026-10-20 — Evidencia real frente a confirmación manual en el asistente OBS
 
 - **Base inspeccionada:** `main` estaba en `4f9fc2a87f52bcc773e7e72f30b875ad16d62f65` antes de este trabajo. Se creó `fix/obs-setup-evidence-2026-10-20` desde ese SHA; no se reutilizó una rama antigua ni se hizo force-push.
