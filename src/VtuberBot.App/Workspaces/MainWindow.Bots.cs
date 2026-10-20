@@ -63,7 +63,7 @@ public partial class MainWindow
         var root = new StackPanel();
         root.Children.Add(Label("Bot de Kick · API oficial", 20, "#F8FAFC", true));
         root.Children.Add(Label(
-            "Esta versión autoriza tu propia aplicación Kick, protege los tokens con DPAPI y puede verificar el canal y enviar un mensaje de prueba real. La recepción automática de mensajes/eventos todavía no se declara conectada: Kick los entrega por webhooks con URL pública y firma verificable.",
+            "Esta versión autoriza tu propia aplicación Kick, protege los tokens con DPAPI y permite consultar el canal, enviar mensajes y moderar. También incluye receptor local con verificación de firma y suscripción de eventos; para activarlo debés configurar una URL pública HTTPS/túnel en Kick Developer e iniciar la escucha manualmente. No se afirma que haya entrega entrante hasta recibir un evento real.",
             12, "#98A4BE"));
 
         var config = Panel("1. Cuenta y aplicación");
