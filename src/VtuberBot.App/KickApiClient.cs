@@ -542,7 +542,7 @@ public sealed class KickApiClient
         if (!response.IsSuccessStatusCode)
             throw CreateApiError(response.StatusCode, json, "Kick rechazó borrar el mensaje", "moderation:chat_message:manage");
 
-        return "Kick confirmó borrar el mensaje " + parsedId + ".";
+        return "Kick confirmó borrar el mensaje " + normalizedId + ".";
     }
 
     public async Task<IReadOnlyList<KickEventSubscriptionResult>> SubscribeToDefaultEventsAsync(
