@@ -43,7 +43,8 @@ public sealed class KickModerationClientTests
 
     [Theory]
     [InlineData("")]
-    [InlineData("not-a-uuid")]
+    [InlineData(" bad id ")]
+    [InlineData("id\nheader")]
     public async Task DeleteMessageRejectsInvalidIdBeforeNetwork(string messageId)
     {
         await Assert.ThrowsAsync<ArgumentException>(() =>
