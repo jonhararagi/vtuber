@@ -114,6 +114,14 @@ public partial class MainWindow
             {
                 try
                 {
+                    var rejectionReason = ValidateKickWebhookEvent(webhookEvent);
+                    if (rejectionReason is not null)
+                    {
+                        store.Log("Kick Events", "Evento firmado rechazado por configuración local: " + rejectionReason);
+                        FooterStatus.Text = "Evento Kick rechazado: no coincide con las suscripciones/canal configurados.";
+                        return;
+                    }
+
                     if (webhookEvent.ChatMessage is { } chatMessage)
                     {
                         await ProcessKickChatMessageAsync(chatMessage);
@@ -122,7 +130,7 @@ public partial class MainWindow
                     {
                         chatLines.Insert(0, "[Kick Events] " + webhookEvent.Summary);
                         while (chatLines.Count > 200) chatLines.RemoveAt(chatLines.Count - 1);
-                        store.Log("Kick Events", webhookEvent.Summary + " (firma verificada).");
+                        store.Log("Kick Events", webhookEvent.Summary + " (firma verificada, suscripción local reconocida).");
                         FooterStatus.Text = "Evento Kick recibido y firma validada: " + webhookEvent.EventType;
                     }
                 }
@@ -137,6 +145,27 @@ public partial class MainWindow
         {
             // WPF may start shutting down while a remote event arrives.
         }
+    }
+
+    private string? ValidateKickWebhookEvent(KickWebhookEvent webhookEvent)
+    {
+        var allowedSubscriptionIds = store.GetSetting("kick.webhook.subscription_ids")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (string.IsNullOrWhiteSpace(webhookEvent.SubscriptionId) ||
+            !allowedSubscriptionIds.Contains(webhookEvent.SubscriptionId, StringComparer.Ordinal))
+            return "El ID de suscripción no está registrado por VTuberBot para esta sesión/canal.";
+
+        if (webhookEvent.ChatMessage is { } chatMessage)
+        {
+            if (!long.TryParse(store.GetSetting("kick.webhook.broadcaster_user_id"),
+                    NumberStyles.None, CultureInfo.InvariantCulture, out var configuredBroadcasterId) ||
+                configuredBroadcasterId <= 0)
+                return "Todavía no hay un broadcaster ID validado por suscripciones de Kick.";
+            if (chatMessage.BroadcasterUserId != configuredBroadcasterId)
+                return "El mensaje pertenece a otro canal de Kick distinto del configurado.";
+        }
+
+        return null;
     }
 
     private async Task ProcessKickChatMessageAsync(KickChatMessageEvent message)
