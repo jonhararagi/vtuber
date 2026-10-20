@@ -116,12 +116,19 @@ public partial class MainWindow
         {
             try
             {
+                var secretWasProvided = !string.IsNullOrWhiteSpace(clientSecret.Password);
                 SaveKickSettings();
-                credentialStatus.Text = secretStore.HasSecret("kick-access-token")
+                var secretExists = secretStore.HasSecret("kick-client-secret");
+                var secretStatus = secretWasProvided
+                    ? "Client Secret guardado cifrado con DPAPI."
+                    : secretExists
+                        ? "Se conservó el Client Secret cifrado que ya estaba guardado."
+                        : "No hay Client Secret guardado; ingresalo antes de autorizar Kick.";
+                credentialStatus.Text = (secretStore.HasSecret("kick-access-token")
                     ? "Configuración guardada. El token existe, pero el canal debe verificarse al usar «Verificar canal»."
-                    : "Configuración guardada localmente; todavía no hay sesión Kick.";
+                    : "Configuración guardada localmente; todavía no hay sesión Kick.") + " " + secretStatus;
                 credentialStatus.Foreground = Brush("#E7B56A");
-                FooterStatus.Text = "Configuración Kick guardada; Client Secret cifrado con DPAPI y sin escribirlo en logs.";
+                FooterStatus.Text = "Configuración Kick guardada. " + secretStatus + " No se escribieron secretos en logs.";
                 store.Log("Kick", "Se guardó configuración local sin registrar Client Secret ni tokens.");
             }
             catch (Exception exception)
