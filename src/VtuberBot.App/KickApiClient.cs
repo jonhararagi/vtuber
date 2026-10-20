@@ -21,6 +21,7 @@ public sealed record KickChannelInfo(long BroadcasterUserId, string Slug, string
 
 public sealed record KickChatSendResult(bool IsSent, string? MessageId);
 public sealed record KickEventSubscriptionResult(string Name, int Version, string? SubscriptionId, string? Error);
+public sealed record KickEventSubscriptionInfo(long BroadcasterUserId, string Event, int Version, string Id, string Method);
 
 /// <summary>
 /// Kick OAuth 2.1 authorization-code flow for the user's own registered application.
@@ -605,6 +606,46 @@ public sealed class KickApiClient
         if (results.Count == 0)
             throw new InvalidOperationException("Kick respondió sin resultados individuales de suscripción; no se puede afirmar que el chat esté suscrito.");
         return results;
+    }
+
+    public async Task<IReadOnlyList<KickEventSubscriptionInfo>> GetEventSubscriptionsAsync(
+        string appAccessToken,
+        long? broadcasterUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(appAccessToken);
+        var url = "https://api.kick.com/public/v1/events/subscriptions";
+        if (broadcasterUserId.HasValue)
+        {
+            if (broadcasterUserId.Value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(broadcasterUserId));
+            url += "?broadcaster_user_id=" + broadcasterUserId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", appAccessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateApiError(response.StatusCode, json, "Kick no pudo consultar las suscripciones existentes", "App Access Token");
+
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
+            throw new InvalidOperationException("Kick devolvió una respuesta de suscripciones inesperada.");
+
+        var items = new List<KickEventSubscriptionInfo>();
+        foreach (var item in data.EnumerateArray())
+        {
+            var id = GetJsonString(item, "id") ?? "";
+            var eventName = GetJsonString(item, "event") ?? "";
+            var method = GetJsonString(item, "method") ?? "";
+            var broadcasterId = item.TryGetProperty("broadcaster_user_id", out var broadcasterElement) &&
+                broadcasterElement.TryGetInt64(out var parsedId) ? parsedId : 0;
+            var version = item.TryGetProperty("version", out var versionElement) &&
+                versionElement.TryGetInt32(out var parsedVersion) ? parsedVersion : 0;
+            if (id.Length == 0 || eventName.Length == 0 || broadcasterId <= 0) continue;
+            items.Add(new KickEventSubscriptionInfo(broadcasterId, eventName, version, id, method));
+        }
+        return items;
     }
 
     public async Task DeleteEventSubscriptionsAsync(
