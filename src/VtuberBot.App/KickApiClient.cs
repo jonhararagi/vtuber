@@ -20,6 +20,8 @@ public sealed record KickOAuthCredentials(
 public sealed record KickChannelInfo(long BroadcasterUserId, string Slug, string? Name, bool? IsLive);
 
 public sealed record KickChatSendResult(bool IsSent, string? MessageId);
+public sealed record KickEventSubscriptionResult(string Name, int Version, string? SubscriptionId, string? Error);
+public sealed record KickEventSubscriptionInfo(long BroadcasterUserId, string Event, int Version, string Id, string Method);
 
 /// <summary>
 /// Kick OAuth 2.1 authorization-code flow for the user's own registered application.
@@ -62,7 +64,7 @@ public static class KickOAuthClient
             "?response_type=code" +
             "&client_id=" + Uri.EscapeDataString(clientId) +
             "&redirect_uri=" + Uri.EscapeDataString(RedirectUri) +
-            "&scope=" + Uri.EscapeDataString("user:read channel:read chat:write") +
+            "&scope=" + Uri.EscapeDataString("user:read channel:read chat:write moderation:ban moderation:chat_message:manage") +
             "&state=" + Uri.EscapeDataString(state) +
             "&code_challenge=" + Uri.EscapeDataString(challenge) +
             "&code_challenge_method=S256";
@@ -141,6 +143,29 @@ public static class KickOAuthClient
             catch { /* Preserve the actual OAuth/token-exchange error for the app UI. */ }
             throw;
         }
+    }
+
+    public static async Task<KickOAuthCredentials> GetAppAccessTokenAsync(
+        string clientId,
+        string clientSecret,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateClient(clientId, clientSecret);
+        using var response = await Http.PostAsync(
+            "https://id.kick.com/oauth/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = clientId.Trim(),
+                ["client_secret"] = clientSecret.Trim(),
+                ["grant_type"] = "client_credentials"
+            }),
+            cancellationToken).ConfigureAwait(false);
+
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateOAuthError(response.StatusCode, json, "Kick no pudo emitir un App Access Token para eventos");
+
+        return ParseCredentials(json, null);
     }
 
     public static async Task<KickOAuthCredentials> RefreshAsync(
@@ -425,13 +450,272 @@ public sealed class KickApiClient
         return new KickChatSendResult(true, messageId);
     }
 
+    public async Task<string> BanOrTimeoutUserAsync(
+        string accessToken,
+        string channelSlug,
+        long targetUserId,
+        int? durationMinutes,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(accessToken);
+        var slug = NormalizeChannelSlug(channelSlug);
+        if (targetUserId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(targetUserId), "Ingresá el ID numérico válido del usuario de Kick.");
+        if (durationMinutes is < 1 or > 10080)
+            throw new ArgumentOutOfRangeException(nameof(durationMinutes), "El timeout de Kick debe estar entre 1 minuto y 7 días; dejalo vacío para ban permanente.");
+        reason = (reason ?? "").Trim();
+        if (reason.Length > 100)
+            throw new ArgumentOutOfRangeException(nameof(reason), "El motivo de Kick no puede superar 100 caracteres.");
+
+        var channel = await GetChannelAsync(accessToken, slug, cancellationToken).ConfigureAwait(false);
+        var payload = new Dictionary<string, object>
+        {
+            ["broadcaster_user_id"] = channel.BroadcasterUserId,
+            ["user_id"] = targetUserId
+        };
+        if (durationMinutes.HasValue) payload["duration"] = durationMinutes.Value;
+        if (reason.Length > 0) payload["reason"] = reason;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.kick.com/public/v1/moderation/bans")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateApiError(response.StatusCode, json, durationMinutes.HasValue ? "Kick rechazó el timeout" : "Kick rechazó el ban", "moderation:ban");
+
+        return durationMinutes.HasValue
+            ? "Timeout de Kick aplicado por " + durationMinutes.Value + " minutos al usuario ID " + targetUserId + "."
+            : "Ban permanente de Kick aplicado al usuario ID " + targetUserId + ".";
+    }
+
+    public async Task<string> UnbanUserAsync(
+        string accessToken,
+        string channelSlug,
+        long targetUserId,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(accessToken);
+        var slug = NormalizeChannelSlug(channelSlug);
+        if (targetUserId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(targetUserId), "Ingresá el ID numérico válido del usuario de Kick.");
+
+        var channel = await GetChannelAsync(accessToken, slug, cancellationToken).ConfigureAwait(false);
+        var payload = new Dictionary<string, long>
+        {
+            ["broadcaster_user_id"] = channel.BroadcasterUserId,
+            ["user_id"] = targetUserId
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "https://api.kick.com/public/v1/moderation/bans")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateApiError(response.StatusCode, json, "Kick rechazó retirar el ban/timeout", "moderation:ban");
+
+        return "Kick confirmó retirar el ban/timeout del usuario ID " + targetUserId + ".";
+    }
+
+    public async Task<string> DeleteChatMessageAsync(
+        string accessToken,
+        string messageId,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(accessToken);
+        var normalizedId = (messageId ?? "").Trim();
+        if (normalizedId.Length is 0 or > 128 ||
+            normalizedId.Any(character => char.IsWhiteSpace(character) || char.IsControl(character)))
+            throw new ArgumentException("Ingresá el ID real del mensaje de Kick (máximo 128 caracteres, sin espacios).", nameof(messageId));
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Delete,
+            "https://api.kick.com/public/v1/chat/" + Uri.EscapeDataString(normalizedId));
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateApiError(response.StatusCode, json, "Kick rechazó borrar el mensaje", "moderation:chat_message:manage");
+
+        return "Kick confirmó borrar el mensaje " + normalizedId + ".";
+    }
+
+    public async Task<IReadOnlyList<KickEventSubscriptionResult>> SubscribeToDefaultEventsAsync(
+        string appAccessToken,
+        long broadcasterUserId,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(appAccessToken);
+        if (broadcasterUserId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(broadcasterUserId), "Kick requiere un ID numérico válido del canal.");
+
+        var desiredEvents = new[]
+        {
+            new { name = "chat.message.sent", version = 1 },
+            new { name = "channel.followed", version = 1 },
+            new { name = "channel.subscription.new", version = 1 },
+            new { name = "channel.subscription.renewal", version = 1 },
+            new { name = "channel.subscription.gifts", version = 1 },
+            new { name = "livestream.status.updated", version = 1 },
+            new { name = "moderation.banned", version = 1 }
+        };
+        var existingSubscriptions = await GetEventSubscriptionsAsync(appAccessToken, broadcasterUserId, cancellationToken).ConfigureAwait(false);
+        var results = existingSubscriptions
+            .Where(subscription => string.Equals(subscription.Method, "webhook", StringComparison.OrdinalIgnoreCase) &&
+                desiredEvents.Any(desired => desired.name == subscription.Event && desired.version == subscription.Version))
+            .Select(subscription => new KickEventSubscriptionResult(
+                subscription.Event, subscription.Version, subscription.Id, null))
+            .ToList();
+        var events = desiredEvents
+            .Where(desired => !existingSubscriptions.Any(existing =>
+                string.Equals(existing.Method, "webhook", StringComparison.OrdinalIgnoreCase) &&
+                existing.Event == desired.name && existing.Version == desired.version))
+            .ToArray();
+
+        if (events.Length == 0)
+            return results;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.kick.com/public/v1/events/subscriptions")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    broadcaster_user_id = broadcasterUserId,
+                    method = "webhook",
+                    events
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", appAccessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateApiError(response.StatusCode, json,
+                "Kick rechazó la suscripción a eventos para el canal ID " + broadcasterUserId,
+                "App Access Token; verificá que Webhooks esté habilitado y la URL pública esté configurada");
+
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
+            throw new InvalidOperationException("Kick no devolvió la lista de resultados de suscripción; no se puede afirmar que los eventos estén suscritos.");
+
+        foreach (var item in data.EnumerateArray())
+        {
+            var name = GetJsonString(item, "name");
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            var version = item.TryGetProperty("version", out var versionElement) && versionElement.TryGetInt32(out var parsedVersion)
+                ? parsedVersion
+                : 0;
+            var subscriptionId = GetJsonString(item, "subscription_id");
+            var error = GetJsonString(item, "error");
+            if (string.IsNullOrWhiteSpace(error) && string.IsNullOrWhiteSpace(subscriptionId))
+                error = "Kick no devolvió un subscription_id para este evento.";
+            results.Add(new KickEventSubscriptionResult(name, version, subscriptionId, error));
+        }
+
+        foreach (var desired in desiredEvents)
+        {
+            if (!results.Any(result => result.Name == desired.name && result.Version == desired.version))
+                results.Add(new KickEventSubscriptionResult(
+                    desired.name,
+                    desired.version,
+                    null,
+                    "Kick no devolvió un resultado para este tipo de evento; la suscripción no se considera confirmada."));
+        }
+
+        if (results.Count == 0)
+            throw new InvalidOperationException("Kick respondió sin resultados individuales de suscripción; no se puede afirmar que el chat esté suscrito.");
+        return results;
+    }
+
+    public async Task<IReadOnlyList<KickEventSubscriptionInfo>> GetEventSubscriptionsAsync(
+        string appAccessToken,
+        long? broadcasterUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(appAccessToken);
+        var url = "https://api.kick.com/public/v1/events/subscriptions";
+        if (broadcasterUserId.HasValue)
+        {
+            if (broadcasterUserId.Value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(broadcasterUserId));
+            url += "?broadcaster_user_id=" + broadcasterUserId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", appAccessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateApiError(response.StatusCode, json, "Kick no pudo consultar las suscripciones existentes", "App Access Token");
+
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
+            throw new InvalidOperationException("Kick devolvió una respuesta de suscripciones inesperada.");
+
+        var items = new List<KickEventSubscriptionInfo>();
+        foreach (var item in data.EnumerateArray())
+        {
+            var id = GetJsonString(item, "id") ?? "";
+            var eventName = GetJsonString(item, "event") ?? "";
+            var method = GetJsonString(item, "method") ?? "";
+            var broadcasterId = item.TryGetProperty("broadcaster_user_id", out var broadcasterElement) &&
+                broadcasterElement.TryGetInt64(out var parsedId) ? parsedId : 0;
+            var version = item.TryGetProperty("version", out var versionElement) &&
+                versionElement.TryGetInt32(out var parsedVersion) ? parsedVersion : 0;
+            if (id.Length == 0 || eventName.Length == 0 || broadcasterId <= 0) continue;
+            items.Add(new KickEventSubscriptionInfo(broadcasterId, eventName, version, id, method));
+        }
+        return items;
+    }
+
+    public async Task DeleteEventSubscriptionsAsync(
+        string appAccessToken,
+        IEnumerable<string> subscriptionIds,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(appAccessToken);
+        var ids = subscriptionIds
+            .Select(id => (id ?? "").Trim())
+            .Where(id => id.Length is > 0 and <= 128 && !id.Any(char.IsControl))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (ids.Length == 0)
+            throw new ArgumentException("Seleccioná al menos un ID de suscripción válido.", nameof(subscriptionIds));
+
+        var query = string.Join("&", ids.Select(id => "id=" + Uri.EscapeDataString(id)));
+        using var request = new HttpRequestMessage(HttpMethod.Delete,
+            "https://api.kick.com/public/v1/events/subscriptions?" + query);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", appAccessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw CreateApiError(response.StatusCode, body, "Kick rechazó cancelar las suscripciones de webhook",
+                "App Access Token");
+        }
+    }
+
+    private static string? GetJsonString(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
     private static void RequireToken(string token)
     {
         if (string.IsNullOrWhiteSpace(token) || token.Length > 8192)
             throw new InvalidOperationException("Primero autorizá Kick desde el panel de bots.");
     }
 
-    private static InvalidOperationException CreateApiError(HttpStatusCode status, string body, string context)
+    private static InvalidOperationException CreateApiError(
+        HttpStatusCode status,
+        string body,
+        string context,
+        string requiredScope = "chat:write")
     {
         var detail = "HTTP " + (int)status;
         try
@@ -445,6 +729,11 @@ public sealed class KickApiClient
             if (!string.IsNullOrWhiteSpace(body))
                 detail += ": " + body.Replace('\r', ' ').Replace('\n', ' ')[..Math.Min(body.Length, 300)];
         }
-        return new InvalidOperationException(context + " (" + detail + "). Revisá el scope chat:write, el canal y los límites de API.");
+        var permissionHint = (int)status == 403
+            ? " Verificá que la cuenta autorizada sea moderadora o dueña del canal."
+            : "";
+        return new InvalidOperationException(
+            context + " (" + detail + "). Revisá el scope " + requiredScope +
+            ", la autorización y los límites/permisos de la API." + permissionHint);
     }
 }

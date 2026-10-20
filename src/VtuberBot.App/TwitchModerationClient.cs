@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 namespace VtuberBot.App;
 
-/// <summary>Explicit user-triggered Twitch Helix moderation. Automatic rules do not call this client.</summary>
+/// <summary>Twitch Helix moderation operations used by manual actions and explicitly enabled automatic rules.</summary>
 public sealed class TwitchModerationClient : IDisposable
 {
     private static readonly Regex LoginPattern = new("^[a-zA-Z0-9_]{1,25}$", RegexOptions.CultureInvariant);

@@ -102,7 +102,7 @@ public partial class MainWindow : Window
 
     private static readonly string[] Pages =
     [
-        "Inicio", "Guía fácil", "PNGTuber 2D", "Avatar Studio", "Comandos", "Voz y audio", "OBS", "Bots y plataformas", "Actividad y diagnóstico", "Ajustes"
+        "Inicio", "Guía fácil", "PNGTuber 2D", "Avatar Studio", "Comandos", "Voz y audio", "OBS", "Bots y plataformas", "Moderación", "Actividad y diagnóstico", "Ajustes"
     ];
 
     private void UpdateAvatarTalkState()
@@ -599,6 +599,10 @@ public partial class MainWindow : Window
         try { vrmOverlay?.Close(); }
         catch (Exception exception) { LogShutdownFailure("overlay VRM", exception); }
 
+        // Stop the local Kick webhook listener before disposing platform clients.
+        try { await StopKickWebhookReceiverAsync(); }
+        catch (Exception exception) { LogShutdownFailure("receptor webhook Kick", exception); }
+
         // Dispose each client independently so one failed network shutdown does not
         // prevent cleanup of the remaining clients.
         try { await twitch.DisposeAsync(); }
@@ -673,6 +677,7 @@ public partial class MainWindow : Window
             "Voz y audio" => "Micrófono, detección de actividad y síntesis local; VOICEVOX es la opción de voz prioritaria.",
             "OBS" => "Conexión real mediante OBS WebSocket v5 y operaciones que la API permita ejecutar.",
             "Bots y plataformas" => "Administrá Twitch, Kick, el comportamiento del bot y el puente opcional de Streamer.bot.",
+            "Moderación" => "Acciones reales de moderación para Twitch y Kick, con confirmación y permisos oficiales.",
 
             "Actividad y diagnóstico" => "Registro local de acciones y exportación sin tokens ni cookies.",
             "Ajustes" => "Preferencias locales, seguridad y perfil de rendimiento.",
@@ -688,6 +693,7 @@ public partial class MainWindow : Window
             "Voz y audio" => BuildAudioPage(),
             "OBS" => BuildObsPage(),
             "Bots y plataformas" => BuildBotsPage(),
+            "Moderación" => BuildModerationPage(),
             "Actividad y diagnóstico" => BuildActivityPage(),
             "Ajustes" => BuildSettingsPage(),
             _ => BuildDashboard()

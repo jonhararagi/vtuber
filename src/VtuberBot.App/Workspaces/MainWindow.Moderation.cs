@@ -62,7 +62,7 @@ public partial class MainWindow
         root.Children.Add(Label("Por defecto, las reglas solo registran coincidencias. La activación global exige confirmación: flag solo registra, warn publica un aviso, delete borra el mensaje coincidente, timeout aplica 10 minutos y ban es permanente. El límite es una acción por usuario/regla cada 5 minutos; si una acción falla, queda registrada como fallida, nunca como exitosa.",12,"#98A4BE"));
         var remotePanel = Panel("Acciones de Twitch — manuales y con confirmación");
         remotePanel.Margin = new Thickness(0, 12, 0, 0);
-        remotePanel.Children.Add(Label("Estas acciones solo se ejecutan al pulsar un botón y confirmar. Las reglas automáticas siguen en modo observación.", 12, "#98A4BE"));
+        remotePanel.Children.Add(Label("Estas acciones manuales siempre requieren confirmación. Si activás la casilla de Twitch de arriba, las reglas habilitadas podrán ejecutar acciones reales automáticamente.", 12, "#98A4BE"));
         var moderationChannel = TextField("Canal Twitch", store.GetSetting("twitch.channel"));
         var moderationTarget = TextField("Usuario de Twitch (login, sin @)");
         var moderationReason = TextField("Motivo (opcional, máximo 500 caracteres)");
@@ -137,8 +137,49 @@ public partial class MainWindow
         remoteActions.Children.Add(ActionButton("Ban permanente", async (_, _) => await ExecuteManualModerationAction("ban permanente", null, false)));
         remoteActions.Children.Add(ActionButton("Quitar ban / timeout", async (_, _) => await ExecuteManualModerationAction("desbanear", null, true)));
         remotePanel.Children.Add(remoteActions);
-        remotePanel.Children.Add(Label("Si Twitch rechaza la solicitud, la aplicación registra el tipo de error pero nunca presenta la sanción como exitosa. No se ejecutan sanciones por coincidencias regex.", 12, "#98A4BE"));
+
+        var twitchMessageId = TextField("ID del mensaje de Twitch (tag IRCv3 id)");
+        remotePanel.Children.Add(Label("Eliminar un mensaje específico", 12, "#98A4BE", true));
+        remotePanel.Children.Add(twitchMessageId);
+        remotePanel.Children.Add(ActionButton("Eliminar mensaje de Twitch", async (_, _) =>
+        {
+            var channelName = moderationChannel.Text.Trim().TrimStart('#');
+            var messageId = twitchMessageId.Text.Trim();
+            var clientIdValue = store.GetSetting("twitch.client_id").Trim();
+            var accessTokenValue = LoadTwitchToken();
+            if (string.IsNullOrWhiteSpace(clientIdValue) || string.IsNullOrWhiteSpace(accessTokenValue))
+            {
+                MessageBox.Show(this, "Primero configurá Twitch y autorizá una cuenta con permisos de moderación.", "Twitch no configurado", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(messageId))
+            {
+                MessageBox.Show(this, "Pegá el ID real del mensaje de Twitch. El login del usuario no sirve como ID del mensaje.", "Falta ID de mensaje", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (MessageBox.Show(this,
+                    $"Vas a eliminar un mensaje REAL del canal {channelName}.\nID: {messageId}\n\n¿Confirmás?",
+                    "Confirmar eliminación de mensaje", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+            try
+            {
+                using var moderator = new TwitchModerationClient();
+                var result = await moderator.DeleteChatMessageAsync(clientIdValue, accessTokenValue, channelName, messageId);
+                store.Log("Moderación", "Eliminación manual de mensaje Twitch confirmada por API en " + channelName + ".");
+                FooterStatus.Text = result;
+                MessageBox.Show(this, result, "Moderación de Twitch", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                FooterStatus.Text = "No se confirmó la eliminación en Twitch: " + ex.GetType().Name;
+                store.Log("Moderación", "Falló el borrado manual de un mensaje Twitch (" + ex.GetType().Name + ").");
+                MessageBox.Show(this, "Twitch no confirmó el borrado. Verificá el ID, el permiso moderator:manage:chat_messages y el rol de la cuenta.\n\n" + ex.Message,
+                    "Eliminación fallida", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }));
+        remotePanel.Children.Add(Label("Si Twitch rechaza una solicitud, la acción queda registrada como fallida. Las acciones automáticas solo se ejecutan si activás explícitamente el interruptor global y configurás reglas.", 12, "#98A4BE"));
         root.Children.Add(remotePanel);
+        root.Children.Add(BuildKickModerationPanel());
         var auto=Panel("Mensajes automáticos programados");auto.Margin=new Thickness(0,12,0,0);
         var autoList=new ListBox{Height=130};long? editingAutomationId=null;
         void ReloadAuto(){autoList.ItemsSource=store.GetAutomationRules().Select(a=>string.Format("{0} · {1} · cada {2} min · {3} · último envío: {4}",a.Id,a.Name,a.IntervalMinutes,a.Enabled?"activo":"pausado",a.LastRunUtc.HasValue?a.LastRunUtc.Value.ToLocalTime().ToString("dd/MM HH:mm:ss"):"nunca")).ToList();}

@@ -12,7 +12,7 @@ public partial class MainWindow
         var root = new StackPanel();
         root.Children.Add(Label("Bots y plataformas", 22, "#F8FAFC", true));
         root.Children.Add(Label(
-            "Twitch ya dispone de chat y EventSub dentro de VTuberBot. Kick ofrece actualmente autorización, consulta de canal y envío manual de chat; su lectura automática de mensajes/eventos sigue pendiente. Cada plataforma mantiene sus cuentas y permisos, y OBS sigue siendo el motor de transmisión.",
+            "Twitch dispone de chat, EventSub y reglas de moderación. Kick dispone de API para moderación manual y recepción de eventos por webhook cuando configurás una URL pública HTTPS, el túnel y las suscripciones. OBS sigue siendo el motor de transmisión.",
             12, "#98A4BE"));
 
         var summary = Panel("Estado real de conexiones");
@@ -63,7 +63,7 @@ public partial class MainWindow
         var root = new StackPanel();
         root.Children.Add(Label("Bot de Kick · API oficial", 20, "#F8FAFC", true));
         root.Children.Add(Label(
-            "Esta versión autoriza tu propia aplicación Kick, protege los tokens con DPAPI y puede verificar el canal y enviar un mensaje de prueba real. La recepción automática de mensajes/eventos todavía no se declara conectada: Kick los entrega por webhooks con URL pública y firma verificable.",
+            "Esta versión autoriza tu propia aplicación Kick, protege los tokens con DPAPI y permite consultar el canal, enviar mensajes y moderar. También incluye receptor local con verificación de firma y suscripción de eventos; para activarlo debés configurar una URL pública HTTPS/túnel en Kick Developer e iniciar la escucha manualmente. No se afirma que haya entrega entrante hasta recibir un evento real.",
             12, "#98A4BE"));
 
         var config = Panel("1. Cuenta y aplicación");
@@ -88,7 +88,7 @@ public partial class MainWindow
         config.Children.Add(channel);
         config.Children.Add(Label(
             "En Kick Developer registrá exactamente esta Redirect URL: " + KickOAuthClient.RedirectUri +
-            " · Scopes mínimos solicitados: user:read, channel:read y chat:write. No pegues el secreto en GitHub ni en mensajes de soporte.",
+            " · Scopes solicitados: user:read, channel:read, chat:write, moderation:ban y moderation:chat_message:manage. Volvé a autorizar Kick para conceder los nuevos permisos. No pegues el secreto en GitHub ni en mensajes de soporte.",
             11, "#98A4BE"));
 
         var credentialStatus = Label(
@@ -201,7 +201,9 @@ public partial class MainWindow
         var actionPanel = Panel("2. Verificar canal y probar el chat");
         var channelStatus = Label("Canal: aún no consultado a Kick.", 12, "#98A4BE", true);
         var eventStatus = Label(
-            "Eventos entrantes: no conectados. La API de Kick exige un webhook accesible desde Internet y validación de firma; no se finge una escucha local.",
+            kickWebhookReceiver?.IsRunning == true
+                ? "Receptor local activo. La llegada real se confirma al ver mensajes verificados aquí."
+                : "Receptor local detenido. Configurá URL pública HTTPS y túnel, iniciá el receptor y suscribí eventos; la firma se verifica antes del procesamiento.",
             12, "#E7B56A");
         var messageType = new ComboBox
         {
@@ -325,6 +327,8 @@ public partial class MainWindow
                 return;
             secretStore.Delete("kick-access-token");
             secretStore.Delete("kick-refresh-token");
+            secretStore.Delete("kick-app-access-token");
+            store.SetSetting("kick.appToken.expiresAtUtc", "");
             store.SetSetting("kick.token.expiresAtUtc", "");
             store.SetSetting("kick.token.scopes", "");
             store.SetSetting("kick.token.lastVerifiedAtUtc", "");
@@ -335,8 +339,199 @@ public partial class MainWindow
             store.Log("Kick", "Tokens locales eliminados a pedido del usuario; no se afirmó revocación remota.");
         }));
         root.Children.Add(actionPanel);
+
+        var eventPanel = Panel("3. Chat y eventos entrantes de Kick");
+        var webhookUrl = TextField("URL pública HTTPS terminada en /kick-webhook", store.GetSetting("kick.webhook.public_url"));
+        var webhookStatus = Label(
+            store.GetSetting("kick.webhook.lastStatus", "Aún no se configuró ni inició el receptor de eventos."),
+            12, "#E7B56A", true);
+        eventPanel.Children.Add(Label(
+            "La app escucha solamente en " + EnsureKickWebhookReceiver().LocalEndpoint +
+            ". Kick no puede llamar a localhost directamente: tenés que crear vos un túnel HTTPS público (por ejemplo Cloudflare Tunnel o ngrok) que reenvíe esta ruta a esa dirección local, y registrar la URL HTTPS exacta en Kick Developer con Enable Webhooks activado. VTuberBot no abre puertos públicos ni crea túneles automáticamente.",
+            12, "#98A4BE"));
+        eventPanel.Children.Add(Label("URL pública registrada en Kick Developer", 12, "#98A4BE"));
+        eventPanel.Children.Add(webhookUrl);
+        eventPanel.Children.Add(webhookStatus);
+
+        eventPanel.Children.Add(ActionButton("Guardar URL pública", (_, _) =>
+        {
+            if (!IsConfiguredPublicKickWebhookUrl(webhookUrl.Text, out var configuredUri))
+            {
+                MessageBox.Show(this,
+                    "Ingresá una URL pública HTTPS con la ruta exacta /kick-webhook, sin query ni fragmento. No sirven localhost ni direcciones loopback.",
+                    "URL de webhook no válida", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            store.SetSetting("kick.webhook.public_url", configuredUri!.AbsoluteUri.TrimEnd('/'));
+            var status = "URL guardada. Registrá la misma URL exacta en Kick Developer y configurá el túnel para reenviar a " +
+                EnsureKickWebhookReceiver().LocalEndpoint + ". Guardar la URL no prueba que Kick pueda alcanzarla.";
+            store.SetSetting("kick.webhook.lastStatus", status);
+            webhookStatus.Text = status;
+            webhookStatus.Foreground = Brush("#E7B56A");
+            FooterStatus.Text = "URL pública guardada; no se realizó ninguna conexión externa.";
+        }, true));
+
+        eventPanel.Children.Add(ActionButton("Iniciar receptor local", (_, _) =>
+        {
+            if (!IsConfiguredPublicKickWebhookUrl(webhookUrl.Text, out var configuredUri))
+            {
+                MessageBox.Show(this, "Guardá primero una URL pública HTTPS válida terminada en /kick-webhook.", "Falta URL pública",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            store.SetSetting("kick.webhook.public_url", configuredUri!.AbsoluteUri.TrimEnd('/'));
+            try
+            {
+                var receiver = EnsureKickWebhookReceiver();
+                receiver.Start();
+                var status = "Receptor local activo en " + receiver.LocalEndpoint +
+                    ". Esto confirma solo la escucha local, no una entrega real desde Kick. Comprobá que tu túnel esté activo.";
+                store.SetSetting("kick.webhook.lastStatus", status);
+                webhookStatus.Text = status;
+                webhookStatus.Foreground = Brush("#E7B56A");
+                FooterStatus.Text = "Receptor local de Kick iniciado; esperando eventos firmados.";
+                eventStatus.Text = "Receptor local en marcha; la entrega pública todavía requiere verificación.";
+            }
+            catch (Exception exception)
+            {
+                webhookStatus.Text = "No se pudo iniciar el receptor local: " + exception.Message;
+                webhookStatus.Foreground = Brush("#F2A6A6");
+                FooterStatus.Text = "No se inició el receptor webhook de Kick.";
+            }
+        }));
+
+        eventPanel.Children.Add(ActionButton("Suscribir chat y eventos", async (_, _) =>
+        {
+            if (!IsConfiguredPublicKickWebhookUrl(webhookUrl.Text, out var configuredUri))
+            {
+                MessageBox.Show(this, "Guardá primero una URL pública HTTPS válida y registrala en Kick Developer.", "Falta URL pública",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (kickWebhookReceiver is null || !kickWebhookReceiver.IsRunning)
+            {
+                MessageBox.Show(this, "Iniciá primero el receptor local y asegurate de que el túnel HTTPS público ya esté funcionando.",
+                    "Receptor detenido", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (MessageBox.Show(this,
+                    "VTuberBot solicitará suscripciones reales de eventos para el canal de Kick configurado. La creación se hará con un App Access Token y se omitirán los tipos ya suscritos según la consulta de la API. Una suscripción aceptada no garantiza que Kick entregue eventos. ¿Continuar?",
+                    "Confirmar suscripciones de Kick", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                SaveKickSettings();
+                store.SetSetting("kick.webhook.public_url", configuredUri!.AbsoluteUri.TrimEnd('/'));
+                var userCredentials = await GetValidKickCredentialsAsync();
+                var api = new KickApiClient();
+                var channelInfo = await api.GetChannelAsync(userCredentials.AccessToken, channel.Text);
+                var previouslyTrackedIds = store.GetSetting("kick.webhook.subscription_ids")
+                    .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (previouslyTrackedIds.Length > 0 &&
+                    (!long.TryParse(store.GetSetting("kick.webhook.broadcaster_user_id"),
+                        NumberStyles.None, CultureInfo.InvariantCulture, out var previousBroadcasterId) ||
+                     previousBroadcasterId != channelInfo.BroadcasterUserId))
+                    throw new InvalidOperationException(
+                        "Ya hay suscripciones guardadas para otro canal. Cancelalas desde este panel antes de cambiar el canal de eventos; esto evita mezclar eventos de distintos canales.");
+
+                var appToken = await GetValidKickAppAccessTokenAsync();
+                var results = await api.SubscribeToDefaultEventsAsync(appToken, channelInfo.BroadcasterUserId);
+                var failures = results.Where(item => !string.IsNullOrWhiteSpace(item.Error)).ToArray();
+                var accepted = results.Where(item => !string.IsNullOrWhiteSpace(item.SubscriptionId) && string.IsNullOrWhiteSpace(item.Error)).ToArray();
+                var storedIds = previouslyTrackedIds.ToHashSet(StringComparer.Ordinal);
+                foreach (var item in accepted)
+                    storedIds.Add(item.SubscriptionId!);
+                store.SetSetting("kick.webhook.subscription_ids", string.Join("\n", storedIds));
+                if (accepted.Length > 0)
+                    store.SetSetting("kick.webhook.broadcaster_user_id", channelInfo.BroadcasterUserId.ToString(CultureInfo.InvariantCulture));
+                var summary = "Kick devolvió " + accepted.Length + " suscripciones aceptadas para " + channelInfo.Slug +
+                    " y " + failures.Length + " errores. Esto confirma el resultado API, no la entrega al webhook.";
+                if (failures.Length > 0)
+                    summary += "\n" + string.Join("\n", failures.Select(item => item.Name + ": " + item.Error));
+                store.SetSetting("kick.webhook.lastStatus", summary);
+                webhookStatus.Text = summary;
+                webhookStatus.Foreground = Brush(failures.Length == 0 ? "#8FE6D0" : "#F2A6A6");
+                eventStatus.Text = summary;
+                eventStatus.Foreground = Brush(failures.Length == 0 ? "#8FE6D0" : "#F2A6A6");
+                FooterStatus.Text = failures.Length == 0
+                    ? "Kick aceptó las suscripciones; falta verificar recepción real."
+                    : "Kick aceptó algunas suscripciones y rechazó otras; revisá el detalle.";
+                store.Log("Kick Events", "Resultado de suscripción: " + accepted.Length + " aceptadas, " + failures.Length + " fallidas; no se afirmó entrega real.");
+            }
+            catch (Exception exception)
+            {
+                var status = "No se completó la suscripción de eventos de Kick: " + exception.Message;
+                store.SetSetting("kick.webhook.lastStatus", status);
+                webhookStatus.Text = status;
+                webhookStatus.Foreground = Brush("#F2A6A6");
+                FooterStatus.Text = "Suscripciones de Kick no confirmadas.";
+                store.Log("Kick Events", "La suscripción falló (" + exception.GetType().Name + "); no se declaró conectada.");
+            }
+        }, true));
+
+        eventPanel.Children.Add(ActionButton("Cancelar suscripciones registradas", async (_, _) =>
+        {
+            var subscriptionIds = store.GetSetting("kick.webhook.subscription_ids")
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (subscriptionIds.Length == 0)
+            {
+                MessageBox.Show(this, "No hay IDs de suscripción guardados por VTuberBot. Si creaste suscripciones por fuera de la app, gestionálas desde la API o las herramientas de Kick Developer.",
+                    "No hay suscripciones registradas", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (MessageBox.Show(this,
+                    "Se cancelarán " + subscriptionIds.Length + " suscripciones de eventos cuyos IDs quedaron guardados por VTuberBot. No se borrarán los tokens OAuth. ¿Continuar?",
+                    "Confirmar cancelación de webhooks", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+            try
+            {
+                var appToken = await GetValidKickAppAccessTokenAsync();
+                await new KickApiClient().DeleteEventSubscriptionsAsync(appToken, subscriptionIds);
+                store.SetSetting("kick.webhook.subscription_ids", "");
+                store.SetSetting("kick.webhook.broadcaster_user_id", "");
+                var status = "Kick confirmó la cancelación de las suscripciones que VTuberBot tenía registradas.";
+                store.SetSetting("kick.webhook.lastStatus", status);
+                webhookStatus.Text = status;
+                webhookStatus.Foreground = Brush("#8FE6D0");
+                FooterStatus.Text = status;
+                store.Log("Kick Events", "Kick confirmó cancelar las suscripciones guardadas por VTuberBot.");
+            }
+            catch (Exception exception)
+            {
+                var status = "No se confirmó la cancelación de suscripciones: " + exception.Message;
+                webhookStatus.Text = status;
+                webhookStatus.Foreground = Brush("#F2A6A6");
+                FooterStatus.Text = "Cancelación de suscripciones no confirmada.";
+                store.Log("Kick Events", "Falló cancelación de suscripciones (" + exception.GetType().Name + ").");
+            }
+        }));
+
+        eventPanel.Children.Add(ActionButton("Detener receptor local", async (_, _) =>
+        {
+            try
+            {
+                await StopKickWebhookReceiverAsync();
+                var status = "Receptor local detenido. Las suscripciones remotas pueden seguir activas; cancelalas arriba si ya no querés recibirlas.";
+                store.SetSetting("kick.webhook.lastStatus", status);
+                webhookStatus.Text = status;
+                webhookStatus.Foreground = Brush("#E7B56A");
+                FooterStatus.Text = "Receptor local de Kick detenido; revisá las suscripciones remotas.";
+            }
+            catch (Exception exception)
+            {
+                webhookStatus.Text = "No se pudo detener el receptor: " + exception.Message;
+                webhookStatus.Foreground = Brush("#F2A6A6");
+            }
+        }));
+
+        root.Children.Add(eventPanel);
         root.Children.Add(Label(
-            "Alcance actual: Twitch ya dispone de chat IRC autenticado y EventSub dentro de VTuberBot. Kick en este panel ofrece OAuth, consulta de canal y envío de chat por API. Los comandos/lectura automatizada del chat de Kick y alertas entrantes requieren implementar y probar el receptor de webhooks público; no están activos por el hecho de autorizar o enviar un mensaje.",
+            "Moderación automática de Kick tiene un interruptor independiente en Moderación y permanece desactivada por defecto. Los eventos solo afectan reglas después de verificar firma, antigüedad e ID duplicado. La primera prueba real requiere una cuenta autorizada y la URL pública/túnel configurados por vos.",
             11, "#E7B56A"));
         return root;
     }

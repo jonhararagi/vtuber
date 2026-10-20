@@ -29,9 +29,12 @@ Selecciona micrófono, salida y opciones de síntesis. VOICEVOX se ejecuta en el
 VTuberBot envía acciones compatibles a OBS mediante OBS WebSocket. OBS sigue siendo responsable de componer y transmitir el directo. Nunca compartas la contraseña WebSocket o la clave de emisión. Hacé una grabación local antes de salir en vivo.
 
 ### Bots y plataformas
-- **Twitch**: el código actual tiene cliente de chat y EventSub. La cuenta bot, canal destino y permisos deben coincidir con la autorización real.
-- **Kick**: esta versión autoriza una app creada por el usuario, verifica el canal y permite enviar manualmente un mensaje de prueba. **La lectura automática de chat/eventos de Kick y su enrutamiento a comandos/TTS aún no están implementados.**
-- **Reglas y voz**: la implementación actual consume chat de Twitch; una regla no se ejecuta en Kick solo por estar guardada.
+- **Twitch**: hay chat IRC autenticado y EventSub. En **Moderación** podés aplicar timeout, ban permanente, quitar sanción y eliminar un mensaje por su ID. La moderación automática empieza desactivada; si la activás, las reglas habilitadas pueden ejecutar acciones reales. Probá primero en un canal controlado y revisá cuidadosamente cada patrón.
+- **Kick — acciones manuales**: **Moderación** contiene controles para timeout, ban permanente, retirar sanción y borrar un mensaje por su ID de API. Requiere los scopes `moderation:ban` y `moderation:chat_message:manage` y una cuenta con permisos en el canal. Volvé a autorizar Kick desde **Bots y plataformas** después de añadir esos scopes. Para sanciones se pide el ID numérico del usuario; para borrar, el ID real del mensaje.
+- **Kick — eventos entrantes**: en **Bots y plataformas → Kick → Chat y eventos entrantes** guardá tu URL HTTPS pública terminada en `/kick-webhook`, iniciá el receptor local y suscribí los eventos. Antes, creá un túnel HTTPS (por ejemplo, Cloudflare Tunnel o ngrok) que reenvíe esa ruta a `http://127.0.0.1:17565/kick-webhook`; registrá esa misma URL en Kick Developer y activá **Enable Webhooks**. VTuberBot no crea el túnel ni abre puertos públicos; la app escucha únicamente en loopback.
+- **Cómo probar el webhook**: mantené el túnel activo, iniciá el receptor local y usá **Suscribir chat y eventos**. La aplicación verifica la firma de Kick, la antigüedad y los IDs duplicados antes de procesar mensajes. El estado indica si Kick aceptó suscripciones, pero solo ver un mensaje entrante en VTuberBot confirma que llegó un evento real. Si cerrás VTuberBot, el receptor local se detiene aunque las suscripciones remotas puedan seguir activas; podés cancelarlas con **Cancelar suscripciones registradas**.
+- **Reglas automáticas de Kick**: permanecen desactivadas por defecto. Activá el interruptor independiente en **Moderación** solo después de probar recepción real con reglas `flag` (solo registro). Si las activás, reglas `warn`, `delete`, `timeout` o `ban` pueden afectar el chat real. Broadcaster y moderadores se protegen de sanciones automáticas y hay un cooldown por usuario/regla; revisá con cuidado los patrones antes de activar acciones.
+- **Reglas y voz**: las reglas guardadas se consumen desde el chat de Twitch y, tras configurar correctamente los webhooks, desde mensajes Kick con firma válida. El guardado de una regla por sí solo no demuestra que un evento llegue.
 - **Streamer.bot**: integración opcional. Elegí un solo lugar como autoridad para cada regla para evitar mensajes o acciones duplicadas.
 
 ### Comandos locales
@@ -57,7 +60,7 @@ Otro informe, [KickDevDocs #428](https://github.com/KickEngineering/KickDevDocs/
 [KickDevDocs #343](https://github.com/KickEngineering/KickDevDocs/issues/343) documenta un 500 al usar type=bot mientras type=user funcionaba para el autor. Empezá con el modo Usuario, que el panel usa por defecto. El modo Bot puede requerir configuración del bot y autorización de la cuenta dueña del canal. No cambies de identidad silenciosamente ni repitas el mensaje muchas veces.
 
 ### Kick no recibe mensajes o eventos
-Es una limitación conocida de esta versión. La Events API requiere un webhook públicamente accesible y verificación de la firma. [KickDevDocs #403](https://github.com/KickEngineering/KickDevDocs/issues/403) describe un caso de entregas ausentes relacionado con una regla propia del proxy/WAF. Si se construye ese receptor más adelante, inspeccioná logs del proxy y los headers; nunca desactives globalmente la seguridad ni aceptes eventos con firma inválida.
+Aunque la API puede confirmar que una suscripción fue aceptada, eso no garantiza entrega. Revisá que **Enable Webhooks** esté activado en Kick Developer, que la URL pública HTTPS coincida exactamente, que el túnel esté iniciado y que reenvíe la ruta `/kick-webhook` a `127.0.0.1:17565`. Luego iniciá el receptor local antes de suscribir eventos. Los webhooks con firma inválida, timestamp demasiado antiguo, payload inválido o ID repetido no ejecutan reglas. La [documentación oficial de Events](https://docs.kick.com/events/introduction) explica el flujo; [Webhook security](https://docs.kick.com/events/webhook-security) detalla la firma y la clave pública rotativa. El reporte [KickDevDocs #419](https://github.com/KickEngineering/KickDevDocs/issues/419) describe casos donde una suscripción fue aceptada pero no apareció en la lista; [#403](https://github.com/KickEngineering/KickDevDocs/issues/403) describe problemas de entrega relacionados con proxies/WAF. No desactives globalmente la seguridad ni aceptes una firma inválida.
 
 ### OBS WebSocket no conecta
 La guía oficial confirma que obs-websocket está incorporado desde OBS Studio 28. Abrí las preferencias de WebSocket, habilitá autenticación, comprobá que puerto y contraseña coincidan y mantené la conexión en loopback salvo que entiendas la configuración de red. La [guía oficial de control remoto](https://obsproject.com/kb/remote-control-guide) recomienda proteger el control con contraseña.
@@ -83,8 +86,11 @@ El reporte [dotnet/wpf #11775](https://github.com/dotnet/wpf/issues/11775) descr
 - [Twitch OAuth scopes](https://dev.twitch.tv/docs/authentication/scopes/)
 - [Kick OAuth 2.1](https://github.com/KickEngineering/KickDevDocs/blob/main/getting-started/generating-tokens-oauth2-flow.md)
 - [Kick Chat API](https://github.com/KickEngineering/KickDevDocs/blob/main/apis/chat.md)
-- [Kick Events API](https://github.com/KickEngineering/KickDevDocs/blob/main/events/introduction.md)
-- [Kick webhook security](https://github.com/KickEngineering/KickDevDocs/blob/main/events/webhook-security.md)
+- [Kick moderation API](https://docs.kick.com/apis/moderation)
+- [Kick API scopes](https://docs.kick.com/getting-started/scopes)
+- [Kick Events API](https://docs.kick.com/events/introduction)
+- [Kick webhook subscriptions](https://github.com/KickEngineering/KickDevDocs/blob/main/events/subscribe-to-events.md)
+- [Kick webhook security](https://docs.kick.com/events/webhook-security)
 - [KickDevDocs #211: redirect URI](https://github.com/KickEngineering/KickDevDocs/issues/211)
 - [KickDevDocs #413: secretos OAuth en apps de escritorio](https://github.com/KickEngineering/KickDevDocs/issues/413)
 - [KickDevDocs #428: error 400 sin cuerpo](https://github.com/KickEngineering/KickDevDocs/issues/428)
