@@ -194,6 +194,7 @@
               <StackPanel>
                 <Button Content="▣  OBS y transmisiones" Tag="OBS" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
                 <Button Content="🤖  Bots y plataformas" Tag="Bots y plataformas" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
+                <Button Content="🛡  Moderación" Tag="Moderación" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
                 <Button Content="⌘  Comandos locales" Tag="Comandos" Click="Navigate_Click" HorizontalContentAlignment="Left"/>
               </StackPanel>
             </Expander>
