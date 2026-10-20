@@ -618,6 +618,16 @@ public sealed class KickApiClient
             results.Add(new KickEventSubscriptionResult(name, version, subscriptionId, error));
         }
 
+        foreach (var desired in desiredEvents)
+        {
+            if (!results.Any(result => result.Name == desired.name && result.Version == desired.version))
+                results.Add(new KickEventSubscriptionResult(
+                    desired.name,
+                    desired.version,
+                    null,
+                    "Kick no devolvió un resultado para este tipo de evento; la suscripción no se considera confirmada."));
+        }
+
         if (results.Count == 0)
             throw new InvalidOperationException("Kick respondió sin resultados individuales de suscripción; no se puede afirmar que el chat esté suscrito.");
         return results;
