@@ -143,6 +143,29 @@ public static class KickOAuthClient
         }
     }
 
+    public static async Task<KickOAuthCredentials> GetAppAccessTokenAsync(
+        string clientId,
+        string clientSecret,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateClient(clientId, clientSecret);
+        using var response = await Http.PostAsync(
+            "https://id.kick.com/oauth/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = clientId.Trim(),
+                ["client_secret"] = clientSecret.Trim(),
+                ["grant_type"] = "client_credentials"
+            }),
+            cancellationToken).ConfigureAwait(false);
+
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateOAuthError(response.StatusCode, json, "Kick no pudo emitir un App Access Token para eventos");
+
+        return ParseCredentials(json, null);
+    }
+
     public static async Task<KickOAuthCredentials> RefreshAsync(
         string clientId,
         string clientSecret,
