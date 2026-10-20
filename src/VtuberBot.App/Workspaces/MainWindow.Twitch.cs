@@ -35,7 +35,7 @@ public partial class MainWindow
         panel.Children.Add(Label("Canal",12,"#98A4BE"));panel.Children.Add(channel);
         panel.Children.Add(Label("Client ID de tu aplicación Twitch",12,"#98A4BE"));panel.Children.Add(clientId);
         panel.Children.Add(Label("Token OAuth de chat (no se registra en logs)",12,"#98A4BE"));panel.Children.Add(token);
-        panel.Children.Add(Label("Usá OAuth de Twitch con permisos chat:read, chat:edit, moderator:read:followers, moderator:manage:banned_users, moderator:manage:chat_messages, channel:read:subscriptions y channel:read:redemptions. Registrá la URL de redirección local indicada abajo en la consola de desarrolladores. El token se cifra con DPAPI para el usuario actual y nunca se escribe en GitHub ni en el registro de actividad. Redirección: http://localhost:17563/callback/",12,"#98A4BE"));
+        panel.Children.Add(Label("Usá OAuth de Twitch con permisos chat:read, chat:edit, user:write:chat, moderator:read:followers, moderator:manage:banned_users, moderator:manage:chat_messages, channel:read:subscriptions y channel:read:redemptions. Si añadiste este permiso a una sesión existente, volvé a autorizar Twitch. Registrá la URL de redirección local indicada abajo en la consola de desarrolladores. El token se cifra con DPAPI para el usuario actual y nunca se escribe en GitHub ni en el registro de actividad. Redirección: http://localhost:17563/callback/",12,"#98A4BE"));
         var avatarReactions = new CheckBox
         {
             Content = "Reaccionar a follows, suscripciones, redenciones y raids",
