@@ -62,7 +62,7 @@ public static class KickOAuthClient
             "?response_type=code" +
             "&client_id=" + Uri.EscapeDataString(clientId) +
             "&redirect_uri=" + Uri.EscapeDataString(RedirectUri) +
-            "&scope=" + Uri.EscapeDataString("user:read channel:read chat:write") +
+            "&scope=" + Uri.EscapeDataString("user:read channel:read chat:write moderation:ban moderation:chat_message:manage") +
             "&state=" + Uri.EscapeDataString(state) +
             "&code_challenge=" + Uri.EscapeDataString(challenge) +
             "&code_challenge_method=S256";
@@ -425,13 +425,111 @@ public sealed class KickApiClient
         return new KickChatSendResult(true, messageId);
     }
 
+    public async Task<string> BanOrTimeoutUserAsync(
+        string accessToken,
+        string channelSlug,
+        long targetUserId,
+        int? durationMinutes,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(accessToken);
+        var slug = NormalizeChannelSlug(channelSlug);
+        if (targetUserId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(targetUserId), "Ingresá el ID numérico válido del usuario de Kick.");
+        if (durationMinutes is < 1 or > 10080)
+            throw new ArgumentOutOfRangeException(nameof(durationMinutes), "El timeout de Kick debe estar entre 1 minuto y 7 días; dejalo vacío para ban permanente.");
+        reason = (reason ?? "").Trim();
+        if (reason.Length > 100)
+            throw new ArgumentOutOfRangeException(nameof(reason), "El motivo de Kick no puede superar 100 caracteres.");
+
+        var channel = await GetChannelAsync(accessToken, slug, cancellationToken).ConfigureAwait(false);
+        var payload = new Dictionary<string, object>
+        {
+            ["broadcaster_user_id"] = channel.BroadcasterUserId,
+            ["user_id"] = targetUserId
+        };
+        if (durationMinutes.HasValue) payload["duration"] = durationMinutes.Value;
+        if (reason.Length > 0) payload["reason"] = reason;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.kick.com/public/v1/moderation/bans")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateApiError(response.StatusCode, json, durationMinutes.HasValue ? "Kick rechazó el timeout" : "Kick rechazó el ban", "moderation:ban");
+
+        return durationMinutes.HasValue
+            ? "Timeout de Kick aplicado por " + durationMinutes.Value + " minutos al usuario ID " + targetUserId + "."
+            : "Ban permanente de Kick aplicado al usuario ID " + targetUserId + ".";
+    }
+
+    public async Task<string> UnbanUserAsync(
+        string accessToken,
+        string channelSlug,
+        long targetUserId,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(accessToken);
+        var slug = NormalizeChannelSlug(channelSlug);
+        if (targetUserId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(targetUserId), "Ingresá el ID numérico válido del usuario de Kick.");
+
+        var channel = await GetChannelAsync(accessToken, slug, cancellationToken).ConfigureAwait(false);
+        var payload = new Dictionary<string, long>
+        {
+            ["broadcaster_user_id"] = channel.BroadcasterUserId,
+            ["user_id"] = targetUserId
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "https://api.kick.com/public/v1/moderation/bans")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateApiError(response.StatusCode, json, "Kick rechazó retirar el ban/timeout", "moderation:ban");
+
+        return "Kick confirmó retirar el ban/timeout del usuario ID " + targetUserId + ".";
+    }
+
+    public async Task<string> DeleteChatMessageAsync(
+        string accessToken,
+        string messageId,
+        CancellationToken cancellationToken = default)
+    {
+        RequireToken(accessToken);
+        var normalizedId = (messageId ?? "").Trim();
+        if (!Guid.TryParse(normalizedId, out var parsedId))
+            throw new ArgumentException("Ingresá el ID UUID válido del mensaje de Kick.", nameof(messageId));
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Delete,
+            "https://api.kick.com/public/v1/chat/" + Uri.EscapeDataString(parsedId.ToString()));
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken.Trim());
+        using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw CreateApiError(response.StatusCode, json, "Kick rechazó borrar el mensaje", "moderation:chat_message:manage");
+
+        return "Kick confirmó borrar el mensaje " + parsedId + ".";
+    }
+
     private static void RequireToken(string token)
     {
         if (string.IsNullOrWhiteSpace(token) || token.Length > 8192)
             throw new InvalidOperationException("Primero autorizá Kick desde el panel de bots.");
     }
 
-    private static InvalidOperationException CreateApiError(HttpStatusCode status, string body, string context)
+    private static InvalidOperationException CreateApiError(
+        HttpStatusCode status,
+        string body,
+        string context,
+        string requiredScope = "chat:write")
     {
         var detail = "HTTP " + (int)status;
         try
@@ -445,6 +543,11 @@ public sealed class KickApiClient
             if (!string.IsNullOrWhiteSpace(body))
                 detail += ": " + body.Replace('\r', ' ').Replace('\n', ' ')[..Math.Min(body.Length, 300)];
         }
-        return new InvalidOperationException(context + " (" + detail + "). Revisá el scope chat:write, el canal y los límites de API.");
+        var permissionHint = (int)status == 403
+            ? " Verificá que la cuenta autorizada sea moderadora o dueña del canal."
+            : "";
+        return new InvalidOperationException(
+            context + " (" + detail + "). Revisá el scope " + requiredScope +
+            ", la autorización y los límites/permisos de la API." + permissionHint);
     }
 }
