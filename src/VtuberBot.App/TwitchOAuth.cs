@@ -46,7 +46,7 @@ public static class TwitchOAuth
             "?response_type=code&client_id=" + Uri.EscapeDataString(clientId) +
             "&redirect_uri=" + Uri.EscapeDataString(RedirectUri) +
             "&scope=" + Uri.EscapeDataString(
-                "chat:read chat:edit moderator:read:followers moderator:manage:banned_users " +
+                "chat:read chat:edit user:write:chat moderator:read:followers moderator:manage:banned_users " +
                 "moderator:manage:chat_messages channel:read:subscriptions channel:read:redemptions") +
             "&state=" + Uri.EscapeDataString(state) +
             "&code_challenge=" + Uri.EscapeDataString(challenge) +
