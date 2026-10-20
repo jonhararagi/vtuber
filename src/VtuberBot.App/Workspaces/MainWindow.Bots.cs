@@ -171,7 +171,7 @@ public partial class MainWindow
                 secretStore.Delete("kick-client-secret");
                 clientSecret.Clear();
                 credentialStatus.Text = secretStore.HasSecret("kick-access-token")
-                    ? "Client Secret local eliminado. La sesión existente se conserva; renovar/autoriz ar puede requerir ingresar el secreto otra vez."
+                    ? "Client Secret local eliminado. La sesión existente se conserva; renovar o autorizar puede requerir ingresar el secreto otra vez."
                     : "Client Secret local eliminado. No se modificó ninguna autorización remota.";
                 credentialStatus.Foreground = Brush("#E7B56A");
                 FooterStatus.Text = "Client Secret local eliminado tras confirmación; no se borraron tokens ni configuración del canal.";
