@@ -179,6 +179,7 @@ public partial class MainWindow
         }));
         remotePanel.Children.Add(Label("Si Twitch rechaza la solicitud, la aplicación registra el tipo de error pero nunca presenta la sanción como exitosa. No se ejecutan sanciones por coincidencias regex.", 12, "#98A4BE"));
         root.Children.Add(remotePanel);
+        root.Children.Add(BuildKickModerationPanel());
         var auto=Panel("Mensajes automáticos programados");auto.Margin=new Thickness(0,12,0,0);
         var autoList=new ListBox{Height=130};long? editingAutomationId=null;
         void ReloadAuto(){autoList.ItemsSource=store.GetAutomationRules().Select(a=>string.Format("{0} · {1} · cada {2} min · {3} · último envío: {4}",a.Id,a.Name,a.IntervalMinutes,a.Enabled?"activo":"pausado",a.LastRunUtc.HasValue?a.LastRunUtc.Value.ToLocalTime().ToString("dd/MM HH:mm:ss"):"nunca")).ToList();}
