@@ -1,3 +1,17 @@
+## 2026-10-20 — Evidencia real frente a confirmación manual en el asistente OBS
+
+- **Base inspeccionada:** `main` estaba en `4f9fc2a87f52bcc773e7e72f30b875ad16d62f65` antes de este trabajo. Se creó `fix/obs-setup-evidence-2026-10-20` desde ese SHA; no se reutilizó una rama antigua ni se hizo force-push.
+- **Hallazgo reproducible por inspección de código:** `ObsSetupWizardWindow` guardaba las siete marcas en `help.obsWizard.completed` y podía mostrar “Todos los pasos están marcados como completados” aunque la persona hubiera marcado manualmente los pasos de conexión de OBS y aplicación del perfil de vídeo. Esas marcas no acreditaban una respuesta real del servicio.
+- **Cambio:** los pasos 4 (conexión WebSocket; índice 3) y 6 (aplicación de perfil 720p/30 FPS; índice 5) ahora exigen evidencia de la aplicación. La conexión solo se verifica cuando la prueba devuelve que VTuberBot autenticó y leyó la versión de OBS; el perfil solo se verifica cuando la operación de OBS termina satisfactoriamente tras la confirmación existente. Un error deja ese paso pendiente. Las demás acciones se identifican como confirmadas manualmente por la persona.
+- **Persistencia y UX:** las confirmaciones manuales se guardan en `help.obsWizard.completed`; las verificaciones de la app van por separado en `help.obsWizard.verified`. La navegación distingue ✓ (verificado por la app), M✓ (confirmado manualmente) y pasos pendientes; el texto explica que una prueba guardada no garantiza que la conexión siga activa, ni prueba la calidad de una grabación/directo. El progreso histórico de los dos pasos con verificación obligatoria no se trata como una verificación válida.
+- **Pruebas nuevas:** `tests/VtuberBot.Tests/ObsSetupStepEvidencePolicyTests.cs` cubre que las marcas manuales no completan los pasos automáticos, que solo la respuesta de la aplicación los verifica, que el resto de los pasos permanece manual y que se rechacen índices inválidos. Política en `src/VtuberBot.App/ObsSetupStepEvidencePolicy.cs`.
+- **Guía de usuario:** `docs/GUIA_PRINCIPIANTES.md` explica el significado de ✓/M✓ y cómo reintentar conexión/perfil sin reinstalar ni borrar datos.
+- **Referencias técnicas:** [guía oficial de control remoto de OBS](https://obsproject.com/kb/remote-control-guide) y [protocolo oficial OBS WebSocket (Hello/Identify y autenticación)](https://github.com/obsproject/obs-websocket/blob/master/docs/generated/protocol.md). La corrección conserva la exigencia de autenticación; no desactiva controles de seguridad. El resultado de la inspección de código y la validación automática se registrarán por separado.
+- **Validación de esta revisión:** pendiente hasta que Windows CI ejecute Restore, Build Release, pruebas, publicación win-x64 y Upload para el SHA exacto de la PR y, después de la integración, para el SHA exacto de `main`. Ninguna conexión real a OBS, reproducción de voz o grabación/transmisión física se ha probado durante esta sesión.
+- **SHA(s) de implementación:** `1bd65e9bb9812e6a824ae93dc2a1f1b115bd5da6` (cambio del asistente); `8efc503d8b8b9dde41c4cc3d709af2e0cd235197` (política de evidencia); `850a96d4db6c5da1e217b1973ee55e72b2a6c33c` (pruebas); `1f4de24bebb116103415b2db1f5922bc6bd44d7b` (guía).
+
+---
+
 ## 2026-10-18 — Guía fácil para principiantes integrada (PR #34)
 
 - **PR #34 fusionada en main:** https://github.com/jonhararagi/vtuber/pull/34. Merge commit: e4c12da189a800eb5654dbef7b8050ac0ede346c.
