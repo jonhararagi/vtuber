@@ -71,7 +71,7 @@ public partial class MainWindow
             host.EndsWith(".test", StringComparison.Ordinal) ||
             host.EndsWith(".invalid", StringComparison.Ordinal) ||
             host.EndsWith(".example", StringComparison.Ordinal) ||
-            !host.Contains('.', StringComparison.Ordinal))
+            !host.Contains('.'))
             return false;
 
         if (IPAddress.TryParse(host, out var address) && !IsPublicWebhookIp(address))
