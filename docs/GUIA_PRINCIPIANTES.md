@@ -84,6 +84,8 @@ El reporte [dotnet/wpf #11775](https://github.com/dotnet/wpf/issues/11775) descr
 - [Twitch OAuth scopes](https://dev.twitch.tv/docs/authentication/scopes/)
 - [Kick OAuth 2.1](https://github.com/KickEngineering/KickDevDocs/blob/main/getting-started/generating-tokens-oauth2-flow.md)
 - [Kick Chat API](https://github.com/KickEngineering/KickDevDocs/blob/main/apis/chat.md)
+- [Kick moderation API](https://docs.kick.com/apis/moderation)
+- [Kick API scopes](https://docs.kick.com/getting-started/scopes)
 - [Kick Events API](https://github.com/KickEngineering/KickDevDocs/blob/main/events/introduction.md)
 - [Kick webhook security](https://github.com/KickEngineering/KickDevDocs/blob/main/events/webhook-security.md)
 - [KickDevDocs #211: redirect URI](https://github.com/KickEngineering/KickDevDocs/issues/211)
