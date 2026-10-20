@@ -445,17 +445,31 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
             if (!response.IsSuccessStatusCode)
                 throw new InvalidOperationException("Kick no permitió obtener la clave pública de verificación (HTTP " + (int)response.StatusCode + ").");
 
-            using var document = JsonDocument.Parse(json);
-            var root = document.RootElement;
-            if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object &&
-                data.TryGetProperty("public_key", out var keyElement) && keyElement.ValueKind == JsonValueKind.String)
-                cachedPublicKey = keyElement.GetString();
-            else if (root.TryGetProperty("public_key", out var key) && key.ValueKind == JsonValueKind.String)
-                cachedPublicKey = key.GetString();
+            // Kick documents this endpoint as returning the PEM body directly. Accept that canonical
+            // response and JSON wrappers defensively, but never cache a non-PEM value.
+            var candidateKey = json.Trim();
+            if (!candidateKey.Contains("BEGIN PUBLIC KEY", StringComparison.Ordinal))
+            {
+                try
+                {
+                    using var document = JsonDocument.Parse(json);
+                    var root = document.RootElement;
+                    if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object &&
+                        data.TryGetProperty("public_key", out var keyElement) && keyElement.ValueKind == JsonValueKind.String)
+                        candidateKey = keyElement.GetString() ?? "";
+                    else if (root.TryGetProperty("public_key", out var key) && key.ValueKind == JsonValueKind.String)
+                        candidateKey = key.GetString() ?? "";
+                }
+                catch (JsonException)
+                {
+                    candidateKey = "";
+                }
+            }
 
-            if (string.IsNullOrWhiteSpace(cachedPublicKey) ||
-                !cachedPublicKey.Contains("BEGIN PUBLIC KEY", StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(candidateKey) ||
+                !candidateKey.Contains("BEGIN PUBLIC KEY", StringComparison.Ordinal))
                 throw new InvalidOperationException("Kick devolvió una clave pública con formato inesperado.");
+            cachedPublicKey = candidateKey;
 
             cachedPublicKeyAt = DateTimeOffset.UtcNow;
             return cachedPublicKey;
