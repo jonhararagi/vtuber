@@ -109,6 +109,41 @@ public sealed class KickWebhookInboxTests
     }
 
     [Fact]
+    public void FullInboxRejectsNewDeliveryWithoutDeletingExistingEvents()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var now = DateTimeOffset.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temp.DatabasePath }.ConnectionString))
+        {
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = """
+                INSERT INTO kick_webhook_inbox(event_message_id,payload_json,received_utc,updated_utc,status,attempts)
+                VALUES($id,'{}',$now,$now,'pending',0)
+                """;
+            var id = insert.Parameters.Add("$id", SqliteType.Text);
+            var timestamp = insert.Parameters.Add("$now", SqliteType.Text);
+            timestamp.Value = now;
+            for (var i = 0; i < ProductStore.MaximumPendingKickWebhookEvents; i++)
+            {
+                id.Value = "pending-" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                insert.ExecuteNonQuery();
+            }
+            transaction.Commit();
+        }
+
+        Assert.Equal(KickWebhookInboxAdmissionResult.CapacityExceeded,
+            store.TryStoreKickWebhookEvent("new-delivery", "{\"new\":true}"));
+        Assert.Equal(ProductStore.MaximumPendingKickWebhookEvents, store.GetKickWebhookInboxSummary().Pending);
+        Assert.Null(store.GetKickWebhookInboxItem("new-delivery"));
+        Assert.NotNull(store.GetKickWebhookInboxItem("pending-0"));
+    }
+
+    [Fact]
     public void InboxRejectsOversizedPayloadAndInvalidIdentifiers()
     {
         using var temp = new TempDb();
