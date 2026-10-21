@@ -115,4 +115,21 @@ public sealed class KickWebhookReceiverTests
         Assert.Throws<InvalidDataException>(() =>
             KickWebhookPayloadParser.Parse("chat.message.sent", "1", "webhook-id", json));
     }
+    [Fact]
+    public void PayloadParserRejectsUnboundedChannelMetadataBeforePersistingIt()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            broadcaster = new
+            {
+                user_id = 100,
+                username = new string('x', 201),
+                channel_slug = "mychannel"
+            }
+        });
+
+        Assert.Throws<InvalidDataException>(() =>
+            KickWebhookPayloadParser.Parse("channel.followed", "1", "webhook-id", json));
+    }
+
 }
