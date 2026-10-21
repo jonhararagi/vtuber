@@ -136,6 +136,16 @@ Pulsá **Crear perfil con esta combinación** para guardar otra versión; se cre
 - El token de Twitch y la contraseña de OBS se cifran con DPAPI para el usuario de Windows actual. No copies archivos de secretos entre usuarios ni los subas a GitHub.
 - El paquete portable no debe incluir `config.toml`, base de datos, logs, tokens ni cookies.
 
+### Administrador de almacenamiento
+
+En **Ajustes → Administrador de almacenamiento**, pulsá **Analizar almacenamiento** para ver cuánto ocupa el directorio local y el tamaño por categoría. El umbral configurable es solo un aviso: no detiene VTuberBot ni borra datos en segundo plano.
+
+- La lista de limpieza es una propuesta, no una acción automática. Revisá los motivos, seleccioná archivos y confirmá la vista previa. El programa vuelve a comprobar tamaño y fecha de los archivos antes de borrarlos; si cambiaron, los omite y pide volver a analizarlos.
+- Se pueden proponer sonidos que ya no están en la biblioteca, imágenes sin referencias confiables, archivos temporales de más de 24 horas, cachés de más de 7 días y registros antiguos de más de 30 días. Un catálogo/JSON dañado hace que el análisis sea conservador para no perder arte.
+- La base SQLite activa y sus archivos auxiliares, los respaldos, los secretos protegidos, los enlaces reconocidos desde perfiles/capas/bocas de todos los avatares y los archivos fuera del directorio local no se ofrecen como residuos. Los elementos no reconocidos no siempre son basura: si no se puede confirmar que estén huérfanos, se conservan.
+- **Compactar SQLite…** crea una copia de seguridad verificada antes de ejecutar `VACUUM`. Esto puede reducir el tamaño físico si la base tiene páginas libres, pero no garantiza una reducción; la copia de seguridad se conserva en `backups`.
+- La vista de espacio mide el directorio de datos configurado, no otros directorios ni el tamaño que usan OBS o el proceso VOICEVOX. Los borrados se limitan a archivos individuales; no existe un botón que elimine una carpeta completa.
+
 ## Dashboard, Avatar Studio y OBS overlay
 El Dashboard muestra CPU y RAM reales del proceso cada dos segundos mientras está abierto; no presenta valores GPU/FPS inventados.
 
