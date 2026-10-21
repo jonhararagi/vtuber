@@ -61,6 +61,8 @@ public static class StorageMaintenanceService
         var root = Path.GetFullPath(dataDirectory);
         if (!Directory.Exists(root))
             throw new DirectoryNotFoundException("No existe la carpeta local de datos: " + root);
+        if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidDataException("La carpeta raíz de datos es un enlace del sistema de archivos y no se puede analizar de forma segura.");
 
         var database = Path.GetFullPath(databasePath);
         var now = (nowUtc ?? DateTimeOffset.UtcNow).UtcDateTime;
