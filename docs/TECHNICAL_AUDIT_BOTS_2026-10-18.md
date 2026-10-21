@@ -1,5 +1,8 @@
 # Auditoría técnica: Bots y plataformas Twitch/Kick — 2026-10-18
 
+> **Nota de vigencia — 2026-10-21:** este documento recoge el estado previo a la integración de la PR #36 y se conserva como registro histórico. En `main` ya existe un receptor de webhooks Kick con validación de firma, comprobación de suscripción/canal y acciones de moderación manual y automática opt-in. El README actual y la auditoría de arquitectura [`ARQUITECTURA_REFERENCIAS_Y_HALLAZGOS_2026-10-21.md`](ARQUITECTURA_REFERENCIAS_Y_HALLAZGOS_2026-10-21.md) reflejan ese estado; los párrafos de este documento que indican que los eventos entrantes están pendientes describen exclusivamente la fecha original de la auditoría.
+
+
 ## Resumen
 
 Se incorpora una página principal **Bots y plataformas**. Reutiliza el cliente de chat y EventSub de Twitch ya existentes y agrega una primera integración de Kick para autorizar una aplicación propia, consultar un canal por API y enviar un mensaje de prueba con confirmación previa.
