@@ -9,11 +9,18 @@ public sealed record ProductActivity(DateTimeOffset At, string Module, string Me
 public sealed record AutomationRule(long Id, string Name, string Message, int IntervalMinutes, bool Enabled, DateTimeOffset? LastRunUtc = null);
 public sealed record AvatarProfile(long Id, string Name, string? BasePath, DateTimeOffset CreatedUtc);
 public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrder, bool Visible, double OffsetX = 0, double OffsetY = 0, double Scale = 1, double RotationDegrees = 0, string? ClosedMouthPath = null, string? OpenMouthPath = null);
+public enum KickWebhookInboxAdmissionResult { Stored, Duplicate, CapacityExceeded }
+public sealed record KickWebhookInboxItem(string EventMessageId, string PayloadJson, string Status, int Attempts, string? LastError = null);
+public sealed record KickWebhookInboxSummary(int Pending, int Processing, int Failed, int Processed, int Expired);
 
 /// <summary>Persistence for product-level features. Uses the same local SQLite file as the core.</summary>
 public sealed class ProductStore : IProductSettingsStore
 {
-    public const int CurrentProductSchemaVersion = 2;
+    public const int CurrentProductSchemaVersion = 3;
+    public const int MaximumPendingKickWebhookEvents = 5_000;
+    private const int MaximumKickWebhookInboxRows = 50_000;
+    private const int KickWebhookInboxPayloadLimitBytes = 1_048_576;
+    private const int KickWebhookProcessedRetentionDays = 30;
     public const int DefaultActivityRetention = 100_000;
     private const int ActivityPruneInterval = 5_000;
     private readonly string connectionString;
@@ -102,6 +109,15 @@ public sealed class ProductStore : IProductSettingsStore
               closed_mouth_path TEXT NULL, open_mouth_path TEXT NULL);
             CREATE TABLE IF NOT EXISTS product_settings(
               key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS kick_webhook_inbox(
+              event_message_id TEXT PRIMARY KEY,
+              payload_json TEXT NOT NULL,
+              received_utc TEXT NOT NULL,
+              updated_utc TEXT NOT NULL,
+              status TEXT NOT NULL CHECK(status IN ('pending','processing','processed','failed','expired')),
+              attempts INTEGER NOT NULL DEFAULT 0,
+              last_error TEXT NULL);
+            CREATE INDEX IF NOT EXISTS idx_kick_webhook_inbox_status_received ON kick_webhook_inbox(status,received_utc);
             CREATE INDEX IF NOT EXISTS idx_activity_time ON product_activity(id DESC);
             """;
         command.ExecuteNonQuery();
@@ -1905,4 +1921,298 @@ public sealed class ProductStore : IProductSettingsStore
         lock(gate) { using var c=Open(); using var cmd=c.CreateCommand(); cmd.CommandText="INSERT INTO product_settings(key,value) VALUES($k,$v) ON CONFLICT(key) DO UPDATE SET value=excluded.value"; cmd.Parameters.AddWithValue("$k",key); cmd.Parameters.AddWithValue("$v",value); cmd.ExecuteNonQuery(); }
     }
     private static void ValidateUsername(string username) { if(string.IsNullOrWhiteSpace(username)||username.Length>25||username.Any(ch=>!(char.IsLetterOrDigit(ch)||ch=='_'||ch=='-'))) throw new ArgumentException("El usuario debe contener solo letras, números, guion o guion bajo (máx. 25 caracteres).",nameof(username)); }
+
+    /// <summary>
+    /// Stores a signature-verified Kick event before the HTTP receiver acknowledges it.
+    /// Completed payloads are erased while the message ID remains for deduplication.
+    /// Failed payloads are retained for a bounded review window.
+    /// </summary>
+    public KickWebhookInboxAdmissionResult TryStoreKickWebhookEvent(string eventMessageId, string payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(eventMessageId) || eventMessageId.Length > 128 ||
+            eventMessageId.Any(char.IsControl))
+            throw new ArgumentException("El ID del webhook Kick no es válido.", nameof(eventMessageId));
+        if (string.IsNullOrWhiteSpace(payloadJson) ||
+            System.Text.Encoding.UTF8.GetByteCount(payloadJson) > KickWebhookInboxPayloadLimitBytes)
+            throw new ArgumentOutOfRangeException(nameof(payloadJson), "El evento Kick supera el tamaño permitido.");
+
+        lock (gate)
+        {
+            using var connection = Open();
+            using var transaction = connection.BeginTransaction(deferred: false);
+            var now = DateTimeOffset.UtcNow;
+            var nowText = now.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+            var retentionCutoff = now.AddDays(-KickWebhookProcessedRetentionDays)
+                .ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+
+            using (var duplicate = connection.CreateCommand())
+            {
+                duplicate.Transaction = transaction;
+                duplicate.CommandText = "SELECT 1 FROM kick_webhook_inbox WHERE event_message_id=$id";
+                duplicate.Parameters.AddWithValue("$id", eventMessageId);
+                if (duplicate.ExecuteScalar() is not null)
+                {
+                    transaction.Commit();
+                    return KickWebhookInboxAdmissionResult.Duplicate;
+                }
+            }
+
+            // Keep only the event ID for processed items. Failed payloads are retained for
+            // 30 days after the failure, then their contents are erased but the ID remains
+            // for a further deduplication window.
+            using (var expireFailures = connection.CreateCommand())
+            {
+                expireFailures.Transaction = transaction;
+                expireFailures.CommandText = """
+                    UPDATE kick_webhook_inbox
+                    SET status='expired', payload_json='',
+                        last_error='El contenido del evento venció su período de retención de 30 días.',
+                        updated_utc=$now
+                    WHERE status='failed' AND updated_utc < $cutoff
+                    """;
+                expireFailures.Parameters.AddWithValue("$now", nowText);
+                expireFailures.Parameters.AddWithValue("$cutoff", retentionCutoff);
+                expireFailures.ExecuteNonQuery();
+            }
+
+            using (var deleteOldIds = connection.CreateCommand())
+            {
+                deleteOldIds.Transaction = transaction;
+                deleteOldIds.CommandText = """
+                    DELETE FROM kick_webhook_inbox
+                    WHERE status IN ('processed','expired') AND updated_utc < $cutoff
+                    """;
+                deleteOldIds.Parameters.AddWithValue("$cutoff", retentionCutoff);
+                deleteOldIds.ExecuteNonQuery();
+            }
+
+            long pendingCount;
+            using (var countPending = connection.CreateCommand())
+            {
+                countPending.Transaction = transaction;
+                countPending.CommandText = "SELECT COUNT(*) FROM kick_webhook_inbox WHERE status IN ('pending','processing')";
+                pendingCount = Convert.ToInt64(countPending.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+            if (pendingCount >= MaximumPendingKickWebhookEvents)
+            {
+                transaction.Rollback();
+                return KickWebhookInboxAdmissionResult.CapacityExceeded;
+            }
+
+            long rowCount;
+            using (var countRows = connection.CreateCommand())
+            {
+                countRows.Transaction = transaction;
+                countRows.CommandText = "SELECT COUNT(*) FROM kick_webhook_inbox";
+                rowCount = Convert.ToInt64(countRows.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+            }
+            if (rowCount >= MaximumKickWebhookInboxRows)
+            {
+                using var trimCompleted = connection.CreateCommand();
+                trimCompleted.Transaction = transaction;
+                trimCompleted.CommandText = """
+                    DELETE FROM kick_webhook_inbox
+                    WHERE event_message_id IN (
+                        SELECT event_message_id FROM kick_webhook_inbox
+                        WHERE status IN ('processed','expired')
+                        ORDER BY updated_utc ASC
+                        LIMIT 4096)
+                    """;
+                trimCompleted.ExecuteNonQuery();
+
+                using var recount = connection.CreateCommand();
+                recount.Transaction = transaction;
+                recount.CommandText = "SELECT COUNT(*) FROM kick_webhook_inbox";
+                rowCount = Convert.ToInt64(recount.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+                if (rowCount >= MaximumKickWebhookInboxRows)
+                {
+                    transaction.Rollback();
+                    return KickWebhookInboxAdmissionResult.CapacityExceeded;
+                }
+            }
+
+            using (var insert = connection.CreateCommand())
+            {
+                insert.Transaction = transaction;
+                insert.CommandText = """
+                    INSERT INTO kick_webhook_inbox(event_message_id,payload_json,received_utc,updated_utc,status,attempts)
+                    VALUES($id,$payload,$now,$now,'pending',0)
+                    """;
+                insert.Parameters.AddWithValue("$id", eventMessageId);
+                insert.Parameters.AddWithValue("$payload", payloadJson);
+                insert.Parameters.AddWithValue("$now", nowText);
+                insert.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+            return KickWebhookInboxAdmissionResult.Stored;
+        }
+    }
+
+    /// <summary>
+    /// Atomically claims a small batch. Claimed items stay durable if the process stops;
+    /// startup moves interrupted processing to failed for review instead of replaying
+    /// moderation side effects blindly.
+    /// </summary>
+    public IReadOnlyList<KickWebhookInboxItem> ClaimPendingKickWebhookEvents(int limit = 20)
+    {
+        if (limit is < 1 or > 100)
+            throw new ArgumentOutOfRangeException(nameof(limit));
+
+        lock (gate)
+        {
+            using var connection = Open();
+            using var transaction = connection.BeginTransaction(deferred: false);
+            var candidates = new List<KickWebhookInboxItem>();
+
+            using (var query = connection.CreateCommand())
+            {
+                query.Transaction = transaction;
+                query.CommandText = """
+                    SELECT event_message_id,payload_json,attempts
+                    FROM kick_webhook_inbox
+                    WHERE status='pending'
+                    ORDER BY received_utc,event_message_id
+                    LIMIT $limit
+                    """;
+                query.Parameters.AddWithValue("$limit", limit);
+                using var reader = query.ExecuteReader();
+                while (reader.Read())
+                    candidates.Add(new KickWebhookInboxItem(reader.GetString(0), reader.GetString(1), "pending", reader.GetInt32(2)));
+            }
+
+            var claimed = new List<KickWebhookInboxItem>(candidates.Count);
+            var now = DateTimeOffset.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+            foreach (var candidate in candidates)
+            {
+                using var update = connection.CreateCommand();
+                update.Transaction = transaction;
+                update.CommandText = """
+                    UPDATE kick_webhook_inbox
+                    SET status='processing',attempts=attempts+1,updated_utc=$now
+                    WHERE event_message_id=$id AND status='pending'
+                    """;
+                update.Parameters.AddWithValue("$now", now);
+                update.Parameters.AddWithValue("$id", candidate.EventMessageId);
+                if (update.ExecuteNonQuery() == 1)
+                    claimed.Add(candidate with { Status = "processing", Attempts = candidate.Attempts + 1 });
+            }
+
+            transaction.Commit();
+            return claimed;
+        }
+    }
+
+    public void MarkKickWebhookEventProcessed(string eventMessageId)
+    {
+        UpdateKickWebhookInboxState(
+            eventMessageId,
+            "UPDATE kick_webhook_inbox SET status='processed',payload_json='',last_error=NULL,updated_utc=$now WHERE event_message_id=$id AND status='processing'",
+            null);
+    }
+
+    public void MarkKickWebhookEventFailed(string eventMessageId, string error)
+    {
+        var safeError = DiagnosticTextRedactor.Redact(error);
+        if (safeError.Length > 512)
+            safeError = safeError[..512];
+        UpdateKickWebhookInboxState(
+            eventMessageId,
+            "UPDATE kick_webhook_inbox SET status='failed',last_error=$error,updated_utc=$now WHERE event_message_id=$id AND status='processing'",
+            safeError);
+    }
+
+    private void UpdateKickWebhookInboxState(string eventMessageId, string sql, string? error)
+    {
+        if (string.IsNullOrWhiteSpace(eventMessageId))
+            throw new ArgumentException("El ID del webhook Kick no es válido.", nameof(eventMessageId));
+
+        lock (gate)
+        {
+            using var connection = Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("$id", eventMessageId);
+            command.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            if (error is not null)
+                command.Parameters.AddWithValue("$error", error);
+            if (command.ExecuteNonQuery() != 1)
+                throw new InvalidOperationException("No se pudo actualizar el estado persistente del evento Kick.");
+        }
+    }
+
+    /// <summary>
+    /// Moves interrupted processing to failed. The payload is preserved for 30 days and
+    /// is not replayed automatically because an external moderation action may already
+    /// have reached Kick immediately before an unexpected exit.
+    /// </summary>
+    public int RecoverInterruptedKickWebhookEvents()
+    {
+        lock (gate)
+        {
+            using var connection = Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                UPDATE kick_webhook_inbox
+                SET status='failed',
+                    last_error='VTuberBot se cerró durante el procesamiento. Se conserva el evento para revisión y no se repite automáticamente.',
+                    updated_utc=$now
+                WHERE status='processing'
+                """;
+            command.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            return command.ExecuteNonQuery();
+        }
+    }
+
+    public KickWebhookInboxSummary GetKickWebhookInboxSummary()
+    {
+        lock (gate)
+        {
+            using var connection = Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT status,COUNT(*) FROM kick_webhook_inbox GROUP BY status";
+            using var reader = command.ExecuteReader();
+            var pending = 0;
+            var processing = 0;
+            var failed = 0;
+            var processed = 0;
+            var expired = 0;
+            while (reader.Read())
+            {
+                var count = Convert.ToInt32(reader.GetInt64(1), System.Globalization.CultureInfo.InvariantCulture);
+                switch (reader.GetString(0))
+                {
+                    case "pending": pending = count; break;
+                    case "processing": processing = count; break;
+                    case "failed": failed = count; break;
+                    case "processed": processed = count; break;
+                    case "expired": expired = count; break;
+                }
+            }
+            return new KickWebhookInboxSummary(pending, processing, failed, processed, expired);
+        }
+    }
+
+    public KickWebhookInboxItem? GetKickWebhookInboxItem(string eventMessageId)
+    {
+        if (string.IsNullOrWhiteSpace(eventMessageId))
+            throw new ArgumentException("El ID del webhook Kick no es válido.", nameof(eventMessageId));
+
+        lock (gate)
+        {
+            using var connection = Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT event_message_id,payload_json,status,attempts,last_error FROM kick_webhook_inbox WHERE event_message_id=$id";
+            command.Parameters.AddWithValue("$id", eventMessageId);
+            using var reader = command.ExecuteReader();
+            if (!reader.Read()) return null;
+            return new KickWebhookInboxItem(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetInt32(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4));
+        }
+    }
+
 }
