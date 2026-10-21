@@ -374,7 +374,11 @@ public partial class MainWindow : Window
                 () => double.TryParse(store.GetSetting("audio.voicevox.pitchScale", "0"),
                     System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pitch) ? pitch : 0d,
                 () => double.TryParse(store.GetSetting("audio.voicevox.intonationScale", "1"),
-                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var intonation) ? intonation : 1d))));
+                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var intonation) ? intonation : 1d,
+                GetVoicevoxPitchScaleForSpeaker,
+                GetVoicevoxIntonationScaleForSpeaker),
+            () => store.GetSetting("audio.tts.windowsSapiEnabled", "false") == "true",
+            () => store.GetSetting("audio.tts.voiceId"))));
         communityCommandRouter = new CommunityCommandRouter(store);
         socialBot = new SocialBotService(store, speechQueue, twitch, configuredAiProvider, SetChatReactionExpression);
         chatReactions = new ChatReactionService(
