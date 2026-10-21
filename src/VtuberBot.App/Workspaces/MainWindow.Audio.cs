@@ -1100,6 +1100,20 @@ public partial class MainWindow
             ? VoicevoxSpeechSession.NormalizeIntonationScale(intonation) : 1d;
     }
 
+    private int GetVoicevoxRateForSpeaker(int speakerId)
+    {
+        var profile = ReadSavedVoiceTuningProfile(speakerId);
+        return profile?.Rate ?? (int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var rate)
+            ? Math.Clamp(rate, -10, 10) : 0);
+    }
+
+    private int GetVoicevoxVolumeForSpeaker(int speakerId)
+    {
+        var profile = ReadSavedVoiceTuningProfile(speakerId);
+        return profile?.Volume ?? (int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var volume)
+            ? Math.Clamp(volume, 0, 100) : 100);
+    }
+
     private bool EnqueueLocalSpeech(string text, SpeechPriority priority)
     {
         var voiceId = store.GetSetting("audio.tts.voiceId");
