@@ -121,6 +121,44 @@ public sealed class KickWebhookInboxTests
     }
 
     [Fact]
+    public void RetentionExpiresFailedPayloadAfterThirtyDaysAndThenRemovesOldIds()
+    {
+        using var temp = new TempDb();
+        const string failedId = "kick-webhook-expired-payload";
+        const string processedId = "kick-webhook-old-processed";
+        var store = new ProductStore(temp.DatabasePath);
+
+        Assert.Equal(KickWebhookInboxAdmissionResult.Stored,
+            store.TryStoreKickWebhookEvent(failedId, "{\"message\":\"failed payload\"}"));
+        Assert.Single(store.ClaimPendingKickWebhookEvents());
+        store.MarkKickWebhookEventFailed(failedId, "test error");
+
+        Assert.Equal(KickWebhookInboxAdmissionResult.Stored,
+            store.TryStoreKickWebhookEvent(processedId, "{\"message\":\"processed payload\"}"));
+        Assert.Single(store.ClaimPendingKickWebhookEvents());
+        store.MarkKickWebhookEventProcessed(processedId);
+
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = store.DatabasePath }.ConnectionString))
+        {
+            connection.Open();
+            using var ageRows = connection.CreateCommand();
+            ageRows.CommandText = "UPDATE kick_webhook_inbox SET updated_utc=$old WHERE event_message_id IN ($failed,$processed)";
+            ageRows.Parameters.AddWithValue("$old", DateTimeOffset.UtcNow.AddDays(-31).ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            ageRows.Parameters.AddWithValue("$failed", failedId);
+            ageRows.Parameters.AddWithValue("$processed", processedId);
+            Assert.Equal(2, ageRows.ExecuteNonQuery());
+        }
+
+        Assert.Equal(1, store.PruneKickWebhookInboxRetention());
+        var expired = Assert.IsType<KickWebhookInboxItem>(store.GetKickWebhookInboxItem(failedId));
+        Assert.Equal("expired", expired.Status);
+        Assert.Equal(string.Empty, expired.PayloadJson);
+        Assert.Null(store.GetKickWebhookInboxItem(processedId));
+        Assert.Equal(KickWebhookInboxAdmissionResult.Duplicate,
+            store.TryStoreKickWebhookEvent(failedId, "{\"message\":\"failed payload\"}"));
+    }
+
+    [Fact]
     public void ProductSchemaUpgradeCreatesInboxWithoutDroppingExistingSettings()
     {
         using var temp = new TempDb();
