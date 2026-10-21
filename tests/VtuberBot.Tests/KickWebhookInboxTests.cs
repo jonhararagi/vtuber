@@ -61,7 +61,8 @@ public sealed class KickWebhookInboxTests
         var held = Assert.IsType<KickWebhookInboxItem>(reopened.GetKickWebhookInboxItem(eventId));
         Assert.Equal("failed", held.Status);
         Assert.Equal(payload, held.PayloadJson);
-        Assert.Contains("no se reejecutarán automáticamente", held.LastError, StringComparison.OrdinalIgnoreCase);
+        var recoveryError = Assert.IsType<string>(held.LastError);
+        Assert.Contains("no se repite automáticamente", recoveryError, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(KickWebhookInboxAdmissionResult.Duplicate, reopened.TryStoreKickWebhookEvent(eventId, payload));
     }
 
@@ -102,8 +103,9 @@ public sealed class KickWebhookInboxTests
         var failed = Assert.IsType<KickWebhookInboxItem>(store.GetKickWebhookInboxItem(eventId));
         Assert.Equal("failed", failed.Status);
         Assert.Equal(payload, failed.PayloadJson);
-        Assert.DoesNotContain("super-secret-value", failed.LastError);
-        Assert.Contains("[REDACTED]", failed.LastError);
+        var safeError = Assert.IsType<string>(failed.LastError);
+        Assert.DoesNotContain("super-secret-value", safeError);
+        Assert.Contains("[REDACTED]", safeError);
     }
 
     [Fact]
