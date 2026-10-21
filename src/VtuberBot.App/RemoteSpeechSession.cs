@@ -279,9 +279,13 @@ public sealed class RemoteSpeechSession : ILocalSpeechSession
     }
 }
 
-/// <summary>Switches between existing Windows SAPI and remote speech without altering the queue semantics.</summary>
+/// <summary>
+/// Routes explicit VOICEVOX styles to the local neural engine. Windows SAPI can be disabled
+/// as a default because its legacy voices may sound synthetic; remote TTS remains opt-in.
+/// </summary>
 public sealed class ConfigurableSpeechSession(Func<bool> useRemote, Func<ILocalSpeechSession> localFactory,
-    Func<ILocalSpeechSession> remoteFactory, Func<ILocalSpeechSession>? voicevoxFactory = null) : ILocalSpeechSession
+    Func<ILocalSpeechSession> remoteFactory, Func<ILocalSpeechSession>? voicevoxFactory = null,
+    Func<bool>? allowWindowsSapi = null, Func<string>? defaultLocalVoiceId = null) : ILocalSpeechSession
 {
     private ILocalSpeechSession? local;
     private ILocalSpeechSession? remote;
@@ -302,6 +306,22 @@ public sealed class ConfigurableSpeechSession(Func<bool> useRemote, Func<ILocalS
             remote ??= remoteFactory();
             return remote.Speak(text, requestedVoiceId, requestedOutputId, rate, volume, cancellationRequested);
         }
+
+        // Generic chat reactions may not carry a voice ID. Prefer the saved local neural
+        // voice in that case rather than silently falling back to Windows SAPI.
+        if (string.IsNullOrWhiteSpace(requestedVoiceId) && defaultLocalVoiceId is not null)
+        {
+            var defaultVoiceId = defaultLocalVoiceId();
+            if (VoicevoxSpeechSession.IsVoiceId(defaultVoiceId))
+            {
+                voicevox ??= (voicevoxFactory ?? throw new InvalidOperationException("No se configuró el adaptador local de VOICEVOX."))();
+                return voicevox.Speak(text, defaultVoiceId!, requestedOutputId, rate, volume, cancellationRequested);
+            }
+        }
+
+        if (allowWindowsSapi is not null && !allowWindowsSapi())
+            throw new InvalidOperationException(
+                "La voz de Windows SAPI está desactivada porque puede sonar robótica. Elegí y guardá una voz VOICEVOX local en Voz y audio, o activá explícitamente el respaldo de Windows.");
         local ??= localFactory();
         return local.Speak(text, requestedVoiceId, requestedOutputId, rate, volume, cancellationRequested);
     }
