@@ -1,3 +1,26 @@
+## 2026-10-21 — Sintonizador de voz anime local y SAPI explícito (PR #41)
+
+### Integración y evidencia automatizada
+- PR: https://github.com/jonhararagi/vtuber/pull/41 — fusionada por squash en `main`. Merge SHA: `587cdd12a4b8e350bb69cd0233c2d024028d75b9`.
+- Rama de implementación: `feature/voice-tuner-profiles-2026-10-21`. Head sometido a CI: `89a188ae095b9eff0447a3a74089bfd126baddce`.
+- Windows CI del PR #1209 / run `39614567351`: https://github.com/jonhararagi/vtuber/actions/runs/39614567351 — éxito para el SHA revisado. Restore, Release build, suite de pruebas, publicación win-x64 y subida del artefacto completadas.
+- Resultado exacto: build con 0 advertencias y 0 errores; 737 pruebas aprobadas, 0 fallidas y 0 omitidas; ZIP de candidato comprobado con 490 entradas.
+- Artefacto temporal de validación del PR: https://github.com/jonhararagi/vtuber/actions/runs/39614567351/artifacts/12351029569 (retención hasta 2026-11-04). No sustituye el artefacto final de `main` que genera CI después de esta entrada documental.
+- En el primer intento de CI se detectó un error CS0103 por una variable fuera de alcance en el mensaje de guardado. Se corrigió, se ordenó la pantalla para mostrar el selector de voz antes del sintonizador y se repitieron las verificaciones sobre el SHA final; no se ocultó el fallo inicial.
+
+### Código integrado
+- Añadido `VoiceTuningPresetPolicy` con perfiles rápidos `natural`, `anime-high`, `anime-low` y `anime-energy`. El usuario puede afinar los controles manualmente.
+- Los estilos de VOICEVOX guardan en SQLite sus propios valores de pitch, entonación, velocidad y volumen bajo claves `audio.voicevox.profile.<speakerId>`. El perfil se consulta también para frases/reacciones que usan ese estilo.
+- En `Voz y audio`, Windows SAPI deja de ser el respaldo automático: `audio.tts.windowsSapiEnabled` empieza en `false`. El usuario puede habilitar explícitamente la casilla de respaldo; si no existe un motor/estilo local válido y SAPI está desactivado, se muestra un error en vez de cambiar de voz en silencio.
+- La síntesis VOICEVOX tiene un límite de espera de 60 segundos por frase; la frase se genera completa antes de reproducirse y luego respeta el orden de la cola. No se añade una pausa artificial obligatoria de un minuto.
+- Guías actualizadas: `docs/VOICEVOX_LOCAL_SETUP.md` y `docs/PRODUCT_USER_GUIDE.md`.
+
+### Límites y validación restante
+- VOICEVOX Engine y los voicebanks no se empaquetan en el programa: el usuario debe instalarlos y respetar las licencias de cada voz. Las voces habituales se orientan principalmente al japonés; la pronunciación natural del español **no está garantizada**.
+- Este cambio mejora la voz sintética que lee mensajes y reacciones; **no transforma en tiempo real el audio del micrófono**. El micrófono sigue siendo un detector de actividad para Idle/Talking.
+- La CI no acredita calidad de sonido audible en el equipo del usuario. Sigue pendiente una prueba manual en Windows con VOICEVOX instalado, una voz seleccionada, mensajes en español/japonés y la conexión real de audio.
+- El Administrador general de almacenamiento descrito en la auditoría anterior sigue pendiente en este punto: aún hace falta una pantalla segura para uso del disco, detección de archivos huérfanos, limpieza con vista previa y compactación de SQLite.
+
 ## 2026-10-21 — Corrección de guía Kick y bandeja durable de webhooks (PR #39 y #40)
 
 ### Auditoría inicial y alcance de esta entrega
