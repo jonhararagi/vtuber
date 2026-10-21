@@ -102,6 +102,9 @@ public static class KickWebhookPayloadParser
         var broadcasterId = GetInt64(broadcaster, "user_id");
         var channelSlug = GetString(broadcaster, "channel_slug") ?? "";
         var channelName = GetString(broadcaster, "username") ?? channelSlug;
+        if (channelSlug.Length > 200 || channelName.Length > 200 ||
+            channelSlug.Any(char.IsControl) || channelName.Any(char.IsControl))
+            throw new InvalidDataException("Los datos del canal Kick superan los límites admitidos.");
 
         if (eventType == "chat.message.sent" && version == "1")
         {
@@ -112,7 +115,9 @@ public static class KickWebhookPayloadParser
             var messageId = GetString(root, "message_id") ?? "";
             var content = GetString(root, "content") ?? "";
             if (senderId <= 0 || broadcasterId <= 0 || string.IsNullOrWhiteSpace(username) ||
-                string.IsNullOrWhiteSpace(messageId) || content.Length > 4096)
+                username.Length > 100 || username.Any(char.IsControl) ||
+                string.IsNullOrWhiteSpace(messageId) || messageId.Length > 128 ||
+                content.Length > 4096)
                 throw new InvalidDataException("El mensaje de chat Kick no contiene los campos mínimos válidos.");
 
             var isBroadcaster = senderId == broadcasterId;
