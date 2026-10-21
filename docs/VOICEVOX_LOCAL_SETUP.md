@@ -26,10 +26,10 @@ Instalá VOICEVOX Engine para Windows siguiendo las instrucciones oficiales y la
 8. Ajustá **Tono / pitch** (de -0,30 a +0,30) y **Variación de entonación** (de 0,50× a 1,50×). Un tono positivo eleva la altura y una variación mayor exagera más los cambios de tono; probá valores suaves para evitar artefactos.
 9. En **Sintonizador de voz anime**, seleccioná **Natural / equilibrada**, **Anime aguda**, **Anime grave** o **Anime enérgica**, y pulsá **Aplicar sintonizador a esta voz**. Cada estilo VOICEVOX guarda sus propios valores de tono, entonación, velocidad y volumen. También podés mover los controles y usar **Guardar voz y ajustes**.
 10. Dejá apagada la opción **Permitir voz de Windows SAPI como respaldo** si querés evitar que el bot cambie a la voz antigua de Windows cuando falte un motor local. Con SAPI apagado, las frases que no tengan una voz VOICEVOX válida mostrarán un error explicativo en lugar de sonar con el respaldo robótico. Podés activarlo manualmente si preferís compatibilidad.
-11. El texto se sintetiza completo antes de reproducirse. Hay un límite de 60 segundos por frase; si se supera, se cancela esa síntesis y se informa el fallo. No se añade una espera artificial de un minuto. La cola sigue limitada a 32 frases.
-9. Pulsá **Guardar voz y ajustes** para conservar URL, voz, tono, entonación, volumen, velocidad y salida.
-10. Pulsá **Probar voz VOICEVOX** para escuchar una prueba. Usá **Encolar texto VOICEVOX** para texto propio, y **Detener voz actual** para interrumpir la frase.
-11. Cuando quieras liberar los recursos del motor, pulsá **Detener Engine iniciado por VTuberBot** y confirmá. Ese botón solo puede detener el proceso que abrió esta instancia del programa. Si Engine ya estaba activo antes de abrir VTuberBot, la aplicación no lo cerrará automáticamente.
+11. El texto se sintetiza completo antes de reproducirse. Hay un límite de espera de 60 segundos por frase. Si se supera, se informa el fallo y no se cambia silenciosamente a otra voz. No se añade una espera artificial de un minuto. La cola sigue limitada a 32 frases.
+12. Pulsá **Guardar voz y ajustes** para conservar URL, voz, tono, entonación, volumen, velocidad y salida.
+13. Pulsá **Probar voz VOICEVOX** para escuchar una prueba. Usá **Encolar texto VOICEVOX** para texto propio, y **Detener voz actual** para interrumpir la frase.
+14. Cuando quieras liberar los recursos del motor, pulsá **Detener Engine iniciado por VTuberBot** y confirmá. Ese botón solo puede detener el proceso que abrió esta instancia del programa. Si Engine ya estaba activo antes de abrir VTuberBot, la aplicación no lo cerrará automáticamente.
 
 La app no debe indicar que la conexión está lista si la API no respondió. Tampoco debe usar una voz Windows/Gemini de manera silenciosa para reemplazar un fallo local. Si aparece “VOICEVOX no disponible”, seguí el diagnóstico y volvé a comprobar.
 
