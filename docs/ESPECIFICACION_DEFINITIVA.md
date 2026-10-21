@@ -117,7 +117,7 @@ La exclusión de una función de producto no implica borrar código de inmediato
 5. Confirmar uso de RAM/CPU del motor separado y documentar el coste de recursos.
 
 ### Fase 4 — Limpieza controlada de funciones descartadas
-1. Marcar rutas de Twitch, Streamer.bot, Telegram, minijuegos y funciones sociales como fuera de alcance.
+1. Mantener Twitch, Kick, moderación y Streamer.bot como integraciones opcionales existentes; revisar por separado únicamente Telegram Web, los flujos heredados de generación/2.5D y los módulos que no formen parte del recorrido principal aprobado.
 2. Auditar qué código/menús/configuración se comparte con comandos conservados, OBS o SQLite.
 3. Eliminar o esconder únicamente lo que no tenga dependencias útiles; migrar o limpiar datos solo con estrategia reversible y pruebas.
 4. Revisar README, ayuda, guías, instalador y nombres de funciones para no prometer características retiradas.
@@ -154,7 +154,7 @@ La exclusión de una función de producto no implica borrar código de inmediato
 
 - **Arquitectura modular:** pendiente de aprobación explícita, aunque se preservan los límites existentes por seguridad.
 - **VRM/3D:** conservar como opcional, pero el alcance exacto depende de la implementación real encontrada en la auditoría.
-- **Comandos personalizados:** sin Twitch, solo se activan por mecanismos locales/OBS implementados. La activación desde chat requeriría una decisión nueva.
+- **Enrutamiento de comandos:** los comandos/reglas de chat de Twitch usan la conexión real existente cuando está autorizada y activa. Los eventos de Kick pueden alimentar moderación Kick opt-in, pero el enrutamiento de Kick a comandos comunes, ChatSpeak, reacciones y TTS continúa pendiente; Streamer.bot es una alternativa opcional, no un requisito.
 - **VOICEVOX:** la disponibilidad, redistribución y licencia de cada motor/voz deben verificarse antes de empaquetarlos.
 - **Límite de RAM:** 1 GiB es objetivo/umbral de aviso para el proceso VTuberBot, no una garantía de todo el sistema ni de procesos externos.
 - **Integración en main:** la PR de encuadre/editor debe evaluarse junto a los cambios ya presentes en main; no asumir que todo el historial de la rama de producto es seguro para fusionar.
