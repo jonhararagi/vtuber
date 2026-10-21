@@ -58,6 +58,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<string> chatLines = [];
     private readonly DispatcherTimer automationTimer = new() { Interval = TimeSpan.FromMinutes(1) };
     private readonly DispatcherTimer twitchCredentialTimer = new() { Interval = TimeSpan.FromMinutes(5) };
+    private readonly DispatcherTimer kickWebhookRetentionTimer = new() { Interval = TimeSpan.FromHours(6) };
     private readonly Dictionary<long, DateTimeOffset> automationLastRun = [];
     private readonly Dictionary<long, DateTimeOffset> automationOfflineLog = [];
     private readonly Dictionary<long, DateTimeOffset> automationFirstObserved = [];
@@ -309,9 +310,40 @@ public partial class MainWindow : Window
     public MainWindow(VtuberApplication application)
     {
         InitializeComponent();
-        Loaded += async (_, _) => await AutoStartObsIfConfiguredAsync();
         this.application = application;
         store = new ProductStore(application.Database.Path);
+        var interruptedKickEvents = store.RecoverInterruptedKickWebhookEvents();
+        if (interruptedKickEvents > 0)
+        {
+            store.Log("Kick Events",
+                interruptedKickEvents.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                " evento(s) quedaron en procesamiento durante el cierre anterior. Se conservaron para revisión y no se reejecutarán automáticamente para evitar repetir acciones externas.");
+        }
+        var expiredKickPayloads = store.PruneKickWebhookInboxRetention();
+        if (expiredKickPayloads > 0)
+        {
+            store.Log("Kick Events",
+                expiredKickPayloads.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                " payload(s) de eventos Kick fallidos vencieron la retención local de 30 días; se borró el contenido y se mantuvo temporalmente el ID para deduplicación.");
+        }
+        kickWebhookRetentionTimer.Tick += (_, _) => RunKickWebhookRetentionSweep();
+        kickWebhookRetentionTimer.Start();
+
+        Loaded += async (_, _) =>
+        {
+            try
+            {
+                if (store.GetKickWebhookInboxSummary().Pending > 0)
+                    ScheduleKickWebhookEventProcessing();
+            }
+            catch (Exception exception)
+            {
+                try { store.Log("Kick Events", "No se pudo programar la recuperación de la bandeja persistente (" + exception.GetType().Name + "). Los datos no se borraron."); }
+                catch { }
+            }
+
+            await AutoStartObsIfConfiguredAsync();
+        };
         const string previousDefaultVoiceInstruction = "Habla en español con una voz femenina adulta joven, cálida, expresiva y de estilo anime original. Buena dicción, energía y emoción natural; no imites a un personaje o actriz específica.";
         const string highPitchVoiceInstruction = "Habla en español con una voz femenina adulta joven MUY aguda y chillona, tipo personaje anime enérgico: timbre brillante, ligeramente nasal y juguetón, tono alto, reacciones exageradas y ritmo vivaz. Debe sonar intencionalmente aguda y caricaturesca, pero mantener dicción clara sin gritar ni distorsionar; no imites a un personaje, actriz ni persona real específica.";
         var savedVoice = store.GetSetting("social.tts.remoteVoice", "Leda");
@@ -579,6 +611,7 @@ public partial class MainWindow : Window
         dashboardMetricsTimer?.Stop();
         automationTimer.Stop();
         twitchCredentialTimer.Stop();
+        kickWebhookRetentionTimer.Stop();
 
         try { StopMicrophone(); }
         catch (Exception exception) { LogShutdownFailure("micrófono", exception); }
@@ -599,12 +632,14 @@ public partial class MainWindow : Window
         try { vrmOverlay?.Close(); }
         catch (Exception exception) { LogShutdownFailure("overlay VRM", exception); }
 
-        // Stop accepting webhooks, then drain the bounded in-memory inbox for a short,
-        // explicit window before the WPF dispatcher closes.
+        // Stop accepting webhooks, then allow the SQLite inbox to drain briefly before
+        // the WPF dispatcher closes. Any remaining pending payload stays on disk for the next
+        // launch. Events interrupted mid-processing are marked for review at the next startup
+        // rather than automatically replaying possible external moderation side effects.
         try { await StopKickWebhookReceiverAsync(); }
         catch (Exception exception) { LogShutdownFailure("receptor webhook Kick", exception); }
         try { await DrainPendingKickWebhookEventsForShutdownAsync(TimeSpan.FromSeconds(10)); }
-        catch (Exception exception) { LogShutdownFailure("cola de eventos Kick", exception); }
+        catch (Exception exception) { LogShutdownFailure("bandeja persistente de eventos Kick", exception); }
 
         // Dispose each client independently so one failed network shutdown does not
         // prevent cleanup of the remaining clients.

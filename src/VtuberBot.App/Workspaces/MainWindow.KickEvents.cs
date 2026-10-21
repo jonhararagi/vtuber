@@ -1,7 +1,9 @@
 using System.Globalization;
+using System.IO;
 using VtuberBot.Core;
 using System.Net;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using System.Windows;
 
 namespace VtuberBot.App;
@@ -9,12 +11,33 @@ namespace VtuberBot.App;
 public partial class MainWindow
 {
     private KickWebhookReceiver? kickWebhookReceiver;
-    private const int MaxPendingKickWebhookEvents = 256;
     private const int MaxKickWebhookEventsPerUiBatch = 20;
-    private readonly BoundedQueue<KickWebhookEvent> pendingKickWebhookEvents = new(MaxPendingKickWebhookEvents);
     private readonly Dictionary<string, DateTimeOffset> kickModerationCooldown = new(StringComparer.OrdinalIgnoreCase);
     private int kickWebhookProcessorScheduled;
     private int kickWebhookOverflowNotificationPending;
+
+    private void RunKickWebhookRetentionSweep()
+    {
+        try
+        {
+            var expiredPayloads = store.PruneKickWebhookInboxRetention();
+            if (expiredPayloads > 0)
+            {
+                store.Log("Kick Events",
+                    expiredPayloads.ToString(CultureInfo.InvariantCulture) +
+                    " payload(s) de eventos fallidos vencieron la retención local de 30 días; se borró el contenido y el ID quedó retenido temporalmente para deduplicación.");
+            }
+        }
+        catch (Exception exception)
+        {
+            try
+            {
+                store.Log("Kick Events",
+                    "No se pudo aplicar la limpieza programada de la bandeja Kick (" + exception.GetType().Name + "). El contenido no se eliminó en esta pasada.");
+            }
+            catch { }
+        }
+    }
 
     private KickWebhookReceiver EnsureKickWebhookReceiver()
     {
@@ -129,7 +152,11 @@ public partial class MainWindow
         if (Volatile.Read(ref shutdownStarted) || Volatile.Read(ref shutdownCompleted))
             throw new InvalidOperationException("VTuberBot se está cerrando; el webhook debe reintentarse.");
 
-        if (!pendingKickWebhookEvents.TryEnqueue(webhookEvent))
+        // Persist before returning from the receiver callback: its HTTP 200 now means the
+        // signed event is durably stored, not merely sitting in process memory.
+        var payloadJson = JsonSerializer.Serialize(webhookEvent);
+        var admission = store.TryStoreKickWebhookEvent(webhookEvent.EventMessageId, payloadJson);
+        if (admission == KickWebhookInboxAdmissionResult.CapacityExceeded)
         {
             if (Interlocked.Exchange(ref kickWebhookOverflowNotificationPending, 1) == 0)
             {
@@ -140,10 +167,13 @@ public partial class MainWindow
                         try
                         {
                             store.Log("Kick Events",
-                                "La cola de eventos llegó a 256 entradas; se rechazaron temporalmente nuevas entregas para solicitar reintentos.");
-                            FooterStatus.Text = "Kick: cola de eventos saturada; se rechazan nuevas entregas hasta recuperar capacidad.";
+                                "La bandeja persistente llegó a su límite; la nueva entrega se rechazó temporalmente para solicitar reintentos. No se borraron eventos pendientes ni fallidos.");
+                            FooterStatus.Text = "Kick: bandeja persistente llena; se requieren reintentos o revisión de eventos fallidos.";
                         }
-                        finally { Interlocked.Exchange(ref kickWebhookOverflowNotificationPending, 0); }
+                        finally
+                        {
+                            Interlocked.Exchange(ref kickWebhookOverflowNotificationPending, 0);
+                        }
                     }));
                 }
                 catch (InvalidOperationException)
@@ -152,20 +182,27 @@ public partial class MainWindow
                 }
             }
 
-            // Throwing keeps the receiver from returning HTTP 200 or committing the message ID.
-            throw new InvalidOperationException("La cola acotada de Kick está llena; la entrega no fue admitida y debe reintentarse.");
+            // The event was not admitted. Propagate to the HTTP receiver so Kick can retry.
+            throw new InvalidOperationException("La bandeja persistente de eventos Kick está llena; esta entrega no fue aceptada.");
         }
 
+        Interlocked.Exchange(ref kickWebhookOverflowNotificationPending, 0);
         try
         {
+            // Duplicate IDs are acknowledged, but scheduling also helps drain the original
+            // pending row if a previous UI-dispatch attempt failed.
             ScheduleKickWebhookEventProcessing();
         }
-        catch
+        catch (InvalidOperationException)
         {
-            // Do not retain an event whose HTTP delivery will be rejected and retried.
-            // Otherwise that retry could enqueue the same message a second time.
-            pendingKickWebhookEvents.TryRemoveLast(webhookEvent);
-            throw;
+            // The SQLite commit already succeeded. Do not turn an accepted durable event into
+            // a retry-only in-memory event; it will be picked up on the next application start.
+            try
+            {
+                store.Log("Kick Events",
+                    "Un evento quedó guardado de forma persistente, pero no se pudo programar la interfaz; seguirá pendiente para el próximo inicio.");
+            }
+            catch { }
         }
     }
 
@@ -189,20 +226,40 @@ public partial class MainWindow
     {
         try
         {
-            var processed = 0;
-            while (processed < MaxKickWebhookEventsPerUiBatch &&
-                   pendingKickWebhookEvents.TryDequeue(out var webhookEvent))
+            var batch = store.ClaimPendingKickWebhookEvents(MaxKickWebhookEventsPerUiBatch);
+            foreach (var pending in batch)
             {
-                processed++;
                 try
                 {
+                    var webhookEvent = JsonSerializer.Deserialize<KickWebhookEvent>(pending.PayloadJson);
+                    if (webhookEvent is null ||
+                        !string.Equals(webhookEvent.EventMessageId, pending.EventMessageId, StringComparison.Ordinal))
+                        throw new InvalidDataException("El evento almacenado no coincide con su ID persistente.");
+
                     await ProcessKickWebhookEventAsync(webhookEvent);
+                    store.MarkKickWebhookEventProcessed(pending.EventMessageId);
                 }
                 catch (Exception exception)
                 {
+                    try
+                    {
+                        // Keep failed payloads for investigation; do not replay an action
+                        // automatically because Kick may already have applied it before a crash.
+                        store.MarkKickWebhookEventFailed(
+                            pending.EventMessageId,
+                            exception.GetType().Name + ": " + exception.Message);
+                    }
+                    catch (Exception persistenceException)
+                    {
+                        store.Log("Kick Events",
+                            "No se pudo actualizar el estado persistente del evento " + pending.EventMessageId +
+                            " (" + persistenceException.GetType().Name + "). Se conservará como procesamiento interrumpido si la base sigue accesible.");
+                    }
+
                     store.Log("Kick Events",
-                        "Falló el procesamiento de un evento verificado (" + exception.GetType().Name + ").");
-                    FooterStatus.Text = "No se pudo procesar un evento Kick; revisá Actividad y diagnóstico.";
+                        "Falló el procesamiento del evento persistido " + pending.EventMessageId +
+                        " (" + exception.GetType().Name + "). Quedó pendiente de revisión; no se reintentará automáticamente.");
+                    FooterStatus.Text = "Un evento Kick quedó para revisión; revisá Actividad y diagnóstico.";
                 }
             }
         }
@@ -211,31 +268,41 @@ public partial class MainWindow
             try
             {
                 store.Log("Kick Events",
-                    "Se aisló un error del consumidor de eventos (" + exception.GetType().Name + ").");
+                    "Se aisló un error al consultar la bandeja persistente (" + exception.GetType().Name + "). Los eventos guardados no se borraron.");
             }
             catch { }
         }
         finally
         {
             Interlocked.Exchange(ref kickWebhookProcessorScheduled, 0);
-            if (pendingKickWebhookEvents.Count > 0)
+            try
             {
-                try { ScheduleKickWebhookEventProcessing(); }
-                catch (InvalidOperationException)
+                var summary = store.GetKickWebhookInboxSummary();
+                if (summary.Pending > 0)
                 {
-                    var dropped = pendingKickWebhookEvents.Count;
-                    pendingKickWebhookEvents.Clear();
-                    try
+                    try { ScheduleKickWebhookEventProcessing(); }
+                    catch (InvalidOperationException)
                     {
-                        store.Log("Kick Events", "No quedó disponible la interfaz para procesar la cola durante el cierre; " +
-                            dropped.ToString(CultureInfo.InvariantCulture) + " eventos en espera quedaron sin procesar.");
+                        try
+                        {
+                            store.Log("Kick Events",
+                                "Hay eventos persistentes pendientes que no se pudieron programar; siguen guardados para el próximo inicio.");
+                        }
+                        catch { }
                     }
-                    catch { }
                 }
+                else
+                {
+                    Interlocked.Exchange(ref kickWebhookOverflowNotificationPending, 0);
+                }
+
+                if (summary.Failed > 0)
+                    FooterStatus.Text = "Hay eventos Kick guardados para revisión; no se repiten sanciones automáticamente.";
             }
-            else
+            catch (Exception exception)
             {
-                Interlocked.Exchange(ref kickWebhookOverflowNotificationPending, 0);
+                try { store.Log("Kick Events", "No se pudo consultar el estado de la bandeja (" + exception.GetType().Name + ")."); }
+                catch { }
             }
         }
     }
@@ -266,23 +333,35 @@ public partial class MainWindow
     private async Task DrainPendingKickWebhookEventsForShutdownAsync(TimeSpan timeout)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
-        while ((pendingKickWebhookEvents.Count > 0 || Volatile.Read(ref kickWebhookProcessorScheduled) != 0) &&
-               DateTimeOffset.UtcNow < deadline)
+        while (DateTimeOffset.UtcNow < deadline)
         {
+            try
+            {
+                var summary = store.GetKickWebhookInboxSummary();
+                if (summary.Pending == 0 && Volatile.Read(ref kickWebhookProcessorScheduled) == 0)
+                    break;
+            }
+            catch (Exception exception)
+            {
+                try { store.Log("Kick Events", "No se pudo confirmar el drenaje al cerrar (" + exception.GetType().Name + "); la bandeja no se borró."); }
+                catch { }
+                break;
+            }
+
             await Task.Delay(TimeSpan.FromMilliseconds(50));
         }
 
-        var remaining = pendingKickWebhookEvents.Count;
-        var processing = Volatile.Read(ref kickWebhookProcessorScheduled) != 0;
-        if (remaining > 0)
+        var finalSummary = store.GetKickWebhookInboxSummary();
+        if (finalSummary.Pending > 0)
         {
-            pendingKickWebhookEvents.Clear();
-            store.Log("Kick Events", "Al cerrar, se agotó el tiempo de drenaje; " +
-                remaining.ToString(CultureInfo.InvariantCulture) + " eventos en cola fueron descartados.");
+            store.Log("Kick Events",
+                "Al cerrar quedaron " + finalSummary.Pending.ToString(CultureInfo.InvariantCulture) +
+                " eventos pendientes en SQLite. Se conservaron para el próximo inicio; no se descartaron.");
         }
-        if (processing)
+        if (finalSummary.Processing > 0 || Volatile.Read(ref kickWebhookProcessorScheduled) != 0)
         {
-            store.Log("Kick Events", "El cierre alcanzó el límite de espera mientras un evento Kick estaba en procesamiento.");
+            store.Log("Kick Events",
+                "El cierre llegó al límite de espera mientras se procesaba un evento. Si el proceso termina de forma inesperada, el siguiente inicio lo dejará para revisión y no repetirá automáticamente posibles acciones externas.");
         }
     }
 
