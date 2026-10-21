@@ -181,9 +181,7 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
     private readonly int port;
     private readonly TimeSpan maximumMessageAge;
-    private readonly object dedupeGate = new();
-    private readonly HashSet<string> seenMessageIds = new(StringComparer.Ordinal);
-    private readonly Queue<string> seenMessageOrder = new();
+    private readonly KickWebhookDeliveryDeduplicator deliveryDeduplicator = new(MaximumRememberedMessageIds);
     private readonly SemaphoreSlim connectionSlots = new(16, 16);
     private readonly SemaphoreSlim publicKeyGate = new(1, 1);
     private readonly object activeTasksGate = new();
@@ -410,17 +408,29 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
             return;
         }
 
-        if (!TryRememberMessageId(messageId))
+        var consumer = EventReceived;
+        if (consumer is null)
         {
-            await WriteResponseAsync(stream, 204, "Duplicate Event", timeout.Token).ConfigureAwait(false);
+            StatusChanged?.Invoke("El receptor Kick no tiene un consumidor de eventos registrado; se solicita reintento.");
+            await WriteResponseAsync(stream, 503, "No Event Consumer", timeout.Token).ConfigureAwait(false);
             return;
         }
 
-        try { EventReceived?.Invoke(webhookEvent); }
+        bool admitted;
+        try
+        {
+            admitted = deliveryDeduplicator.TryDispatchOnce(messageId!, () => consumer(webhookEvent));
+        }
         catch (Exception exception)
         {
-            StatusChanged?.Invoke("No se pudo encolar un evento Kick verificado (" + exception.GetType().Name + ").");
+            StatusChanged?.Invoke("No se pudo admitir un evento Kick verificado (" + exception.GetType().Name + "); se solicita reintento.");
             await WriteResponseAsync(stream, 503, "Event Processing Failed", timeout.Token).ConfigureAwait(false);
+            return;
+        }
+
+        if (!admitted)
+        {
+            await WriteResponseAsync(stream, 204, "Duplicate Event", timeout.Token).ConfigureAwait(false);
             return;
         }
 
@@ -475,18 +485,6 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
             return cachedPublicKey;
         }
         finally { publicKeyGate.Release(); }
-    }
-
-    private bool TryRememberMessageId(string messageId)
-    {
-        lock (dedupeGate)
-        {
-            if (!seenMessageIds.Add(messageId)) return false;
-            seenMessageOrder.Enqueue(messageId);
-            while (seenMessageOrder.Count > MaximumRememberedMessageIds)
-                seenMessageIds.Remove(seenMessageOrder.Dequeue());
-            return true;
-        }
     }
 
     private static string? GetHeader(IReadOnlyDictionary<string, string> headers, string name) =>
