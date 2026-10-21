@@ -1,4 +1,5 @@
 using System.Globalization;
+using VtuberBot.Core;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -8,7 +9,12 @@ namespace VtuberBot.App;
 public partial class MainWindow
 {
     private KickWebhookReceiver? kickWebhookReceiver;
+    private const int MaxPendingKickWebhookEvents = 256;
+    private const int MaxKickWebhookEventsPerUiBatch = 20;
+    private readonly BoundedQueue<KickWebhookEvent> pendingKickWebhookEvents = new(MaxPendingKickWebhookEvents);
     private readonly Dictionary<string, DateTimeOffset> kickModerationCooldown = new(StringComparer.OrdinalIgnoreCase);
+    private int kickWebhookProcessorScheduled;
+    private int kickWebhookOverflowNotificationPending;
 
     private KickWebhookReceiver EnsureKickWebhookReceiver()
     {
@@ -120,42 +126,163 @@ public partial class MainWindow
 
     private void HandleKickWebhookEvent(KickWebhookEvent webhookEvent)
     {
-        try
+        if (Volatile.Read(ref shutdownStarted) || Volatile.Read(ref shutdownCompleted))
+            throw new InvalidOperationException("VTuberBot se está cerrando; el webhook debe reintentarse.");
+
+        if (!pendingKickWebhookEvents.TryEnqueue(webhookEvent))
         {
-            Dispatcher.BeginInvoke(new Action(async () =>
+            if (Interlocked.Exchange(ref kickWebhookOverflowNotificationPending, 1) == 0)
             {
                 try
                 {
-                    var rejectionReason = ValidateKickWebhookEvent(webhookEvent);
-                    if (rejectionReason is not null)
+                    Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        store.Log("Kick Events", "Evento firmado rechazado por configuración local: " + rejectionReason);
-                        FooterStatus.Text = "Evento Kick rechazado: no coincide con las suscripciones/canal configurados.";
-                        return;
-                    }
+                        try
+                        {
+                            store.Log("Kick Events",
+                                "La cola de eventos llegó a 256 entradas; se rechazaron temporalmente nuevas entregas para solicitar reintentos.");
+                            FooterStatus.Text = "Kick: cola de eventos saturada; se rechazan nuevas entregas hasta recuperar capacidad.";
+                        }
+                        finally { Interlocked.Exchange(ref kickWebhookOverflowNotificationPending, 0); }
+                    }));
+                }
+                catch (InvalidOperationException)
+                {
+                    Interlocked.Exchange(ref kickWebhookOverflowNotificationPending, 0);
+                }
+            }
 
-                    if (webhookEvent.ChatMessage is { } chatMessage)
-                    {
-                        await ProcessKickChatMessageAsync(chatMessage);
-                    }
-                    else
-                    {
-                        chatLines.Insert(0, "[Kick Events] " + webhookEvent.Summary);
-                        while (chatLines.Count > 200) chatLines.RemoveAt(chatLines.Count - 1);
-                        store.Log("Kick Events", webhookEvent.Summary + " (firma verificada, suscripción local reconocida).");
-                        FooterStatus.Text = "Evento Kick recibido y firma validada: " + webhookEvent.EventType;
-                    }
+            // Throwing keeps the receiver from returning HTTP 200 or committing the message ID.
+            throw new InvalidOperationException("La cola acotada de Kick está llena; la entrega no fue admitida y debe reintentarse.");
+        }
+
+        try
+        {
+            ScheduleKickWebhookEventProcessing();
+        }
+        catch
+        {
+            // Do not retain an event whose HTTP delivery will be rejected and retried.
+            // Otherwise that retry could enqueue the same message a second time.
+            pendingKickWebhookEvents.TryRemoveLast(webhookEvent);
+            throw;
+        }
+    }
+
+    private void ScheduleKickWebhookEventProcessing()
+    {
+        if (Interlocked.Exchange(ref kickWebhookProcessorScheduled, 1) != 0)
+            return;
+
+        try
+        {
+            Dispatcher.BeginInvoke(new Action(() => { _ = ProcessPendingKickWebhookEventsAsync(); }));
+        }
+        catch (InvalidOperationException exception)
+        {
+            Interlocked.Exchange(ref kickWebhookProcessorScheduled, 0);
+            throw new InvalidOperationException("No se pudo programar el procesamiento de eventos Kick en la interfaz.", exception);
+        }
+    }
+
+    private async Task ProcessPendingKickWebhookEventsAsync()
+    {
+        try
+        {
+            var processed = 0;
+            while (processed < MaxKickWebhookEventsPerUiBatch &&
+                   pendingKickWebhookEvents.TryDequeue(out var webhookEvent))
+            {
+                processed++;
+                try
+                {
+                    await ProcessKickWebhookEventAsync(webhookEvent);
                 }
                 catch (Exception exception)
                 {
-                    store.Log("Kick Events", "Falló el procesamiento de un evento verificado (" + exception.GetType().Name + ").");
+                    store.Log("Kick Events",
+                        "Falló el procesamiento de un evento verificado (" + exception.GetType().Name + ").");
                     FooterStatus.Text = "No se pudo procesar un evento Kick; revisá Actividad y diagnóstico.";
                 }
-            }));
+            }
         }
-        catch (InvalidOperationException)
+        catch (Exception exception)
         {
-            // WPF may start shutting down while a remote event arrives.
+            try
+            {
+                store.Log("Kick Events",
+                    "Se aisló un error del consumidor de eventos (" + exception.GetType().Name + ").");
+            }
+            catch { }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref kickWebhookProcessorScheduled, 0);
+            if (pendingKickWebhookEvents.Count > 0)
+            {
+                try { ScheduleKickWebhookEventProcessing(); }
+                catch (InvalidOperationException)
+                {
+                    var dropped = pendingKickWebhookEvents.Count;
+                    pendingKickWebhookEvents.Clear();
+                    try
+                    {
+                        store.Log("Kick Events", "No quedó disponible la interfaz para procesar la cola durante el cierre; " +
+                            dropped.ToString(CultureInfo.InvariantCulture) + " eventos en espera quedaron sin procesar.");
+                    }
+                    catch { }
+                }
+            }
+            else
+            {
+                Interlocked.Exchange(ref kickWebhookOverflowNotificationPending, 0);
+            }
+        }
+    }
+
+    private async Task ProcessKickWebhookEventAsync(KickWebhookEvent webhookEvent)
+    {
+        var rejectionReason = ValidateKickWebhookEvent(webhookEvent);
+        if (rejectionReason is not null)
+        {
+            store.Log("Kick Events", "Evento firmado rechazado por configuración local: " + rejectionReason);
+            FooterStatus.Text = "Evento Kick rechazado: no coincide con las suscripciones/canal configurados.";
+            return;
+        }
+
+        if (webhookEvent.ChatMessage is { } chatMessage)
+        {
+            await ProcessKickChatMessageAsync(chatMessage);
+        }
+        else
+        {
+            chatLines.Insert(0, "[Kick Events] " + webhookEvent.Summary);
+            while (chatLines.Count > 200) chatLines.RemoveAt(chatLines.Count - 1);
+            store.Log("Kick Events", webhookEvent.Summary + " (firma verificada, suscripción local reconocida).");
+            FooterStatus.Text = "Evento Kick recibido y firma validada: " + webhookEvent.EventType;
+        }
+    }
+
+    private async Task DrainPendingKickWebhookEventsForShutdownAsync(TimeSpan timeout)
+    {
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        while ((pendingKickWebhookEvents.Count > 0 || Volatile.Read(ref kickWebhookProcessorScheduled) != 0) &&
+               DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(50));
+        }
+
+        var remaining = pendingKickWebhookEvents.Count;
+        var processing = Volatile.Read(ref kickWebhookProcessorScheduled) != 0;
+        if (remaining > 0)
+        {
+            pendingKickWebhookEvents.Clear();
+            store.Log("Kick Events", "Al cerrar, se agotó el tiempo de drenaje; " +
+                remaining.ToString(CultureInfo.InvariantCulture) + " eventos en cola fueron descartados.");
+        }
+        if (processing)
+        {
+            store.Log("Kick Events", "El cierre alcanzó el límite de espera mientras un evento Kick estaba en procesamiento.");
         }
     }
 

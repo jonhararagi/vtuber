@@ -599,9 +599,12 @@ public partial class MainWindow : Window
         try { vrmOverlay?.Close(); }
         catch (Exception exception) { LogShutdownFailure("overlay VRM", exception); }
 
-        // Stop the local Kick webhook listener before disposing platform clients.
+        // Stop accepting webhooks, then drain the bounded in-memory inbox for a short,
+        // explicit window before the WPF dispatcher closes.
         try { await StopKickWebhookReceiverAsync(); }
         catch (Exception exception) { LogShutdownFailure("receptor webhook Kick", exception); }
+        try { await DrainPendingKickWebhookEventsForShutdownAsync(TimeSpan.FromSeconds(10)); }
+        catch (Exception exception) { LogShutdownFailure("cola de eventos Kick", exception); }
 
         // Dispose each client independently so one failed network shutdown does not
         // prevent cleanup of the remaining clients.

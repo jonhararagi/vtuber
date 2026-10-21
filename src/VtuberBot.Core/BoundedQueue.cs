@@ -7,7 +7,7 @@ namespace VtuberBot.Core;
 public sealed class BoundedQueue<T>
 {
     private readonly object gate = new();
-    private readonly Queue<T> items = new();
+    private Queue<T> items = new();
     private readonly int capacity;
 
     public BoundedQueue(int capacity)
@@ -42,6 +42,26 @@ public sealed class BoundedQueue<T>
             }
 
             item = items.Dequeue();
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Removes the newest matching item. Intended only to roll back an admission when the
+    /// caller cannot schedule its consumer; normal processing should remain FIFO.
+    /// </summary>
+    public bool TryRemoveLast(T expected)
+    {
+        lock (gate)
+        {
+            if (items.Count == 0)
+                return false;
+
+            var snapshot = items.ToArray();
+            if (!EqualityComparer<T>.Default.Equals(snapshot[^1], expected))
+                return false;
+
+            items = new Queue<T>(snapshot.Take(snapshot.Length - 1));
             return true;
         }
     }
