@@ -518,7 +518,10 @@ public sealed class ProductStore : IProductSettingsStore
                 var path = reader.GetString(0);
                 try
                 {
-                    paths.Add(Path.GetFullPath(path));
+                    var fullPath = Path.IsPathRooted(path)
+                        ? Path.GetFullPath(path)
+                        : Path.GetFullPath(path, Path.GetDirectoryName(GetDatabasePath())!);
+                    paths.Add(fullPath);
                 }
                 catch (Exception exception) when (exception is ArgumentException or IOException or NotSupportedException)
                 {
