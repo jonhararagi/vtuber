@@ -305,6 +305,8 @@ public static class StorageMaintenanceService
     {
         if (IsActiveDatabaseOrSidecar(path, database))
             return "Base SQLite activa";
+        if (DatabaseExtensions.Contains(Path.GetExtension(path)))
+            return "Copias de seguridad protegidas";
         if (IsUnderNamedDirectory(root, path, "secrets"))
             return "Credenciales protegidas";
         if (IsUnderNamedDirectory(root, path, "backups") || IsBackupFileName(path))
@@ -431,14 +433,14 @@ public static class StorageMaintenanceService
             var current = pending.Pop();
             string[] entries;
             try { entries = Directory.GetFileSystemEntries(current); }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             { continue; }
 
             foreach (var entry in entries)
             {
                 FileAttributes attributes;
                 try { attributes = File.GetAttributes(entry); }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or FileNotFoundException)
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                 { continue; }
 
                 if ((attributes & FileAttributes.ReparsePoint) != 0)
