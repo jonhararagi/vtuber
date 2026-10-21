@@ -219,7 +219,7 @@ public static class StorageMaintenanceService
             try
             {
                 var path = Path.GetFullPath(candidate.FullPath);
-                if (!IsWithinRoot(inventory.RootPath, path) ||
+                if (!IsPathSafeWithoutReparsePoints(inventory.RootPath, path) ||
                     IsProtectedLocation(inventory.RootPath, path, database) ||
                     !File.Exists(path))
                 {
@@ -403,6 +403,32 @@ public static class StorageMaintenanceService
             ? fullRoot
             : fullRoot + Path.DirectorySeparatorChar;
         return fullPath.StartsWith(prefix, PathComparison) && !PathComparer.Equals(fullRoot, fullPath);
+    }
+
+    private static bool IsPathSafeWithoutReparsePoints(string root, string path)
+    {
+        try
+        {
+            var fullRoot = Path.GetFullPath(root);
+            var fullPath = Path.GetFullPath(path);
+            if (!IsWithinRoot(fullRoot, fullPath) || !Directory.Exists(fullRoot))
+                return false;
+            if ((File.GetAttributes(fullRoot) & FileAttributes.ReparsePoint) != 0)
+                return false;
+
+            var current = Path.GetDirectoryName(fullPath);
+            while (current is not null && IsWithinRoot(fullRoot, current))
+            {
+                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                    return false;
+                current = Path.GetDirectoryName(current);
+            }
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
     }
 
     private static void AddReference(HashSet<string> references, string? path, string root)
