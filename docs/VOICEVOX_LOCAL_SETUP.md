@@ -24,6 +24,9 @@ Instalá VOICEVOX Engine para Windows siguiendo las instrucciones oficiales y la
 6. Pulsá **Comprobar y actualizar voces VOICEVOX**. Elegí uno de los estilos devueltos por el Engine. Si no aparece ninguno, comprobá instalación, versión, carga de voces y mensaje de error.
 7. Elegí un **dispositivo de salida** si no querés usar el predeterminado del sistema.
 8. Ajustá **Tono / pitch** (de -0,30 a +0,30) y **Variación de entonación** (de 0,50× a 1,50×). Un tono positivo eleva la altura y una variación mayor exagera más los cambios de tono; probá valores suaves para evitar artefactos.
+9. En **Sintonizador de voz anime**, seleccioná **Natural / equilibrada**, **Anime aguda**, **Anime grave** o **Anime enérgica**, y pulsá **Aplicar sintonizador a esta voz**. Cada estilo VOICEVOX guarda sus propios valores de tono, entonación, velocidad y volumen. También podés mover los controles y usar **Guardar voz y ajustes**.
+10. Dejá apagada la opción **Permitir voz de Windows SAPI como respaldo** si querés evitar que el bot cambie a la voz antigua de Windows cuando falte un motor local. Con SAPI apagado, las frases que no tengan una voz VOICEVOX válida mostrarán un error explicativo en lugar de sonar con el respaldo robótico. Podés activarlo manualmente si preferís compatibilidad.
+11. El texto se sintetiza completo antes de reproducirse. Hay un límite de 60 segundos por frase; si se supera, se cancela esa síntesis y se informa el fallo. No se añade una espera artificial de un minuto. La cola sigue limitada a 32 frases.
 9. Pulsá **Guardar voz y ajustes** para conservar URL, voz, tono, entonación, volumen, velocidad y salida.
 10. Pulsá **Probar voz VOICEVOX** para escuchar una prueba. Usá **Encolar texto VOICEVOX** para texto propio, y **Detener voz actual** para interrumpir la frase.
 11. Cuando quieras liberar los recursos del motor, pulsá **Detener Engine iniciado por VTuberBot** y confirmá. Ese botón solo puede detener el proceso que abrió esta instancia del programa. Si Engine ya estaba activo antes de abrir VTuberBot, la aplicación no lo cerrará automáticamente.
@@ -39,9 +42,10 @@ Si solo tenés una imagen, podrás utilizar el avatar estático, pero no habrá 
 ## 4. Seguridad, procesos y memoria
 
 - VTuberBot limita el inicio integrado del Engine a una URL HTTP local y lo liga a 127.0.0.1; no uses ni publiques una dirección del Engine expuesta a la red.
-- La voz se genera en el Engine local. Esta función no necesita un token de Gemini ni una API TTS remota.
+- La voz se genera en el Engine local. Esta función no necesita un token de Gemini ni una API TTS remota. Los cuatro perfiles de sintonía se guardan por estilo VOICEVOX; el tono y la entonación se aplican en la síntesis neuronal en vez de degradar el audio con un efecto de cambio de velocidad.
 - El Engine es un proceso separado: su consumo se suma al del resto de aplicaciones aunque no cuente como memoria del proceso VTuberBot. El objetivo de alerta de 1 GiB corresponde al proceso VTuberBot, no al conjunto de todo el sistema.
 - En **Voz y audio**, usá **Medir CPU/RAM del proceso VOICEVOX** para muestrear brevemente el proceso cuyo ejecutable coincide con la ruta configurada. Es una lectura puntual de CPU y memoria residente, no un historial ni una medición de GPU. Si el proceso no se puede identificar o Windows restringe el acceso, la interfaz lo informa en lugar de atribuir cifras de otro programa.
+- El respaldo Windows SAPI está desactivado por defecto en Voz y audio porque puede sonar sintético. Activarlo es una elección explícita; la preferencia no instala una voz neuronal ni mejora la calidad de SAPI.
 - VTuberBot no incluye el Engine/voicebanks ni los actualiza automáticamente. Conservá la instalación oficial; las opciones y el comportamiento pueden variar por versión.
 - El botón **Detener Engine iniciado por VTuberBot** permite finalizar únicamente el proceso que abrió esta instancia. Al cerrar VTuberBot, si ese proceso sigue activo, se pregunta si querés detenerlo (Sí), dejarlo activo para otro cliente local (No) o cancelar el cierre. Si el cierre no puede confirmarse, la aplicación avisa que el proceso podría seguir consumiendo memoria.
 
