@@ -376,7 +376,9 @@ public partial class MainWindow : Window
                 () => double.TryParse(store.GetSetting("audio.voicevox.intonationScale", "1"),
                     System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var intonation) ? intonation : 1d,
                 GetVoicevoxPitchScaleForSpeaker,
-                GetVoicevoxIntonationScaleForSpeaker),
+                GetVoicevoxIntonationScaleForSpeaker,
+                GetVoicevoxRateForSpeaker,
+                GetVoicevoxVolumeForSpeaker),
             () => store.GetSetting("audio.tts.windowsSapiEnabled", "false") == "true",
             () => store.GetSetting("audio.tts.voiceId"))));
         communityCommandRouter = new CommunityCommandRouter(store);
