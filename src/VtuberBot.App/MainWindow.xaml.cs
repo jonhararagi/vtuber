@@ -309,21 +309,6 @@ public partial class MainWindow : Window
     public MainWindow(VtuberApplication application)
     {
         InitializeComponent();
-        Loaded += async (_, _) =>
-        {
-            try
-            {
-                if (store.GetKickWebhookInboxSummary().Pending > 0)
-                    ScheduleKickWebhookEventProcessing();
-            }
-            catch (Exception exception)
-            {
-                try { store.Log("Kick Events", "No se pudo programar la recuperación de la bandeja persistente (" + exception.GetType().Name + "). Los datos no se borraron."); }
-                catch { }
-            }
-
-            await AutoStartObsIfConfiguredAsync();
-        };
         this.application = application;
         store = new ProductStore(application.Database.Path);
         var interruptedKickEvents = store.RecoverInterruptedKickWebhookEvents();
@@ -340,6 +325,22 @@ public partial class MainWindow : Window
                 expiredKickPayloads.ToString(System.Globalization.CultureInfo.InvariantCulture) +
                 " payload(s) de eventos Kick fallidos vencieron la retención local de 30 días; se borró el contenido y se mantuvo temporalmente el ID para deduplicación.");
         }
+
+        Loaded += async (_, _) =>
+        {
+            try
+            {
+                if (store.GetKickWebhookInboxSummary().Pending > 0)
+                    ScheduleKickWebhookEventProcessing();
+            }
+            catch (Exception exception)
+            {
+                try { store.Log("Kick Events", "No se pudo programar la recuperación de la bandeja persistente (" + exception.GetType().Name + "). Los datos no se borraron."); }
+                catch { }
+            }
+
+            await AutoStartObsIfConfiguredAsync();
+        };
         const string previousDefaultVoiceInstruction = "Habla en español con una voz femenina adulta joven, cálida, expresiva y de estilo anime original. Buena dicción, energía y emoción natural; no imites a un personaje o actriz específica.";
         const string highPitchVoiceInstruction = "Habla en español con una voz femenina adulta joven MUY aguda y chillona, tipo personaje anime enérgico: timbre brillante, ligeramente nasal y juguetón, tono alto, reacciones exageradas y ritmo vivaz. Debe sonar intencionalmente aguda y caricaturesca, pero mantener dicción clara sin gritar ni distorsionar; no imites a un personaje, actriz ni persona real específica.";
         var savedVoice = store.GetSetting("social.tts.remoteVoice", "Leda");
