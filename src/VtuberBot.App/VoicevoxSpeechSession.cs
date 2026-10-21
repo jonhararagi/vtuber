@@ -23,6 +23,8 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
     private readonly Func<double> intonationScale;
     private readonly Func<int, double>? speakerPitchScale;
     private readonly Func<int, double>? speakerIntonationScale;
+    private readonly Func<int, int>? speakerRate;
+    private readonly Func<int, int>? speakerVolume;
     private readonly HttpClient http = new() { Timeout = Timeout.InfiniteTimeSpan };
     private bool disposed;
 
@@ -31,13 +33,17 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
         Func<double>? pitchScale = null,
         Func<double>? intonationScale = null,
         Func<int, double>? speakerPitchScale = null,
-        Func<int, double>? speakerIntonationScale = null)
+        Func<int, double>? speakerIntonationScale = null,
+        Func<int, int>? speakerRate = null,
+        Func<int, int>? speakerVolume = null)
     {
         this.baseUrl = baseUrl ?? (() => DefaultBaseUrl);
         this.pitchScale = pitchScale ?? (() => 0d);
         this.intonationScale = intonationScale ?? (() => 1d);
         this.speakerPitchScale = speakerPitchScale;
         this.speakerIntonationScale = speakerIntonationScale;
+        this.speakerRate = speakerRate;
+        this.speakerVolume = speakerVolume;
     }
 
     public static double NormalizePitchScale(double value) =>
@@ -126,8 +132,10 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
 
         // Generate the complete waveform before playback so queue order stays predictable.
         // Never hold the user waiting indefinitely on a local Engine that is loading a model.
+        var effectiveRate = Math.Clamp(speakerRate?.Invoke(speakerId) ?? rate, -10, 10);
+        var effectiveVolume = Math.Clamp(speakerVolume?.Invoke(speakerId) ?? volume, 0, 100);
         using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(SynthesisTimeoutSeconds));
-        var synthesis = SynthesizeAsync(text, speakerId, rate, cancel.Token);
+        var synthesis = SynthesizeAsync(text, speakerId, effectiveRate, cancel.Token);
         while (!synthesis.IsCompleted)
         {
             if (cancellationRequested())
@@ -155,7 +163,7 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
         using var reader = new WaveFileReader(stream);
         var deviceNumber = ResolveOutputDeviceNumber(requestedOutputId, WaveOut.DeviceCount);
         using var output = new WaveOutEvent { DeviceNumber = deviceNumber };
-        output.Volume = Math.Clamp(volume, 0, 100) / 100f;
+        output.Volume = effectiveVolume / 100f;
         Exception? playbackError = null;
         output.PlaybackStopped += (_, eventArgs) => playbackError = eventArgs.Exception;
         output.Init(reader);
