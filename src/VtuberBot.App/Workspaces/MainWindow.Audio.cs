@@ -296,10 +296,108 @@ public partial class MainWindow
         pitchSlider.ValueChanged += (_, _) => pitchLabel.Text = $"Tono / pitch: {pitchSlider.Value:0.00}";
         intonationSlider.ValueChanged += (_, _) => intonationLabel.Text = $"Variación de entonación: {intonationSlider.Value:0.00}×";
 
+        var allowWindowsSapiCheck = new CheckBox
+        {
+            Content = "Permitir voz de Windows SAPI como respaldo (puede sonar robótica)",
+            IsChecked = store.GetSetting("audio.tts.windowsSapiEnabled", "false") == "true",
+            Foreground = Brush("#E7C48A"),
+            Margin = new Thickness(0, 4, 0, 10)
+        };
+        void SaveWindowsSapiPreference(bool enabled)
+        {
+            try
+            {
+                store.SetSetting("audio.tts.windowsSapiEnabled", enabled ? "true" : "false");
+                store.Log("Audio", enabled
+                    ? "El usuario habilitó explícitamente el respaldo de voz Windows SAPI."
+                    : "El respaldo Windows SAPI está desactivado; se exige el motor seleccionado.");
+                FooterStatus.Text = enabled
+                    ? "Respaldo Windows SAPI habilitado. Puede sonar menos natural que una voz neuronal."
+                    : "Respaldo Windows SAPI desactivado; se usará la voz local neuronal guardada o se mostrará un error claro.";
+            }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo guardar la preferencia de voz: " + exception.GetBaseException().Message;
+            }
+        }
+        allowWindowsSapiCheck.Checked += (_, _) => SaveWindowsSapiPreference(true);
+        allowWindowsSapiCheck.Unchecked += (_, _) => SaveWindowsSapiPreference(false);
+
+        var presetPicker = new ComboBox
+        {
+            ItemsSource = VoiceTuningPresetPolicy.Presets,
+            DisplayMemberPath = nameof(VoiceTuningPreset.Name),
+            SelectedValuePath = nameof(VoiceTuningPreset.Id),
+            SelectedValue = "natural",
+            MinWidth = 320,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        var initialProfile = new VoiceTuningProfile(initialPitch, initialIntonation, initialRate, initialVolume);
+        string? activeTuningVoiceId = null;
+        var applyingTuningProfile = false;
+
+        VoiceTuningProfile CurrentTuningProfile() =>
+            VoiceTuningPresetPolicy.Normalize(new VoiceTuningProfile(
+                pitchSlider.Value, intonationSlider.Value, (int)Math.Round(rateSlider.Value),
+                (int)Math.Round(volumeSlider.Value)));
+
+        void ApplyTuningProfile(VoiceTuningProfile profile)
+        {
+            applyingTuningProfile = true;
+            try
+            {
+                profile = VoiceTuningPresetPolicy.Normalize(profile);
+                pitchSlider.Value = profile.PitchScale;
+                intonationSlider.Value = profile.IntonationScale;
+                rateSlider.Value = profile.Rate;
+                volumeSlider.Value = profile.Volume;
+                var matchingPreset = VoiceTuningPresetPolicy.Presets.FirstOrDefault(preset =>
+                    Math.Abs(preset.PitchScale - profile.PitchScale) < 0.005 &&
+                    Math.Abs(preset.IntonationScale - profile.IntonationScale) < 0.005 &&
+                    preset.Rate == profile.Rate);
+                presetPicker.SelectedValue = matchingPreset?.Id;
+            }
+            finally { applyingTuningProfile = false; }
+        }
+
+        void SaveTuningProfile(string voiceId, bool setAsDefaultVoice)
+        {
+            if (!VoicevoxSpeechSession.IsVoiceId(voiceId)) return;
+            var profile = CurrentTuningProfile();
+            store.SetSetting(VoiceTuningPresetPolicy.GetSettingKey(voiceId), VoiceTuningPresetPolicy.Serialize(profile));
+            if (!setAsDefaultVoice) return;
+
+            savedVoiceId = voiceId;
+            store.SetSetting("audio.voicevox.voiceId", voiceId);
+            store.SetSetting("audio.tts.voiceId", voiceId);
+            store.SetSetting("audio.tts.rate", profile.Rate.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.tts.volume", profile.Volume.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.voicevox.pitchScale", profile.PitchScale.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            store.SetSetting("audio.voicevox.intonationScale", profile.IntonationScale.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        voicePicker.SelectionChanged += (_, _) =>
+        {
+            if (applyingTuningProfile ||
+                voicePicker.SelectedItem is not LocalSpeechVoice selectedVoice ||
+                !VoicevoxSpeechSession.IsVoiceId(selectedVoice.Id))
+                return;
+
+            if (VoicevoxSpeechSession.IsVoiceId(activeTuningVoiceId))
+                SaveTuningProfile(activeTuningVoiceId!, setAsDefaultVoice: false);
+
+            var savedProfile = VoiceTuningPresetPolicy.TryDeserialize(
+                store.GetSetting(VoiceTuningPresetPolicy.GetSettingKey(selectedVoice.Id), string.Empty));
+            ApplyTuningProfile(savedProfile ?? initialProfile);
+            activeTuningVoiceId = selectedVoice.Id;
+            savedVoiceId = selectedVoice.Id;
+        };
+
         panel.Children.Add(Label("Síntesis de voz local · VOICEVOX Engine", 14, "#F8FAFC", true));
         panel.Children.Add(Label(
-            "Esta pantalla usa únicamente estilos que VOICEVOX devuelve desde tu motor local. No cambia silenciosamente a Windows SAPI, Gemini ni a una API remota. Las voces VOICEVOX habituales están orientadas al japonés: el motor puede intentar sintetizar español, pero la pronunciación natural en español no está garantizada. El motor y las voces deben estar instalados según sus licencias.",
+            "VOICEVOX sintetiza la frase completa antes de reproducirla y trabaja localmente. Podés guardar tono, entonación, velocidad y volumen por cada estilo de voz. Sus voces habituales están orientadas al japonés: para español, la pronunciación natural no está garantizada. El procesamiento tiene un límite de 60 segundos; si se supera, la frase falla con un aviso en lugar de cambiar a otra voz.",
             12, "#98A4BE"));
+
         panel.Children.Add(Label("Dirección local de VOICEVOX Engine", 12, "#98A4BE"));
         panel.Children.Add(voicevoxBaseUrlField);
         panel.Children.Add(Label("Ejecutable de VOICEVOX Engine (no se incluye en VTuberBot)", 12, "#98A4BE"));
@@ -473,6 +571,26 @@ public partial class MainWindow
         }));
         panel.Children.Add(Label("Voz / estilo", 12, "#98A4BE"));
         panel.Children.Add(voicePicker);
+        panel.Children.Add(allowWindowsSapiCheck);
+        panel.Children.Add(Label("Sintonizador de voz anime · elegí el estilo y aplicá un perfil", 13, "#F8FAFC", true));
+        panel.Children.Add(Label("Natural conserva el tono base; Anime aguda eleva el tono y la entonación; Anime grave baja el tono; Anime enérgica intensifica la entonación. Después podés afinar los controles manualmente. Los cambios se guardan para la voz seleccionada.",
+            11, "#98A4BE"));
+        panel.Children.Add(presetPicker);
+        panel.Children.Add(ActionButton("Aplicar sintonizador a esta voz", (_, _) =>
+        {
+            if (voicePicker.SelectedItem is not LocalSpeechVoice selectedVoice ||
+                !VoicevoxSpeechSession.IsVoiceId(selectedVoice.Id))
+            {
+                FooterStatus.Text = "Primero iniciá VOICEVOX y seleccioná un estilo de voz.";
+                return;
+            }
+            var preset = VoiceTuningPresetPolicy.GetPreset(presetPicker.SelectedValue as string);
+            ApplyTuningProfile(VoiceTuningPresetPolicy.FromPreset(preset, (int)Math.Round(volumeSlider.Value)));
+            SaveTuningProfile(selectedVoice.Id, setAsDefaultVoice: true);
+            activeTuningVoiceId = selectedVoice.Id;
+            FooterStatus.Text = $"Perfil «{preset.Name}» aplicado y guardado para {selectedVoice.Name}.";
+            store.Log("VOICEVOX", $"Se guardó el perfil de sintonía {preset.Id} para el estilo {selectedVoice.Id}.");
+        }, true));
 
         var outputPicker = new ComboBox
         {
@@ -736,14 +854,11 @@ public partial class MainWindow
             // Keep the generic local-queue preference aligned for internal consumers that already use it.
             store.SetSetting("audio.tts.voiceId", savedVoiceId);
             store.SetSetting("audio.voicevox.outputId", savedOutputId);
-            store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            store.SetSetting("audio.voicevox.pitchScale", VoicevoxSpeechSession.NormalizePitchScale(pitchSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            store.SetSetting("audio.voicevox.intonationScale", VoicevoxSpeechSession.NormalizeIntonationScale(intonationSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            SaveTuningProfile(savedVoiceId, setAsDefaultVoice: true);
             var cpuThreads = VoicevoxEngineLaunchPolicy.NormalizeCpuThreads(
                 voicevoxCpuThreadsPicker.SelectedValue is int selectedThreads ? selectedThreads : 2);
             store.SetSetting("audio.voicevox.cpuThreads", cpuThreads.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            store.SetSetting("audio.tts.volume", ((int)volumeSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            FooterStatus.Text = "Preferencias VOICEVOX, salida, velocidad y volumen guardados en SQLite.";
+            FooterStatus.Text = $"Voz, salida y sintonía de {selected.Name} guardadas en SQLite.";
             store.Log("VOICEVOX", "Preferencias de voz local guardadas.");
         }, true));
         panel.Children.Add(speech);
@@ -790,10 +905,8 @@ public partial class MainWindow
             store.SetSetting("audio.voicevox.voiceId", voiceId);
             store.SetSetting("audio.tts.voiceId", voiceId);
             store.SetSetting("audio.voicevox.outputId", outputId);
-            store.SetSetting("audio.voicevox.pitchScale", VoicevoxSpeechSession.NormalizePitchScale(pitchSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            store.SetSetting("audio.voicevox.intonationScale", VoicevoxSpeechSession.NormalizeIntonationScale(intonationSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            store.SetSetting("audio.tts.rate", ((int)rateSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            store.SetSetting("audio.tts.volume", ((int)volumeSlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            ApplyTuningProfile(CurrentTuningProfile());
+            SaveTuningProfile(voiceId, setAsDefaultVoice: true);
 
             if (speechQueue.Enqueue(textToSpeak, selectedPriority, voiceId,
                     (int)rateSlider.Value, (int)volumeSlider.Value, outputId))
@@ -929,7 +1042,7 @@ public partial class MainWindow
         soundPanel.Children.Add(soundActions);
         root.Children.Add(soundPanel);
         
-        root.Children.Add(Label("El dispositivo de micrófono, el umbral acústico y la retención se guardan automáticamente y se recuperan al reiniciar. La detección de micrófono usa amplitud suavizada y retención, no reconocimiento semántico ni sincronización fonema a fonema. La voz principal se genera mediante VOICEVOX Engine local: esta página no cambia silenciosamente a SAPI de Windows, Gemini ni a un servicio remoto. Las voces estándar de VOICEVOX están orientadas principalmente al japonés, por lo que la pronunciación natural del español no está garantizada. La cola de voz está limitada a 32 frases.", 12, "#98A4BE"));
+        root.Children.Add(Label("El micrófono solo controla el estado Idle/Talking del avatar; no cambia la voz del micrófono en tiempo real. La cola de voz conserva un máximo de 32 frases. Para evitar la voz robótica de Windows, dejá desactivado SAPI y guardá un estilo VOICEVOX como voz local; si el motor no está listo, VTuberBot avisará el error en vez de sustituirlo silenciosamente. VOICEVOX está pensado principalmente para japonés, no se garantiza una lectura natural del español.", 12, "#98A4BE"));
         return root;
     }
 
@@ -961,6 +1074,46 @@ public partial class MainWindow
         output?.Dispose();
         reader?.Dispose();
     }
+    private VoiceTuningProfile? ReadSavedVoiceTuningProfile(int speakerId)
+    {
+        var voiceId = VoicevoxSpeechSession.VoiceIdPrefix +
+            speakerId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return VoiceTuningPresetPolicy.TryDeserialize(
+            store.GetSetting(VoiceTuningPresetPolicy.GetSettingKey(voiceId), string.Empty));
+    }
+
+    private double GetVoicevoxPitchScaleForSpeaker(int speakerId)
+    {
+        var profile = ReadSavedVoiceTuningProfile(speakerId);
+        if (profile is not null) return profile.PitchScale;
+        return double.TryParse(store.GetSetting("audio.voicevox.pitchScale", "0"),
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pitch)
+            ? VoicevoxSpeechSession.NormalizePitchScale(pitch) : 0d;
+    }
+
+    private double GetVoicevoxIntonationScaleForSpeaker(int speakerId)
+    {
+        var profile = ReadSavedVoiceTuningProfile(speakerId);
+        if (profile is not null) return profile.IntonationScale;
+        return double.TryParse(store.GetSetting("audio.voicevox.intonationScale", "1"),
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var intonation)
+            ? VoicevoxSpeechSession.NormalizeIntonationScale(intonation) : 1d;
+    }
+
+    private int GetVoicevoxRateForSpeaker(int speakerId)
+    {
+        var profile = ReadSavedVoiceTuningProfile(speakerId);
+        return profile?.Rate ?? (int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var rate)
+            ? Math.Clamp(rate, -10, 10) : 0);
+    }
+
+    private int GetVoicevoxVolumeForSpeaker(int speakerId)
+    {
+        var profile = ReadSavedVoiceTuningProfile(speakerId);
+        return profile?.Volume ?? (int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var volume)
+            ? Math.Clamp(volume, 0, 100) : 100);
+    }
+
     private bool EnqueueLocalSpeech(string text, SpeechPriority priority)
     {
         var voiceId = store.GetSetting("audio.tts.voiceId");

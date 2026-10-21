@@ -5,6 +5,10 @@ namespace VtuberBot.Tests;
 
 public sealed class VoicevoxSpeechSessionTests
 {
+    [Fact]
+    public void SynthesisWaitIsBoundedToOneMinute() =>
+        Assert.Equal(60, VoicevoxSpeechSession.SynthesisTimeoutSeconds);
+
     private sealed class FakeSpeechSession : ILocalSpeechSession
     {
         public int Calls { get; private set; }
