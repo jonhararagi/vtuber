@@ -124,7 +124,7 @@ public partial class MainWindow
                 DisplaySnapshot(snapshot);
                 FooterStatus.Text = "Análisis de almacenamiento completado; no se modificaron archivos.";
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
+            catch (Exception exception)
             {
                 summary.Text = "No se pudo completar el análisis. No se eliminaron archivos.";
                 FooterStatus.Text = "Error al analizar almacenamiento: " + exception.GetBaseException().Message;
@@ -209,14 +209,13 @@ public partial class MainWindow
 
                 var result = await Task.Run(() => StorageMaintenanceService.DeleteSelected(fresh, stillEligible, store.DatabasePath));
                 store.Log("Almacenamiento", $"Limpieza confirmada: {result.DeletedCount} archivos, {StorageMaintenanceService.FormatBytes(result.BytesFreed)} liberados estimados.");
-                await Task.Run(() => { }); // Yield after filesystem work before refreshing the view.
                 DisplaySnapshot(await ScanAsync());
                 FooterStatus.Text = $"Limpieza terminada: {result.DeletedCount} archivos eliminados; {StorageMaintenanceService.FormatBytes(result.BytesFreed)} recuperados. Omitidos: {result.SkippedRelativePaths.Count}.";
                 MessageBox.Show(this,
                     $"Archivos eliminados: {result.DeletedCount}\nEspacio recuperado estimado: {StorageMaintenanceService.FormatBytes(result.BytesFreed)}\nOmitidos por cambios, protección o permisos: {result.SkippedRelativePaths.Count}.",
                     "Limpieza completada", MessageBoxButton.OK, MessageBoxImage.Information);
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
+            catch (Exception exception)
             {
                 FooterStatus.Text = "No se pudo completar la limpieza: " + exception.GetBaseException().Message;
                 MessageBox.Show(this, "No se completó toda la limpieza. Los archivos que no pudieron verificarse se conservan.\n\n" +
