@@ -37,6 +37,8 @@ public sealed record StorageCleanupResult(
 public static class StorageMaintenanceService
 {
     private const long MetadataFileLimitBytes = 2L * 1024 * 1024;
+    private const int MaximumMetadataFilesToInspect = 5_000;
+    private const long MaximumMetadataBytesToInspect = 16L * 1024 * 1024;
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" };
     private static readonly HashSet<string> SoundExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -71,6 +73,9 @@ public static class StorageMaintenanceService
             AddReference(referenced, path, root);
 
         var metadataTexts = new List<string>();
+        var metadataScanReliable = true;
+        var inspectedMetadataFiles = 0;
+        long inspectedMetadataBytes = 0;
         foreach (var path in files)
         {
             if (IsProtectedLocation(root, path, database) || !MetadataExtensions.Contains(Path.GetExtension(path)))
@@ -79,8 +84,17 @@ public static class StorageMaintenanceService
             try
             {
                 var info = new FileInfo(path);
-                if (info.Length is <= 0 or > MetadataFileLimitBytes)
+                if (info.Length is <= 0)
                     continue;
+                if (info.Length > MetadataFileLimitBytes ||
+                    inspectedMetadataFiles >= MaximumMetadataFilesToInspect ||
+                    inspectedMetadataBytes + info.Length > MaximumMetadataBytesToInspect)
+                {
+                    metadataScanReliable = false;
+                    continue;
+                }
+                inspectedMetadataFiles++;
+                inspectedMetadataBytes += info.Length;
 
                 var text = File.ReadAllText(path);
                 if (Path.GetExtension(path).Equals(".json", StringComparison.OrdinalIgnoreCase))
@@ -92,8 +106,10 @@ public static class StorageMaintenanceService
                     }
                     catch (JsonException)
                     {
-                        // Damaged metadata is not repaired or deleted. Treat unproven images conservatively below.
+                        // Damaged metadata is not repaired or deleted. Do not offer any image for
+                        // orphan cleanup when its complete reference graph cannot be trusted.
                         metadataTexts.Add(text);
+                        metadataScanReliable = false;
                     }
                 }
                 else if (IsUnderNamedDirectory(root, path, "avatars") ||
@@ -105,6 +121,7 @@ public static class StorageMaintenanceService
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
             {
                 // A file that could not be inspected does not prove that an asset is orphaned.
+                metadataScanReliable = false;
             }
         }
 
@@ -148,7 +165,7 @@ public static class StorageMaintenanceService
 
             var candidate = GetCleanupCandidate(
                 root, path, relative, category, size, info.LastWriteTimeUtc,
-                database, referenced, metadataTexts, now);
+                database, referenced, metadataTexts, metadataScanReliable, now);
             if (candidate is not null)
                 candidates.Add(candidate);
         }
@@ -257,6 +274,7 @@ public static class StorageMaintenanceService
         string database,
         HashSet<string> referenced,
         IReadOnlyList<string> metadataTexts,
+        bool metadataScanReliable,
         DateTime nowUtc)
     {
         if (IsProtectedLocation(root, path, database))
@@ -273,6 +291,7 @@ public static class StorageMaintenanceService
         }
 
         if (IsAvatarImagePath(root, path, extension) &&
+            metadataScanReliable &&
             !referenced.Contains(Path.GetFullPath(path)) &&
             !metadataTexts.Any(text => text.Contains(Path.GetFileName(path), StringComparison.OrdinalIgnoreCase)))
         {
