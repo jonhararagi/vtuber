@@ -5,12 +5,24 @@ namespace VtuberBot.Tests;
 
 public sealed class DatabaseCompactionTests
 {
+    private sealed class TempRoot : IDisposable
+    {
+        public string Root { get; } = Directory.CreateTempSubdirectory("vtuber-vacuum-").FullName;
+
+        public void Dispose()
+        {
+            try { Directory.Delete(Root, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
     [Fact]
     public void CompactionCreatesVerifiedBackupAndPreservesDatabaseSettings()
     {
-        using var root = Directory.CreateTempSubdirectory("vtuber-vacuum-");
-        var databasePath = Path.Combine(root.FullName, "product.db");
-        var backupPath = Path.Combine(root.FullName, "backups", "before-vacuum.vtuberbot.db");
+        using var root = new TempRoot();
+        var databasePath = Path.Combine(root.Root, "product.db");
+        var backupPath = Path.Combine(root.Root, "backups", "before-vacuum.vtuberbot.db");
         var store = new ProductStore(databasePath);
         store.SetSetting("storage.compaction.test", "keep-me");
         store.SaveCommand(null, "compaction-test", "persistent command", 0, true);
@@ -33,8 +45,8 @@ public sealed class DatabaseCompactionTests
     [Fact]
     public void CompactionRejectsEmptyBackupPathBeforeChangingDatabase()
     {
-        using var root = Directory.CreateTempSubdirectory("vtuber-vacuum-invalid-");
-        var databasePath = Path.Combine(root.FullName, "product.db");
+        using var root = new TempRoot();
+        var databasePath = Path.Combine(root.Root, "product.db");
         var store = new ProductStore(databasePath);
         store.SetSetting("compaction.test", "untouched");
 
