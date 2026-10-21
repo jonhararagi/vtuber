@@ -20,17 +20,23 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
     private readonly Func<string> baseUrl;
     private readonly Func<double> pitchScale;
     private readonly Func<double> intonationScale;
+    private readonly Func<int, double>? speakerPitchScale;
+    private readonly Func<int, double>? speakerIntonationScale;
     private readonly HttpClient http = new() { Timeout = Timeout.InfiniteTimeSpan };
     private bool disposed;
 
     public VoicevoxSpeechSession(
         Func<string>? baseUrl = null,
         Func<double>? pitchScale = null,
-        Func<double>? intonationScale = null)
+        Func<double>? intonationScale = null,
+        Func<int, double>? speakerPitchScale = null,
+        Func<int, double>? speakerIntonationScale = null)
     {
         this.baseUrl = baseUrl ?? (() => DefaultBaseUrl);
         this.pitchScale = pitchScale ?? (() => 0d);
         this.intonationScale = intonationScale ?? (() => 1d);
+        this.speakerPitchScale = speakerPitchScale;
+        this.speakerIntonationScale = speakerIntonationScale;
     }
 
     public static double NormalizePitchScale(double value) =>
@@ -117,7 +123,9 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
         if (!IsVoiceId(requestedVoiceId) || !int.TryParse(requestedVoiceId[VoiceIdPrefix.Length..], out var speakerId))
             throw new InvalidOperationException("Seleccioná una voz de VOICEVOX válida en la regla de reacción.");
 
-        using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        // Generate the complete waveform before playback so queue order stays predictable.
+        // Never hold the user waiting indefinitely on a local Engine that is loading a model.
+        using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var synthesis = SynthesizeAsync(text, speakerId, rate, cancel.Token);
         while (!synthesis.IsCompleted)
         {
@@ -129,7 +137,15 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
             }
             Thread.Sleep(35);
         }
-        var audio = synthesis.GetAwaiter().GetResult();
+        byte[] audio;
+        try
+        {
+            audio = synthesis.GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException exception) when (cancel.IsCancellationRequested && !cancellationRequested())
+        {
+            throw new TimeoutException("VOICEVOX tardó más de 60 segundos en procesar la frase. Probá un texto más corto o reducí los hilos/carga del equipo.", exception);
+        }
         if (cancellationRequested()) return new(false, true);
         if (audio.Length is <= 0 or > MaximumAudioBytes)
             throw new InvalidOperationException("VOICEVOX devolvió audio vacío o superior a 12 MB.");
@@ -165,8 +181,8 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
         var queryJson = await queryResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         var query = JsonNode.Parse(queryJson) ?? throw new InvalidOperationException("VOICEVOX devolvió una consulta de audio vacía.");
         query["speedScale"] = Math.Clamp(1.0 + Math.Clamp(rate, -10, 10) * 0.06, 0.5, 2.0);
-        query["pitchScale"] = NormalizePitchScale(pitchScale());
-        query["intonationScale"] = NormalizeIntonationScale(intonationScale());
+        query["pitchScale"] = NormalizePitchScale(speakerPitchScale?.Invoke(speakerId) ?? pitchScale());
+        query["intonationScale"] = NormalizeIntonationScale(speakerIntonationScale?.Invoke(speakerId) ?? intonationScale());
         using var request = new StringContent(query.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
         var synthesisEndpoint = BuildEndpoint(baseUrl(), $"synthesis?speaker={speakerId}");
         using var response = await http.PostAsync(synthesisEndpoint, request, cancellationToken).ConfigureAwait(false);
