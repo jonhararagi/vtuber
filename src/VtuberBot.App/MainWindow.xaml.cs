@@ -58,6 +58,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<string> chatLines = [];
     private readonly DispatcherTimer automationTimer = new() { Interval = TimeSpan.FromMinutes(1) };
     private readonly DispatcherTimer twitchCredentialTimer = new() { Interval = TimeSpan.FromMinutes(5) };
+    private readonly DispatcherTimer kickWebhookRetentionTimer = new() { Interval = TimeSpan.FromHours(6) };
     private readonly Dictionary<long, DateTimeOffset> automationLastRun = [];
     private readonly Dictionary<long, DateTimeOffset> automationOfflineLog = [];
     private readonly Dictionary<long, DateTimeOffset> automationFirstObserved = [];
@@ -325,6 +326,8 @@ public partial class MainWindow : Window
                 expiredKickPayloads.ToString(System.Globalization.CultureInfo.InvariantCulture) +
                 " payload(s) de eventos Kick fallidos vencieron la retención local de 30 días; se borró el contenido y se mantuvo temporalmente el ID para deduplicación.");
         }
+        kickWebhookRetentionTimer.Tick += (_, _) => RunKickWebhookRetentionSweep();
+        kickWebhookRetentionTimer.Start();
 
         Loaded += async (_, _) =>
         {
@@ -608,6 +611,7 @@ public partial class MainWindow : Window
         dashboardMetricsTimer?.Stop();
         automationTimer.Stop();
         twitchCredentialTimer.Stop();
+        kickWebhookRetentionTimer.Stop();
 
         try { StopMicrophone(); }
         catch (Exception exception) { LogShutdownFailure("micrófono", exception); }
