@@ -139,6 +139,45 @@ public sealed class StorageMaintenanceServiceTests
         Assert.True(File.Exists(stale));
     }
 
+    [Fact]
+    public void ProductStoreReferenceIndexIncludesInactiveProfilesAndMouthSprites()
+    {
+        using var temp = new TempRoot();
+        var store = new ProductStore(temp.DatabasePath);
+        var assets = Directory.CreateDirectory(Path.Combine(temp.Root, "avatars")).FullName;
+
+        var defaultBase = Write(Path.Combine(assets, "default-base.png"), "default base");
+        var defaultExpression = Write(Path.Combine(assets, "default-idle.png"), "default expression");
+        var defaultLayer = Write(Path.Combine(assets, "default-layer.png"), "default layer");
+        var closedMouth = Write(Path.Combine(assets, "mouth-closed.png"), "closed mouth");
+        var openMouth = Write(Path.Combine(assets, "mouth-open.png"), "open mouth");
+        store.SetActiveAvatarProfileBasePath(defaultBase);
+        store.SetAvatarExpression("Idle", defaultExpression);
+        var defaultLayerId = store.AddAvatarLayer("default layer", defaultLayer);
+        store.SetAvatarLayerMouthSprites(defaultLayerId, closedMouth, openMouth);
+
+        var secondProfile = store.CreateAvatarProfile("Alternate", duplicateActiveProfile: false);
+        store.SetActiveAvatarProfile(secondProfile.Id);
+        var alternateBase = Write(Path.Combine(assets, "alternate-base.png"), "alternate base");
+        var alternateExpression = Write(Path.Combine(assets, "alternate-talk.png"), "alternate expression");
+        var alternateLayer = Write(Path.Combine(assets, "alternate-layer.png"), "alternate layer");
+        store.SetActiveAvatarProfileBasePath(alternateBase);
+        store.SetAvatarExpression("Talking", alternateExpression);
+        _ = store.AddAvatarLayer("alternate layer", alternateLayer);
+
+        var referenced = store.GetReferencedAvatarAssetPaths().ToHashSet(
+            OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+
+        Assert.Contains(defaultBase, referenced);
+        Assert.Contains(defaultExpression, referenced);
+        Assert.Contains(defaultLayer, referenced);
+        Assert.Contains(closedMouth, referenced);
+        Assert.Contains(openMouth, referenced);
+        Assert.Contains(alternateBase, referenced);
+        Assert.Contains(alternateExpression, referenced);
+        Assert.Contains(alternateLayer, referenced);
+    }
+
     private static string Write(string path, string content)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
