@@ -17,9 +17,9 @@ public sealed record KickWebhookInboxSummary(int Pending, int Processing, int Fa
 public sealed class ProductStore : IProductSettingsStore
 {
     public const int CurrentProductSchemaVersion = 3;
-    public const int MaximumPendingKickWebhookEvents = 5_000;
-    private const int MaximumKickWebhookInboxRows = 50_000;
-    private const int KickWebhookInboxPayloadLimitBytes = 1_048_576;
+    public const int MaximumPendingKickWebhookEvents = 1_000;
+    private const int MaximumKickWebhookInboxRows = 2_000;
+    private const int KickWebhookInboxPayloadLimitBytes = 65_536;
     private const int KickWebhookProcessedRetentionDays = 30;
     public const int DefaultActivityRetention = 100_000;
     private const int ActivityPruneInterval = 5_000;
