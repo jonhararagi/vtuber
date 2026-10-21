@@ -71,8 +71,8 @@ public partial class MainWindow
                 new[]
                 {
                     ("Twitch", "VTuberBot ya dispone de conexión de chat y EventSub. Autorizá la cuenta correcta, elegí el canal destino y comprobá los permisos que Twitch solicite. El login de la cuenta bot y el nombre del canal destino son campos diferentes."),
-                    ("Kick", "En esta versión podés autorizar tu propia app, verificar un canal y enviar manualmente un mensaje de prueba. La recepción automática del chat/eventos de Kick todavía no está conectada al sistema de comandos o TTS."),
-                    ("Reglas y voz", "Las respuestas y reacciones actuales se alimentan del chat de Twitch. No interpretes una regla guardada como prueba de que Kick ya la ejecuta."),
+                    ("Kick", "Kick admite OAuth, consulta real de canal, envío manual de prueba con confirmación y recepción de eventos mediante webhooks con firma verificada. Para recibirlos, creá tu app, activá Enable Webhooks en Kick Developer, registrá las suscripciones y configurá un túnel HTTPS público hacia la ruta local /kick-webhook; VTuberBot no crea ese túnel. Los mensajes de chat recibidos pueden activar reglas de moderación de Kick solo si las habilitás; todavía no se enrutan al sistema común de comandos, ChatSpeak, reacciones o TTS."),
+                    ("Reglas y voz", "Las reglas de moderación pueden evaluar mensajes de Twitch y mensajes de Kick recibidos por webhooks firmados, según la configuración y los permisos. Las respuestas, ChatSpeak, reacciones y TTS conectados al router común siguen usando la ruta de Twitch; Kick no se conecta todavía a ese flujo común."),
                     ("Streamer.bot", "Es opcional. Puede servir como puente para acciones que ya tenés ahí, pero evitá definir la misma respuesta en Streamer.bot y VTuberBot a la vez para que el chat no reciba duplicados."),
                     ("Estado real", "Token guardado significa que hay credenciales locales. Solo una consulta real a la API o una conexión real permite confirmar la función correspondiente.")
                 },
@@ -129,7 +129,7 @@ public partial class MainWindow
                 {
                     ("Twitch no conecta", "Comprobá Internet, el login real de la cuenta bot, el canal destino, la autorización y los scopes. Desconectá y volvé a autorizar si el token perdió permisos. No pegues el token en un mensaje."),
                     ("Kick muestra error OAuth o HTTP 400", "Comprobá que el Client ID y Client Secret sean de la misma app y que la Redirect URL registrada coincida literalmente con la que muestra VTuberBot: http://localhost:17564/callback/. Hay reportes públicos de Kick con respuestas 400 vacías incluso tras revisar PKCE y redirect_uri; si persiste, guardá la hora/código HTTP y revisá el estado del servicio, sin asumir que la contraseña es incorrecta."),
-                    ("Kick no recibe comandos", "Es una limitación conocida de esta versión, no una opción escondida. Kick necesita un webhook accesible desde Internet con verificación de firma para los eventos; la recepción y el enrutamiento todavía no están implementados."),
+                    ("Kick recibe eventos pero no ejecuta comandos", "La recepción de webhooks ya está implementada, pero requiere Enable Webhooks en Kick Developer, suscripciones aceptadas y una URL HTTPS pública que reenvíe /kick-webhook a 127.0.0.1:17565. VTuberBot escucha solo en loopback y no crea el túnel. Los mensajes recibidos pueden activar reglas de moderación de Kick si la automatización está activada; aún no disparan comandos comunes, ChatSpeak, reacciones ni TTS."),
                     ("OBS no conecta", "Confirmá que OBS esté abierto, que WebSocket esté habilitado, que el puerto sea el mismo (normalmente 4455) y que la contraseña coincida. OBS 28 o posterior incorpora obs-websocket; no expongas el puerto a redes no confiables."),
                     ("VOICEVOX no aparece", "Abrí/instalá VOICEVOX Engine por separado, iniciá el motor local, verificá su URL y pulsá actualizar voces. El paquete de VTuberBot no incluye Engine ni voicebanks."),
                     ("No sabés por dónde empezar", "Seguí este orden: PNGTuber 2D → Voz y audio → OBS → Bots y plataformas. Abrí Actividad y diagnóstico si un botón informa que algo falló.")
@@ -148,10 +148,10 @@ public partial class MainWindow
             new[]
             {
                 ("Twitch", "Conecta el chat de Twitch y EventSub usando la autorización de tu cuenta. Es la ruta actual para reglas y reacciones basadas en mensajes."),
-                ("Kick", "Autoriza tu aplicación Kick, consulta los datos del canal y permite un envío de prueba que requiere confirmación. No recibe automáticamente mensajes/eventos todavía."),
+                ("Kick", "Autoriza tu aplicación, consulta el canal y permite envíos manuales confirmados. También recibe eventos mediante webhooks firmados cuando el túnel HTTPS público, Enable Webhooks y las suscripciones están bien configurados. El inicio del receptor local no confirma por sí solo que haya entrega desde Internet."),
                 ("Reglas y voz", "Configura respuestas, reacciones y voz asociadas al chat que está conectado actualmente; en esta versión corresponde al flujo de Twitch."),
                 ("Streamer.bot (opcional)", "Permite usar la integración con Streamer.bot cuando ya la tenés instalada. No hace falta para el flujo local básico y conviene no duplicar reglas."),
-                ("Qué significa una conexión", "Un token guardado no es lo mismo que una conexión de chat. Kick se considera verificado después de consultar su API; la recepción de eventos requiere una implementación aparte.")
+                ("Qué significa una conexión", "Un token guardado no demuestra conectividad. Consultar la API confirma solo esa consulta; iniciar el receptor confirma solo que escucha localmente. Para comprobar webhooks hace falta ver un evento real recibido y con firma validada en Actividad y diagnóstico.")
             },
             null, null);
     }

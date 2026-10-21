@@ -36,8 +36,9 @@ El objetivo no es reconstruir Twitch ni sustituir OBS como motor de transmisión
 
 - **Aprobado ahora:** una página opcional **Bots y plataformas** para administrar desde la misma interfaz los conectores de Twitch y Kick, el comportamiento del bot, el estado real de conexión y el puente opcional de Streamer.bot. OBS continúa siendo el motor de escenas/transmisión; las plataformas siguen siendo autoridades de sus cuentas y permisos.
 - **Twitch:** reutilizar la conexión OAuth/chat IRC y EventSub que ya están implementados. Los mensajes entrantes solo procesan comandos, ChatSpeak, reacciones y reglas existentes cuando la cuenta está autorizada y las funciones correspondientes están habilitadas. No duplicar las mismas reglas en otro servicio ni solicitar permisos que no se usen.
-- **Kick — fase implementada:** OAuth Authorization Code + PKCE de una app creada por el usuario, secretos/tokens protegidos con DPAPI local, consulta real de canal y envío manual de chat por la API oficial después de confirmar destino y contenido. El Client Secret no se comparte ni se incluye en el binario.
-- **Kick — pendiente explícito:** recepción de mensajes/eventos del chat y conexión automática con el router de comandos/TTS/reacciones. La API de eventos usa webhooks públicos y exige validación de firma; no fingir que abrir VTuberBot crea por sí solo un endpoint público.
+- **Kick — implementado en código:** OAuth Authorization Code + PKCE de una app creada por el usuario, secretos/tokens protegidos con DPAPI local, consulta real de canal, envío manual de chat con confirmación, acciones de moderación y receptor de eventos por webhooks con firma RSA-SHA256 verificada, control de antigüedad y validación de suscripción/canal.
+- **Configuración externa necesaria:** crear/configurar la app en Kick Developer, activar Enable Webhooks, registrar los tipos de evento y suscripciones, y configurar una URL HTTPS pública mediante un túnel que reenvíe `/kick-webhook` al receptor local `127.0.0.1:17565`. VTuberBot no crea el túnel ni abre puertos públicos. Un token guardado o una suscripción aceptada no prueban que los eventos lleguen; debe verse un evento real recibido y validado.
+- **Alcance todavía pendiente:** el chat de Kick entrante puede alimentar las reglas de moderación de Kick cuando el usuario activa expresamente esa automatización. No está conectado al enrutador común de comandos, ChatSpeak, reacciones ni TTS. La cola de eventos se mantiene en memoria; un cierre forzado puede perder eventos que ya fueron aceptados, aunque los rechazos por saturación o por falta de admisión solicitan reintento.
 - **No prometer paridad multiplataforma:** las acciones exclusivas, recompensas, moderación y eventos disponibles dependen de cada API, scopes y cuentas. Un comando o acción común solo se ejecutará en una plataforma cuando su adaptador esté realmente implementado y probado.
 - **Comandos personalizados con alcance local:** pueden seguir ejecutándose desde VTuberBot o mediante una integración OBS compatible, siempre que la interfaz describa qué los dispara y qué acción realizan.
 - **Streamer.bot:** puede usarse como puente opcional para flujos concretos; no es una dependencia obligatoria ni debe duplicar reglas que VTuberBot ya ejecuta.
@@ -57,7 +58,7 @@ El objetivo no es reconstruir Twitch ni sustituir OBS como motor de transmisión
 - **Motor local:** integrar el control de VOICEVOX Engine mediante su interfaz local documentada (por defecto suele utilizar localhost y el puerto 50021, pero el puerto real debe poder configurarse y verificarse). El proceso del motor puede gestionarse en segundo plano por VTuberBot si la distribución/licencia y el empaquetado lo permiten; de lo contrario, el asistente debe detectar una instalación local y explicar cómo prepararla sin esconder la dependencia.
 - **No asumir que se puede redistribuir cualquier voz:** verificar las licencias y condiciones actuales de VOICEVOX Engine y de cada personaje/voicebank. No empaquetar voces ni recursos sin permiso; mostrar avisos/créditos requeridos y enlazar las fuentes oficiales.
 - **No usar Gemini ni una API remota como sustituto silencioso.** Sin motor disponible, mostrar “VOICEVOX no disponible” y pasos concretos. La app no debe simular una voz generada ni declarar éxito si falla la síntesis.
-- Limitar longitud de texto, tamaño de cola, cancelación y manejo de errores. La voz/chat reactivo puede consumir mensajes de Twitch solo cuando su conector real esté conectado y la función correspondiente habilitada; Kick no alimenta aún la cola de TTS porque su chat entrante por webhooks sigue pendiente.
+- Limitar longitud de texto, tamaño de cola, cancelación y manejo de errores. La voz/chat reactivo puede consumir mensajes de Twitch solo cuando su conector real esté conectado y la función correspondiente habilitada. Kick ya recibe mensajes de chat por webhooks verificados, pero todavía no los conecta a la cola de TTS ni al enrutador común de comandos/reacciones.
 
 ### 2.6 Seguridad y configuración
 
@@ -83,7 +84,7 @@ El objetivo no es reconstruir Twitch ni sustituir OBS como motor de transmisión
 
 ## 5. Fuera de alcance explícito por decisión del usuario
 
-No construir ni mantener como funciones principales: catálogo de waifus prefabricadas, generación automática de personajes, parallax/2.5D, PNGTuber Plus como aplicación requerida, Streamer.bot, conexión Twitch, panel social Twitch, eventos de canal, mensajes automáticos, moderación, puntos/rankings, sorteos, minijuegos, reacciones automáticas, Telegram Web o voz remota Gemini.
+No convertir en flujos principales: catálogo de personajes/waifus prefabricados, generación automática de personajes, parallax/2.5D, instalación obligatoria de PNGTuber Plus, Telegram Web, minijuegos/sorteos/puntos como foco del producto ni voz remota Gemini. Twitch, Kick y moderación se conservan como integraciones opcionales implementadas en código; Streamer.bot también es opcional. La disponibilidad de cada operación externa depende de credenciales, scopes, configuración y validación real. No reintroducir galerías prefabricadas, animación 2.5D ni herramientas heredadas en la navegación principal sin una decisión explícita.
 
 La exclusión de una función de producto no implica borrar código de inmediato. Primero se inspeccionan referencias, datos persistidos, pruebas, menús, documentación, configuración y posibles dependencias indirectas. Si un elemento es compartido con una función conservada, se mantiene o se sustituye de forma segura.
 
@@ -116,7 +117,7 @@ La exclusión de una función de producto no implica borrar código de inmediato
 5. Confirmar uso de RAM/CPU del motor separado y documentar el coste de recursos.
 
 ### Fase 4 — Limpieza controlada de funciones descartadas
-1. Marcar rutas de Twitch, Streamer.bot, Telegram, minijuegos y funciones sociales como fuera de alcance.
+1. Mantener Twitch, Kick, moderación y Streamer.bot como integraciones opcionales existentes; revisar por separado únicamente Telegram Web, los flujos heredados de generación/2.5D y los módulos que no formen parte del recorrido principal aprobado.
 2. Auditar qué código/menús/configuración se comparte con comandos conservados, OBS o SQLite.
 3. Eliminar o esconder únicamente lo que no tenga dependencias útiles; migrar o limpiar datos solo con estrategia reversible y pruebas.
 4. Revisar README, ayuda, guías, instalador y nombres de funciones para no prometer características retiradas.
@@ -153,7 +154,7 @@ La exclusión de una función de producto no implica borrar código de inmediato
 
 - **Arquitectura modular:** pendiente de aprobación explícita, aunque se preservan los límites existentes por seguridad.
 - **VRM/3D:** conservar como opcional, pero el alcance exacto depende de la implementación real encontrada en la auditoría.
-- **Comandos personalizados:** sin Twitch, solo se activan por mecanismos locales/OBS implementados. La activación desde chat requeriría una decisión nueva.
+- **Enrutamiento de comandos:** los comandos/reglas de chat de Twitch usan la conexión real existente cuando está autorizada y activa. Los eventos de Kick pueden alimentar moderación Kick opt-in, pero el enrutamiento de Kick a comandos comunes, ChatSpeak, reacciones y TTS continúa pendiente; Streamer.bot es una alternativa opcional, no un requisito.
 - **VOICEVOX:** la disponibilidad, redistribución y licencia de cada motor/voz deben verificarse antes de empaquetarlos.
 - **Límite de RAM:** 1 GiB es objetivo/umbral de aviso para el proceso VTuberBot, no una garantía de todo el sistema ni de procesos externos.
 - **Integración en main:** la PR de encuadre/editor debe evaluarse junto a los cambios ya presentes en main; no asumir que todo el historial de la rama de producto es seguro para fusionar.
