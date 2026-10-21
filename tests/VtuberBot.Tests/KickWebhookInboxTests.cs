@@ -138,7 +138,7 @@ public sealed class KickWebhookInboxTests
         Assert.Single(store.ClaimPendingKickWebhookEvents());
         store.MarkKickWebhookEventProcessed(processedId);
 
-        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = store.DatabasePath }.ConnectionString))
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temp.DatabasePath }.ConnectionString))
         {
             connection.Open();
             using var ageRows = connection.CreateCommand();
@@ -165,7 +165,7 @@ public sealed class KickWebhookInboxTests
         var store = new ProductStore(temp.DatabasePath);
         store.SetSetting("inbox.migration.keep", "preserved");
 
-        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = store.DatabasePath }.ConnectionString))
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temp.DatabasePath }.ConnectionString))
         {
             connection.Open();
             using var downgrade = connection.CreateCommand();
