@@ -24,6 +24,23 @@ public sealed class BoundedQueueTests
     }
 
     [Fact]
+    public void CanRollbackOnlyTheNewestMatchingItemWithoutChangingFifoOrder()
+    {
+        var queue = new BoundedQueue<string>(3);
+        Assert.True(queue.TryEnqueue("first"));
+        Assert.True(queue.TryEnqueue("second"));
+        Assert.True(queue.TryEnqueue("third"));
+
+        Assert.False(queue.TryRemoveLast("second"));
+        Assert.True(queue.TryRemoveLast("third"));
+        Assert.Equal(2, queue.Count);
+        Assert.True(queue.TryDequeue(out var first));
+        Assert.True(queue.TryDequeue(out var second));
+        Assert.Equal("first", first);
+        Assert.Equal("second", second);
+    }
+
+    [Fact]
     public void ClearReturnsCapacityForSubsequentEvents()
     {
         var queue = new BoundedQueue<int>(1);
