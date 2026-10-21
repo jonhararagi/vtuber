@@ -272,8 +272,10 @@ La cola, las condiciones y los límites evitan bloquear al productor de eventos 
 - Ajustá el umbral acústico y el tiempo de retención para que el estado Talking no parpadee por pequeñas pausas.
 - El detector local suaviza el nivel de señal y activa el cue Talking del overlay; no reconoce palabras ni equivale a lip-sync por fonemas.
 - La cola TTS procesa frases una por una en un hilo STA de fondo para no congelar el panel. Las prioridades Alta/Normal/Baja afectan las frases que todavía esperan. **Detener voz actual** solicita cancelar la frase activa; **Vaciar frases pendientes** solo elimina las frases que esperan y no interrumpe la actual.
-- **Actualizar lista de voces** muestra los motores SAPI instalados en Windows. Podés elegir una voz, ajustar velocidad (-10 a 10) y volumen (0–100); las alertas habladas respetan las preferencias guardadas. No descarga ni incluye un modelo de voz anime por sí sola.
-- **Encolar voz** usa las voces locales instaladas mediante Windows SAPI; no necesita una API de IA remota.
+- **Comprobar y actualizar voces VOICEVOX** consulta los estilos reales que expone el motor local. Elegí uno y probá el sonido; el motor y sus voicebanks se instalan por separado. Las voces habituales se orientan principalmente al japonés, por lo que no se garantiza pronunciación española natural.
+- **Sintonizador de voz anime:** los perfiles Natural, Anime aguda, Anime grave y Anime enérgica ajustan tono, entonación, velocidad y volumen por estilo de voz. Los cambios se guardan localmente; la síntesis completa tiene un límite de espera de 60 segundos por frase.
+- **Windows SAPI** queda desactivado como respaldo automático porque sus voces pueden sonar sintéticas. En **Voz y audio**, habilitá explícitamente **Permitir voz de Windows SAPI como respaldo** solo si querés permitirlo. Si no hay un motor local válido, la app informa el error en lugar de cambiar de voz silenciosamente.
+- **Encolar voz** usa la voz VOICEVOX configurada cuando hay un estilo seleccionado. El micrófono solo controla el estado Talking del avatar: no transforma la voz del micrófono en tiempo real.
 - El lip-sync facial por fonemas/visemas y el enrutamiento avanzado de audio todavía están pendientes.
 
 ## OBS WebSocket
