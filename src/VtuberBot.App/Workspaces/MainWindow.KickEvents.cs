@@ -16,6 +16,29 @@ public partial class MainWindow
     private int kickWebhookProcessorScheduled;
     private int kickWebhookOverflowNotificationPending;
 
+    private void RunKickWebhookRetentionSweep()
+    {
+        try
+        {
+            var expiredPayloads = store.PruneKickWebhookInboxRetention();
+            if (expiredPayloads > 0)
+            {
+                store.Log("Kick Events",
+                    expiredPayloads.ToString(CultureInfo.InvariantCulture) +
+                    " payload(s) de eventos fallidos vencieron la retención local de 30 días; se borró el contenido y el ID quedó retenido temporalmente para deduplicación.");
+            }
+        }
+        catch (Exception exception)
+        {
+            try
+            {
+                store.Log("Kick Events",
+                    "No se pudo aplicar la limpieza programada de la bandeja Kick (" + exception.GetType().Name + "). El contenido no se eliminó en esta pasada.");
+            }
+            catch { }
+        }
+    }
+
     private KickWebhookReceiver EnsureKickWebhookReceiver()
     {
         if (kickWebhookReceiver is not null) return kickWebhookReceiver;
