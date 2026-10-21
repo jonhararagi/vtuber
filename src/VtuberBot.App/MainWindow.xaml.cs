@@ -333,6 +333,13 @@ public partial class MainWindow : Window
                 interruptedKickEvents.ToString(System.Globalization.CultureInfo.InvariantCulture) +
                 " evento(s) quedaron en procesamiento durante el cierre anterior. Se conservaron para revisión y no se reejecutarán automáticamente para evitar repetir acciones externas.");
         }
+        var expiredKickPayloads = store.PruneKickWebhookInboxRetention();
+        if (expiredKickPayloads > 0)
+        {
+            store.Log("Kick Events",
+                expiredKickPayloads.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                " payload(s) de eventos Kick fallidos vencieron la retención local de 30 días; se borró el contenido y se mantuvo temporalmente el ID para deduplicación.");
+        }
         const string previousDefaultVoiceInstruction = "Habla en español con una voz femenina adulta joven, cálida, expresiva y de estilo anime original. Buena dicción, energía y emoción natural; no imites a un personaje o actriz específica.";
         const string highPitchVoiceInstruction = "Habla en español con una voz femenina adulta joven MUY aguda y chillona, tipo personaje anime enérgico: timbre brillante, ligeramente nasal y juguetón, tono alto, reacciones exageradas y ritmo vivaz. Debe sonar intencionalmente aguda y caricaturesca, pero mantener dicción clara sin gritar ni distorsionar; no imites a un personaje, actriz ni persona real específica.";
         var savedVoice = store.GetSetting("social.tts.remoteVoice", "Leda");
