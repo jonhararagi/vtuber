@@ -39,9 +39,17 @@ El receptor verificaba la firma, guardaba el ID del evento en el conjunto de ded
 - El cierre detiene primero el listener y concede una ventana limitada de **10 segundos** para drenar la cola. Si queda trabajo pendiente, se registra el descarte en vez de afirmar que se procesó.
 - Pruebas de idempotencia: una admisión fallida permite reintentar el mismo ID; duplicados concurrentes se admiten una sola vez; la ventana de deduplicación tiene un límite y rechaza IDs inválidos.
 
+### Segundo riesgo cerrado: fallo al programar el consumidor de la interfaz
+
+La revisión posterior detectó una ventana adicional: el evento se encolaba antes de programar el consumidor de WPF. Si el Dispatcher rechazaba la programación, el callback fallaba y Kick recibía 503, pero el elemento podía quedar en la cola; un reintento podía encolarlo otra vez.
+
+- `BoundedQueue<T>.TryRemoveLast` permite revertir únicamente el elemento recién añadido, siempre que siga siendo la cola de entrada.
+- Si `ScheduleKickWebhookEventProcessing` falla, el manejador elimina ese evento de la cola antes de lanzar la excepción; el receptor responde con un estado de reintento y el ID no queda deduplicado.
+- Pruebas nuevas verifican la reversión de la cola y el orden FIFO.
+
 ### Límite residual
 
-La cola de entrada sigue siendo **en memoria**, no una bandeja persistente SQLite. El cambio evita el error de reintentos después de una cola llena, pero un cierre forzado del proceso después del HTTP 200 todavía puede perder eventos ya admitidos. Una bandeja de entrada durable con estado pendiente/intentos/confirmación sería una fase separada; no se ha declarado implementada.
+La cola de entrada sigue siendo **en memoria**, no una bandeja persistente SQLite. Estos cambios corrigen admisión/deduplicación y reversión de programación, pero un cierre forzado del proceso después del HTTP 200 todavía puede perder eventos ya admitidos. Una bandeja de entrada durable con estado pendiente/intentos/confirmación sería una fase separada; no se ha declarado implementada.
 
 ## 4. Consistencia de documentación
 
