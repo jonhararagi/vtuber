@@ -144,6 +144,43 @@ public sealed class KickWebhookInboxTests
     }
 
     [Fact]
+    public void RowCapEvictsOnlyOldestCompletedIdAndKeepsRecentDeduplicationRecords()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        var baseTime = DateTimeOffset.UtcNow.AddMinutes(-10);
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temp.DatabasePath }.ConnectionString))
+        {
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = """
+                INSERT INTO kick_webhook_inbox(event_message_id,payload_json,received_utc,updated_utc,status,attempts)
+                VALUES($id,'',$now,$now,'processed',1)
+                """;
+            var id = insert.Parameters.Add("$id", SqliteType.Text);
+            var timestamp = insert.Parameters.Add("$now", SqliteType.Text);
+            for (var i = 0; i < 2_000; i++)
+            {
+                id.Value = "completed-" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                timestamp.Value = baseTime.AddMilliseconds(i).ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+                insert.ExecuteNonQuery();
+            }
+            transaction.Commit();
+        }
+
+        Assert.Equal(KickWebhookInboxAdmissionResult.Stored,
+            store.TryStoreKickWebhookEvent("new-live-delivery", "{\"message\":\"fresh\"}"));
+        Assert.Null(store.GetKickWebhookInboxItem("completed-0"));
+        Assert.NotNull(store.GetKickWebhookInboxItem("completed-1999"));
+        Assert.Equal(KickWebhookInboxAdmissionResult.Duplicate,
+            store.TryStoreKickWebhookEvent("completed-1999", "{}"));
+        Assert.Equal(KickWebhookInboxAdmissionResult.Stored,
+            store.TryStoreKickWebhookEvent("completed-0", "{}"));
+    }
+
+    [Fact]
     public void InboxRejectsOversizedPayloadAndInvalidIdentifiers()
     {
         using var temp = new TempDb();
