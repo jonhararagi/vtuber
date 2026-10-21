@@ -156,7 +156,17 @@ public partial class MainWindow
             throw new InvalidOperationException("La cola acotada de Kick está llena; la entrega no fue admitida y debe reintentarse.");
         }
 
-        ScheduleKickWebhookEventProcessing();
+        try
+        {
+            ScheduleKickWebhookEventProcessing();
+        }
+        catch
+        {
+            // Do not retain an event whose HTTP delivery will be rejected and retried.
+            // Otherwise that retry could enqueue the same message a second time.
+            pendingKickWebhookEvents.TryRemoveLast(webhookEvent);
+            throw;
+        }
     }
 
     private void ScheduleKickWebhookEventProcessing()
