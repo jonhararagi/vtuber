@@ -121,6 +121,20 @@ public sealed class StorageMaintenanceServiceTests
     }
 
     [Fact]
+    public void DamagedAvatarCatalogPreventsOrphanImageSuggestions()
+    {
+        using var temp = new TempRoot();
+        _ = new ProductStore(temp.DatabasePath);
+        var catalog = Directory.CreateDirectory(Path.Combine(temp.Root, "avatars", "art-library", "catalog")).FullName;
+        var image = Write(Path.Combine(catalog, "assets", "possibly-used.png"), "keep if catalog is damaged");
+        File.WriteAllText(Path.Combine(catalog, "catalog.json"), """{"entries":[{"RelativePath":"assets/possibly-used.png""" );
+
+        var inventory = StorageMaintenanceService.Scan(temp.Root, temp.DatabasePath);
+
+        Assert.DoesNotContain(inventory.CleanupCandidates, item => item.FullPath == image);
+    }
+
+    [Fact]
     public void DeleteSelectedSkipsAFileChangedAfterPreview()
     {
         using var temp = new TempRoot();
