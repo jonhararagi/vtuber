@@ -2164,6 +2164,53 @@ public sealed class ProductStore : IProductSettingsStore
         }
     }
 
+    /// <summary>
+    /// Applies the inbox retention policy at startup even when no new webhook arrives.
+    /// Failed payloads expire after 30 days; their message IDs remain for another 30 days.
+    /// </summary>
+    public int PruneKickWebhookInboxRetention()
+    {
+        lock (gate)
+        {
+            using var connection = Open();
+            using var transaction = connection.BeginTransaction(deferred: false);
+            var now = DateTimeOffset.UtcNow;
+            var nowText = now.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+            var cutoff = now.AddDays(-KickWebhookProcessedRetentionDays)
+                .ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+
+            int expiredPayloads;
+            using (var expireFailures = connection.CreateCommand())
+            {
+                expireFailures.Transaction = transaction;
+                expireFailures.CommandText = """
+                    UPDATE kick_webhook_inbox
+                    SET status='expired', payload_json='',
+                        last_error='El contenido del evento venció su período de retención de 30 días.',
+                        updated_utc=$now
+                    WHERE status='failed' AND updated_utc < $cutoff
+                    """;
+                expireFailures.Parameters.AddWithValue("$now", nowText);
+                expireFailures.Parameters.AddWithValue("$cutoff", cutoff);
+                expiredPayloads = expireFailures.ExecuteNonQuery();
+            }
+
+            using (var deleteOldIds = connection.CreateCommand())
+            {
+                deleteOldIds.Transaction = transaction;
+                deleteOldIds.CommandText = """
+                    DELETE FROM kick_webhook_inbox
+                    WHERE status IN ('processed','expired') AND updated_utc < $cutoff
+                    """;
+                deleteOldIds.Parameters.AddWithValue("$cutoff", cutoff);
+                deleteOldIds.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+            return expiredPayloads;
+        }
+    }
+
     public KickWebhookInboxSummary GetKickWebhookInboxSummary()
     {
         lock (gate)
