@@ -397,26 +397,7 @@ public partial class MainWindow
         panel.Children.Add(Label(
             "VOICEVOX sintetiza la frase completa antes de reproducirla y trabaja localmente. Podés guardar tono, entonación, velocidad y volumen por cada estilo de voz. Sus voces habituales están orientadas al japonés: para español, la pronunciación natural no está garantizada. El procesamiento tiene un límite de 60 segundos; si se supera, la frase falla con un aviso en lugar de cambiar a otra voz.",
             12, "#98A4BE"));
-        panel.Children.Add(allowWindowsSapiCheck);
-        panel.Children.Add(Label("Sintonizador de voz anime · elegí el estilo y aplicá un perfil", 13, "#F8FAFC", true));
-        panel.Children.Add(Label("Natural conserva el tono base; Anime aguda eleva el tono y la entonación; Anime grave baja el tono; Anime enérgica intensifica la entonación. Después podés afinar los controles manualmente. Los cambios se guardan para la voz seleccionada.",
-            11, "#98A4BE"));
-        panel.Children.Add(presetPicker);
-        panel.Children.Add(ActionButton("Aplicar sintonizador a esta voz", (_, _) =>
-        {
-            if (voicePicker.SelectedItem is not LocalSpeechVoice selectedVoice ||
-                !VoicevoxSpeechSession.IsVoiceId(selectedVoice.Id))
-            {
-                FooterStatus.Text = "Primero iniciá VOICEVOX y seleccioná un estilo de voz.";
-                return;
-            }
-            var preset = VoiceTuningPresetPolicy.GetPreset(presetPicker.SelectedValue as string);
-            ApplyTuningProfile(VoiceTuningPresetPolicy.FromPreset(preset, (int)Math.Round(volumeSlider.Value)));
-            SaveTuningProfile(selectedVoice.Id, setAsDefaultVoice: true);
-            activeTuningVoiceId = selectedVoice.Id;
-            FooterStatus.Text = $"Perfil «{preset.Name}» aplicado y guardado para {selectedVoice.Name}.";
-            store.Log("VOICEVOX", $"Se guardó el perfil de sintonía {preset.Id} para el estilo {selectedVoice.Id}.");
-        }, true));
+
         panel.Children.Add(Label("Dirección local de VOICEVOX Engine", 12, "#98A4BE"));
         panel.Children.Add(voicevoxBaseUrlField);
         panel.Children.Add(Label("Ejecutable de VOICEVOX Engine (no se incluye en VTuberBot)", 12, "#98A4BE"));
@@ -590,6 +571,26 @@ public partial class MainWindow
         }));
         panel.Children.Add(Label("Voz / estilo", 12, "#98A4BE"));
         panel.Children.Add(voicePicker);
+        panel.Children.Add(allowWindowsSapiCheck);
+        panel.Children.Add(Label("Sintonizador de voz anime · elegí el estilo y aplicá un perfil", 13, "#F8FAFC", true));
+        panel.Children.Add(Label("Natural conserva el tono base; Anime aguda eleva el tono y la entonación; Anime grave baja el tono; Anime enérgica intensifica la entonación. Después podés afinar los controles manualmente. Los cambios se guardan para la voz seleccionada.",
+            11, "#98A4BE"));
+        panel.Children.Add(presetPicker);
+        panel.Children.Add(ActionButton("Aplicar sintonizador a esta voz", (_, _) =>
+        {
+            if (voicePicker.SelectedItem is not LocalSpeechVoice selectedVoice ||
+                !VoicevoxSpeechSession.IsVoiceId(selectedVoice.Id))
+            {
+                FooterStatus.Text = "Primero iniciá VOICEVOX y seleccioná un estilo de voz.";
+                return;
+            }
+            var preset = VoiceTuningPresetPolicy.GetPreset(presetPicker.SelectedValue as string);
+            ApplyTuningProfile(VoiceTuningPresetPolicy.FromPreset(preset, (int)Math.Round(volumeSlider.Value)));
+            SaveTuningProfile(selectedVoice.Id, setAsDefaultVoice: true);
+            activeTuningVoiceId = selectedVoice.Id;
+            FooterStatus.Text = $"Perfil «{preset.Name}» aplicado y guardado para {selectedVoice.Name}.";
+            store.Log("VOICEVOX", $"Se guardó el perfil de sintonía {preset.Id} para el estilo {selectedVoice.Id}.");
+        }, true));
 
         var outputPicker = new ComboBox
         {
@@ -857,7 +858,7 @@ public partial class MainWindow
             var cpuThreads = VoicevoxEngineLaunchPolicy.NormalizeCpuThreads(
                 voicevoxCpuThreadsPicker.SelectedValue is int selectedThreads ? selectedThreads : 2);
             store.SetSetting("audio.voicevox.cpuThreads", cpuThreads.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            FooterStatus.Text = $"Voz, salida y sintonía de {selectedVoice.Name} guardadas en SQLite.";
+            FooterStatus.Text = $"Voz, salida y sintonía de {selected.Name} guardadas en SQLite.";
             store.Log("VOICEVOX", "Preferencias de voz local guardadas.");
         }, true));
         panel.Children.Add(speech);
