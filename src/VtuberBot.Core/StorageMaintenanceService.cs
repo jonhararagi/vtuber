@@ -87,7 +87,10 @@ public static class StorageMaintenanceService
             {
                 var info = new FileInfo(path);
                 if (info.Length is <= 0)
+                {
+                    metadataScanReliable = false;
                     continue;
+                }
                 if (info.Length > MetadataFileLimitBytes ||
                     inspectedMetadataFiles >= MaximumMetadataFilesToInspect ||
                     inspectedMetadataBytes + info.Length > MaximumMetadataBytesToInspect)
