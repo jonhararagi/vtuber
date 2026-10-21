@@ -2016,7 +2016,7 @@ public sealed class ProductStore : IProductSettingsStore
                         SELECT event_message_id FROM kick_webhook_inbox
                         WHERE status IN ('processed','expired')
                         ORDER BY updated_utc ASC
-                        LIMIT 4096)
+                        LIMIT 1)
                     """;
                 trimCompleted.ExecuteNonQuery();
 
