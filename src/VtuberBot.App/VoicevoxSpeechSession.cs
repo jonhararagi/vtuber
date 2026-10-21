@@ -17,6 +17,7 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
     public const string DefaultBaseUrl = "http://127.0.0.1:50021";
     private const int MaximumInputCharacters = 2000;
     private const int MaximumAudioBytes = 12 * 1024 * 1024;
+    public const int SynthesisTimeoutSeconds = 60;
     private readonly Func<string> baseUrl;
     private readonly Func<double> pitchScale;
     private readonly Func<double> intonationScale;
@@ -125,7 +126,7 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
 
         // Generate the complete waveform before playback so queue order stays predictable.
         // Never hold the user waiting indefinitely on a local Engine that is loading a model.
-        using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(SynthesisTimeoutSeconds));
         var synthesis = SynthesizeAsync(text, speakerId, rate, cancel.Token);
         while (!synthesis.IsCompleted)
         {
@@ -144,7 +145,7 @@ public sealed class VoicevoxSpeechSession : ILocalSpeechSession
         }
         catch (OperationCanceledException exception) when (cancel.IsCancellationRequested && !cancellationRequested())
         {
-            throw new TimeoutException("VOICEVOX tardó más de 60 segundos en procesar la frase. Probá un texto más corto o reducí los hilos/carga del equipo.", exception);
+            throw new TimeoutException($"VOICEVOX tardó más de {SynthesisTimeoutSeconds} segundos en procesar la frase. Probá un texto más corto o reducí los hilos/carga del equipo.", exception);
         }
         if (cancellationRequested()) return new(false, true);
         if (audio.Length is <= 0 or > MaximumAudioBytes)
