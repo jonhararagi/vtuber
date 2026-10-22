@@ -501,8 +501,13 @@ public partial class MainWindow
         }
         catch (Exception exception)
         {
-            try { store.Log("Kick Events", "Se recibió un mensaje firmado, pero no se pudo guardar la evidencia temporal (" + exception.GetType().Name + ")."); }
-            catch { }
+            var now = DateTimeOffset.UtcNow;
+            if (now - lastKickEvidencePersistenceWarningAtUtc >= TimeSpan.FromMinutes(1))
+            {
+                lastKickEvidencePersistenceWarningAtUtc = now;
+                try { store.Log("Kick Events", "No se pudo guardar la marca de tiempo de evidencia de webhook (" + exception.GetType().Name + "). El procesamiento del mensaje continúa."); }
+                catch { }
+            }
         }
 
         try
