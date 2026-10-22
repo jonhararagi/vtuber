@@ -66,6 +66,39 @@ public partial class MainWindow
             "Esta versión autoriza tu propia aplicación Kick, protege los tokens con DPAPI y permite consultar el canal, enviar mensajes y moderar. También incluye receptor local con verificación de firma y suscripción de eventos; para activarlo debés configurar una URL pública HTTPS/túnel en Kick Developer e iniciar la escucha manualmente. No se afirma que haya entrega entrante hasta recibir un evento real.",
             12, "#98A4BE"));
 
+        var kickChatAutomationPanel = Panel("Procesamiento compartido de chat · opcional");
+        var kickChatAutomation = new CheckBox
+        {
+            Content = "Permitir comandos y reacciones automáticas en el chat real de Kick",
+            IsChecked = store.GetSetting("kick.chat.commandsAndReactions.enabled", "false") == "true",
+            Foreground = Brush("#E7B56A"),
+            Margin = new Thickness(0, 4, 0, 8)
+        };
+        kickChatAutomation.Checked += (_, _) =>
+        {
+            var choice = MessageBox.Show(this,
+                "Los mensajes Kick que superen la verificación de firma, suscripción y canal podrán ejecutar comandos comunitarios seguros y reglas de reacción configuradas. Las reglas pueden responder públicamente en Kick y activar el avatar. La lectura TTS se controla por separado. ¿Activar este procesamiento?",
+                "Activar comandos y reacciones de Kick", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (choice != MessageBoxResult.Yes)
+            {
+                kickChatAutomation.IsChecked = false;
+                return;
+            }
+            store.SetSetting("kick.chat.commandsAndReactions.enabled", "true");
+            store.Log("Kick", "El usuario activó explícitamente comandos y reacciones en el chat Kick.");
+            FooterStatus.Text = "Comandos y reacciones de Kick activados; verificá permisos y probá con un mensaje real.";
+        };
+        kickChatAutomation.Unchecked += (_, _) =>
+        {
+            store.SetSetting("kick.chat.commandsAndReactions.enabled", "false");
+            store.Log("Kick", "Comandos y reacciones de Kick desactivados.");
+        };
+        kickChatAutomationPanel.Children.Add(kickChatAutomation);
+        kickChatAutomationPanel.Children.Add(Label(
+            "Por seguridad permanece apagado por defecto. Requiere receptor Kick activo, webhook HTTPS reenviado a localhost, suscripción válida y OAuth con chat:write. No activa respuestas de IA ni publica mensajes de Kick en Twitch.",
+            11, "#98A4BE"));
+        root.Children.Add(kickChatAutomationPanel);
+
         var config = Panel("1. Cuenta y aplicación");
         var clientId = TextField("Client ID de tu aplicación en Kick Developer", store.GetSetting("kick.client_id"));
         var clientSecret = new PasswordBox
