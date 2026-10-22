@@ -554,11 +554,15 @@ public partial class MainWindow
             }
         }
 
-        if (!suppressDownstreamSideEffects)
+        var configuredKickBot = store.GetSetting("kick.bot.username", "").Trim().TrimStart('@');
+        var isKickBotEcho = message.IsBroadcaster ||
+            (configuredKickBot.Length > 0 && message.Username.Equals(configuredKickBot, StringComparison.OrdinalIgnoreCase));
+
+        if (!suppressDownstreamSideEffects && !isKickBotEcho)
         {
             try
             {
-                // TTS follows the existing explicit chat-reading filters and never invokes AI or
+                // TTS follows existing explicit chat-reading filters and never invokes AI or
                 // republishes Kick messages to Twitch.
                 socialBot.OnExternalChatMessageForSpeech(message.Username, message.Content, "Kick");
             }
@@ -586,6 +590,10 @@ public partial class MainWindow
                     }
                 }
             }
+        }
+        else if (isKickBotEcho)
+        {
+            store.Log("Kick", "Se omitieron TTS, comandos y reacciones para evitar ecos automáticos del broadcaster/bot.");
         }
 
         if (kickModerationCooldown.Count > 10000)
