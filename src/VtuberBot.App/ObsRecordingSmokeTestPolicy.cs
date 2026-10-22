@@ -41,7 +41,14 @@ public static class ObsRecordingSmokeTestPolicy
                 var file = new FileInfo(path);
                 file.Refresh();
                 if (file.Exists)
+                {
+                    if (snapshots.Count >= maximumCandidates)
+                        throw new InvalidOperationException(
+                            "La carpeta de grabaciones contiene más archivos candidatos que el límite seguro de " +
+                            maximumCandidates.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                            ". Limpiá o elegí una carpeta de grabación con menos archivos antes de la prueba.");
                     snapshots.Add(new ObsRecordingFileSnapshot(file.FullName, file.Length, file.LastWriteTimeUtc));
+                }
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
             {
@@ -51,7 +58,6 @@ public static class ObsRecordingSmokeTestPolicy
 
         return snapshots
             .OrderByDescending(item => item.LastWriteTimeUtc)
-            .Take(maximumCandidates)
             .ToArray();
     }
 
