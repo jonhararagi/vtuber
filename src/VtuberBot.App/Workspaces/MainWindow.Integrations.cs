@@ -547,12 +547,21 @@ public partial class MainWindow
         recordingSmokePanel.Children.Add(Label(
             "Crea una grabación local corta, reproduce una frase del proveedor LOCAL ya configurado (sin APIs remotas), comprueba que OBS haya escrito un archivo y lo abre para que puedas revisarlo. Nunca inicia ni detiene una transmisión en vivo. Requiere OBS local y WebSocket autenticado.",
             12, "#98A4BE"));
+        string DescribeRecordingSmokeResult(string result) => result switch
+        {
+            "confirmado-por-usuario" => "confirmada manualmente por vos: archivo de prueba reproducido",
+            "recording-created-review-pending" or "archivo-creado-revisión-pendiente" =>
+                "archivo creado; falta comprobar imagen y sonido al reproducirlo",
+            _ => "todavía no ejecutada"
+        };
+        var initialSmokeResult = store.GetSetting("obs.recording.smokeTest.lastResult", "");
         var recordingSmokeStatus = Label(
-            "Última prueba: " + store.GetSetting("obs.recording.smokeTest.lastResult", "todavía no ejecutada") +
+            "Última prueba: " + DescribeRecordingSmokeResult(initialSmokeResult) +
             (DateTimeOffset.TryParse(store.GetSetting("obs.recording.smokeTest.lastRunAtUtc"), out var priorSmokeRun)
                 ? " · " + priorSmokeRun.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)
                 : ""),
-            12, "#E7B56A", true);
+            12, string.Equals(initialSmokeResult, "confirmado-por-usuario", StringComparison.Ordinal)
+                ? "#8FE6D0" : "#E7B56A", true);
         recordingSmokePanel.Children.Add(recordingSmokeStatus);
         string? lastSmokeRecordingPath = null;
         var recordingSmokeTestRunning = 0;
@@ -611,7 +620,7 @@ public partial class MainWindow
                 await Task.Delay(750);
             }
 
-            return mostRecent;
+            return stableSamples >= 2 ? mostRecent : null;
         }
 
         async Task RunRecordingSmokeTestAsync()
@@ -625,16 +634,20 @@ public partial class MainWindow
             Action<string, int>? speechStatusHandler = null;
             try
             {
-                if (!obs.IsConnected)
-                    await AutoConnectObsFromUiAsync();
-                if (!obs.IsConnected)
-                    throw new InvalidOperationException("Primero conecta y autentica OBS WebSocket.");
-
                 var configuredHost = host.Text.Trim();
+                var savedObsHost = store.GetSetting("obs.host", "127.0.0.1").Trim();
+                if (!string.Equals(configuredHost, savedObsHost, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("El host escrito no coincide con el host guardado de la sesión OBS. Guardá y reconectá primero; la prueba no debe atribuir a un OBS local una sesión que podría pertenecer a otro host.");
+
                 var isLoopbackHost = configuredHost.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
                     (System.Net.IPAddress.TryParse(configuredHost, out var address) && System.Net.IPAddress.IsLoopback(address));
                 if (!isLoopbackHost)
                     throw new InvalidOperationException("La verificación de archivos solo se ejecuta con OBS en localhost/loopback. Con OBS remoto, la carpeta devuelta no pertenece necesariamente a este equipo.");
+
+                if (!obs.IsConnected)
+                    await AutoConnectObsFromUiAsync();
+                if (!obs.IsConnected)
+                    throw new InvalidOperationException("Primero conecta y autentica OBS WebSocket.");
 
                 if (ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.tts.provider", "local")))
                     throw new InvalidOperationException("La prueba guiada no llama a servicios remotos ni usa APIs pagas. Cambiá el proveedor de voz a Local para hacer esta prueba.");
@@ -708,7 +721,7 @@ public partial class MainWindow
                     var maximumEnd = DateTimeOffset.UtcNow.AddSeconds(45);
                     while (DateTimeOffset.UtcNow < maximumEnd)
                     {
-                        await Task.Delay(500);
+                        await Task.Delay(750);
                         if (!obs.IsConnected)
                             throw new IOException("OBS perdió su conexión durante la grabación de prueba.");
                         if (await obs.IsStreamingAsync())
@@ -767,32 +780,39 @@ public partial class MainWindow
                 recordingSmokeStatus.Text = "Archivo detectado: " + fileName + " · " + bytesLabel +
                     ". Resultado de la voz: " + speechOutcome;
                 store.SetSetting("obs.recording.smokeTest.lastRunAtUtc", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
-                store.SetSetting("obs.recording.smokeTest.lastFileName", fileName);
                 store.SetSetting("obs.recording.smokeTest.lastResult", "recording-created-review-pending");
-                store.Log("OBS", "La prueba local creó un archivo de grabación nuevo de " + completedRecording.Length.ToString(CultureInfo.InvariantCulture) +
-                    " bytes. Nombre: " + fileName + ". Voz: " + (speechOutcome.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ? "error" : speechOutcome.StartsWith("El motor", StringComparison.Ordinal) ? "reproducción reportada" : "sin confirmar") +
+                store.Log("OBS", "La prueba local creó un archivo de grabación nuevo de " +
+                    completedRecording.Length.ToString(CultureInfo.InvariantCulture) +
+                    " bytes. Voz local: " +
+                    (speechOutcome.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ? "error" :
+                        speechOutcome.StartsWith("El motor", StringComparison.Ordinal) ? "cola completada" : "sin confirmar") +
                     ". No se inició ni detuvo una transmisión.");
 
+                var openedRecordFile = false;
                 try
                 {
                     Process.Start(new ProcessStartInfo(completedRecording.FullPath) { UseShellExecute = true });
+                    openedRecordFile = true;
                 }
                 catch (Exception openException)
                 {
                     store.Log("OBS", "No se pudo abrir el archivo de prueba en el reproductor predeterminado (" + openException.GetType().Name + ").");
                 }
 
+                var openFileInstruction = openedRecordFile
+                    ? "Se solicitó abrir el archivo con el reproductor predeterminado."
+                    : "No se pudo abrir automáticamente. Abrí el archivo manualmente desde la carpeta de grabación de OBS.";
                 var review = MessageBox.Show(this,
                     "OBS creó un archivo nuevo: " + fileName + " (" + bytesLabel + ").\n\n" +
                     "Estado de la voz: " + speechOutcome + "\n\n" +
-                    "Se abrió el archivo en tu reproductor. ¿La grabación muestra el avatar correctamente y se escuchan la frase y el resto del audio sin cortes ni recuadros blancos? Esta confirmación es manual y solo debe marcarse si lo acabás de comprobar.",
+                    openFileInstruction + " ¿La grabación muestra el avatar correctamente y se escuchan la frase y el resto del audio sin cortes ni recuadros blancos? Esta confirmación es manual y solo debe marcarse si lo acabás de comprobar.",
                     "Revisar grabación real de OBS", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 var verifiedByUser = review == MessageBoxResult.Yes;
                 var resultText = verifiedByUser ? "confirmado-por-usuario" : "archivo-creado-revisión-pendiente";
                 store.SetSetting("obs.recording.smokeTest.lastResult", resultText);
                 recordingSmokeStatus.Text = verifiedByUser
-                    ? "Confirmado por vos: el archivo se reproduce con imagen y sonido. " + fileName
-                    : "El archivo existe, pero la reproducción visual/audible queda pendiente: " + fileName;
+                    ? "Confirmada manualmente por vos: el archivo de prueba contiene imagen y sonido."
+                    : "El archivo existe, pero la reproducción visual/audible queda pendiente.";
                 recordingSmokeStatus.Foreground = Brush(verifiedByUser ? "#8FE6D0" : "#E7B56A");
                 FooterStatus.Text = verifiedByUser
                     ? "Prueba física de grabación confirmada por el usuario."
