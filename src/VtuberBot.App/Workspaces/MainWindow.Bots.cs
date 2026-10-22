@@ -113,12 +113,18 @@ public partial class MainWindow
             BorderBrush = Brush("#34415E")
         };
         var channel = TextField("Canal de Kick (slug o URL kick.com/canal)", store.GetSetting("kick.channel_slug"));
+        var kickBotLogin = TextField("Login de la cuenta bot en Kick (para evitar ecos)", store.GetSetting("kick.bot.username", ""));
         config.Children.Add(Label("Client ID", 12, "#98A4BE"));
         config.Children.Add(clientId);
         config.Children.Add(Label("Client Secret (se guarda cifrado para tu usuario de Windows)", 12, "#98A4BE"));
         config.Children.Add(clientSecret);
         config.Children.Add(Label("Canal destino", 12, "#98A4BE"));
         config.Children.Add(channel);
+        config.Children.Add(Label("Login de la cuenta que envía mensajes automáticos (opcional, evita ecos)", 12, "#98A4BE"));
+        config.Children.Add(kickBotLogin);
+        config.Children.Add(Label(
+            "Los mensajes del broadcaster se excluyen de la lectura y las reacciones automáticas para evitar bucles. Completá el login si utilizás una cuenta bot distinta.",
+            11, "#98A4BE"));
         config.Children.Add(Label(
             "En Kick Developer registrá exactamente esta Redirect URL: " + KickOAuthClient.RedirectUri +
             " · Scopes solicitados: user:read, channel:read, chat:write, moderation:ban y moderation:chat_message:manage. Volvé a autorizar Kick para conceder los nuevos permisos. No pegues el secreto en GitHub ni en mensajes de soporte.",
@@ -139,6 +145,10 @@ public partial class MainWindow
                 throw new InvalidOperationException("Ingresá el Client ID de tu aplicación Kick.");
             store.SetSetting("kick.client_id", configuredClientId);
             store.SetSetting("kick.channel_slug", normalizedSlug);
+            var configuredBotLogin = kickBotLogin.Text.Trim().TrimStart('@');
+            if (configuredBotLogin.Length > 100 || configuredBotLogin.Any(char.IsControl))
+                throw new InvalidOperationException("El login bot Kick supera el límite o contiene caracteres de control.");
+            store.SetSetting("kick.bot.username", configuredBotLogin);
             // An empty optional password field means "keep the saved secret".
             // Deletion is exposed separately and asks for explicit confirmation.
             secretStore.SaveIfProvided("kick-client-secret", clientSecret.Password);
