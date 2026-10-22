@@ -601,11 +601,11 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
     private static async Task WriteHealthProbeResponseAsync(Stream stream, CancellationToken cancellationToken)
     {
         var response = Encoding.ASCII.GetBytes(
-            "HTTP/1.1 200 OK\\r\\n" +
-            "Content-Length: 0\\r\\n" +
-            "Connection: close\\r\\n" +
-            "Cache-Control: no-store\\r\\n" +
-            "X-VtuberBot-Webhook-Health: ready\\r\\n\\r\\n");
+            "HTTP/1.1 200 OK\r\n" +
+            "Content-Length: 0\r\n" +
+            "Connection: close\r\n" +
+            "Cache-Control: no-store\r\n" +
+            "X-VtuberBot-Webhook-Health: ready\r\n\r\n");
         await stream.WriteAsync(response, cancellationToken).ConfigureAwait(false);
         await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
