@@ -113,6 +113,17 @@ public sealed class ObsWebSocketClientIntegrationTests
                         case "GetStreamStatus":
                             responseData = new { outputActive = false };
                             break;
+                        case "GetStats":
+                            responseData = new
+                            {
+                                activeFps = 30.0,
+                                averageFrameRenderTime = 2.4,
+                                renderSkippedFrames = 0,
+                                renderTotalFrames = 100,
+                                outputSkippedFrames = 0,
+                                outputTotalFrames = 100
+                            };
+                            break;
                         default:
                             throw new InvalidOperationException("La prueba recibió un tipo de solicitud OBS inesperado: " + requestType);
                     }
@@ -149,6 +160,16 @@ public sealed class ObsWebSocketClientIntegrationTests
         var microphone = Assert.Single(audioInputs);
         Assert.Equal("Mic/Aux", microphone.Name);
         Assert.False(microphone.Muted);
+
+        var diagnostics = await client.RunReadOnlyDiagnosticsAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("30.2.1", diagnostics.ObsVersion);
+        Assert.Contains("Desktop", diagnostics.Scenes);
+        Assert.Single(diagnostics.AudioInputs);
+        Assert.True(diagnostics.Video.Is720p30);
+        Assert.False(diagnostics.IsRecording);
+        Assert.False(diagnostics.IsStreaming);
+        Assert.Equal(30, diagnostics.Performance.ActiveFps);
+        Assert.Contains("No se inició", diagnostics.ToDisplayText(), StringComparison.Ordinal);
 
         Assert.False(await client.IsRecordingAsync(TestContext.Current.CancellationToken));
         Assert.False(await client.IsStreamingAsync(TestContext.Current.CancellationToken));
