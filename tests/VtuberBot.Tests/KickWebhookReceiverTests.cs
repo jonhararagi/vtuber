@@ -249,9 +249,9 @@ public sealed class KickWebhookReceiverTests
         await client.ConnectAsync(IPAddress.Loopback, port, TestContext.Current.CancellationToken);
         await using var stream = client.GetStream();
         var request = Encoding.ASCII.GetBytes(
-            "GET /kick-webhook HTTP/1.1\\r\\n" +
-            "Host: 127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "\\r\\n" +
-            "Connection: close\\r\\n\\r\\n");
+            "GET /kick-webhook HTTP/1.1\r\n" +
+            "Host: 127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "\r\n" +
+            "Connection: close\r\n\r\n");
         await stream.WriteAsync(request, TestContext.Current.CancellationToken);
         await stream.FlushAsync(TestContext.Current.CancellationToken);
 
@@ -270,7 +270,7 @@ public sealed class KickWebhookReceiverTests
         }
 
         var statusLine = Encoding.ASCII.GetString(responseBuffer.ToArray())
-            .Split("\\r\\n", StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            .Split("\r\n", StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
         if (statusLine is null)
             throw new InvalidDataException("El receptor Kick no devolvió una respuesta para el probe HTTP.");
         var parts = statusLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
