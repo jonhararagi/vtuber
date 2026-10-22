@@ -19,6 +19,42 @@ public static class ObsRecordingSmokeTestPolicy
     public static bool CanStart(bool connected, bool streaming, bool recording) =>
         connected && !streaming && !recording;
 
+    public static IReadOnlyList<ObsRecordingFileSnapshot> CaptureDirectorySnapshot(
+        string directory,
+        int maximumCandidates = 10_000)
+    {
+        if (maximumCandidates is < 1 or > 50_000)
+            throw new ArgumentOutOfRangeException(nameof(maximumCandidates));
+
+        var root = Path.GetFullPath(directory);
+        if (!Directory.Exists(root))
+            throw new DirectoryNotFoundException("OBS indicó una carpeta de grabaciones que no existe.");
+
+        var snapshots = new List<ObsRecordingFileSnapshot>();
+        foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.TopDirectoryOnly))
+        {
+            if (!IsSupportedRecordingPath(path))
+                continue;
+
+            try
+            {
+                var file = new FileInfo(path);
+                file.Refresh();
+                if (file.Exists)
+                    snapshots.Add(new ObsRecordingFileSnapshot(file.FullName, file.Length, file.LastWriteTimeUtc));
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                // A file can be moved/deleted while OBS updates its output directory; it is not a candidate.
+            }
+        }
+
+        return snapshots
+            .OrderByDescending(item => item.LastWriteTimeUtc)
+            .Take(maximumCandidates)
+            .ToArray();
+    }
+
     public static bool IsSupportedRecordingPath(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
