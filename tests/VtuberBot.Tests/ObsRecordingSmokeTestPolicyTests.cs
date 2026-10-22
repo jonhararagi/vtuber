@@ -1,0 +1,68 @@
+using VtuberBot.App;
+using Xunit;
+
+namespace VtuberBot.Tests;
+
+public sealed class ObsRecordingSmokeTestPolicyTests
+{
+    [Theory]
+    [InlineData(true, false, false, true)]
+    [InlineData(false, false, false, false)]
+    [InlineData(true, true, false, false)]
+    [InlineData(true, false, true, false)]
+    [InlineData(false, true, true, false)]
+    public void OnlyAllowsTestWhenConnectedAndNeitherStreamingNorRecording(
+        bool connected, bool streaming, bool recording, bool expected)
+    {
+        Assert.Equal(expected, ObsRecordingSmokeTestPolicy.CanStart(connected, streaming, recording));
+    }
+
+    [Theory]
+    [InlineData(@"C:\\Recordings\\test.mkv", true)]
+    [InlineData(@"C:\\Recordings\\test.mp4", true)]
+    [InlineData(@"C:\\Recordings\\test.flv", true)]
+    [InlineData(@"C:\\Recordings\\test.log", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void OnlyAcceptsSupportedRecordingContainers(string? path, bool expected)
+    {
+        Assert.Equal(expected, ObsRecordingSmokeTestPolicy.IsSupportedRecordingPath(path));
+    }
+
+    [Fact]
+    public void FindsOnlyNewSupportedNonEmptyRecordingCreatedDuringTest()
+    {
+        var started = new DateTime(2026, 10, 22, 15, 0, 0, DateTimeKind.Utc);
+        var existing = new ObsRecordingFileSnapshot(
+            Path.Combine(Path.GetTempPath(), "old.mkv"), 3_000_000, started.AddSeconds(-30));
+        var tooSmall = new ObsRecordingFileSnapshot(
+            Path.Combine(Path.GetTempPath(), "empty.mp4"), 60, started.AddSeconds(1));
+        var wrongType = new ObsRecordingFileSnapshot(
+            Path.Combine(Path.GetTempPath(), "diagnostic.txt"), 900, started.AddSeconds(2));
+        var created = new ObsRecordingFileSnapshot(
+            Path.Combine(Path.GetTempPath(), "VTuberBot-test.mkv"), 120_000, started.AddSeconds(10));
+
+        var found = ObsRecordingSmokeTestPolicy.FindNewRecording(
+            [existing],
+            [existing, tooSmall, wrongType, created],
+            started);
+
+        Assert.Equal(created.FullPath, found?.FullPath);
+        Assert.Equal(created.Length, found?.Length);
+    }
+
+    [Fact]
+    public void DoesNotTreatExistingFileOrPreTestArtifactAsNew()
+    {
+        var started = new DateTime(2026, 10, 22, 15, 0, 0, DateTimeKind.Utc);
+        var existing = new ObsRecordingFileSnapshot(
+            Path.Combine(Path.GetTempPath(), "old.mp4"), 50_000, started.AddSeconds(1));
+        var stale = new ObsRecordingFileSnapshot(
+            Path.Combine(Path.GetTempPath(), "stale.mkv"), 50_000, started.AddMinutes(-2));
+
+        Assert.Null(ObsRecordingSmokeTestPolicy.FindNewRecording(
+            [existing],
+            [existing, stale],
+            started));
+    }
+}
