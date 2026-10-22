@@ -371,7 +371,7 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
         if (string.Equals(request.Method, "GET", StringComparison.OrdinalIgnoreCase))
         {
             StatusChanged?.Invoke("Se comprobó accesibilidad HTTP del receptor; todavía no se confirmó un evento real de Kick.");
-            await WriteResponseAsync(stream, 200, "OK", timeout.Token).ConfigureAwait(false);
+            await WriteHealthProbeResponseAsync(stream, timeout.Token).ConfigureAwait(false);
             return;
         }
 
@@ -562,10 +562,26 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
 
         if (headers.ContainsKey("Transfer-Encoding"))
             throw new WebhookRequestException(501, "Chunked webhook requests are not supported by the loopback receiver.");
-        if (!headers.TryGetValue("Content-Length", out var contentLengthText) ||
-            !int.TryParse(contentLengthText, NumberStyles.None, CultureInfo.InvariantCulture, out var contentLength) ||
-            contentLength < 0)
+
+        var method = requestParts[0];
+        int contentLength;
+        if (headers.TryGetValue("Content-Length", out var contentLengthText))
+        {
+            if (!int.TryParse(contentLengthText, NumberStyles.None, CultureInfo.InvariantCulture, out contentLength) ||
+                contentLength < 0)
+                throw new WebhookRequestException(400, "Invalid Content-Length.");
+        }
+        else if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(method, "HEAD", StringComparison.OrdinalIgnoreCase))
+        {
+            // Read-only health probes may omit Content-Length as normal HTTP clients do.
+            contentLength = 0;
+        }
+        else
+        {
             throw new WebhookRequestException(411, "Content-Length is required.");
+        }
+
         if (contentLength > MaximumBodyBytes)
             throw new WebhookRequestException(413, "Request body too large.");
 
@@ -580,6 +596,18 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
 
         var path = requestParts[1].Split('?', 2)[0];
         return new HttpRequest(requestParts[0], path, headers, body);
+    }
+
+    private static async Task WriteHealthProbeResponseAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        var response = Encoding.ASCII.GetBytes(
+            "HTTP/1.1 200 OK\\r\\n" +
+            "Content-Length: 0\\r\\n" +
+            "Connection: close\\r\\n" +
+            "Cache-Control: no-store\\r\\n" +
+            "X-VtuberBot-Webhook-Health: ready\\r\\n\\r\\n");
+        await stream.WriteAsync(response, cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task WriteResponseAsync(Stream stream, int statusCode, string reason, CancellationToken cancellationToken)
