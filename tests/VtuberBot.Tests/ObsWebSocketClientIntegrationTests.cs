@@ -168,7 +168,7 @@ public sealed class ObsWebSocketClientIntegrationTests
         Assert.True(diagnostics.Video.Is720p30);
         Assert.False(diagnostics.IsRecording);
         Assert.False(diagnostics.IsStreaming);
-        Assert.Equal(30, diagnostics.Performance.ActiveFps);
+        Assert.Equal(30d, diagnostics.Performance.ActiveFps);
         Assert.Contains("No se inició", diagnostics.ToDisplayText(), StringComparison.Ordinal);
 
         Assert.False(await client.IsRecordingAsync(TestContext.Current.CancellationToken));
