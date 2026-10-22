@@ -132,7 +132,7 @@ public sealed class VoicevoxEngineDiagnosticsTests
 
     private static byte[] CreateWaveFixture()
     {
-        var bytes = new byte[44];
+        var bytes = new byte[46];
         Encoding.ASCII.GetBytes("RIFF").CopyTo(bytes, 0);
         BitConverter.GetBytes(bytes.Length - 8).CopyTo(bytes, 4);
         Encoding.ASCII.GetBytes("WAVE").CopyTo(bytes, 8);
@@ -145,7 +145,9 @@ public sealed class VoicevoxEngineDiagnosticsTests
         BitConverter.GetBytes((short)2).CopyTo(bytes, 32);
         BitConverter.GetBytes((short)16).CopyTo(bytes, 34);
         Encoding.ASCII.GetBytes("data").CopyTo(bytes, 36);
-        BitConverter.GetBytes(0).CopyTo(bytes, 40);
+        BitConverter.GetBytes(2).CopyTo(bytes, 40);
+        bytes[44] = 0;
+        bytes[45] = 0;
         return bytes;
     }
 }
