@@ -211,6 +211,34 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         return response.GetProperty("responseData").GetProperty("obsVersion").GetString() ?? "Versión desconocida";
     }
 
+    /// <summary>
+    /// Returns the local record directory declared by the authenticated OBS instance.
+    /// The value is used only for a user-confirmed local recording verification.
+    /// </summary>
+    public async Task<string> GetRecordDirectoryAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await RequestAsync("GetRecordDirectory", cancellationToken: cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(response, "OBS no pudo devolver la carpeta de grabaciones.");
+        if (!response.TryGetProperty("responseData", out var data) ||
+            data.ValueKind != JsonValueKind.Object ||
+            !data.TryGetProperty("recordDirectory", out var directoryElement) ||
+            directoryElement.ValueKind != JsonValueKind.String)
+            throw new InvalidDataException("OBS devolvió una carpeta de grabaciones con formato inesperado.");
+
+        var directory = directoryElement.GetString()?.Trim();
+        if (string.IsNullOrWhiteSpace(directory) || !Path.IsPathFullyQualified(directory))
+            throw new InvalidDataException("OBS devolvió una carpeta de grabaciones vacía o no absoluta.");
+
+        try
+        {
+            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+        }
+        catch (Exception exception) when (exception is ArgumentException or IOException or NotSupportedException)
+        {
+            throw new InvalidDataException("OBS devolvió una carpeta de grabaciones no válida.", exception);
+        }
+    }
+
     /// <summary>Reads OBS's own render/output counters; this is separate from Windows process CPU/RAM metrics.</summary>
     public async Task<ObsPerformanceStats> GetPerformanceStatsAsync(CancellationToken cancellationToken = default)
     {

@@ -89,3 +89,23 @@ La sección **Bot social** reutiliza el cliente IRC/TLS de Twitch ya existente y
 La página **OBS** puede configurar la salida RTMPS principal de OBS para Twitch o YouTube mediante `SetStreamServiceSettings`; no necesita un segundo cliente de emisión ni guarda las claves en SQLite. Las claves se protegen mediante DPAPI para el usuario actual de Windows. La aplicación debe estar conectada a OBS WebSocket y la transmisión debe estar detenida para cambiar el destino. Guía paso a paso: [Transmisión a Twitch y YouTube](STREAMING-YOUTUBE-TWITCH.md).
 
 **Emisión simultánea:** la salida nativa de OBS es un destino. La doble salida necesita un complemento multi-RTMP de terceros instalado por el usuario; VTuberBot no lo instala ni controla directamente su panel. Hay que comprobar que el complemento sea compatible con la versión local de OBS. El CI de VTuberBot no prueba una transmisión real a Twitch/YouTube ni la compatibilidad de un plugin externo.
+
+## Verificación física de OBS, voz y avatar
+
+En la página **OBS**, el panel **Prueba guiada real · grabación local, voz y avatar** permite comprobar la cadena completa sin iniciar un directo. Está pensada para ejecutarse con OBS instalado en la misma PC, la conexión WebSocket autenticada y una voz local seleccionada.
+
+1. En **OBS**, conectá la sesión WebSocket al host local guardado. El host escrito debe coincidir con el host guardado; la prueba no funciona contra OBS remoto ni si la sesión no está autenticada.
+2. En **Voz y audio**, elegí una voz **VOICEVOX** local con el Engine en ejecución, o habilitá explícitamente Windows SAPI como alternativa. La prueba se niega a usar un proveedor de voz remoto.
+3. Antes de continuar, asegurate de que OBS no esté transmitiendo ni grabando y de que la cola de voz esté vacía. Aceptá la confirmación de **Grabar prueba local + reproducir voz**.
+4. La aplicación consulta el estado de OBS, inicia solo `StartRecord`, reproduce una frase con la cola local, detiene la grabación y espera a que aparezca un archivo nuevo, válido y con tamaño estable en la carpeta que OBS declara. El directorio se consulta con el request oficial `GetRecordDirectory`. Si existen más de 10.000 grabaciones compatibles en esa carpeta, la prueba se detiene y solicita reducir los candidatos en lugar de acumularlos en memoria.
+5. El archivo se abre con el reproductor predeterminado. Comprobá manualmente que se vea el avatar, que la boca cambie, que no haya halo/fondo blanco y que se escuche la frase. Solo responde **Sí** si acabás de verificar imagen y sonido; cualquier otro resultado queda como pendiente. La existencia del archivo y el fin de la cola TTS no demuestran por sí mismos que los altavoces hayan sonado.
+
+La prueba no llama a `StartStream`, no toca claves de transmisión ni modifica escenas/fuentes. Si el inicio de grabación agota el tiempo de espera sin una confirmación, la aplicación no intenta detener una salida cuya pertenencia sea ambigua; revisá el estado en OBS manualmente antes de volver a probar.
+
+## Qué cuenta como evento real de Kick
+
+En **Bots y plataformas → Chat y eventos entrantes de Kick**, la etiqueta **Recepción real pendiente** solo cambia al entrar un mensaje de chat real que haya pasado la verificación de firma y se haya procesado por el consumidor. Aceptar una suscripción, iniciar el listener o recibir la marca de salud HTTPS **no** cuenta como un evento real. La hora que se muestra indica que el mensaje llegó al consumidor; no confirma que una reacción, TTS o respuesta saliente se haya completado.
+
+Para completar esa verificación necesitás una URL pública HTTPS con túnel hacia el receptor local, la URL exacta registrada en Kick Developer, suscripciones aceptadas y scopes OAuth válidos. El programa no crea un túnel ni puede usar tus cuentas reales desde CI. La marca de tiempo de evidencia se persiste como máximo una vez cada 15 segundos durante tráfico intenso, para evitar una escritura SQLite por cada mensaje; en la sesión abierta la interfaz muestra la última hora observada.
+
+**Importante:** las pruebas automatizadas usan servidores locales, datos sintéticos o clientes simulados. No pueden reemplazar una grabación reproducida en tu Windows, una prueba audible con tu dispositivo de salida ni la recepción de un mensaje desde tu propio canal de Kick.

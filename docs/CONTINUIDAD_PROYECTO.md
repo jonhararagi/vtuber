@@ -2317,3 +2317,33 @@ PR #45, [Diagnósticos reproducibles de integraciones](https://github.com/jonhar
 - Windows CI de la cabeza candidata `6b1e914ddbf8631a1038e69cf807a148abd76758` terminó en éxito en el run [39839765729](https://github.com/jonhararagi/vtuber/actions/runs/39839765729): build Release con 0 advertencias y 0 errores; 769 tests aprobados, 0 fallidos y 0 omitidos; ZIP validado con 490 entradas. Artefacto de la PR [12451354735](https://github.com/jonhararagi/vtuber/actions/runs/39839765729/artifacts/12451354735), retenido hasta el 05/11/2026.
 - La CI posterior a la fusión de `main` para el SHA exacto `aac8d0291d1446b6f4aee69e1b7a874e1e250ae5` terminó en éxito en el run [39841194882](https://github.com/jonhararagi/vtuber/actions/runs/39841194882): build Release con 0 advertencias y 0 errores; 769 tests aprobados, 0 fallidos y 0 omitidos; publicación del ZIP autocontenido win-x64 con 490 entradas validadas (85.207.936 bytes). Artefacto de `main` [12452583945](https://github.com/jonhararagi/vtuber/actions/runs/39841194882/artifacts/12452583945), retenido hasta el 05/11/2026.
 - Los ensayos manuales de webhook real Kick, escucha física de VOICEVOX, arte PNG del usuario/OBS y reproducción de grabación siguen pendientes hasta realizarlos realmente en el Windows del usuario.
+
+## 2026-10-22 — Prueba física guiada de grabación, voz y recepción real de Kick
+
+Rama de trabajo: `feature/obs-recording-smoke-test-kick-live-evidence-2026-10-22`. La siguiente PR agrega un camino de validación con evidencia real del usuario, sin presentar diagnósticos simulados como integración de extremo a extremo.
+
+### OBS + voz + avatar
+- Se usa el request oficial OBS WebSocket v5 `GetRecordDirectory` para leer la carpeta activa de grabación; no se configura una carpeta por sorpresa ni se cambia la escena.
+- En la página OBS hay un panel guiado que requiere WebSocket autenticado a localhost/loopback, que el host escrito coincida con el guardado, proveedor local de voz (VOICEVOX explícito o SAPI habilitado a propósito), cola TTS vacía y ningún directo/grabación activos.
+- La secuencia intenta únicamente `StartRecord`, encola una frase de voz local, comprueba el estado de grabación, detiene solo la grabación iniciada por la prueba, localiza un archivo admitido y nuevo, exige tamaño estable en varias muestras y lo abre para revisión. Nunca envía `StartStream`.
+- Si hay demasiados candidatos (más de 10.000), falla con un aviso explícito en vez de asignar memoria sin límite. No se guarda la ruta ni el nombre personal del archivo en los logs/preferencias; el path solo se mantiene durante esa sesión para poder reabrirlo.
+- Los resultados distinguen intento incompleto, archivo generado con revisión pendiente y confirmación manual de que la reproducción del archivo mostró imagen y audio. La confirmación es una declaración del usuario y no se infiere del fin de la cola TTS. Si el ACK de inicio se pierde, no se detiene una salida de propiedad ambigua; se muestra que hay que revisar OBS manualmente.
+
+### Evidencia de webhook Kick
+- El consumidor de un `chat.message.sent` verificado conserva una marca de tiempo de recepción, sin guardar el texto del mensaje ni su ID en este campo. La etiqueta de Bots y plataformas distingue el probe HTTPS de un evento real y aclara que recibir un mensaje no prueba que TTS/reacción/respuesta saliente haya terminado.
+- La preferencia se guarda en SQLite como máximo una vez cada 15 segundos bajo tráfico intenso; la sesión actual conserva la última hora exacta en memoria y la interfaz la muestra por dispatcher. Esto reduce la cantidad de escrituras por mensajes de chat.
+- El evento llega a este punto solo después de firma, deduplicación/ingreso a bandeja y proceso de la fila. Esto no elimina el requisito de configurar un túnel HTTPS público, URL registrada en Kick Developer, suscripción aceptada y scopes OAuth válidos.
+
+### Pruebas incorporadas a esta rama
+- Pruebas de la política de grabación: no iniciar si OBS desconectado/transmitiendo/grabando; extensiones admitidas; detectar archivos nuevos no vacíos; excluir archivos previos/no vídeo; ignorar archivos ajenos y rechazar una carpeta por encima del límite.
+- Prueba del cliente WebSocket OBS: `GetRecordDirectory`, `StartRecord`, `GetRecordStatus`, `StopRecord`; ninguna solicitud `StartStream` forma parte de la prueba.
+- Prueba de regresión de voz: una voz explícita `voicevox:{id}` continúa usando el engine local incluso si la preferencia general de proveedor para otras voces es remota.
+- Se agregó documentación para explicar el flujo y el criterio de aceptación. - Windows CI para la cabeza de código `6b06268eb6f15e05152968bf3deca4be1ee09750`: [run 39852058794](https://github.com/jonhararagi/vtuber/actions/runs/39852058794) terminó en éxito. Build Release: 0 warnings, 0 errores. Pruebas: 785 correctas, 0 fallidas, 0 omitidas. Publicación y carga del ZIP autocontenido completadas; 490 entradas verificadas, 85.218.573 bytes. Artefacto candidato [12457986823](https://github.com/jonhararagi/vtuber/actions/runs/39852058794/artifacts/12457986823), retenido hasta el 05/11/2026 a las 20:51:37 UTC. Este SHA tiene la función y la batería de pruebas completa; el siguiente cambio documental debe volver a pasar CI antes de fusionar.
+- Fallo de compilación intermedio registrado: en el SHA `207b821fa6f306406b7585359d5243f01d4479a4`, Windows CI encontró `CS4014` por el resultado no esperado de `Dispatcher.BeginInvoke`. Se corrigió en el camino de la rama y quedó resuelto antes del SHA validado; no se acepta ese SHA fallido como candidato final.
+
+La CI verifica contratos de protocolo, compilación, pruebas automatizadas y empaquetado; la validación física con OBS/VOICEVOX real y el canal de Kick no se puede sustituir desde GitHub CI.
+
+### Pasos físicos que quedan fuera de GitHub
+- Abrir el archivo creado por la prueba en tu Windows y confirmar manualmente: imagen del avatar, transparencia, boca/cambio Idle-Talking, frase audible y audio de juego/micrófono sin cortes ni cuadros congelados.
+- En Bots y plataformas, configurar el túnel HTTPS y las suscripciones, enviar un mensaje desde el canal real de Kick y comprobar la hora de recepción firmada. Probar por separado que TTS/reacciones están habilitados y ocurren, sin activar respuesta pública salvo que así se desee.
+- Si la grabación se crea pero no se oye voz, revisar la salida de audio seleccionada, el dispositivo Windows/OBS y la voz local. No cambiar a un proveedor remoto de manera automática como fallback.

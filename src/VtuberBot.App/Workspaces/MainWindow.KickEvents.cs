@@ -481,6 +481,62 @@ public partial class MainWindow
 
     private async Task ProcessKickChatMessageAsync(KickChatMessageEvent message)
     {
+        // This path is reached only after the webhook receiver has accepted the provider signature
+        // and routed a validated chat.message.sent event. Store metadata only, never message text or IDs.
+        var realEventReceivedAt = DateTimeOffset.UtcNow;
+        lastKickWebhookChatReceivedAtUtc = realEventReceivedAt;
+        var realEventEvidence = "Recepción real de chat observada al menos en: " +
+            realEventReceivedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) +
+            ". La evidencia no implica que el TTS, una reacción ni una respuesta pública se hayan completado.";
+        try
+        {
+            // Load the persisted marker once per app session. During active chat, process messages
+            // from memory and write at most one timestamp every 15 seconds to avoid SQLite churn.
+            if (!kickWebhookEvidenceStorageInitialized)
+            {
+                kickWebhookEvidenceStorageInitialized = true;
+                var savedText = store.GetSetting("kick.webhook.lastVerifiedChatAtUtc");
+                if (DateTimeOffset.TryParse(savedText, CultureInfo.InvariantCulture, DateTimeStyles.None, out var savedAt))
+                    lastKickWebhookEvidencePersistedAtUtc = savedAt;
+            }
+
+            var shouldPersist = !lastKickWebhookEvidencePersistedAtUtc.HasValue ||
+                realEventReceivedAt >= lastKickWebhookEvidencePersistedAtUtc.Value.AddSeconds(15);
+            var intervalElapsed = realEventReceivedAt - lastKickEvidencePersistenceAttemptAtUtc >= TimeSpan.FromSeconds(15);
+            if (shouldPersist && intervalElapsed)
+            {
+                lastKickEvidencePersistenceAttemptAtUtc = realEventReceivedAt;
+                store.SetSetting("kick.webhook.lastVerifiedChatAtUtc", realEventReceivedAt.ToString("O", CultureInfo.InvariantCulture));
+                lastKickWebhookEvidencePersistedAtUtc = realEventReceivedAt;
+            }
+        }
+        catch (Exception exception)
+        {
+            var now = DateTimeOffset.UtcNow;
+            lastKickEvidencePersistenceAttemptAtUtc = now;
+            if (now - lastKickEvidencePersistenceWarningAtUtc >= TimeSpan.FromMinutes(1))
+            {
+                lastKickEvidencePersistenceWarningAtUtc = now;
+                try { store.Log("Kick Events", "No se pudo guardar la marca de tiempo de evidencia de webhook (" + exception.GetType().Name + "). El procesamiento del mensaje continúa."); }
+                catch { }
+            }
+        }
+
+        try
+        {
+            // The queue processor can resume after asynchronous API/SQLite work. Marshal label
+            // updates to WPF's dispatcher and don't let a closed page interrupt durable handling.
+            _ = Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (kickWebhookRealEventStatusLabel is not null)
+                    kickWebhookRealEventStatusLabel.Text = realEventEvidence;
+            }));
+        }
+        catch (InvalidOperationException)
+        {
+            // The event was received and queued; the UI may be closing.
+        }
+
         chatLines.Insert(0, "[Kick] " + message.Username + ": " + message.Content);
         while (chatLines.Count > 200) chatLines.RemoveAt(chatLines.Count - 1);
         store.Log("Kick", "Mensaje recibido de " + message.Username + " en " + message.ChannelSlug + ".");
