@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Globalization;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -825,6 +826,48 @@ public partial class MainWindow
         {
             await LoadVoicevoxVoicesAsync(showError: true);
         }, true));
+        panel.Children.Add(ActionButton("Diagnóstico local: API + síntesis WAV (sin reproducir)", async (_, _) =>
+        {
+            if (!await LoadVoicevoxVoicesAsync(showError: true))
+                return;
+            if (voicePicker.SelectedItem is not LocalSpeechVoice selectedVoice ||
+                !VoicevoxSpeechSession.IsVoiceId(selectedVoice.Id))
+            {
+                FooterStatus.Text = "VOICEVOX no tiene una voz válida seleccionada; actualizá la lista de voces.";
+                return;
+            }
+
+            FooterStatus.Text = "Comprobando API local, catálogo de voces y generación WAV…";
+            try
+            {
+                var result = await VoicevoxEngineDiagnostics.ProbeAsync(
+                    voicevoxBaseUrlField.Text.Trim(),
+                    selectedVoice.Id,
+                    "こんにちは。これはVOICEVOXの音声テストです。",
+                    cancellationToken: CancellationToken.None);
+                var report = "Diagnóstico VOICEVOX aprobado. Engine " + result.Version +
+                    "; " + result.AvailableVoiceCount + " estilos disponibles; síntesis de " +
+                    result.SynthesizedAudioBytes.ToString(CultureInfo.InvariantCulture) + " bytes WAV válida. " +
+                    "Esto comprueba la API y la síntesis, no que los altavoces hayan reproducido el audio. " +
+                    "Pulsá «Probar voz VOICEVOX» para la comprobación audible.";
+                FooterStatus.Text = "VOICEVOX: API y síntesis correctas; falta confirmar escucha física.";
+                store.Log("VOICEVOX", "Diagnóstico local completado: versión " + result.Version +
+                    ", estilos " + result.AvailableVoiceCount + ", WAV " +
+                    result.SynthesizedAudioBytes.ToString(CultureInfo.InvariantCulture) + " bytes.");
+                MessageBox.Show(this, report, "Diagnóstico local VOICEVOX", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or HttpRequestException or TaskCanceledException or TimeoutException or
+                System.Text.Json.JsonException or IOException or ArgumentException)
+            {
+                FooterStatus.Text = "Falló el diagnóstico VOICEVOX. Revisá Engine, voz y síntesis local.";
+                store.Log("VOICEVOX", "Falló el diagnóstico local (" + exception.GetType().Name + ").");
+                MessageBox.Show(this,
+                    "No se pudo completar el diagnóstico de VOICEVOX. No se ha cambiado a SAPI ni a un proveedor remoto.\n\n" +
+                    exception.GetBaseException().Message,
+                    "Diagnóstico VOICEVOX", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }));
 
         panel.Children.Add(rateLabel);
         panel.Children.Add(rateSlider);

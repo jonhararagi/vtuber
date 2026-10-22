@@ -189,6 +189,7 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
     private readonly KickWebhookDeliveryDeduplicator deliveryDeduplicator = new(MaximumRememberedMessageIds);
     private readonly SemaphoreSlim connectionSlots = new(16, 16);
     private readonly SemaphoreSlim publicKeyGate = new(1, 1);
+    private readonly Func<CancellationToken, Task<string>>? publicKeyProvider;
     private readonly object activeTasksGate = new();
     private readonly HashSet<Task> activeTasks = [];
     private string? cachedPublicKey;
@@ -197,7 +198,10 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
     private CancellationTokenSource? stopSource;
     private Task? listenTask;
 
-    public KickWebhookReceiver(int port = 17565, TimeSpan? maximumMessageAge = null)
+    public KickWebhookReceiver(
+        int port = 17565,
+        TimeSpan? maximumMessageAge = null,
+        Func<CancellationToken, Task<string>>? publicKeyProvider = null)
     {
         if (port is < 1024 or > 65535)
             throw new ArgumentOutOfRangeException(nameof(port));
@@ -205,6 +209,7 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
         this.maximumMessageAge = maximumMessageAge ?? TimeSpan.FromMinutes(10);
         if (this.maximumMessageAge <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(maximumMessageAge));
+        this.publicKeyProvider = publicKeyProvider;
     }
 
     public bool IsRunning => listener is not null;
@@ -360,6 +365,16 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
             await WriteResponseAsync(stream, 404, "Not Found", timeout.Token).ConfigureAwait(false);
             return;
         }
+        // A GET to this exact route is a read-only reachability probe for the user's
+        // public HTTPS tunnel. It does not verify a Kick event, query the signing key,
+        // or invoke the downstream chat pipeline.
+        if (string.Equals(request.Method, "GET", StringComparison.OrdinalIgnoreCase))
+        {
+            StatusChanged?.Invoke("Se comprobó accesibilidad HTTP del receptor; todavía no se confirmó un evento real de Kick.");
+            await WriteHealthProbeResponseAsync(stream, timeout.Token).ConfigureAwait(false);
+            return;
+        }
+
         if (!string.Equals(request.Method, "POST", StringComparison.OrdinalIgnoreCase))
         {
             await WriteResponseAsync(stream, 405, "Method Not Allowed", timeout.Token).ConfigureAwait(false);
@@ -455,29 +470,39 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
                 DateTimeOffset.UtcNow - cachedPublicKeyAt < TimeSpan.FromMinutes(30))
                 return cachedPublicKey;
 
-            using var response = await Http.GetAsync("https://api.kick.com/public/v1/public-key", cancellationToken).ConfigureAwait(false);
-            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException("Kick no permitió obtener la clave pública de verificación (HTTP " + (int)response.StatusCode + ").");
-
-            // Kick documents this endpoint as returning the PEM body directly. Accept that canonical
-            // response and JSON wrappers defensively, but never cache a non-PEM value.
-            var candidateKey = json.Trim();
-            if (!candidateKey.Contains("BEGIN PUBLIC KEY", StringComparison.Ordinal))
+            string candidateKey;
+            if (publicKeyProvider is not null)
             {
-                try
+                // Injection seam for deterministic loopback integration tests. Production uses
+                // Kick's documented public-key endpoint below; the provider must still return PEM.
+                candidateKey = (await publicKeyProvider(cancellationToken).ConfigureAwait(false)).Trim();
+            }
+            else
+            {
+                using var response = await Http.GetAsync("https://api.kick.com/public/v1/public-key", cancellationToken).ConfigureAwait(false);
+                var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                    throw new InvalidOperationException("Kick no permitió obtener la clave pública de verificación (HTTP " + (int)response.StatusCode + ").");
+
+                // Kick documents this endpoint as returning the PEM body directly. Accept that canonical
+                // response and JSON wrappers defensively, but never cache a non-PEM value.
+                candidateKey = json.Trim();
+                if (!candidateKey.Contains("BEGIN PUBLIC KEY", StringComparison.Ordinal))
                 {
-                    using var document = JsonDocument.Parse(json);
-                    var root = document.RootElement;
-                    if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object &&
-                        data.TryGetProperty("public_key", out var keyElement) && keyElement.ValueKind == JsonValueKind.String)
-                        candidateKey = keyElement.GetString() ?? "";
-                    else if (root.TryGetProperty("public_key", out var key) && key.ValueKind == JsonValueKind.String)
-                        candidateKey = key.GetString() ?? "";
-                }
-                catch (JsonException)
-                {
-                    candidateKey = "";
+                    try
+                    {
+                        using var document = JsonDocument.Parse(json);
+                        var root = document.RootElement;
+                        if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object &&
+                            data.TryGetProperty("public_key", out var keyElement) && keyElement.ValueKind == JsonValueKind.String)
+                            candidateKey = keyElement.GetString() ?? "";
+                        else if (root.TryGetProperty("public_key", out var key) && key.ValueKind == JsonValueKind.String)
+                            candidateKey = key.GetString() ?? "";
+                    }
+                    catch (JsonException)
+                    {
+                        candidateKey = "";
+                    }
                 }
             }
 
@@ -537,10 +562,26 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
 
         if (headers.ContainsKey("Transfer-Encoding"))
             throw new WebhookRequestException(501, "Chunked webhook requests are not supported by the loopback receiver.");
-        if (!headers.TryGetValue("Content-Length", out var contentLengthText) ||
-            !int.TryParse(contentLengthText, NumberStyles.None, CultureInfo.InvariantCulture, out var contentLength) ||
-            contentLength < 0)
+
+        var method = requestParts[0];
+        int contentLength;
+        if (headers.TryGetValue("Content-Length", out var contentLengthText))
+        {
+            if (!int.TryParse(contentLengthText, NumberStyles.None, CultureInfo.InvariantCulture, out contentLength) ||
+                contentLength < 0)
+                throw new WebhookRequestException(400, "Invalid Content-Length.");
+        }
+        else if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(method, "HEAD", StringComparison.OrdinalIgnoreCase))
+        {
+            // Read-only health probes may omit Content-Length as normal HTTP clients do.
+            contentLength = 0;
+        }
+        else
+        {
             throw new WebhookRequestException(411, "Content-Length is required.");
+        }
+
         if (contentLength > MaximumBodyBytes)
             throw new WebhookRequestException(413, "Request body too large.");
 
@@ -555,6 +596,18 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
 
         var path = requestParts[1].Split('?', 2)[0];
         return new HttpRequest(requestParts[0], path, headers, body);
+    }
+
+    private static async Task WriteHealthProbeResponseAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        var response = Encoding.ASCII.GetBytes(
+            "HTTP/1.1 200 OK\r\n" +
+            "Content-Length: 0\r\n" +
+            "Connection: close\r\n" +
+            "Cache-Control: no-store\r\n" +
+            "X-VtuberBot-Webhook-Health: ready\r\n\r\n");
+        await stream.WriteAsync(response, cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task WriteResponseAsync(Stream stream, int statusCode, string reason, CancellationToken cancellationToken)

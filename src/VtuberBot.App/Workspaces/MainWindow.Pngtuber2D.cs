@@ -97,6 +97,82 @@ public partial class MainWindow
 
         var controlsPanel = Panel("Configuración rápida");
         controlsPanel.Children.Add(ActionButton("＋ Importar mi personaje PNG", (_, _) => ImportPngtuberBase(), true));
+        controlsPanel.Children.Add(ActionButton("🧪 Revisar PNG, transparencia y bocas", (_, _) =>
+        {
+            var rolesByPath = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            void AddArtwork(string role, string? artworkPath)
+            {
+                if (string.IsNullOrWhiteSpace(artworkPath))
+                    return;
+                var normalizedPath = artworkPath.Trim();
+                if (!rolesByPath.TryGetValue(normalizedPath, out var roles))
+                    rolesByPath[normalizedPath] = roles = [];
+                if (!roles.Contains(role, StringComparer.OrdinalIgnoreCase))
+                    roles.Add(role);
+            }
+
+            AddArtwork("Personaje base", avatarPath);
+            var mouthForDiagnostics = FindPngtuberMouthLayer();
+            AddArtwork("Boca cerrada", mouthForDiagnostics?.ClosedMouthPath);
+            AddArtwork("Boca abierta", mouthForDiagnostics?.OpenMouthPath);
+            foreach (var layer in store.GetAvatarLayers().Where(layer => layer.Visible))
+            {
+                AddArtwork("Capa " + layer.Name, layer.Path);
+                AddArtwork("Boca cerrada · " + layer.Name, layer.ClosedMouthPath);
+                AddArtwork("Boca abierta · " + layer.Name, layer.OpenMouthPath);
+            }
+
+            if (rolesByPath.Count == 0)
+            {
+                MessageBox.Show(this, "Todavía no hay un PNG de personaje ni capas importadas para revisar.", "Diagnóstico del avatar",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var reports = new List<string>();
+            var failed = 0;
+            var whiteBorderWarnings = 0;
+            foreach (var entry in rolesByPath)
+            {
+                var fileName = Path.GetFileName(entry.Key);
+                try
+                {
+                    var report = AvatarArtworkDiagnostics.InspectFile(entry.Key);
+                    if (report.BorderAnalysis.HasLikelyOpaqueWhiteBorder)
+                        whiteBorderWarnings++;
+                    reports.Add(string.Join(", ", entry.Value) + Environment.NewLine + report.ToDisplayText());
+                }
+                catch (Exception exception) when (
+                    exception is IOException or UnauthorizedAccessException or ArgumentException or
+                    System.NotSupportedException or
+                    InvalidOperationException or OverflowException)
+                {
+                    failed++;
+                    var error = exception.GetBaseException().Message;
+                    try { error = error.Replace(Path.GetFullPath(entry.Key), fileName, StringComparison.OrdinalIgnoreCase); }
+                    catch (Exception pathException) when (pathException is ArgumentException or IOException or UnauthorizedAccessException) { }
+                    reports.Add(string.Join(", ", entry.Value) + " — " + fileName + Environment.NewLine +
+                        "No se pudo analizar (" + exception.GetType().Name + "): " + error);
+                }
+            }
+
+            var summary = "Archivos revisados: " + rolesByPath.Count +
+                "; avisos de borde blanco: " + whiteBorderWarnings +
+                "; archivos con error: " + failed + "." + Environment.NewLine + Environment.NewLine +
+                string.Join(Environment.NewLine + Environment.NewLine, reports) +
+                Environment.NewLine + Environment.NewLine +
+                "El diagnóstico es de solo lectura y no modifica las imágenes originales. Las muestras de borde no prueban cada píxel: mirá también la vista previa y una grabación de OBS.";
+            FooterStatus.Text = "Diagnóstico de arte finalizado: " + rolesByPath.Count + " archivos, " +
+                whiteBorderWarnings + " aviso(s) de borde blanco y " + failed + " error(es).";
+            store.Log("Avatar", "Diagnóstico local terminado: " + rolesByPath.Count + " archivo(s), " +
+                whiteBorderWarnings + " aviso(s) de borde blanco, " + failed + " error(es); no se guardaron rutas.");
+            MessageBox.Show(this, summary, "Diagnóstico del avatar 2D",
+                whiteBorderWarnings > 0 || failed > 0 ? MessageBoxButton.OK : MessageBoxButton.OK,
+                whiteBorderWarnings > 0 || failed > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+        }, true));
+        controlsPanel.Children.Add(Label(
+            "Este análisis comprueba dimensiones y muestras del borde para avisar si puede quedar un rectángulo blanco. No elimina fondos ni sobrescribe tus PNG.",
+            11, "#98A4BE"));
         controlsPanel.Children.Add(Label("BOCA ANIME / STICKER", 13, "#F8FAFC", true));
         controlsPanel.Children.Add(Label("1. Elegí el dibujo de boca cerrada. 2. Elegí otro dibujo para cuando hablás. No hace falta un modelo 3D.", 12, "#98A4BE"));
         var mouthActions = new WrapPanel();
