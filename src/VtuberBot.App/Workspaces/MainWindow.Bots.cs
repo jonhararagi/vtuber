@@ -445,6 +445,68 @@ public partial class MainWindow
             }
         }));
 
+        eventPanel.Children.Add(ActionButton("Probar acceso HTTPS público", async (_, _) =>
+        {
+            if (!IsConfiguredPublicKickWebhookUrl(webhookUrl.Text, out var configuredUri))
+            {
+                MessageBox.Show(this, "Ingresá una URL pública HTTPS válida terminada en /kick-webhook antes de probarla.",
+                    "URL de webhook no válida", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (kickWebhookReceiver is null || !kickWebhookReceiver.IsRunning)
+            {
+                MessageBox.Show(this, "Iniciá primero el receptor local. Esta prueba no inicia el listener ni cambia la configuración.",
+                    "Receptor local detenido", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            webhookStatus.Text = "Probando si la URL HTTPS pública puede alcanzar la ruta del receptor…";
+            webhookStatus.Foreground = Brush("#E7B56A");
+            try
+            {
+                // Do not follow redirects: a login/landing page must not be mistaken for the webhook.
+                using var handler = new System.Net.Http.HttpClientHandler { AllowAutoRedirect = false, UseCookies = false };
+                using var client = new System.Net.Http.HttpClient(handler) { Timeout = TimeSpan.FromSeconds(8) };
+                using var response = await client.GetAsync(configuredUri!);
+                if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                {
+                    var status = "Probe HTTPS OK (HTTP 200): la URL llegó al listener local. Esto NO demuestra entrega firmada desde Kick; todavía hay que ver un evento real.";
+                    webhookStatus.Text = status;
+                    webhookStatus.Foreground = Brush("#8FE6D0");
+                    eventStatus.Text = status;
+                    eventStatus.Foreground = Brush("#E7B56A");
+                    FooterStatus.Text = "Ruta pública alcanzable por esta PC. Pendiente: evento firmado real de Kick.";
+                    store.SetSetting("kick.webhook.lastStatus", status);
+                    store.Log("Kick Events", "El probe HTTP de la ruta pública devolvió 200; no se afirmó recepción de un evento real.");
+                }
+                else
+                {
+                    var status = "El probe HTTPS recibió HTTP " +
+                        ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture) +
+                        ". No se confirmó que el túnel reenvíe a /kick-webhook.";
+                    webhookStatus.Text = status;
+                    webhookStatus.Foreground = Brush("#F2A6A6");
+                    eventStatus.Text = status;
+                    eventStatus.Foreground = Brush("#F2A6A6");
+                    FooterStatus.Text = status;
+                    store.SetSetting("kick.webhook.lastStatus", status);
+                    store.Log("Kick Events", "El probe HTTPS no devolvió HTTP 200 (" + (int)response.StatusCode +
+                        "); no se declaró válida la recepción externa.");
+                }
+            }
+            catch (Exception exception) when (
+                exception is System.Net.Http.HttpRequestException or TaskCanceledException or InvalidOperationException or UriFormatException)
+            {
+                var status = "No se pudo alcanzar la URL HTTPS desde esta PC (" + exception.GetType().Name +
+                    "). Comprobá DNS, túnel, certificado, URL y acceso público. El probe no envió un evento ni cambió suscripciones.";
+                webhookStatus.Text = status;
+                webhookStatus.Foreground = Brush("#F2A6A6");
+                FooterStatus.Text = "Acceso HTTPS no comprobado; no se afirmó entrega de Kick.";
+                store.SetSetting("kick.webhook.lastStatus", status);
+                store.Log("Kick Events", "Falló el probe HTTP de la URL pública (" + exception.GetType().Name + ").");
+            }
+        }));
+
         eventPanel.Children.Add(ActionButton("Suscribir chat y eventos", async (_, _) =>
         {
             if (!IsConfiguredPublicKickWebhookUrl(webhookUrl.Text, out var configuredUri))
