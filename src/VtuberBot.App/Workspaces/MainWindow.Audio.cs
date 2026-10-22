@@ -843,7 +843,7 @@ public partial class MainWindow
                     voicevoxBaseUrlField.Text.Trim(),
                     selectedVoice.Id,
                     "こんにちは。これはVOICEVOXの音声テストです。",
-                    cancellationToken: TestContextForAudioDiagnostics());
+                    cancellationToken: CancellationToken.None);
                 var report = "Diagnóstico VOICEVOX aprobado. Engine " + result.Version +
                     "; " + result.AvailableVoiceCount + " estilos disponibles; síntesis de " +
                     result.SynthesizedAudioBytes.ToString(CultureInfo.InvariantCulture) + " bytes WAV válida. " +
