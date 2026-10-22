@@ -31,6 +31,8 @@ public sealed class ObsWebSocketClientIntegrationTests
         var outputHeight = 1080;
         var fpsNumerator = 60;
         var fpsDenominator = 1;
+        var recordingActive = false;
+        var recordDirectory = Path.Combine(Path.GetTempPath(), "VTuberBot-Test-Recordings");
 
         var server = RunServerAsync(async () =>
         {
@@ -109,8 +111,21 @@ public sealed class ObsWebSocketClientIntegrationTests
                             responseData = new { inputMuted = false };
                             break;
                         case "GetRecordStatus":
+                            responseData = new { outputActive = recordingActive };
+                            break;
                         case "GetStreamStatus":
                             responseData = new { outputActive = false };
+                            break;
+                        case "GetRecordDirectory":
+                            responseData = new { recordDirectory };
+                            break;
+                        case "StartRecord":
+                            recordingActive = true;
+                            responseData = new { };
+                            break;
+                        case "StopRecord":
+                            recordingActive = false;
+                            responseData = new { };
                             break;
                         case "GetStats":
                             responseData = new
@@ -172,6 +187,17 @@ public sealed class ObsWebSocketClientIntegrationTests
 
         Assert.False(await client.IsRecordingAsync(TestContext.Current.CancellationToken));
         Assert.False(await client.IsStreamingAsync(TestContext.Current.CancellationToken));
+
+        var resolvedRecordDirectory = await client.GetRecordDirectoryAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(Path.GetFullPath(recordDirectory), resolvedRecordDirectory);
+        await client.StartRecordingAsync(TestContext.Current.CancellationToken);
+        Assert.True(await client.IsRecordingAsync(TestContext.Current.CancellationToken));
+        await client.StopRecordingAsync(TestContext.Current.CancellationToken);
+        Assert.False(await client.IsRecordingAsync(TestContext.Current.CancellationToken));
+
+        Assert.Contains("GetRecordDirectory", observedRequests);
+        Assert.Contains("StartRecord", observedRequests);
+        Assert.Contains("StopRecord", observedRequests);
         Assert.Contains("GetVersion", observedRequests);
         Assert.Contains("SetVideoSettings", observedRequests);
         Assert.Contains("GetVideoSettings", observedRequests);
