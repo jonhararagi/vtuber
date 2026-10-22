@@ -468,30 +468,34 @@ public partial class MainWindow
                 using var handler = new System.Net.Http.HttpClientHandler { AllowAutoRedirect = false, UseCookies = false };
                 using var client = new System.Net.Http.HttpClient(handler) { Timeout = TimeSpan.FromSeconds(8) };
                 using var response = await client.GetAsync(configuredUri!);
-                if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                var hasReceiverMarker = response.Headers.TryGetValues("X-VtuberBot-Webhook-Health", out var markerValues) &&
+                    markerValues.Any(value => string.Equals(value, "ready", StringComparison.OrdinalIgnoreCase));
+                if (response.StatusCode == System.Net.HttpStatusCode.OK && hasReceiverMarker)
                 {
-                    var status = "Probe HTTPS OK (HTTP 200): la URL llegó al listener local. Esto NO demuestra entrega firmada desde Kick; todavía hay que ver un evento real.";
+                    var status = "Probe HTTPS OK (HTTP 200 + marca VTuberBot): la URL llegó al listener local. Esto NO demuestra entrega firmada desde Kick; todavía hay que ver un evento real.";
                     webhookStatus.Text = status;
                     webhookStatus.Foreground = Brush("#8FE6D0");
                     eventStatus.Text = status;
                     eventStatus.Foreground = Brush("#E7B56A");
                     FooterStatus.Text = "Ruta pública alcanzable por esta PC. Pendiente: evento firmado real de Kick.";
                     store.SetSetting("kick.webhook.lastStatus", status);
-                    store.Log("Kick Events", "El probe HTTP de la ruta pública devolvió 200; no se afirmó recepción de un evento real.");
+                    store.Log("Kick Events", "El probe HTTPS verificó la marca del receptor local; no se afirmó recepción de un evento real.");
                 }
                 else
                 {
-                    var status = "El probe HTTPS recibió HTTP " +
-                        ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture) +
-                        ". No se confirmó que el túnel reenvíe a /kick-webhook.";
+                    var status = response.StatusCode == System.Net.HttpStatusCode.OK
+                        ? "La URL respondió HTTP 200 pero no presentó la marca de identidad del receptor VTuberBot. No se confirmó el túnel."
+                        : "El probe HTTPS recibió HTTP " +
+                            ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture) +
+                            ". No se confirmó que el túnel reenvíe a /kick-webhook.";
                     webhookStatus.Text = status;
                     webhookStatus.Foreground = Brush("#F2A6A6");
                     eventStatus.Text = status;
                     eventStatus.Foreground = Brush("#F2A6A6");
                     FooterStatus.Text = status;
                     store.SetSetting("kick.webhook.lastStatus", status);
-                    store.Log("Kick Events", "El probe HTTPS no devolvió HTTP 200 (" + (int)response.StatusCode +
-                        "); no se declaró válida la recepción externa.");
+                    store.Log("Kick Events", "El probe HTTPS no confirmó la marca del receptor local (HTTP " +
+                        (int)response.StatusCode + "); no se declaró válida la recepción externa.");
                 }
             }
             catch (Exception exception) when (
