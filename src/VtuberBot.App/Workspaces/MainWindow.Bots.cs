@@ -401,7 +401,7 @@ public partial class MainWindow
             var receivedAt = lastKickWebhookChatReceivedAtUtc;
             if (receivedAt is null &&
                 DateTimeOffset.TryParse(store.GetSetting("kick.webhook.lastVerifiedChatAtUtc"),
-                    CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var persistedAt))
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out var persistedAt))
                 receivedAt = persistedAt;
 
             if (receivedAt.HasValue)
