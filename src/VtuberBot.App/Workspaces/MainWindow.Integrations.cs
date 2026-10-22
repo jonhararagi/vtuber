@@ -542,6 +542,313 @@ public partial class MainWindow
         outputPanel.Children.Add(Label("Las acciones solo se envían tras la autenticación WebSocket. El estado se lee desde OBS; guardar la configuración no simula una salida activa.", 12, "#98A4BE"));
         root.Children.Add(outputPanel);
 
+        var recordingSmokePanel = Panel("Prueba guiada real · grabación local, voz y avatar");
+        recordingSmokePanel.Margin = new Thickness(0, 14, 0, 0);
+        recordingSmokePanel.Children.Add(Label(
+            "Crea una grabación local corta, reproduce una frase del proveedor LOCAL ya configurado (sin APIs remotas), comprueba que OBS haya escrito un archivo y lo abre para que puedas revisarlo. Nunca inicia ni detiene una transmisión en vivo. Requiere OBS local y WebSocket autenticado.",
+            12, "#98A4BE"));
+        var recordingSmokeStatus = Label(
+            "Última prueba: " + store.GetSetting("obs.recording.smokeTest.lastResult", "todavía no ejecutada") +
+            (DateTimeOffset.TryParse(store.GetSetting("obs.recording.smokeTest.lastRunAtUtc"), out var priorSmokeRun)
+                ? " · " + priorSmokeRun.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)
+                : ""),
+            12, "#E7B56A", true);
+        recordingSmokePanel.Children.Add(recordingSmokeStatus);
+        string? lastSmokeRecordingPath = null;
+        var recordingSmokeTestRunning = 0;
+
+        async Task<bool> WaitForRecordingStateAsync(bool expected, TimeSpan timeout)
+        {
+            var deadline = DateTimeOffset.UtcNow + timeout;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                if (!obs.IsConnected)
+                    return false;
+                if (await obs.IsRecordingAsync())
+                {
+                    if (expected) return true;
+                }
+                else if (!expected)
+                {
+                    return true;
+                }
+
+                await Task.Delay(250);
+            }
+
+            return false;
+        }
+
+        async Task<ObsRecordingFileSnapshot?> WaitForCompletedRecordingAsync(
+            string directory,
+            IReadOnlyList<ObsRecordingFileSnapshot> before,
+            DateTime startedAtUtc,
+            TimeSpan timeout)
+        {
+            var deadline = DateTimeOffset.UtcNow + timeout;
+            long lastLength = -1;
+            var stableSamples = 0;
+            ObsRecordingFileSnapshot? mostRecent = null;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                var after = ObsRecordingSmokeTestPolicy.CaptureDirectorySnapshot(directory);
+                var candidate = ObsRecordingSmokeTestPolicy.FindNewRecording(before, after, startedAtUtc);
+                if (candidate is not null)
+                {
+                    mostRecent = candidate;
+                    if (candidate.Length == lastLength)
+                        stableSamples++;
+                    else
+                    {
+                        lastLength = candidate.Length;
+                        stableSamples = 0;
+                    }
+
+                    if (stableSamples >= 2)
+                        return candidate;
+                }
+
+                await Task.Delay(750);
+            }
+
+            return mostRecent;
+        }
+
+        async Task RunRecordingSmokeTestAsync()
+        {
+            if (Interlocked.CompareExchange(ref recordingSmokeTestRunning, 1, 0) != 0)
+            {
+                FooterStatus.Text = "La prueba de grabación ya está en curso.";
+                return;
+            }
+
+            Action<string, int>? speechStatusHandler = null;
+            try
+            {
+                if (!obs.IsConnected)
+                    await AutoConnectObsFromUiAsync();
+                if (!obs.IsConnected)
+                    throw new InvalidOperationException("Primero conecta y autentica OBS WebSocket.");
+
+                var configuredHost = host.Text.Trim();
+                var isLoopbackHost = configuredHost.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                    (System.Net.IPAddress.TryParse(configuredHost, out var address) && System.Net.IPAddress.IsLoopback(address));
+                if (!isLoopbackHost)
+                    throw new InvalidOperationException("La verificación de archivos solo se ejecuta con OBS en localhost/loopback. Con OBS remoto, la carpeta devuelta no pertenece necesariamente a este equipo.");
+
+                if (ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.tts.provider", "local")))
+                    throw new InvalidOperationException("La prueba guiada no llama a servicios remotos ni usa APIs pagas. Cambiá el proveedor de voz a Local para hacer esta prueba.");
+
+                var voiceId = store.GetSetting("audio.tts.voiceId");
+                if (string.IsNullOrWhiteSpace(voiceId))
+                    voiceId = store.GetSetting("audio.voicevox.voiceId");
+                var voicevoxVoice = VoicevoxSpeechSession.IsVoiceId(voiceId);
+                var sapiEnabled = store.GetSetting("audio.tts.windowsSapiEnabled", "false") == "true";
+                if (!voicevoxVoice && !sapiEnabled)
+                    throw new InvalidOperationException("No hay una voz local configurada. En Voz y audio seleccioná VOICEVOX, o habilitá Windows SAPI expresamente, y probá la voz antes de grabar.");
+
+                if (speechQueue.PendingCount > 0 || speechQueue.IsPlaybackActive)
+                    throw new InvalidOperationException("La cola de voz ya está ocupada. Dejá que termine antes del ensayo para que el resultado sea atribuible a esta prueba.");
+
+                var isStreaming = await obs.IsStreamingAsync();
+                var isRecording = await obs.IsRecordingAsync();
+                if (!ObsRecordingSmokeTestPolicy.CanStart(obs.IsConnected, isStreaming, isRecording))
+                    throw new InvalidOperationException(isStreaming
+                        ? "Ya hay una transmisión activa. La prueba se cancela; VTuberBot no detendrá una transmisión en vivo."
+                        : isRecording
+                            ? "Ya hay una grabación activa. La prueba no la interrumpirá."
+                            : "OBS se desconectó antes de iniciar la prueba.");
+
+                var recordDirectory = await obs.GetRecordDirectoryAsync();
+                if (!Directory.Exists(recordDirectory))
+                    throw new DirectoryNotFoundException("La carpeta de grabación que declara OBS no existe en este equipo. Revisá Ajustes → Salida → Grabación en OBS.");
+                var baseline = ObsRecordingSmokeTestPolicy.CaptureDirectorySnapshot(recordDirectory);
+                var startedAtUtc = DateTime.UtcNow;
+                var recordingStartAcknowledged = false;
+                var recordingStopConfirmed = false;
+                var speechOutcome = "La cola de voz no confirmó la reproducción.";
+                var speechOutcomeSource = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+                speechStatusHandler = (message, _) =>
+                {
+                    if (message.StartsWith("Error TTS local:", StringComparison.OrdinalIgnoreCase))
+                        speechOutcomeSource.TrySetResult("Error local de TTS: " + message);
+                    else if (string.Equals(message, "Reproducción finalizada.", StringComparison.Ordinal))
+                        speechOutcomeSource.TrySetResult("El motor local terminó la frase.");
+                };
+                speechQueue.StatusChanged += speechStatusHandler;
+
+                FooterStatus.Text = "Iniciando solo grabación local; no se solicitará transmisión…";
+                recordingSmokeStatus.Text = "Preparando grabación local…";
+                try
+                {
+                    await obs.StartRecordingAsync();
+                    recordingStartAcknowledged = true;
+                    if (!await WaitForRecordingStateAsync(expected: true, TimeSpan.FromSeconds(8)))
+                        throw new TimeoutException("OBS aceptó iniciar la solicitud, pero no confirmó el estado Grabando.");
+
+                    var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var storedRate) ? Math.Clamp(storedRate, -10, 10) : 0;
+                    var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var storedVolume) ? Math.Clamp(storedVolume, 0, 100) : 100;
+                    var outputId = voicevoxVoice
+                        ? store.GetSetting("audio.voicevox.outputId")
+                        : store.GetSetting("audio.tts.outputId");
+                    var voiceQueued = speechQueue.Enqueue(
+                        "Hola, chat. Esta es una prueba local de voz y avatar de VTuberBot.",
+                        SpeechPriority.High,
+                        voiceId,
+                        rate,
+                        volume,
+                        outputId);
+                    if (!voiceQueued)
+                        throw new InvalidOperationException("La cola local rechazó la frase de prueba; se detendrá la grabación y no se marcará la voz como verificada.");
+
+                    recordingSmokeStatus.Text = "Grabando… la frase se reproduce con el proveedor local; VTuberBot no está transmitiendo.";
+                    FooterStatus.Text = "Grabación de prueba en curso. La frase local y el estado Talking deberían aparecer en OBS si la escena está configurada.";
+
+                    var minimumEnd = DateTimeOffset.UtcNow.AddSeconds(8);
+                    var maximumEnd = DateTimeOffset.UtcNow.AddSeconds(45);
+                    while (DateTimeOffset.UtcNow < maximumEnd)
+                    {
+                        await Task.Delay(500);
+                        if (!obs.IsConnected)
+                            throw new IOException("OBS perdió su conexión durante la grabación de prueba.");
+                        if (await obs.IsStreamingAsync())
+                            throw new InvalidOperationException("Se detectó una transmisión en vivo mientras se probaba. Se detendrá únicamente la grabación de prueba; VTuberBot no tocará la transmisión.");
+                        if (DateTimeOffset.UtcNow >= minimumEnd && speechOutcomeSource.Task.IsCompleted)
+                        {
+                            speechOutcome = await speechOutcomeSource.Task;
+                            break;
+                        }
+                    }
+
+                    if (!speechOutcomeSource.Task.IsCompleted)
+                    {
+                        speechOutcome = "La frase no finalizó dentro del límite de 45 segundos; se solicitó detener la voz.";
+                        speechQueue.StopCurrentSpeech();
+                    }
+                    else
+                    {
+                        speechOutcome = await speechOutcomeSource.Task;
+                    }
+
+                    await obs.StopRecordingAsync();
+                    if (!await WaitForRecordingStateAsync(expected: false, TimeSpan.FromSeconds(8)))
+                        throw new TimeoutException("OBS no confirmó que la grabación se detuviera.");
+                    recordingStopConfirmed = true;
+                }
+                finally
+                {
+                    // We stop only a recording whose StartRecord request was acknowledged by OBS.
+                    // If its acknowledgement was lost, output ownership is ambiguous; report that fact instead of risking stopping someone else's recording.
+                    if (recordingStartAcknowledged && !recordingStopConfirmed && obs.IsConnected)
+                    {
+                        try
+                        {
+                            if (await obs.IsRecordingAsync())
+                            {
+                                await obs.StopRecordingAsync();
+                                recordingStopConfirmed = await WaitForRecordingStateAsync(expected: false, TimeSpan.FromSeconds(8));
+                            }
+                        }
+                        catch (Exception stopException)
+                        {
+                            store.Log("OBS", "No se pudo confirmar la parada de la grabación de prueba (" + stopException.GetType().Name + ").");
+                        }
+                    }
+                }
+
+                var completedRecording = await WaitForCompletedRecordingAsync(
+                    recordDirectory, baseline, startedAtUtc, TimeSpan.FromSeconds(15));
+                if (completedRecording is null)
+                    throw new IOException("OBS detuvo la grabación, pero no apareció un archivo nuevo y estable en la carpeta que declara OBS. Revisá el formato, los permisos y el log de OBS.");
+
+                lastSmokeRecordingPath = completedRecording.FullPath;
+                var fileName = Path.GetFileName(completedRecording.FullPath);
+                var bytesLabel = completedRecording.Length.ToString("N0", CultureInfo.InvariantCulture) + " bytes";
+                recordingSmokeStatus.Text = "Archivo detectado: " + fileName + " · " + bytesLabel +
+                    ". Resultado de la voz: " + speechOutcome;
+                store.SetSetting("obs.recording.smokeTest.lastRunAtUtc", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+                store.SetSetting("obs.recording.smokeTest.lastFileName", fileName);
+                store.SetSetting("obs.recording.smokeTest.lastResult", "recording-created-review-pending");
+                store.Log("OBS", "La prueba local creó un archivo de grabación nuevo de " + completedRecording.Length.ToString(CultureInfo.InvariantCulture) +
+                    " bytes. Nombre: " + fileName + ". Voz: " + (speechOutcome.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ? "error" : speechOutcome.StartsWith("El motor", StringComparison.Ordinal) ? "reproducción reportada" : "sin confirmar") +
+                    ". No se inició ni detuvo una transmisión.");
+
+                try
+                {
+                    Process.Start(new ProcessStartInfo(completedRecording.FullPath) { UseShellExecute = true });
+                }
+                catch (Exception openException)
+                {
+                    store.Log("OBS", "No se pudo abrir el archivo de prueba en el reproductor predeterminado (" + openException.GetType().Name + ").");
+                }
+
+                var review = MessageBox.Show(this,
+                    "OBS creó un archivo nuevo: " + fileName + " (" + bytesLabel + ").\n\n" +
+                    "Estado de la voz: " + speechOutcome + "\n\n" +
+                    "Se abrió el archivo en tu reproductor. ¿La grabación muestra el avatar correctamente y se escuchan la frase y el resto del audio sin cortes ni recuadros blancos? Esta confirmación es manual y solo debe marcarse si lo acabás de comprobar.",
+                    "Revisar grabación real de OBS", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                var verifiedByUser = review == MessageBoxResult.Yes;
+                var resultText = verifiedByUser ? "confirmado-por-usuario" : "archivo-creado-revisión-pendiente";
+                store.SetSetting("obs.recording.smokeTest.lastResult", resultText);
+                recordingSmokeStatus.Text = verifiedByUser
+                    ? "Confirmado por vos: el archivo se reproduce con imagen y sonido. " + fileName
+                    : "El archivo existe, pero la reproducción visual/audible queda pendiente: " + fileName;
+                recordingSmokeStatus.Foreground = Brush(verifiedByUser ? "#8FE6D0" : "#E7B56A");
+                FooterStatus.Text = verifiedByUser
+                    ? "Prueba física de grabación confirmada por el usuario."
+                    : "Se creó el archivo, pero la prueba física necesita revisión.";
+                store.Log("OBS", verifiedByUser
+                    ? "El usuario confirmó manualmente reproducción de imagen y sonido de la grabación de prueba."
+                    : "El usuario no confirmó reproducción de imagen y sonido; no se marcó como validada.");
+            }
+            catch (Exception exception)
+            {
+                recordingSmokeStatus.Text = "Prueba incompleta: " + exception.GetBaseException().Message;
+                recordingSmokeStatus.Foreground = Brush("#F2A6A6");
+                FooterStatus.Text = "La prueba real de OBS no se completó. No se inició ninguna transmisión.";
+                store.Log("OBS", "Falló o se interrumpió la prueba local de grabación (" + exception.GetType().Name + "). No se registraron rutas completas.");
+                MessageBox.Show(this,
+                    exception.GetBaseException().Message + "\n\nLa prueba no inicia transmisiones. Si OBS agotó el tiempo al responder a StartRecord, verificá manualmente el estado de grabación antes de volver a probar.",
+                    "Prueba de grabación de OBS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            finally
+            {
+                if (speechStatusHandler is not null)
+                    speechQueue.StatusChanged -= speechStatusHandler;
+                Interlocked.Exchange(ref recordingSmokeTestRunning, 0);
+                try { await RefreshOutputStatusAsync(); } catch (Exception exception)
+                {
+                    store.Log("OBS", "No se pudo actualizar el estado tras la prueba (" + exception.GetType().Name + ").");
+                }
+            }
+        }
+
+        recordingSmokePanel.Children.Add(ActionButton("▶ Grabar prueba local + reproducir voz (máx. 45 s)", async (_, _) =>
+        {
+            if (MessageBox.Show(this,
+                    "VTuberBot hará una grabación LOCAL de hasta 45 segundos para comprobar imagen y audio. Se reproducirá una frase usando solo el proveedor de voz local configurado. No se iniciará ninguna transmisión ni se modificarán las escenas o fuentes. Al finalizar se abrirá el archivo para que lo revises. ¿Continuar?",
+                    "Confirmar prueba de grabación local", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                await RunRecordingSmokeTestAsync();
+        }, true));
+        recordingSmokePanel.Children.Add(ActionButton("Abrir último archivo de prueba", (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(lastSmokeRecordingPath) || !File.Exists(lastSmokeRecordingPath))
+            {
+                FooterStatus.Text = "No hay un archivo de prueba disponible en esta sesión. Ejecutá primero la grabación local.";
+                return;
+            }
+
+            try { Process.Start(new ProcessStartInfo(lastSmokeRecordingPath) { UseShellExecute = true }); }
+            catch (Exception exception)
+            {
+                FooterStatus.Text = "No se pudo abrir el archivo de prueba: " + exception.GetType().Name;
+            }
+        }));
+        recordingSmokePanel.Children.Add(Label(
+            "La prueba verifica el estado real de OBS y la creación de un archivo; la voz que termina en la cola tampoco prueba por sí sola que los altavoces hayan sonado. Solo se marca como validada cuando confirmás la reproducción del archivo.",
+            11, "#98A4BE"));
+        root.Children.Add(recordingSmokePanel);
+
         var destinationsPanel = Panel("Transmitir a Twitch o YouTube");
         destinationsPanel.Margin = new Thickness(0, 14, 0, 0);
         destinationsPanel.Children.Add(Label("Elegí la plataforma, guardá su clave una sola vez y usa «Configurar destino». La clave se cifra con Windows y nunca se muestra en pantalla ni se registra en logs.", 12, "#98A4BE"));
