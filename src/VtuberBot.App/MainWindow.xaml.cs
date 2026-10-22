@@ -78,6 +78,7 @@ public partial class MainWindow : Window
     private string currentPage = "Inicio";
     private TextBlock? kickWebhookRealEventStatusLabel;
     private DateTimeOffset? lastKickWebhookChatReceivedAtUtc;
+    private DateTimeOffset lastKickEvidencePersistenceWarningAtUtc = DateTimeOffset.MinValue;
     private bool shutdownStarted;
     private bool shutdownCompleted;
 
