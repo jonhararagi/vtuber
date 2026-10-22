@@ -13,6 +13,7 @@ public partial class MainWindow
     private KickWebhookReceiver? kickWebhookReceiver;
     private const int MaxKickWebhookEventsPerUiBatch = 20;
     private readonly Dictionary<string, DateTimeOffset> kickModerationCooldown = new(StringComparer.OrdinalIgnoreCase);
+    private readonly CommunityCommandRateLimiter kickCommunityCommandRateLimiter = new();
     private int kickWebhookProcessorScheduled;
     private int kickWebhookOverflowNotificationPending;
 
@@ -408,12 +409,33 @@ public partial class MainWindow
         if (!text.StartsWith('!') || text.Length > 1000)
             return false;
 
+        // Keep the command and giveaway paths consistent with the community router's identity validation.
+        if (message.Username.Length is 0 or > 25 ||
+            message.Username.Any(ch => !(char.IsLetterOrDigit(ch) || ch is '_' or '-')))
+        {
+            store.Log("Comunidad Kick", "Se omitió un comando de Kick porque el nombre de usuario no cumple el formato admitido.");
+            return true;
+        }
+
         var separatorIndex = text.IndexOf(' ');
         var command = separatorIndex < 0 ? text : text[..separatorIndex];
         var arguments = separatorIndex < 0 ? string.Empty : text[(separatorIndex + 1)..].Trim();
-        string reply;
+        var normalizedCommand = command.TrimStart('!').ToLowerInvariant();
+        var isGiveawayCommand = string.Equals(normalizedCommand, "entrar", StringComparison.Ordinal);
+        if (!isGiveawayCommand &&
+            !CommunityCommandRouter.BuiltInCommands.Contains(normalizedCommand, StringComparer.OrdinalIgnoreCase))
+            return false;
 
-        if (string.Equals(command, "!entrar", StringComparison.OrdinalIgnoreCase))
+        if (!kickCommunityCommandRateLimiter.TryAcquire(normalizedCommand, message.Username, DateTimeOffset.UtcNow))
+        {
+            // A recognized but rate-limited command is consumed so it cannot accidentally trigger a reaction rule.
+            store.Log("Comunidad Kick", "Se omitió una respuesta de comando por el límite de frecuencia (" +
+                normalizedCommand + ", usuario " + message.Username + ").");
+            return true;
+        }
+
+        string reply;
+        if (isGiveawayCommand)
         {
             var activeGiveaways = store.GetGiveaways()
                 .Where(giveaway => string.Equals(giveaway.Status, "OPEN", StringComparison.Ordinal))
