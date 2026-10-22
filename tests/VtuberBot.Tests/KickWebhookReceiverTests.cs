@@ -218,6 +218,67 @@ public sealed class KickWebhookReceiverTests
         Assert.Equal(0, Volatile.Read(ref receiveCount));
     }
 
+    [Fact]
+    public async Task LoopbackHealthProbeReturnsOkWithoutFetchingKeyOrDispatchingAnEvent()
+    {
+        using var rsa = RSA.Create(2048);
+        var publicKey = rsa.ExportSubjectPublicKeyInfoPem();
+        var port = ReserveFreePort();
+        var received = 0;
+        var keyFetches = 0;
+        await using var receiver = new KickWebhookReceiver(
+            port,
+            publicKeyProvider: _ =>
+            {
+                Interlocked.Increment(ref keyFetches);
+                return Task.FromResult(publicKey);
+            });
+        receiver.EventReceived += _ => Interlocked.Increment(ref received);
+        receiver.Start();
+
+        var status = await SendHealthProbeAsync(port);
+
+        Assert.Equal(200, status);
+        Assert.Equal(0, Volatile.Read(ref received));
+        Assert.Equal(0, Volatile.Read(ref keyFetches));
+    }
+
+    private static async Task<int> SendHealthProbeAsync(int port)
+    {
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, port, TestContext.Current.CancellationToken);
+        await using var stream = client.GetStream();
+        var request = Encoding.ASCII.GetBytes(
+            "GET /kick-webhook HTTP/1.1\\r\\n" +
+            "Host: 127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "\\r\\n" +
+            "Connection: close\\r\\n\\r\\n");
+        await stream.WriteAsync(request, TestContext.Current.CancellationToken);
+        await stream.FlushAsync(TestContext.Current.CancellationToken);
+
+        using var responseBuffer = new MemoryStream();
+        var oneByte = new byte[1];
+        while (responseBuffer.Length < 4096)
+        {
+            var read = await stream.ReadAsync(oneByte.AsMemory(), TestContext.Current.CancellationToken);
+            if (read == 0) break;
+            responseBuffer.WriteByte(oneByte[0]);
+            var bytes = responseBuffer.GetBuffer();
+            var count = (int)responseBuffer.Length;
+            if (count >= 4 && bytes[count - 4] == 13 && bytes[count - 3] == 10 &&
+                bytes[count - 2] == 13 && bytes[count - 1] == 10)
+                break;
+        }
+
+        var statusLine = Encoding.ASCII.GetString(responseBuffer.ToArray())
+            .Split("\\r\\n", StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (statusLine is null)
+            throw new InvalidDataException("El receptor Kick no devolvió una respuesta para el probe HTTP.");
+        var parts = statusLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2 || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var status))
+            throw new InvalidDataException("El receptor Kick devolvió un estado HTTP inválido para el probe.");
+        return status;
+    }
+
     private static string Sign(RSA rsa, string messageId, string timestamp, string body)
     {
         var signedContent = Encoding.UTF8.GetBytes(messageId + "." + timestamp + "." + body);
