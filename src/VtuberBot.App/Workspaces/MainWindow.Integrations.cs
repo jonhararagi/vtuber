@@ -650,13 +650,15 @@ public partial class MainWindow
                 if (!obs.IsConnected)
                     throw new InvalidOperationException("Primero conecta y autentica OBS WebSocket.");
 
-                if (ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.tts.provider", "local")))
-                    throw new InvalidOperationException("La prueba guiada no llama a servicios remotos ni usa APIs pagas. Cambiá el proveedor de voz a Local para hacer esta prueba.");
-
                 var voiceId = store.GetSetting("audio.tts.voiceId");
                 if (string.IsNullOrWhiteSpace(voiceId))
                     voiceId = store.GetSetting("audio.voicevox.voiceId");
                 var voicevoxVoice = VoicevoxSpeechSession.IsVoiceId(voiceId);
+                // Explicit VOICEVOX speaker IDs always route to the local engine, even if the
+                // general provider preference is remote for other kinds of speech.
+                if (!voicevoxVoice && ProviderPreferenceDefaults.IsRemote(store.GetSetting("social.tts.provider", "local")))
+                    throw new InvalidOperationException("La prueba guiada no llama a servicios remotos ni usa APIs pagas. Cambiá el proveedor de voz a Local o seleccioná una voz VOICEVOX para hacer esta prueba.");
+
                 var sapiEnabled = store.GetSetting("audio.tts.windowsSapiEnabled", "false") == "true";
                 if (!voicevoxVoice && !sapiEnabled)
                     throw new InvalidOperationException("No hay una voz local configurada. En Voz y audio seleccioná VOICEVOX, o habilitá Windows SAPI expresamente, y probá la voz antes de grabar.");
