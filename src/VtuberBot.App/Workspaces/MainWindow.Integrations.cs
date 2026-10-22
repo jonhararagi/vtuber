@@ -565,7 +565,6 @@ public partial class MainWindow
             12, string.Equals(initialSmokeResult, "confirmado-por-usuario", StringComparison.Ordinal)
                 ? "#8FE6D0" : "#E7B56A", true);
         recordingSmokePanel.Children.Add(recordingSmokeStatus);
-        string? lastSmokeRecordingPath = null;
         var recordingSmokeTestRunning = 0;
 
         async Task<bool> WaitForRecordingStateAsync(bool expected, TimeSpan timeout)
@@ -778,7 +777,7 @@ public partial class MainWindow
                 if (completedRecording is null)
                     throw new IOException("OBS detuvo la grabación, pero no apareció un archivo nuevo y estable en la carpeta que declara OBS. Revisá el formato, los permisos y el log de OBS.");
 
-                lastSmokeRecordingPath = completedRecording.FullPath;
+                lastObsRecordingSmokePath = completedRecording.FullPath;
                 var fileName = Path.GetFileName(completedRecording.FullPath);
                 var bytesLabel = completedRecording.Length.ToString("N0", CultureInfo.InvariantCulture) + " bytes";
                 recordingSmokeStatus.Text = "Archivo detectado: " + fileName + " · " + bytesLabel +
@@ -829,7 +828,7 @@ public partial class MainWindow
             {
                 recordingSmokeStatus.Text = "Prueba incompleta: " + exception.GetBaseException().Message;
                 recordingSmokeStatus.Foreground = Brush("#F2A6A6");
-                FooterStatus.Text = "La prueba real de OBS no se completó. No se inició ninguna transmisión.";
+                FooterStatus.Text = "La prueba local de OBS no se completó. VTuberBot no solicitó iniciar una transmisión; revisá el estado actual en OBS.";
                 try
                 {
                     store.SetSetting("obs.recording.smokeTest.lastRunAtUtc", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
@@ -866,13 +865,13 @@ public partial class MainWindow
         }, true));
         recordingSmokePanel.Children.Add(ActionButton("Abrir último archivo de prueba", (_, _) =>
         {
-            if (string.IsNullOrWhiteSpace(lastSmokeRecordingPath) || !File.Exists(lastSmokeRecordingPath))
+            if (string.IsNullOrWhiteSpace(lastObsRecordingSmokePath) || !File.Exists(lastObsRecordingSmokePath))
             {
                 FooterStatus.Text = "No hay un archivo de prueba disponible en esta sesión. Ejecutá primero la grabación local.";
                 return;
             }
 
-            try { Process.Start(new ProcessStartInfo(lastSmokeRecordingPath) { UseShellExecute = true }); }
+            try { Process.Start(new ProcessStartInfo(lastObsRecordingSmokePath) { UseShellExecute = true }); }
             catch (Exception exception)
             {
                 FooterStatus.Text = "No se pudo abrir el archivo de prueba: " + exception.GetType().Name;
