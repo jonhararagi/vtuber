@@ -514,7 +514,7 @@ public partial class MainWindow
         {
             // The queue processor can resume after asynchronous API/SQLite work. Marshal label
             // updates to WPF's dispatcher and don't let a closed page interrupt durable handling.
-            Dispatcher.BeginInvoke(new Action(() =>
+            _ = Dispatcher.BeginInvoke(new Action(() =>
             {
                 if (kickWebhookRealEventStatusLabel is not null)
                     kickWebhookRealEventStatusLabel.Text = realEventEvidence;
