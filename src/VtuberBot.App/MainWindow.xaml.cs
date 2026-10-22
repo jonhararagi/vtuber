@@ -78,7 +78,10 @@ public partial class MainWindow : Window
     private string currentPage = "Inicio";
     private TextBlock? kickWebhookRealEventStatusLabel;
     private DateTimeOffset? lastKickWebhookChatReceivedAtUtc;
+    private DateTimeOffset? lastKickWebhookEvidencePersistedAtUtc;
+    private DateTimeOffset lastKickEvidencePersistenceAttemptAtUtc = DateTimeOffset.MinValue;
     private DateTimeOffset lastKickEvidencePersistenceWarningAtUtc = DateTimeOffset.MinValue;
+    private bool kickWebhookEvidenceStorageInitialized;
     private string? lastObsRecordingSmokePath;
     private bool shutdownStarted;
     private bool shutdownCompleted;
