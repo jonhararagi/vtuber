@@ -411,7 +411,7 @@ public partial class MainWindow
         var separatorIndex = text.IndexOf(' ');
         var command = separatorIndex < 0 ? text : text[..separatorIndex];
         var arguments = separatorIndex < 0 ? string.Empty : text[(separatorIndex + 1)..].Trim();
-        string? reply = null;
+        string reply;
 
         if (string.Equals(command, "!entrar", StringComparison.OrdinalIgnoreCase))
         {
