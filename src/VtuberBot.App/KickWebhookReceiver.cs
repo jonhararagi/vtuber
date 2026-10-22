@@ -189,6 +189,7 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
     private readonly KickWebhookDeliveryDeduplicator deliveryDeduplicator = new(MaximumRememberedMessageIds);
     private readonly SemaphoreSlim connectionSlots = new(16, 16);
     private readonly SemaphoreSlim publicKeyGate = new(1, 1);
+    private readonly Func<CancellationToken, Task<string>>? publicKeyProvider;
     private readonly object activeTasksGate = new();
     private readonly HashSet<Task> activeTasks = [];
     private string? cachedPublicKey;
@@ -197,7 +198,10 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
     private CancellationTokenSource? stopSource;
     private Task? listenTask;
 
-    public KickWebhookReceiver(int port = 17565, TimeSpan? maximumMessageAge = null)
+    public KickWebhookReceiver(
+        int port = 17565,
+        TimeSpan? maximumMessageAge = null,
+        Func<CancellationToken, Task<string>>? publicKeyProvider = null)
     {
         if (port is < 1024 or > 65535)
             throw new ArgumentOutOfRangeException(nameof(port));
@@ -205,6 +209,7 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
         this.maximumMessageAge = maximumMessageAge ?? TimeSpan.FromMinutes(10);
         if (this.maximumMessageAge <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(maximumMessageAge));
+        this.publicKeyProvider = publicKeyProvider;
     }
 
     public bool IsRunning => listener is not null;
@@ -455,29 +460,39 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
                 DateTimeOffset.UtcNow - cachedPublicKeyAt < TimeSpan.FromMinutes(30))
                 return cachedPublicKey;
 
-            using var response = await Http.GetAsync("https://api.kick.com/public/v1/public-key", cancellationToken).ConfigureAwait(false);
-            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException("Kick no permitió obtener la clave pública de verificación (HTTP " + (int)response.StatusCode + ").");
-
-            // Kick documents this endpoint as returning the PEM body directly. Accept that canonical
-            // response and JSON wrappers defensively, but never cache a non-PEM value.
-            var candidateKey = json.Trim();
-            if (!candidateKey.Contains("BEGIN PUBLIC KEY", StringComparison.Ordinal))
+            string candidateKey;
+            if (publicKeyProvider is not null)
             {
-                try
+                // Injection seam for deterministic loopback integration tests. Production uses
+                // Kick's documented public-key endpoint below; the provider must still return PEM.
+                candidateKey = (await publicKeyProvider(cancellationToken).ConfigureAwait(false)).Trim();
+            }
+            else
+            {
+                using var response = await Http.GetAsync("https://api.kick.com/public/v1/public-key", cancellationToken).ConfigureAwait(false);
+                var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                    throw new InvalidOperationException("Kick no permitió obtener la clave pública de verificación (HTTP " + (int)response.StatusCode + ").");
+
+                // Kick documents this endpoint as returning the PEM body directly. Accept that canonical
+                // response and JSON wrappers defensively, but never cache a non-PEM value.
+                candidateKey = json.Trim();
+                if (!candidateKey.Contains("BEGIN PUBLIC KEY", StringComparison.Ordinal))
                 {
-                    using var document = JsonDocument.Parse(json);
-                    var root = document.RootElement;
-                    if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object &&
-                        data.TryGetProperty("public_key", out var keyElement) && keyElement.ValueKind == JsonValueKind.String)
-                        candidateKey = keyElement.GetString() ?? "";
-                    else if (root.TryGetProperty("public_key", out var key) && key.ValueKind == JsonValueKind.String)
-                        candidateKey = key.GetString() ?? "";
-                }
-                catch (JsonException)
-                {
-                    candidateKey = "";
+                    try
+                    {
+                        using var document = JsonDocument.Parse(json);
+                        var root = document.RootElement;
+                        if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object &&
+                            data.TryGetProperty("public_key", out var keyElement) && keyElement.ValueKind == JsonValueKind.String)
+                            candidateKey = keyElement.GetString() ?? "";
+                        else if (root.TryGetProperty("public_key", out var key) && key.ValueKind == JsonValueKind.String)
+                            candidateKey = key.GetString() ?? "";
+                    }
+                    catch (JsonException)
+                    {
+                        candidateKey = "";
+                    }
                 }
             }
 
