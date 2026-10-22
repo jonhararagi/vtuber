@@ -18,15 +18,41 @@ public sealed class ObsRecordingSmokeTestPolicyTests
     }
 
     [Theory]
-    [InlineData(@"C:\\Recordings\\test.mkv", true)]
-    [InlineData(@"C:\\Recordings\\test.mp4", true)]
-    [InlineData(@"C:\\Recordings\\test.flv", true)]
-    [InlineData(@"C:\\Recordings\\test.log", false)]
+    [InlineData(@"C:\Recordings\test.mkv", true)]
+    [InlineData(@"C:\Recordings\test.mp4", true)]
+    [InlineData(@"C:\Recordings\test.flv", true)]
+    [InlineData(@"C:\Recordings\test.log", false)]
     [InlineData("", false)]
     [InlineData(null, false)]
     public void OnlyAcceptsSupportedRecordingContainers(string? path, bool expected)
     {
         Assert.Equal(expected, ObsRecordingSmokeTestPolicy.IsSupportedRecordingPath(path));
+    }
+
+    [Fact]
+    public void SnapshotIgnoresNonRecordingFilesAndReadsRecordingLength()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "VtuberBot-SmokeTest-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var moviePath = Path.Combine(directory, "recording.mkv");
+            var ignoredPath = Path.Combine(directory, "notes.txt");
+            File.WriteAllBytes(moviePath, new byte[512]);
+            File.WriteAllText(ignoredPath, "not a recording");
+
+            var result = ObsRecordingSmokeTestPolicy.CaptureDirectorySnapshot(directory);
+
+            var recording = Assert.Single(result);
+            Assert.Equal(Path.GetFullPath(moviePath), recording.FullPath);
+            Assert.Equal(512, recording.Length);
+        }
+        finally
+        {
+            try { Directory.Delete(directory, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 
     [Fact]
