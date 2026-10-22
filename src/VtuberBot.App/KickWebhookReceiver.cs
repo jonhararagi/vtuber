@@ -365,6 +365,16 @@ public sealed class KickWebhookReceiver : IAsyncDisposable
             await WriteResponseAsync(stream, 404, "Not Found", timeout.Token).ConfigureAwait(false);
             return;
         }
+        // A GET to this exact route is a read-only reachability probe for the user's
+        // public HTTPS tunnel. It does not verify a Kick event, query the signing key,
+        // or invoke the downstream chat pipeline.
+        if (string.Equals(request.Method, "GET", StringComparison.OrdinalIgnoreCase))
+        {
+            StatusChanged?.Invoke("Se comprobó accesibilidad HTTP del receptor; todavía no se confirmó un evento real de Kick.");
+            await WriteResponseAsync(stream, 200, "OK", timeout.Token).ConfigureAwait(false);
+            return;
+        }
+
         if (!string.Equals(request.Method, "POST", StringComparison.OrdinalIgnoreCase))
         {
             await WriteResponseAsync(stream, 405, "Method Not Allowed", timeout.Token).ConfigureAwait(false);
