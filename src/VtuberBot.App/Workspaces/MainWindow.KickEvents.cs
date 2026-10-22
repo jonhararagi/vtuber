@@ -484,17 +484,24 @@ public partial class MainWindow
         // This path is reached only after the webhook receiver has accepted the provider signature
         // and routed a validated chat.message.sent event. Store metadata only, never message text or IDs.
         var realEventReceivedAt = DateTimeOffset.UtcNow;
+        var realEventEvidence = "Último mensaje entrante real con firma validada: " +
+            realEventReceivedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) +
+            ". Esto prueba recepción hasta el consumidor de chat, no que la voz o una respuesta pública se hayan completado.";
         try
         {
             store.SetSetting("kick.webhook.lastVerifiedChatAtUtc", realEventReceivedAt.ToString("O", CultureInfo.InvariantCulture));
-            if (kickWebhookRealEventStatusLabel is not null)
-                kickWebhookRealEventStatusLabel.Text = "Último mensaje entrante real con firma validada: " +
-                    realEventReceivedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) +
-                    ". Esto prueba recepción hasta el consumidor de chat, no que la voz o una respuesta pública se hayan completado.";
+            // The queue processor can resume after asynchronous API/SQLite work. Marshal label
+            // updates to WPF's dispatcher and don't let a closed page interrupt durable handling.
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (kickWebhookRealEventStatusLabel is not null)
+                    kickWebhookRealEventStatusLabel.Text = realEventEvidence;
+            }));
         }
         catch (Exception exception)
         {
-            store.Log("Kick Events", "Se recibió un mensaje firmado, pero no se pudo guardar la evidencia temporal (" + exception.GetType().Name + ").");
+            try { store.Log("Kick Events", "Se recibió un mensaje firmado, pero no se pudo guardar la evidencia temporal (" + exception.GetType().Name + ")."); }
+            catch { }
         }
 
         chatLines.Insert(0, "[Kick] " + message.Username + ": " + message.Content);
