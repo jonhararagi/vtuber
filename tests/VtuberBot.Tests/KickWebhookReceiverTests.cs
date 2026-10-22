@@ -238,17 +238,17 @@ public sealed class KickWebhookReceiverTests
         await client.ConnectAsync(IPAddress.Loopback, port, TestContext.Current.CancellationToken);
         await using var stream = client.GetStream();
         var request = Encoding.UTF8.GetBytes(
-            "POST /kick-webhook HTTP/1.1\\r\\n" +
-            "Host: 127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "\\r\\n" +
-            "Content-Type: application/json\\r\\n" +
-            "Content-Length: " + Encoding.UTF8.GetByteCount(body).ToString(CultureInfo.InvariantCulture) + "\\r\\n" +
-            "Kick-Event-Message-Id: " + messageId + "\\r\\n" +
-            "Kick-Event-Subscription-Id: " + subscriptionId + "\\r\\n" +
-            "Kick-Event-Message-Timestamp: " + timestamp + "\\r\\n" +
-            "Kick-Event-Signature: " + signature + "\\r\\n" +
-            "Kick-Event-Type: chat.message.sent\\r\\n" +
-            "Kick-Event-Version: 1\\r\\n" +
-            "Connection: close\\r\\n\\r\\n" + body);
+            "POST /kick-webhook HTTP/1.1\r\n" +
+            "Host: 127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "\r\n" +
+            "Content-Type: application/json\r\n" +
+            "Content-Length: " + Encoding.UTF8.GetByteCount(body).ToString(CultureInfo.InvariantCulture) + "\r\n" +
+            "Kick-Event-Message-Id: " + messageId + "\r\n" +
+            "Kick-Event-Subscription-Id: " + subscriptionId + "\r\n" +
+            "Kick-Event-Message-Timestamp: " + timestamp + "\r\n" +
+            "Kick-Event-Signature: " + signature + "\r\n" +
+            "Kick-Event-Type: chat.message.sent\r\n" +
+            "Kick-Event-Version: 1\r\n" +
+            "Connection: close\r\n\r\n" + body);
         await stream.WriteAsync(request, TestContext.Current.CancellationToken);
         await stream.FlushAsync(TestContext.Current.CancellationToken);
 
@@ -267,7 +267,7 @@ public sealed class KickWebhookReceiverTests
         }
 
         var headerText = Encoding.ASCII.GetString(responseBuffer.ToArray());
-        var statusLine = headerText.Split("\\r\\n", StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        var statusLine = headerText.Split("\r\n", StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
         if (statusLine is null)
             throw new InvalidDataException("El receptor Kick no devolvió una línea HTTP de respuesta.");
         var parts = statusLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
