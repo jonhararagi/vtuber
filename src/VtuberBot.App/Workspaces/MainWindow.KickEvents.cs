@@ -481,6 +481,22 @@ public partial class MainWindow
 
     private async Task ProcessKickChatMessageAsync(KickChatMessageEvent message)
     {
+        // This path is reached only after the webhook receiver has accepted the provider signature
+        // and routed a validated chat.message.sent event. Store metadata only, never message text or IDs.
+        var realEventReceivedAt = DateTimeOffset.UtcNow;
+        try
+        {
+            store.SetSetting("kick.webhook.lastVerifiedChatAtUtc", realEventReceivedAt.ToString("O", CultureInfo.InvariantCulture));
+            if (kickWebhookRealEventStatusLabel is not null)
+                kickWebhookRealEventStatusLabel.Text = "Último mensaje entrante real con firma validada: " +
+                    realEventReceivedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) +
+                    ". Esto prueba recepción hasta el consumidor de chat, no que la voz o una respuesta pública se hayan completado.";
+        }
+        catch (Exception exception)
+        {
+            store.Log("Kick Events", "Se recibió un mensaje firmado, pero no se pudo guardar la evidencia temporal (" + exception.GetType().Name + ").");
+        }
+
         chatLines.Insert(0, "[Kick] " + message.Username + ": " + message.Content);
         while (chatLines.Count > 200) chatLines.RemoveAt(chatLines.Count - 1);
         store.Log("Kick", "Mensaje recibido de " + message.Username + " en " + message.ChannelSlug + ".");
