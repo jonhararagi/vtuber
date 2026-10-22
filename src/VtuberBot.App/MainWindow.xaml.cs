@@ -77,6 +77,7 @@ public partial class MainWindow : Window
     private int messagesSinceCooldownPrune;
     private string currentPage = "Inicio";
     private TextBlock? kickWebhookRealEventStatusLabel;
+    private DateTimeOffset? lastKickWebhookChatReceivedAtUtc;
     private bool shutdownStarted;
     private bool shutdownCompleted;
 
