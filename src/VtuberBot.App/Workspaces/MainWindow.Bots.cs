@@ -396,6 +396,26 @@ public partial class MainWindow
         eventPanel.Children.Add(webhookUrl);
         eventPanel.Children.Add(webhookStatus);
 
+        string KickRealChatEvidenceText()
+        {
+            var lastEvent = store.GetSetting("kick.webhook.lastVerifiedChatAtUtc");
+            if (DateTimeOffset.TryParse(lastEvent, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var receivedAt))
+                return "Último mensaje entrante real con firma validada: " +
+                    receivedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) +
+                    ". Esto prueba recepción hasta el consumidor de chat, no que la voz o una respuesta pública se hayan completado.";
+            return "Recepción real pendiente: todavía no se procesó un mensaje de chat firmado desde Kick. Un probe HTTPS o suscripción aceptada no cuenta como evento real.";
+        }
+
+        kickWebhookRealEventStatusLabel = Label(KickRealChatEvidenceText(), 12, "#E7B56A", true);
+        eventPanel.Children.Add(kickWebhookRealEventStatusLabel);
+
+        eventPanel.Children.Add(ActionButton("Actualizar evidencia de chat real", (_, _) =>
+        {
+            if (kickWebhookRealEventStatusLabel is not null)
+                kickWebhookRealEventStatusLabel.Text = KickRealChatEvidenceText();
+            FooterStatus.Text = "Se actualizó la evidencia persistida de recepción real de Kick; no se envió ni simuló ningún evento.";
+        }));
+
         eventPanel.Children.Add(ActionButton("Guardar URL pública", (_, _) =>
         {
             if (!IsConfiguredPublicKickWebhookUrl(webhookUrl.Text, out var configuredUri))
