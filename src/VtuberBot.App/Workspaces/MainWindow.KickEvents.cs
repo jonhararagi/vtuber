@@ -490,18 +490,30 @@ public partial class MainWindow
             ". La evidencia no implica que el TTS, una reacción ni una respuesta pública se hayan completado.";
         try
         {
-            // Avoid a SQLite setting write for every chat line during high traffic. Persist at
-            // most once per 15 seconds, but keep the exact newest timestamp in memory and the UI.
-            var lastPersistedText = store.GetSetting("kick.webhook.lastVerifiedChatAtUtc");
-            var shouldPersist = !DateTimeOffset.TryParse(lastPersistedText,
-                CultureInfo.InvariantCulture, DateTimeStyles.None, out var lastPersistedAt) ||
-                realEventReceivedAt >= lastPersistedAt.AddSeconds(15);
-            if (shouldPersist)
+            // Load the persisted marker once per app session. During active chat, process messages
+            // from memory and write at most one timestamp every 15 seconds to avoid SQLite churn.
+            if (!kickWebhookEvidenceStorageInitialized)
+            {
+                kickWebhookEvidenceStorageInitialized = true;
+                var savedText = store.GetSetting("kick.webhook.lastVerifiedChatAtUtc");
+                if (DateTimeOffset.TryParse(savedText, CultureInfo.InvariantCulture, DateTimeStyles.None, out var savedAt))
+                    lastKickWebhookEvidencePersistedAtUtc = savedAt;
+            }
+
+            var shouldPersist = !lastKickWebhookEvidencePersistedAtUtc.HasValue ||
+                realEventReceivedAt >= lastKickWebhookEvidencePersistedAtUtc.Value.AddSeconds(15);
+            var intervalElapsed = realEventReceivedAt - lastKickEvidencePersistenceAttemptAtUtc >= TimeSpan.FromSeconds(15);
+            if (shouldPersist && intervalElapsed)
+            {
+                lastKickEvidencePersistenceAttemptAtUtc = realEventReceivedAt;
                 store.SetSetting("kick.webhook.lastVerifiedChatAtUtc", realEventReceivedAt.ToString("O", CultureInfo.InvariantCulture));
+                lastKickWebhookEvidencePersistedAtUtc = realEventReceivedAt;
+            }
         }
         catch (Exception exception)
         {
             var now = DateTimeOffset.UtcNow;
+            lastKickEvidencePersistenceAttemptAtUtc = now;
             if (now - lastKickEvidencePersistenceWarningAtUtc >= TimeSpan.FromMinutes(1))
             {
                 lastKickEvidencePersistenceWarningAtUtc = now;
