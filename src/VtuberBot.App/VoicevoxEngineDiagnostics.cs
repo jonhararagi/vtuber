@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -54,14 +55,14 @@ public static class VoicevoxEngineDiagnostics
 
         try
         {
-            using var versionResponse = await httpClient.GetAsync(versionEndpoint, timeout.Token).ConfigureAwait(false);
+            using var versionResponse = await SendWithStreamingResponseAsync(httpClient, HttpMethod.Get, versionEndpoint, null, timeout.Token).ConfigureAwait(false);
             await EnsureSuccessAsync(versionResponse, "VOICEVOX no respondió correctamente a /version.").ConfigureAwait(false);
             var versionBody = await ReadLimitedBytesAsync(versionResponse, 512, timeout.Token).ConfigureAwait(false);
             var version = Encoding.UTF8.GetString(versionBody).Trim().Trim('"');
             if (string.IsNullOrWhiteSpace(version) || version.Length > 100 || version.Any(char.IsControl))
                 throw new InvalidOperationException("VOICEVOX devolvió una versión vacía o inválida.");
 
-            using var speakersResponse = await httpClient.GetAsync(speakersEndpoint, timeout.Token).ConfigureAwait(false);
+            using var speakersResponse = await SendWithStreamingResponseAsync(httpClient, HttpMethod.Get, speakersEndpoint, null, timeout.Token).ConfigureAwait(false);
             await EnsureSuccessAsync(speakersResponse, "VOICEVOX no pudo enumerar /speakers.").ConfigureAwait(false);
             var speakerBytes = await ReadLimitedBytesAsync(speakersResponse, MaximumApiJsonBytes, timeout.Token).ConfigureAwait(false);
             using var speakersDocument = JsonDocument.Parse(speakerBytes);
@@ -92,14 +93,15 @@ public static class VoicevoxEngineDiagnostics
                 throw new InvalidOperationException(
                     "La voz seleccionada (" + voiceId + ") no aparece en /speakers. Actualizá la lista y elegí un estilo instalado.");
 
-            using var queryResponse = await httpClient.PostAsync(queryEndpoint, content: null, timeout.Token).ConfigureAwait(false);
+            using var queryResponse = await SendWithStreamingResponseAsync(httpClient, HttpMethod.Post, queryEndpoint, null, timeout.Token).ConfigureAwait(false);
             await EnsureSuccessAsync(queryResponse, "VOICEVOX rechazó /audio_query para la voz seleccionada.").ConfigureAwait(false);
             var queryBytes = await ReadLimitedBytesAsync(queryResponse, MaximumApiJsonBytes, timeout.Token).ConfigureAwait(false);
             var query = JsonNode.Parse(queryBytes) ??
                 throw new InvalidOperationException("VOICEVOX devolvió una consulta de audio vacía.");
 
             using var queryContent = new StringContent(query.ToJsonString(), Encoding.UTF8, "application/json");
-            using var synthesisResponse = await httpClient.PostAsync(synthesisEndpoint, queryContent, timeout.Token).ConfigureAwait(false);
+            using var synthesisResponse = await SendWithStreamingResponseAsync(
+                httpClient, HttpMethod.Post, synthesisEndpoint, queryContent, timeout.Token).ConfigureAwait(false);
             await EnsureSuccessAsync(synthesisResponse, "VOICEVOX rechazó /synthesis para la voz seleccionada.").ConfigureAwait(false);
             var audio = await ReadLimitedBytesAsync(synthesisResponse, MaximumAudioBytes, timeout.Token).ConfigureAwait(false);
             if (!IsWaveFile(audio))
@@ -144,16 +146,38 @@ public static class VoicevoxEngineDiagnostics
             ((int)response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
     }
 
+    private static async Task<HttpResponseMessage> SendWithStreamingResponseAsync(
+        HttpClient client,
+        HttpMethod method,
+        Uri endpoint,
+        HttpContent? content,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(method, endpoint) { Content = content };
+        return await client.SendAsync(
+            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+    }
+
     private static async Task<byte[]> ReadLimitedBytesAsync(
         HttpResponseMessage response, int maximumBytes, CancellationToken cancellationToken)
     {
         if (response.Content.Headers.ContentLength is long declaredLength && declaredLength > maximumBytes)
             throw new InvalidOperationException("VOICEVOX devolvió una respuesta superior al límite de " + maximumBytes + " bytes.");
 
-        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-        if (bytes.Length > maximumBytes)
-            throw new InvalidOperationException("VOICEVOX devolvió una respuesta superior al límite de " + maximumBytes + " bytes.");
-        return bytes;
+        await using var input = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var buffer = new MemoryStream(Math.Min(maximumBytes, 16 * 1024));
+        var chunk = new byte[8192];
+        while (true)
+        {
+            var read = await input.ReadAsync(chunk.AsMemory(0, chunk.Length), cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+                break;
+            if (buffer.Length + read > maximumBytes)
+                throw new InvalidOperationException("VOICEVOX devolvió una respuesta superior al límite de " + maximumBytes + " bytes.");
+            await buffer.WriteAsync(chunk.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+        }
+
+        return buffer.ToArray();
     }
 
     private static string? ReadString(JsonElement element, string name) =>
@@ -162,8 +186,40 @@ public static class VoicevoxEngineDiagnostics
             ? value.GetString()
             : null;
 
-    private static bool IsWaveFile(byte[] bytes) =>
-        bytes.Length is >= 44 and <= MaximumAudioBytes &&
-        bytes.AsSpan(0, 4).SequenceEqual("RIFF"u8) &&
-        bytes.AsSpan(8, 4).SequenceEqual("WAVE"u8);
+    private static bool IsWaveFile(byte[] bytes)
+    {
+        if (bytes.Length is < 44 or > MaximumAudioBytes ||
+            !bytes.AsSpan(0, 4).SequenceEqual("RIFF"u8) ||
+            !bytes.AsSpan(8, 4).SequenceEqual("WAVE"u8))
+            return false;
+
+        var declaredRiffLength = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(4, 4));
+        if (declaredRiffLength < 36 || declaredRiffLength > bytes.Length - 8)
+            return false;
+
+        var offset = 12;
+        var foundFormat = false;
+        var foundNonEmptyData = false;
+        while (offset + 8 <= bytes.Length)
+        {
+            var chunkName = bytes.AsSpan(offset, 4);
+            var chunkSize = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(offset + 4, 4));
+            var chunkDataOffset = offset + 8;
+            if (chunkSize > int.MaxValue || chunkDataOffset + (long)chunkSize > bytes.Length)
+                return false;
+
+            if (chunkName.SequenceEqual("fmt "u8))
+                foundFormat = chunkSize >= 16;
+            else if (chunkName.SequenceEqual("data"u8))
+                foundNonEmptyData = chunkSize > 0;
+
+            var paddedChunkSize = (long)chunkSize + (chunkSize & 1u);
+            var next = chunkDataOffset + paddedChunkSize;
+            if (next > int.MaxValue || next <= offset)
+                return false;
+            offset = (int)next;
+        }
+
+        return foundFormat && foundNonEmptyData;
+    }
 }
