@@ -76,6 +76,7 @@ public partial class MainWindow : Window
     private const int CooldownPruneIntervalMessages = 1000;
     private int messagesSinceCooldownPrune;
     private string currentPage = "Inicio";
+    private TextBlock? kickWebhookRealEventStatusLabel;
     private bool shutdownStarted;
     private bool shutdownCompleted;
 
