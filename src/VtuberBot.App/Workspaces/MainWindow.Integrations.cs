@@ -373,6 +373,34 @@ public partial class MainWindow
         var actions=new WrapPanel();
         actions.Children.Add(ActionButton("Guardar y conectar (primera vez)",async (_,_)=>{try{store.SetSetting("obs.host",host.Text.Trim());store.SetSetting("obs.port",port.Text.Trim());SaveObsPassword(password.Password);await obs.ConnectAsync(host.Text.Trim(),int.Parse(port.Text),password.Password);var version=await obs.GetVersionAsync();FooterStatus.Text="OBS autenticado · versión "+version;store.Log("OBS","Conexión WebSocket v5 autenticada; versión "+version);await RefreshOutputStatusAsync();}catch(Exception ex){FooterStatus.Text="OBS no conectado: "+ex.Message;store.Log("OBS","Conexión WebSocket fallida: "+ex.GetType().Name);MessageBox.Show(this,"No se pudo autenticar con OBS. Confirmá que WebSocket esté habilitado, el puerto y la contraseña.\n\n"+ex.Message);}} ,true));
         actions.Children.Add(ActionButton("Desconectar",async (_,_)=>{await obs.DisconnectAsync();await RefreshOutputStatusAsync();}));
+        actions.Children.Add(ActionButton("Auditar conexión, vídeo, escenas y audio", async (_, _) =>
+        {
+            FooterStatus.Text = "Consultando el estado real de OBS; no se iniciará ni detendrá ninguna salida.";
+            try
+            {
+                var report = await obs.RunReadOnlyDiagnosticsAsync();
+                var reportText = report.ToDisplayText();
+                FooterStatus.Text = "Diagnóstico de OBS completado. Revisá avisos y hacé una grabación local para la prueba física.";
+                store.Log("OBS", "Diagnóstico de solo lectura terminado: versión " + report.ObsVersion +
+                    ", escenas " + report.Scenes.Count + ", entradas de audio " + report.AudioInputs.Count +
+                    ", streaming " + report.IsStreaming + ", recording " + report.IsRecording +
+                    ", perfil 720p30 " + report.Video.Is720p30 + ". No se iniciaron salidas.");
+                var hasWarning = report.AudioInputs.Count == 0 || !report.Video.Is720p30;
+                MessageBox.Show(this, reportText, "Auditoría de OBS (solo lectura)", MessageBoxButton.OK,
+                    hasWarning ? MessageBoxImage.Warning : MessageBoxImage.Information);
+            }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or TimeoutException or System.Text.Json.JsonException or
+                System.Net.WebSockets.WebSocketException or OperationCanceledException or IOException or ArgumentException)
+            {
+                FooterStatus.Text = "No se completó el diagnóstico de OBS; no se modificó ninguna salida.";
+                store.Log("OBS", "Falló el diagnóstico de solo lectura (" + exception.GetType().Name + ").");
+                MessageBox.Show(this,
+                    "No se pudo completar la auditoría de OBS. Confirmá que WebSocket esté autenticado y que OBS responda. No se inició ni detuvo la grabación o la transmisión.\n\n" +
+                    exception.GetBaseException().Message,
+                    "Auditoría de OBS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }, true));
         panel.Children.Add(actions);
         var scenes=new ComboBox{MinWidth=260};
         var sceneRow=new WrapPanel();
