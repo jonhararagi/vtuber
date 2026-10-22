@@ -55,14 +55,14 @@ public static class VoicevoxEngineDiagnostics
         try
         {
             using var versionResponse = await httpClient.GetAsync(versionEndpoint, timeout.Token).ConfigureAwait(false);
-            await EnsureSuccessAsync(versionResponse, "VOICEVOX no respondió correctamente a /version.", timeout.Token).ConfigureAwait(false);
+            await EnsureSuccessAsync(versionResponse, "VOICEVOX no respondió correctamente a /version.").ConfigureAwait(false);
             var versionBody = await ReadLimitedBytesAsync(versionResponse, 512, timeout.Token).ConfigureAwait(false);
             var version = Encoding.UTF8.GetString(versionBody).Trim().Trim('"');
             if (string.IsNullOrWhiteSpace(version) || version.Length > 100 || version.Any(char.IsControl))
                 throw new InvalidOperationException("VOICEVOX devolvió una versión vacía o inválida.");
 
             using var speakersResponse = await httpClient.GetAsync(speakersEndpoint, timeout.Token).ConfigureAwait(false);
-            await EnsureSuccessAsync(speakersResponse, "VOICEVOX no pudo enumerar /speakers.", timeout.Token).ConfigureAwait(false);
+            await EnsureSuccessAsync(speakersResponse, "VOICEVOX no pudo enumerar /speakers.").ConfigureAwait(false);
             var speakerBytes = await ReadLimitedBytesAsync(speakersResponse, MaximumApiJsonBytes, timeout.Token).ConfigureAwait(false);
             using var speakersDocument = JsonDocument.Parse(speakerBytes);
             if (speakersDocument.RootElement.ValueKind != JsonValueKind.Array)
@@ -93,14 +93,14 @@ public static class VoicevoxEngineDiagnostics
                     "La voz seleccionada (" + voiceId + ") no aparece en /speakers. Actualizá la lista y elegí un estilo instalado.");
 
             using var queryResponse = await httpClient.PostAsync(queryEndpoint, content: null, timeout.Token).ConfigureAwait(false);
-            await EnsureSuccessAsync(queryResponse, "VOICEVOX rechazó /audio_query para la voz seleccionada.", timeout.Token).ConfigureAwait(false);
+            await EnsureSuccessAsync(queryResponse, "VOICEVOX rechazó /audio_query para la voz seleccionada.").ConfigureAwait(false);
             var queryBytes = await ReadLimitedBytesAsync(queryResponse, MaximumApiJsonBytes, timeout.Token).ConfigureAwait(false);
             var query = JsonNode.Parse(queryBytes) ??
                 throw new InvalidOperationException("VOICEVOX devolvió una consulta de audio vacía.");
 
             using var queryContent = new StringContent(query.ToJsonString(), Encoding.UTF8, "application/json");
             using var synthesisResponse = await httpClient.PostAsync(synthesisEndpoint, queryContent, timeout.Token).ConfigureAwait(false);
-            await EnsureSuccessAsync(synthesisResponse, "VOICEVOX rechazó /synthesis para la voz seleccionada.", timeout.Token).ConfigureAwait(false);
+            await EnsureSuccessAsync(synthesisResponse, "VOICEVOX rechazó /synthesis para la voz seleccionada.").ConfigureAwait(false);
             var audio = await ReadLimitedBytesAsync(synthesisResponse, MaximumAudioBytes, timeout.Token).ConfigureAwait(false);
             if (!IsWaveFile(audio))
                 throw new InvalidOperationException("VOICEVOX no devolvió un archivo WAV RIFF válido. No se probó la salida de audio.");
@@ -135,10 +135,10 @@ public static class VoicevoxEngineDiagnostics
         return new Uri(baseUri.AbsoluteUri.TrimEnd('/') + "/" + relativePath);
     }
 
-    private static async Task EnsureSuccessAsync(HttpResponseMessage response, string message, CancellationToken cancellationToken)
+    private static Task EnsureSuccessAsync(HttpResponseMessage response, string message)
     {
         if (response.IsSuccessStatusCode)
-            return;
+            return Task.CompletedTask;
 
         throw new InvalidOperationException(message + " HTTP " +
             ((int)response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
