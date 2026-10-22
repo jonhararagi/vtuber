@@ -553,6 +553,7 @@ public partial class MainWindow
             "confirmado-por-usuario" => "confirmada manualmente por vos: archivo de prueba reproducido",
             "recording-created-review-pending" or "archivo-creado-revisión-pendiente" =>
                 "archivo creado; falta comprobar imagen y sonido al reproducirlo",
+            "prueba-incompleta" => "último intento incompleto; revisá el mensaje y el registro de OBS",
             _ => "todavía no ejecutada"
         };
         var initialSmokeResult = store.GetSetting("obs.recording.smokeTest.lastResult", "");
@@ -829,7 +830,17 @@ public partial class MainWindow
                 recordingSmokeStatus.Text = "Prueba incompleta: " + exception.GetBaseException().Message;
                 recordingSmokeStatus.Foreground = Brush("#F2A6A6");
                 FooterStatus.Text = "La prueba real de OBS no se completó. No se inició ninguna transmisión.";
-                store.Log("OBS", "Falló o se interrumpió la prueba local de grabación (" + exception.GetType().Name + "). No se registraron rutas completas.");
+                try
+                {
+                    store.SetSetting("obs.recording.smokeTest.lastRunAtUtc", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+                    store.SetSetting("obs.recording.smokeTest.lastResult", "prueba-incompleta");
+                    store.SetSetting("obs.recording.smokeTest.lastErrorType", exception.GetBaseException().GetType().Name);
+                }
+                catch (Exception persistenceException)
+                {
+                    store.Log("OBS", "No se pudo guardar el estado de prueba incompleta (" + persistenceException.GetType().Name + ").");
+                }
+                store.Log("OBS", "Falló o se interrumpió la prueba local de grabación (" + exception.GetBaseException().GetType().Name + "). No se registraron rutas completas.");
                 MessageBox.Show(this,
                     exception.GetBaseException().Message + "\n\nLa prueba no inicia transmisiones. Si OBS agotó el tiempo al responder a StartRecord, verificá manualmente el estado de grabación antes de volver a probar.",
                     "Prueba de grabación de OBS", MessageBoxButton.OK, MessageBoxImage.Warning);
