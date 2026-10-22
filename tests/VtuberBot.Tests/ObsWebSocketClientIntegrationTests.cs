@@ -100,8 +100,7 @@ public sealed class ObsWebSocketClientIntegrationTests
                             {
                                 inputs = new[]
                                 {
-                                    new { inputName = "Mic/Aux", inputKind = "wasapi_input_capture" },
-                                    new { inputName = "Music", inputKind = "ffmpeg_source" }
+                                    new { inputName = "Mic/Aux", inputKind = "wasapi_input_capture" }
                                 }
                             };
                             break;
