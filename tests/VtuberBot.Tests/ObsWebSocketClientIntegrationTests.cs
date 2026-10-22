@@ -178,19 +178,7 @@ public sealed class ObsWebSocketClientIntegrationTests
         {
             var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromSeconds(8), TestContext.Current.CancellationToken);
             using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
-            await SendJsonAsync(socket, new
-            {
-                op = 0,
-                d = new
-                {
-                    obsWebSocketVersion = "5.4.0",
-                    rpcVersion = 1,
-                    authentication = new { salt = "salt", challenge = "challenge" }
-                }
-            });
-            using var identify = await ReceiveJsonAsync(socket);
-            await SendJsonAsync(socket, new { op = 5, d = new { eventType = "ExitStarted", eventData = new { } } });
-            await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "test", TestContext.Current.CancellationToken);
+            await SendJsonAsync(socket, new { op = 99, d = new { } });
         });
 
         await using var client = new ObsWebSocketClient();
