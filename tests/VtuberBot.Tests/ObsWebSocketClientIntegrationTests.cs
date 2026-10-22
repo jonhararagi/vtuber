@@ -146,13 +146,13 @@ public sealed class ObsWebSocketClientIntegrationTests
         await using var client = new ObsWebSocketClient();
         await client.ConnectAsync("127.0.0.1", port, password, TestContext.Current.CancellationToken);
         Assert.True(client.IsConnected);
-        Assert.Equal("30.2.1", await client.GetVersionAsync());
+        Assert.Equal("30.2.1", await client.GetVersionAsync(TestContext.Current.CancellationToken));
 
         var profileMessage = await client.ApplyLightVideoProfileAsync(TestContext.Current.CancellationToken);
         Assert.Contains("1280×720", profileMessage, StringComparison.Ordinal);
         Assert.Contains("30 FPS", profileMessage, StringComparison.Ordinal);
 
-        var scenes = await client.GetScenesAsync();
+        var scenes = await client.GetScenesAsync(TestContext.Current.CancellationToken);
         Assert.Contains("Desktop", scenes);
         Assert.Contains("Game", scenes);
 
