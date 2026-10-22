@@ -144,7 +144,7 @@ public partial class MainWindow
                 }
                 catch (Exception exception) when (
                     exception is IOException or UnauthorizedAccessException or ArgumentException or
-                    System.NotSupportedException or System.Windows.Media.Imaging.FileFormatException or
+                    System.NotSupportedException or
                     InvalidOperationException or OverflowException)
                 {
                     failed++;
