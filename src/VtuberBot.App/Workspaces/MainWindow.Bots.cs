@@ -398,11 +398,16 @@ public partial class MainWindow
 
         string KickRealChatEvidenceText()
         {
-            var lastEvent = store.GetSetting("kick.webhook.lastVerifiedChatAtUtc");
-            if (DateTimeOffset.TryParse(lastEvent, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var receivedAt))
-                return "Último mensaje entrante real con firma validada: " +
-                    receivedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) +
-                    ". Esto prueba recepción hasta el consumidor de chat, no que la voz o una respuesta pública se hayan completado.";
+            var receivedAt = lastKickWebhookChatReceivedAtUtc;
+            if (receivedAt is null &&
+                DateTimeOffset.TryParse(store.GetSetting("kick.webhook.lastVerifiedChatAtUtc"),
+                    CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var persistedAt))
+                receivedAt = persistedAt;
+
+            if (receivedAt.HasValue)
+                return "Recepción real de chat observada al menos en: " +
+                    receivedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) +
+                    ". La evidencia no implica que el TTS, una reacción ni una respuesta pública se hayan completado.";
             return "Recepción real pendiente: todavía no se procesó un mensaje de chat firmado desde Kick. Un probe HTTPS o suscripción aceptada no cuenta como evento real.";
         }
 
