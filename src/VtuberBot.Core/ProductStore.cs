@@ -12,6 +12,7 @@ public sealed record AvatarLayer(long Id, string Name, string Path, int SortOrde
 public enum KickWebhookInboxAdmissionResult { Stored, Duplicate, CapacityExceeded }
 public sealed record KickWebhookInboxItem(string EventMessageId, string PayloadJson, string Status, int Attempts, string? LastError = null);
 public sealed record KickWebhookInboxSummary(int Pending, int Processing, int Failed, int Processed, int Expired);
+public sealed record DatabaseCompactionResult(long SizeBeforeBytes, long SizeAfterBytes, string BackupPath);
 
 /// <summary>Persistence for product-level features. Uses the same local SQLite file as the core.</summary>
 public sealed class ProductStore : IProductSettingsStore
@@ -449,6 +450,90 @@ public sealed class ProductStore : IProductSettingsStore
         }
     }
 
+    /// <summary>
+    /// Makes a verified backup before running VACUUM. The caller must stop active producers that
+    /// are writing to this database; the store lock serializes this instance's own operations.
+    /// </summary>
+    public DatabaseCompactionResult CompactDatabase(string backupPath)
+    {
+        if (string.IsNullOrWhiteSpace(backupPath))
+            throw new ArgumentException("Elegí una carpeta para la copia de seguridad antes de compactar SQLite.", nameof(backupPath));
+
+        lock (gate)
+        {
+            var activePath = GetDatabasePath();
+            var before = new FileInfo(activePath).Exists ? new FileInfo(activePath).Length : 0;
+            var verifiedBackup = BackupLocked(backupPath);
+
+            using (var connection = Open())
+            {
+                using (var checkpoint = connection.CreateCommand())
+                {
+                    checkpoint.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+                    checkpoint.CommandTimeout = 60;
+                    checkpoint.ExecuteNonQuery();
+                }
+
+                using var vacuum = connection.CreateCommand();
+                vacuum.CommandText = "VACUUM;";
+                vacuum.CommandTimeout = 60;
+                vacuum.ExecuteNonQuery();
+            }
+
+            ValidateBackupFile(activePath);
+            var after = new FileInfo(activePath).Length;
+            return new DatabaseCompactionResult(before, after, verifiedBackup);
+        }
+    }
+
+    /// <summary>
+    /// Returns paths used by any avatar profile, not just the currently selected profile.
+    /// Cleanup must treat all of them as live assets.
+    /// </summary>
+    public IReadOnlyList<string> GetReferencedAvatarAssetPaths()
+    {
+        lock (gate)
+        {
+            using var connection = Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT base_path FROM avatar_profiles WHERE base_path IS NOT NULL AND length(trim(base_path))>0
+                UNION
+                SELECT path FROM avatar_profile_expressions WHERE length(trim(path))>0
+                UNION
+                SELECT path FROM avatar_layers WHERE length(trim(path))>0
+                UNION
+                SELECT closed_mouth_path FROM avatar_layers WHERE closed_mouth_path IS NOT NULL AND length(trim(closed_mouth_path))>0
+                UNION
+                SELECT open_mouth_path FROM avatar_layers WHERE open_mouth_path IS NOT NULL AND length(trim(open_mouth_path))>0
+                UNION
+                SELECT value FROM product_settings WHERE key='avatar.path' AND length(trim(value))>0
+                UNION
+                SELECT value FROM product_settings WHERE key LIKE 'avatar.expression.%' AND length(trim(value))>0;
+                """;
+            using var reader = command.ExecuteReader();
+            var paths = new List<string>();
+            while (reader.Read())
+            {
+                var path = reader.GetString(0);
+                try
+                {
+                    var fullPath = Path.IsPathRooted(path)
+                        ? Path.GetFullPath(path)
+                        : Path.GetFullPath(path, Path.GetDirectoryName(GetDatabasePath())!);
+                    paths.Add(fullPath);
+                }
+                catch (Exception exception) when (exception is ArgumentException or IOException or NotSupportedException)
+                {
+                    // Invalid paths are omitted; the conservative metadata scan in StorageMaintenanceService
+                    // still protects any image whose name appears in a local project/catalog file.
+                }
+            }
+            return paths.Distinct(
+                OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal).ToArray();
+        }
+    }
+
     private string BackupLocked(string destinationPath)
     {
         var activePath = GetDatabasePath();
@@ -510,6 +595,8 @@ public sealed class ProductStore : IProductSettingsStore
         using (var destination = Open())
             source.BackupDatabase(destination);
     }
+
+    public string DatabasePath => GetDatabasePath();
 
     private string GetDatabasePath() => Path.GetFullPath(new SqliteConnectionStringBuilder(connectionString).DataSource);
 
