@@ -36,6 +36,55 @@ public sealed record ObsPerformanceStats(
         total <= 0 ? 0 : Math.Clamp(skipped / (double)total * 100d, 0d, 100d);
 }
 
+public sealed record ObsVideoSettingsSnapshot(
+    int BaseWidth,
+    int BaseHeight,
+    int OutputWidth,
+    int OutputHeight,
+    int FpsNumerator,
+    int FpsDenominator)
+{
+    public bool Is720p30 =>
+        BaseWidth == 1280 && BaseHeight == 720 &&
+        OutputWidth == 1280 && OutputHeight == 720 &&
+        FpsDenominator > 0 && FpsNumerator / (double)FpsDenominator == 30d;
+
+    public string DisplayLabel =>
+        $"Lienzo {BaseWidth}×{BaseHeight}; salida {OutputWidth}×{OutputHeight}; FPS {FpsNumerator}/{FpsDenominator}";
+}
+
+public sealed record ObsReadOnlyDiagnosticsResult(
+    string ObsVersion,
+    IReadOnlyList<string> Scenes,
+    IReadOnlyList<ObsAudioInput> AudioInputs,
+    ObsVideoSettingsSnapshot Video,
+    bool IsStreaming,
+    bool IsRecording,
+    ObsPerformanceStats Performance)
+{
+    public string ToDisplayText()
+    {
+        var lines = new List<string>
+        {
+            "RESULTADO: consulta WebSocket autenticada completada. No se inició, detuvo ni modificó ninguna salida.",
+            "Versión OBS: " + ObsVersion,
+            "Escenas (" + Scenes.Count + "): " +
+                (Scenes.Count == 0 ? "ninguna" : string.Join(", ", Scenes.Take(20)) + (Scenes.Count > 20 ? ", …" : "")),
+            "Fuentes de audio con estado de silencio consultable (" + AudioInputs.Count + "): " +
+                (AudioInputs.Count == 0 ? "ninguna detectada" : string.Join("; ", AudioInputs.Take(16).Select(item => item.DisplayLabel))),
+            "Vídeo: " + Video.DisplayLabel + (Video.Is720p30 ? " (720p30 verificado)" : " (distinto de 720p30)"),
+            "Transmisión: " + (IsStreaming ? "activa" : "inactiva") + "; grabación: " + (IsRecording ? "activa" : "inactiva"),
+            Performance.DisplayLabel,
+            "",
+            "Esto verifica la API y lo que OBS declara. No comprueba que el micrófono físico tenga voz audible, que el overlay se vea correctamente ni que un archivo grabado se reproduzca bien."
+        };
+
+        if (AudioInputs.Count == 0)
+            lines.Insert(4, "AVISO: OBS no informó entradas de audio con control de silencio; revisá el Mezclador de audio manualmente.");
+        return string.Join(Environment.NewLine, lines);
+    }
+}
+
 /// <summary>OBS Studio WebSocket v5 client with automatic reconnect after transient connection loss.</summary>
 /// <remarks>Connection is reported as active only after Hello/Identify succeeds. Credentials stay in memory only.</remarks>
 public sealed class ObsWebSocketClient : IAsyncDisposable
@@ -155,9 +204,10 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         }
     }
 
-    public async Task<string> GetVersionAsync()
+    public async Task<string> GetVersionAsync(CancellationToken cancellationToken = default)
     {
-        var response = await RequestAsync("GetVersion").ConfigureAwait(false);
+        var response = await RequestAsync("GetVersion", cancellationToken: cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(response, "OBS no pudo devolver su versión.");
         return response.GetProperty("responseData").GetProperty("obsVersion").GetString() ?? "Versión desconocida";
     }
 
@@ -193,12 +243,13 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
             ReadCount(data, "outputTotalFrames"));
     }
 
-    public async Task<IReadOnlyList<string>> GetScenesAsync()
+    public async Task<IReadOnlyList<string>> GetScenesAsync(CancellationToken cancellationToken = default)
     {
-        var response = await RequestAsync("GetSceneList").ConfigureAwait(false);
+        var response = await RequestAsync("GetSceneList", cancellationToken: cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(response, "OBS no pudo devolver su lista de escenas.");
         return response.GetProperty("responseData").GetProperty("scenes").EnumerateArray()
             .Select(scene => scene.GetProperty("sceneName").GetString() ?? "")
-            .Where(name => name.Length > 0).ToArray();
+            .Where(name => name.Length > 0).Take(500).ToArray();
     }
 
     // OBS v5 identifies a scene item by sceneItemId; sourceName alone may not be unique.
@@ -284,6 +335,66 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         EnsureRequestSucceeded(response, "OBS no pudo cambiar la escena.");
     }
 
+    public async Task<ObsVideoSettingsSnapshot> GetVideoSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await RequestAsync("GetVideoSettings", cancellationToken: cancellationToken).ConfigureAwait(false);
+        EnsureRequestSucceeded(response, "OBS no pudo devolver los ajustes de vídeo.");
+        if (!response.TryGetProperty("responseData", out var data) || data.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("OBS devolvió unos ajustes de vídeo con formato inesperado.");
+
+        static int ReadInt(JsonElement value, string name)
+        {
+            if (value.TryGetProperty(name, out var property) &&
+                property.ValueKind == JsonValueKind.Number &&
+                property.TryGetInt32(out var parsed))
+                return parsed;
+            throw new InvalidDataException("OBS no devolvió el campo de vídeo válido «" + name + "».");
+        }
+
+        var snapshot = new ObsVideoSettingsSnapshot(
+            ReadInt(data, "baseWidth"),
+            ReadInt(data, "baseHeight"),
+            ReadInt(data, "outputWidth"),
+            ReadInt(data, "outputHeight"),
+            ReadInt(data, "fpsNumerator"),
+            ReadInt(data, "fpsDenominator"));
+        if (snapshot.BaseWidth <= 0 || snapshot.BaseHeight <= 0 ||
+            snapshot.OutputWidth <= 0 || snapshot.OutputHeight <= 0 ||
+            snapshot.FpsNumerator <= 0 || snapshot.FpsDenominator <= 0)
+            throw new InvalidDataException("OBS devolvió dimensiones o FPS fuera de rango.");
+        return snapshot;
+    }
+
+    /// <summary>
+    /// Runs a bounded, read-only preflight against the authenticated OBS instance. It never
+    /// starts/stops streaming or recording and does not modify settings.
+    /// </summary>
+    public async Task<ObsReadOnlyDiagnosticsResult> RunReadOnlyDiagnosticsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConnected)
+            throw new InvalidOperationException("Conectá y autenticá OBS antes de ejecutar el diagnóstico.");
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(40));
+        try
+        {
+            var version = await GetVersionAsync(deadline.Token).ConfigureAwait(false);
+            var scenes = await GetScenesAsync(deadline.Token).ConfigureAwait(false);
+            var audioInputs = await GetAudioInputsAsync(deadline.Token).ConfigureAwait(false);
+            var video = await GetVideoSettingsAsync(deadline.Token).ConfigureAwait(false);
+            var streaming = await IsStreamingAsync(deadline.Token).ConfigureAwait(false);
+            var recording = await IsRecordingAsync(deadline.Token).ConfigureAwait(false);
+            var performance = await GetPerformanceStatsAsync(deadline.Token).ConfigureAwait(false);
+
+            return new ObsReadOnlyDiagnosticsResult(version, scenes, audioInputs, video, streaming, recording, performance);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested)
+        {
+            throw new TimeoutException("El diagnóstico OBS superó 40 segundos. Revisá la respuesta de WebSocket y la carga del equipo.");
+        }
+    }
+
     /// <summary>Applies a conservative 720p30 video profile and verifies the settings reported back by OBS.</summary>
     public async Task<string> ApplyLightVideoProfileAsync(CancellationToken cancellationToken = default)
     {
@@ -298,22 +409,12 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         }, cancellationToken).ConfigureAwait(false);
         EnsureRequestSucceeded(requested, "OBS no pudo aplicar el perfil de vídeo 720p30.");
 
-        var verified = await RequestAsync("GetVideoSettings", cancellationToken: cancellationToken).ConfigureAwait(false);
-        EnsureRequestSucceeded(verified, "OBS no pudo verificar la configuración de vídeo.");
-        var data = verified.GetProperty("responseData");
-        var baseWidth = data.GetProperty("baseWidth").GetInt32();
-        var baseHeight = data.GetProperty("baseHeight").GetInt32();
-        var outputWidth = data.GetProperty("outputWidth").GetInt32();
-        var outputHeight = data.GetProperty("outputHeight").GetInt32();
-        var fpsNumerator = data.GetProperty("fpsNumerator").GetInt32();
-        var fpsDenominator = data.GetProperty("fpsDenominator").GetInt32();
-
-        if (baseWidth != 1280 || baseHeight != 720 || outputWidth != 1280 || outputHeight != 720 ||
-            fpsDenominator <= 0 || fpsNumerator / (double)fpsDenominator != 30d)
+        var verified = await GetVideoSettingsAsync(cancellationToken).ConfigureAwait(false);
+        if (!verified.Is720p30)
             throw new InvalidOperationException(
-                $"OBS devolvió una configuración diferente de la solicitada: lienzo {baseWidth}x{baseHeight}, salida {outputWidth}x{outputHeight}, FPS {fpsNumerator}/{fpsDenominator}.");
+                "OBS devolvió una configuración diferente de la solicitada: " + verified.DisplayLabel + ".");
 
-        return $"Perfil verificado en OBS: lienzo y salida 1280×720 a 30 FPS.";
+        return "Perfil verificado en OBS: lienzo y salida 1280×720 a 30 FPS.";
     }
 
     public Task<bool> IsStreamingAsync(CancellationToken cancellationToken = default) =>
