@@ -456,7 +456,9 @@ public partial class MainWindow : Window
             },
             SetChatReactionExpression,
             () => twitch.IsConnected,
-            playClip: PlayChatReactionClip);
+            playClip: PlayChatReactionClip,
+            sendKickChat: SendKickChatReactionAsync,
+            isKickConnected: () => kickWebhookReceiver?.IsRunning == true);
         chatReactions.SetTwitchConnected(twitch.IsConnected);
         chatReactions.ResultChanged += result => Dispatcher.BeginInvoke(new Action(() =>
         {

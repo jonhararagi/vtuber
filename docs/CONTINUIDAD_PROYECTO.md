@@ -2271,3 +2271,25 @@ Objetivo inicial sugerido, sujeto a la fase de diseño y a la capacidad real de 
 - Resultado: Restore, Build Release, pruebas automatizadas, Publish win-x64 autocontenido y Upload Artifact completados correctamente. Build con 0 Warning(s) y 0 Error(s); total de tests 661, con 661 succeeded, 0 failed y 0 skipped; ZIP con 490 entradas verificadas.
 - Artefacto de CI `12114555719`, tamaño del ZIP generado `85076961` bytes, hash SHA-256 del artefacto subido `a98fb211b057838b73e71293c45776c567b96e11b3ca302f95a70aa9b811cbe9`. Expira el 31/10/2026 a las 20:49:24 UTC.
 - Esta CI confirma el flujo automatizado del commit de integración, pero no demuestra las pruebas manuales de audio, imagen y OBS indicadas arriba.
+
+
+## 2026-10-22 — Integración de almacenamiento y pipeline de chat de Kick
+
+### Integración validada en `main`
+- PR #42, [Administrador seguro de almacenamiento y compactación SQLite](https://github.com/jonhararagi/vtuber/pull/42), se fusionó por squash en `main` el 22/10/2026. Merge SHA: `1f05e24a3804fe283374eb8fe65bef02cbb49423`.
+- Windows CI run [39618167844](https://github.com/jonhararagi/vtuber/actions/runs/39618167844) terminó en éxito para el SHA candidato exacto `b490cde10b30ee8b2634d9f5602bae8b2b8f8e76`: restore, build Release, tests, publicación autocontenida `win-x64` y validación/subida del ZIP completados. La CI del candidato precede al commit de squash de `main`; no confundir los dos SHA.
+- El panel de Ajustes mide el directorio de datos local, presenta candidatos de limpieza con vista previa y confirmación, vuelve a evaluar los archivos antes de eliminarlos y protege la base SQLite activa, sidecars, backups, secretos y activos de avatar referenciados. La compactación hace backup verificado antes de `VACUUM`. El umbral es aviso, no cuota de disco ni limpieza automática.
+
+### PR #43 — Mensajes de Kick hacia comandos, reacciones y TTS
+- PR abierta: https://github.com/jonhararagi/vtuber/pull/43. Rama `feature/kick-chat-pipeline-2026-10-22`; su base se sincronizó con `main` SHA `1f05e24a3804fe283374eb8fe65bef02cbb49423`. Último commit consultado al registrar esta nota: `c7cafdc92458d368e049214997461d3f1743a346`.
+- La tubería existente de webhook sigue requiriendo verificación de firma, suscripción registrada y broadcaster correcto. El TTS externo pasa por los filtros de lectura, los límites de cola y la deduplicación existentes; no llama al proveedor conversacional ni republica el texto de Kick en Twitch.
+- Las reacciones conservan el origen y destino del mensaje: Twitch usa su sender IRC; Kick usa el sender de la API Kick. Hay una prueba de regresión que asegura que un mensaje de Kick nunca use por error el sender de Twitch.
+- Los comandos comunitarios compartidos en Kick y las respuestas públicas de reacciones tienen un interruptor independiente, apagado por defecto, con confirmación en UI. La activación necesita webhook real, receptor iniciado y OAuth con `chat:write`. Se añade un campo para el login de la cuenta bot y se excluyen broadcaster/bot para reducir bucles de eco. Los mensajes sometidos a una acción real de moderación no generan TTS/reacciones secundarias.
+- El flujo de comandos comunitarios cuenta además con límites de frecuencia: máximo 8 respuestas por minuto, intervalo global mínimo y enfriamiento por usuario; un comando reconocido que supera el límite se consume sin provocar otra reacción. `CommunityCommandRateLimiter` tiene pruebas de cooldown, límites globales, entradas inválidas y configuración extrema.
+- La integración no implementa un túnel HTTPS: el propietario debe configurar por fuera el endpoint público/reenvío al receptor loopback. No se afirma recepción real hasta probar con la aplicación y el canal de Kick.
+
+### Pruebas y fallo intermitente detectado
+- CI del SHA intermedio `1a98462981c847d66bfdeb32fc57c537da9ac63f`: build Release sin warnings ni errors, pero 1 de 738 tests falló por timeout en `StreamerBotWebSocketTests.InvalidJsonMovesConnectionToProtocolError`; 737 pasaron, 0 omitidos. Run: https://github.com/jonhararagi/vtuber/actions/runs/39799616121.
+- Diagnóstico probable: el helper de test comprobaba el snapshot y después se suscribía a `StateChanged`; si el estado cambiaba en ese intervalo, podía perder el evento y expirar aunque la transición ya hubiese ocurrido. En `tests/VtuberBot.Tests/StreamerBotWebSocketTests.cs` se añadió una segunda comprobación después de suscribirse y se amplió el timeout de espera de 3 a 5 segundos para cerrar esa carrera.
+- CI de la rama sincronizada y de la corrección se volvió a iniciar; consultar el run asociado al SHA más reciente antes de declarar aceptación. Una prueba fallida en un commit intermedio no valida ni invalida por sí sola el SHA final.
+- A la fecha de esta nota siguen pendientes ensayos manuales en Windows: entrega real de webhook Kick con OAuth/permisos válidos, salida de voz audible con la voz instalada, reacciones visibles en cada canal y validación de OBS con audio/grabación reales. La CI no puede demostrar esos pasos.

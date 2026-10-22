@@ -66,6 +66,39 @@ public partial class MainWindow
             "Esta versión autoriza tu propia aplicación Kick, protege los tokens con DPAPI y permite consultar el canal, enviar mensajes y moderar. También incluye receptor local con verificación de firma y suscripción de eventos; para activarlo debés configurar una URL pública HTTPS/túnel en Kick Developer e iniciar la escucha manualmente. No se afirma que haya entrega entrante hasta recibir un evento real.",
             12, "#98A4BE"));
 
+        var kickChatAutomationPanel = Panel("Procesamiento compartido de chat · opcional");
+        var kickChatAutomation = new CheckBox
+        {
+            Content = "Permitir comandos y reacciones automáticas en el chat real de Kick",
+            IsChecked = store.GetSetting("kick.chat.commandsAndReactions.enabled", "false") == "true",
+            Foreground = Brush("#E7B56A"),
+            Margin = new Thickness(0, 4, 0, 8)
+        };
+        kickChatAutomation.Checked += (_, _) =>
+        {
+            var choice = MessageBox.Show(this,
+                "Los mensajes Kick que superen la verificación de firma, suscripción y canal podrán ejecutar comandos comunitarios seguros y reglas de reacción configuradas. Las reglas pueden responder públicamente en Kick y activar el avatar. La lectura TTS se controla por separado. ¿Activar este procesamiento?",
+                "Activar comandos y reacciones de Kick", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (choice != MessageBoxResult.Yes)
+            {
+                kickChatAutomation.IsChecked = false;
+                return;
+            }
+            store.SetSetting("kick.chat.commandsAndReactions.enabled", "true");
+            store.Log("Kick", "El usuario activó explícitamente comandos y reacciones en el chat Kick.");
+            FooterStatus.Text = "Comandos y reacciones de Kick activados; verificá permisos y probá con un mensaje real.";
+        };
+        kickChatAutomation.Unchecked += (_, _) =>
+        {
+            store.SetSetting("kick.chat.commandsAndReactions.enabled", "false");
+            store.Log("Kick", "Comandos y reacciones de Kick desactivados.");
+        };
+        kickChatAutomationPanel.Children.Add(kickChatAutomation);
+        kickChatAutomationPanel.Children.Add(Label(
+            "Por seguridad permanece apagado por defecto. Requiere receptor Kick activo, webhook HTTPS reenviado a localhost, suscripción válida y OAuth con chat:write. No activa respuestas de IA ni publica mensajes de Kick en Twitch.",
+            11, "#98A4BE"));
+        root.Children.Add(kickChatAutomationPanel);
+
         var config = Panel("1. Cuenta y aplicación");
         var clientId = TextField("Client ID de tu aplicación en Kick Developer", store.GetSetting("kick.client_id"));
         var clientSecret = new PasswordBox
@@ -80,12 +113,18 @@ public partial class MainWindow
             BorderBrush = Brush("#34415E")
         };
         var channel = TextField("Canal de Kick (slug o URL kick.com/canal)", store.GetSetting("kick.channel_slug"));
+        var kickBotLogin = TextField("Login de la cuenta bot en Kick (para evitar ecos)", store.GetSetting("kick.bot.username", ""));
         config.Children.Add(Label("Client ID", 12, "#98A4BE"));
         config.Children.Add(clientId);
         config.Children.Add(Label("Client Secret (se guarda cifrado para tu usuario de Windows)", 12, "#98A4BE"));
         config.Children.Add(clientSecret);
         config.Children.Add(Label("Canal destino", 12, "#98A4BE"));
         config.Children.Add(channel);
+        config.Children.Add(Label("Login de la cuenta que envía mensajes automáticos (opcional, evita ecos)", 12, "#98A4BE"));
+        config.Children.Add(kickBotLogin);
+        config.Children.Add(Label(
+            "Los mensajes del broadcaster se excluyen de la lectura y las reacciones automáticas para evitar bucles. Completá el login si utilizás una cuenta bot distinta.",
+            11, "#98A4BE"));
         config.Children.Add(Label(
             "En Kick Developer registrá exactamente esta Redirect URL: " + KickOAuthClient.RedirectUri +
             " · Scopes solicitados: user:read, channel:read, chat:write, moderation:ban y moderation:chat_message:manage. Volvé a autorizar Kick para conceder los nuevos permisos. No pegues el secreto en GitHub ni en mensajes de soporte.",
@@ -106,6 +145,10 @@ public partial class MainWindow
                 throw new InvalidOperationException("Ingresá el Client ID de tu aplicación Kick.");
             store.SetSetting("kick.client_id", configuredClientId);
             store.SetSetting("kick.channel_slug", normalizedSlug);
+            var configuredBotLogin = kickBotLogin.Text.Trim().TrimStart('@');
+            if (configuredBotLogin.Length > 100 || configuredBotLogin.Any(char.IsControl))
+                throw new InvalidOperationException("El login bot Kick supera el límite o contiene caracteres de control.");
+            store.SetSetting("kick.bot.username", configuredBotLogin);
             // An empty optional password field means "keep the saved secret".
             // Deletion is exposed separately and asks for explicit confirmation.
             secretStore.SaveIfProvided("kick-client-secret", clientSecret.Password);

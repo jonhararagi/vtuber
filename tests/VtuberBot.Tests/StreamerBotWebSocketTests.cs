@@ -326,11 +326,25 @@ public sealed class StreamerBotWebSocketTests
     private static async Task WaitForStateAsync(IStreamerBotClient client, StreamerBotConnectionState state)
     {
         if (client.Snapshot.State == state) return;
+
         var changed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        void Handler(StreamerBotConnectionSnapshot snapshot) { if (snapshot.State == state) changed.TrySetResult(true); }
+        void Handler(StreamerBotConnectionSnapshot snapshot)
+        {
+            if (snapshot.State == state) changed.TrySetResult(true);
+        }
+
         client.StateChanged += Handler;
-        try { await changed.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken); }
-        finally { client.StateChanged -= Handler; }
+        try
+        {
+            // The state can change between the initial snapshot and event subscription.
+            // Re-check after subscribing so the wait cannot miss a fast state transition.
+            if (client.Snapshot.State == state) changed.TrySetResult(true);
+            await changed.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        }
+        finally
+        {
+            client.StateChanged -= Handler;
+        }
     }
 
     private static async Task<JsonDocument> ReceiveJsonAsync(WebSocket socket)

@@ -13,6 +13,7 @@ public partial class MainWindow
     private KickWebhookReceiver? kickWebhookReceiver;
     private const int MaxKickWebhookEventsPerUiBatch = 20;
     private readonly Dictionary<string, DateTimeOffset> kickModerationCooldown = new(StringComparer.OrdinalIgnoreCase);
+    private readonly CommunityCommandRateLimiter kickCommunityCommandRateLimiter = new();
     private int kickWebhookProcessorScheduled;
     private int kickWebhookOverflowNotificationPending;
 
@@ -386,6 +387,98 @@ public partial class MainWindow
         return null;
     }
 
+    private async Task<bool> SendKickChatReplyAsync(string channelSlug, string text, CancellationToken cancellationToken = default)
+    {
+        if (store.GetSetting("kick.chat.commandsAndReactions.enabled", "false") != "true")
+            throw new InvalidOperationException("Los comandos/reacciones de Kick están desactivados en la configuración local.");
+
+        var credentials = await GetValidKickModerationCredentialsAsync().ConfigureAwait(false);
+        var result = await new KickApiClient().SendChatMessageAsync(
+            credentials.AccessToken, channelSlug, text, "user", cancellationToken).ConfigureAwait(false);
+        if (!result.IsSent)
+            throw new InvalidOperationException("Kick no confirmó el envío de la respuesta.");
+        return true;
+    }
+
+    private Task<bool> SendKickChatReactionAsync(string channelSlug, string text, CancellationToken cancellationToken) =>
+        SendKickChatReplyAsync(channelSlug, text, cancellationToken);
+
+    private async Task<bool> ProcessKickCommunityCommandAsync(KickChatMessageEvent message)
+    {
+        var text = message.Content.Trim();
+        if (!text.StartsWith('!') || text.Length > 1000)
+            return false;
+
+        // Keep the command and giveaway paths consistent with the community router's identity validation.
+        if (message.Username.Length is 0 or > 25 ||
+            message.Username.Any(ch => !(char.IsLetterOrDigit(ch) || ch is '_' or '-')))
+        {
+            store.Log("Comunidad Kick", "Se omitió un comando de Kick porque el nombre de usuario no cumple el formato admitido.");
+            return true;
+        }
+
+        var separatorIndex = text.IndexOf(' ');
+        var command = separatorIndex < 0 ? text : text[..separatorIndex];
+        var arguments = separatorIndex < 0 ? string.Empty : text[(separatorIndex + 1)..].Trim();
+        var normalizedCommand = command.TrimStart('!').ToLowerInvariant();
+        var isGiveawayCommand = string.Equals(normalizedCommand, "entrar", StringComparison.Ordinal);
+        if (!isGiveawayCommand &&
+            !CommunityCommandRouter.BuiltInCommands.Contains(normalizedCommand, StringComparer.OrdinalIgnoreCase))
+            return false;
+
+        if (!kickCommunityCommandRateLimiter.TryAcquire(normalizedCommand, message.Username, DateTimeOffset.UtcNow))
+        {
+            // A recognized but rate-limited command is consumed so it cannot accidentally trigger a reaction rule.
+            store.Log("Comunidad Kick", "Se omitió una respuesta de comando por el límite de frecuencia (" +
+                normalizedCommand + ", usuario " + message.Username + ").");
+            return true;
+        }
+
+        string reply;
+        if (isGiveawayCommand)
+        {
+            var activeGiveaways = store.GetGiveaways()
+                .Where(giveaway => string.Equals(giveaway.Status, "OPEN", StringComparison.Ordinal))
+                .ToList();
+
+            if (activeGiveaways.Count == 0)
+                reply = "No hay ningún sorteo abierto en este momento.";
+            else if (activeGiveaways.Count > 1)
+            {
+                reply = "Hay varios sorteos abiertos; pedile al streamer que revise el panel.";
+                store.Log("Sorteos", "Se rechazó !entrar desde Kick porque hay varios sorteos abiertos.");
+            }
+            else
+            {
+                var active = activeGiveaways[0];
+                reply = store.EnterGiveaway(active.Id, message.Username)
+                    ? message.Username + ", quedaste anotado en el sorteo " + active.Name + "."
+                    : message.Username + ", ya estabas anotado en el sorteo " + active.Name + ".";
+            }
+        }
+        else
+        {
+            var result = communityCommandRouter.TryExecute(command, message.Username, arguments);
+            if (result is null)
+                return false;
+            reply = result.Message;
+        }
+
+        try
+        {
+            await SendKickChatReplyAsync(message.ChannelSlug, reply).ConfigureAwait(true);
+            store.Log("Comunidad Kick", "Se procesó " + command + " para " + message.Username + "; Kick confirmó el envío.");
+        }
+        catch (Exception exception)
+        {
+            store.Log("Comunidad Kick", "El comando " + command + " se procesó localmente, pero no se confirmó la respuesta de Kick (" +
+                exception.GetType().Name + ").");
+            FooterStatus.Text = "Comando de Kick procesado; la respuesta no se confirmó. Revisá permisos y conexión.";
+        }
+
+        return true;
+    }
+
     private async Task ProcessKickChatMessageAsync(KickChatMessageEvent message)
     {
         chatLines.Insert(0, "[Kick] " + message.Username + ": " + message.Content);
@@ -394,6 +487,7 @@ public partial class MainWindow
         FooterStatus.Text = "Chat de Kick recibido y firma verificada: " + message.Username;
 
         var automaticModerationEnabled = store.GetSetting("kick.auto_moderation.enabled", "false") == "true";
+        var suppressDownstreamSideEffects = false;
         foreach (var rule in store.GetModerationRules().Where(rule => rule.Enabled))
         {
             bool matches;
@@ -433,6 +527,9 @@ public partial class MainWindow
                 continue;
             }
 
+            // Once a real moderation action is attempted, do not read the flagged message aloud
+            // or trigger a second public reaction, even if the external API later times out.
+            suppressDownstreamSideEffects = true;
             try
             {
                 var credentials = await GetValidKickModerationCredentialsAsync();
@@ -477,6 +574,48 @@ public partial class MainWindow
                 FooterStatus.Text = "Kick no confirmó la acción automática; revisá permisos y scopes.";
                 break;
             }
+        }
+
+        var configuredKickBot = store.GetSetting("kick.bot.username", "").Trim().TrimStart('@');
+        var isKickBotEcho = message.IsBroadcaster ||
+            (configuredKickBot.Length > 0 && message.Username.Equals(configuredKickBot, StringComparison.OrdinalIgnoreCase));
+
+        if (!suppressDownstreamSideEffects && !isKickBotEcho)
+        {
+            try
+            {
+                // TTS follows existing explicit chat-reading filters and never invokes AI or
+                // republishes Kick messages to Twitch.
+                socialBot.OnExternalChatMessageForSpeech(message.Username, message.Content, "Kick");
+            }
+            catch (Exception exception)
+            {
+                store.Log("Bot social", "Se aisló un error de lectura TTS de Kick (" + exception.GetType().Name + ").");
+            }
+
+            if (store.GetSetting("kick.chat.commandsAndReactions.enabled", "false") == "true")
+            {
+                var handledCommand = false;
+                try { handledCommand = await ProcessKickCommunityCommandAsync(message); }
+                catch (Exception exception)
+                {
+                    store.Log("Comunidad Kick", "Se aisló un error en un comando de Kick (" + exception.GetType().Name + ").");
+                }
+
+                // Avoid sending two replies if a safe built-in command already consumed the message.
+                if (!handledCommand)
+                {
+                    try { chatReactions.OnKickChatMessage(message.Username, message.Content, message.MessageId, message.ChannelSlug); }
+                    catch (Exception exception)
+                    {
+                        store.Log("Reacciones chat", "Se aisló un error al procesar una reacción de Kick (" + exception.GetType().Name + ").");
+                    }
+                }
+            }
+        }
+        else if (isKickBotEcho)
+        {
+            store.Log("Kick", "Se omitieron TTS, comandos y reacciones para evitar ecos automáticos del broadcaster/bot.");
         }
 
         if (kickModerationCooldown.Count > 10000)
