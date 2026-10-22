@@ -79,6 +79,7 @@ public partial class MainWindow : Window
     private TextBlock? kickWebhookRealEventStatusLabel;
     private DateTimeOffset? lastKickWebhookChatReceivedAtUtc;
     private DateTimeOffset lastKickEvidencePersistenceWarningAtUtc = DateTimeOffset.MinValue;
+    private string? lastObsRecordingSmokePath;
     private bool shutdownStarted;
     private bool shutdownCompleted;
 
