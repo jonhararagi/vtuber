@@ -56,6 +56,29 @@ public sealed class ObsRecordingSmokeTestPolicyTests
     }
 
     [Fact]
+    public void SnapshotFailsClearlyInsteadOfGrowingWithoutBound()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "VtuberBot-SmokeBound-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            File.WriteAllBytes(Path.Combine(directory, "one.mkv"), new byte[256]);
+            File.WriteAllBytes(Path.Combine(directory, "two.mp4"), new byte[256]);
+
+            var error = Assert.Throws<InvalidOperationException>(() =>
+                ObsRecordingSmokeTestPolicy.CaptureDirectorySnapshot(directory, maximumCandidates: 1));
+
+            Assert.Contains("límite seguro", error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            try { Directory.Delete(directory, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    [Fact]
     public void FindsOnlyNewSupportedNonEmptyRecordingCreatedDuringTest()
     {
         var started = new DateTime(2026, 10, 22, 15, 0, 0, DateTimeKind.Utc);
