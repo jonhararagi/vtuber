@@ -236,14 +236,15 @@ public sealed class KickWebhookReceiverTests
         receiver.EventReceived += _ => Interlocked.Increment(ref received);
         receiver.Start();
 
-        var status = await SendHealthProbeAsync(port);
+        var probe = await SendHealthProbeAsync(port);
 
-        Assert.Equal(200, status);
+        Assert.Equal(200, probe.Status);
+        Assert.True(probe.HasReceiverMarker);
         Assert.Equal(0, Volatile.Read(ref received));
         Assert.Equal(0, Volatile.Read(ref keyFetches));
     }
 
-    private static async Task<int> SendHealthProbeAsync(int port)
+    private static async Task<(int Status, bool HasReceiverMarker)> SendHealthProbeAsync(int port)
     {
         using var client = new TcpClient();
         await client.ConnectAsync(IPAddress.Loopback, port, TestContext.Current.CancellationToken);
@@ -269,14 +270,18 @@ public sealed class KickWebhookReceiverTests
                 break;
         }
 
-        var statusLine = Encoding.ASCII.GetString(responseBuffer.ToArray())
-            .Split("\r\n", StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        var headers = Encoding.ASCII.GetString(responseBuffer.ToArray())
+            .Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+        var statusLine = headers.FirstOrDefault();
         if (statusLine is null)
             throw new InvalidDataException("El receptor Kick no devolvió una respuesta para el probe HTTP.");
         var parts = statusLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length < 2 || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var status))
             throw new InvalidDataException("El receptor Kick devolvió un estado HTTP inválido para el probe.");
-        return status;
+        var hasMarker = headers.Any(header =>
+            header.StartsWith("X-VtuberBot-Webhook-Health:", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(header[(header.IndexOf(':') + 1)..].Trim(), "ready", StringComparison.OrdinalIgnoreCase));
+        return (status, hasMarker);
     }
 
     private static string Sign(RSA rsa, string messageId, string timestamp, string body)
