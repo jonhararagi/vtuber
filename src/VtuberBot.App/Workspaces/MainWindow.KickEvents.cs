@@ -494,7 +494,7 @@ public partial class MainWindow
             // most once per 15 seconds, but keep the exact newest timestamp in memory and the UI.
             var lastPersistedText = store.GetSetting("kick.webhook.lastVerifiedChatAtUtc");
             var shouldPersist = !DateTimeOffset.TryParse(lastPersistedText,
-                CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var lastPersistedAt) ||
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var lastPersistedAt) ||
                 realEventReceivedAt >= lastPersistedAt.AddSeconds(15);
             if (shouldPersist)
                 store.SetSetting("kick.webhook.lastVerifiedChatAtUtc", realEventReceivedAt.ToString("O", CultureInfo.InvariantCulture));
