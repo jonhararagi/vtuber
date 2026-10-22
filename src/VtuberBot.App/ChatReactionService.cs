@@ -9,6 +9,8 @@ namespace VtuberBot.App;
 
 public enum ChatReactionMatchType { Exact, WholeWord, Contains }
 
+public enum ChatReactionPlatform { Twitch, Kick }
+
 public sealed record ChatReactionRule(
     string Id,
     string Name,
@@ -53,6 +55,8 @@ public sealed class ChatReactionService : IAsyncDisposable
     private readonly Func<string, CancellationToken, bool> setExpression;
     private readonly Func<string, CancellationToken, bool>? playClip;
     private readonly Func<bool> isConnected;
+    private readonly Func<string, string, CancellationToken, Task<bool>>? sendKickChat;
+    private readonly Func<bool>? isKickConnected;
     private readonly Channel<WorkItem> queue;
     private readonly CancellationTokenSource lifetime = new();
     private readonly object gate = new();
@@ -63,22 +67,25 @@ public sealed class ChatReactionService : IAsyncDisposable
     private readonly Dictionary<string, DateTimeOffset> seenMessageIds = new(StringComparer.Ordinal);
     private readonly Queue<ChatReactionResult> activity = new();
     private CancellationTokenSource? activeAction;
+    private ChatReactionPlatform? activePlatform;
     private Task worker;
     private List<ChatReactionRule> rules;
     private long connectionEpoch;
+    private long twitchConnectionEpoch;
     private int responseIndex;
     private bool disposed;
     private bool twitchConnected;
     private bool paused;
 
-    private sealed record WorkItem(long Epoch, string MessageId, string User, string Message, ChatReactionRule Rule, string Response, bool Simulated);
+    private sealed record WorkItem(long Epoch, long PlatformEpoch, string MessageId, string User, string Message, ChatReactionRule Rule, string Response, bool Simulated, ChatReactionPlatform Platform, string Channel);
 
     public event Action<ChatReactionResult>? ResultChanged;
     public event Action<int>? QueueChanged;
 
     public ChatReactionService(ProductStore store, Func<string, CancellationToken, Task<bool>> sendChat,
         Func<string, string, string, bool> enqueueSpeech, Func<string, CancellationToken, bool> setExpression, Func<bool> isConnected,
-        int queueCapacity = QueueCapacity, Func<string, CancellationToken, bool>? playClip = null)
+        int queueCapacity = QueueCapacity, Func<string, CancellationToken, bool>? playClip = null,
+        Func<string, string, CancellationToken, Task<bool>>? sendKickChat = null, Func<bool>? isKickConnected = null)
     {
         this.store = store;
         this.sendChat = sendChat;
@@ -86,6 +93,8 @@ public sealed class ChatReactionService : IAsyncDisposable
         this.setExpression = setExpression;
         this.isConnected = isConnected;
         this.playClip = playClip;
+        this.sendKickChat = sendKickChat;
+        this.isKickConnected = isKickConnected;
         rules = LoadRules();
         paused = store.GetSetting(PausedSettingKey, "false") == "true";
         queue = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(Math.Clamp(queueCapacity, 1, QueueCapacity))
@@ -100,6 +109,14 @@ public sealed class ChatReactionService : IAsyncDisposable
 
     public bool IsPaused { get { lock (gate) return paused; } }
     public bool IsTwitchConnected { get { lock (gate) return twitchConnected; } }
+    public bool IsKickConnected
+    {
+        get
+        {
+            try { return sendKickChat is not null && isKickConnected?.Invoke() == true; }
+            catch { return false; }
+        }
+    }
     public int PendingCount => queue.Reader.Count;
     public IReadOnlyList<ChatReactionRule> GetRules() { lock (rulesGate) return rules.ToArray(); }
     public IReadOnlyList<ChatReactionResult> GetRecentActivity() { lock (rulesGate) return activity.ToArray(); }
@@ -171,14 +188,14 @@ public sealed class ChatReactionService : IAsyncDisposable
         {
             if (twitchConnected == connected) return;
             twitchConnected = connected;
-            if (!connected) connectionEpoch++;
+            twitchConnectionEpoch++;
         }
-        if (!connected) InvalidatePending("Twitch desconectado");
+        if (!connected) InvalidatePendingForPlatform(ChatReactionPlatform.Twitch, "Twitch desconectado");
     }
 
     public bool OnChatMessage(string username, string message, string? messageId)
     {
-        if (!TryAccept(username, message, messageId, false, out var work, out var result))
+        if (!TryAccept(username, message, messageId, false, ChatReactionPlatform.Twitch, "", out var work, out var result))
         {
             if (result is not null) Record(result);
             return false;
@@ -186,6 +203,43 @@ public sealed class ChatReactionService : IAsyncDisposable
         if (!queue.Writer.TryWrite(work!))
         {
             Record(new(DateTimeOffset.UtcNow, work!.Rule.Name, username, "Cola saturada", "Se descartó la reacción; la cola alcanzó su capacidad.", false));
+            return false;
+        }
+        SafeEventDispatch.Invoke(QueueChanged, PendingCount);
+        return true;
+    }
+
+    /// <summary>
+    /// Routes validated Kick chat into the same bounded reaction engine. This route never
+    /// sends through Twitch; it requires a Kick-specific sender and connection predicate.
+    /// </summary>
+    public bool OnKickChatMessage(string username, string message, string? messageId, string channelSlug)
+    {
+        if (!IsKickConnected)
+        {
+            Record(new(DateTimeOffset.UtcNow, "", username ?? "", "Kick desconectado",
+                "No se encoló la reacción: Kick no está listo para procesar respuestas.", false));
+            return false;
+        }
+
+        string normalizedChannel;
+        try { normalizedChannel = KickApiClient.NormalizeChannelSlug(channelSlug); }
+        catch (ArgumentException)
+        {
+            Record(new(DateTimeOffset.UtcNow, "", username ?? "", "Canal Kick inválido",
+                "No se encoló la reacción porque el canal del evento no es válido.", false));
+            return false;
+        }
+
+        if (!TryAccept(username, message, messageId, false, ChatReactionPlatform.Kick, normalizedChannel, out var work, out var result))
+        {
+            if (result is not null) Record(result);
+            return false;
+        }
+        if (!queue.Writer.TryWrite(work!))
+        {
+            Record(new(DateTimeOffset.UtcNow, work!.Rule.Name, username, "Cola saturada",
+                "Se descartó la reacción; la cola alcanzó su capacidad.", false));
             return false;
         }
         SafeEventDispatch.Invoke(QueueChanged, PendingCount);
@@ -231,7 +285,7 @@ public sealed class ChatReactionService : IAsyncDisposable
     }
 
     private bool TryAccept(string username, string message, string? messageId, bool simulated,
-        out WorkItem? work, out ChatReactionResult? result)
+        ChatReactionPlatform platform, string channel, out WorkItem? work, out ChatReactionResult? result)
     {
         work = null; result = null;
         if (string.IsNullOrWhiteSpace(username) || username.Length > 25 || string.IsNullOrWhiteSpace(message) || message.Length > MaximumMessageLength)
@@ -239,8 +293,12 @@ public sealed class ChatReactionService : IAsyncDisposable
             result = new(DateTimeOffset.UtcNow, "", username ?? "", "Entrada inválida", "Se descartó un mensaje vacío o fuera de los límites.", simulated);
             return false;
         }
-        var botLogin = store.GetSetting("twitch.bot.login", store.GetSetting("twitch.channel", "")).Trim();
-        var channelLogin = store.GetSetting("twitch.channel", "").Trim();
+        var botLogin = platform == ChatReactionPlatform.Twitch
+            ? store.GetSetting("twitch.bot.login", store.GetSetting("twitch.channel", "")).Trim()
+            : store.GetSetting("kick.bot.username", "").Trim();
+        var channelLogin = platform == ChatReactionPlatform.Twitch
+            ? store.GetSetting("twitch.channel", "").Trim()
+            : store.GetSetting("kick.channel_slug", "").Trim();
         if (username.Equals(botLogin, StringComparison.OrdinalIgnoreCase) ||
             username.Equals(channelLogin, StringComparison.OrdinalIgnoreCase))
         {
@@ -248,6 +306,7 @@ public sealed class ChatReactionService : IAsyncDisposable
             return false;
         }
         long epoch;
+        long platformEpoch;
         lock (gate)
         {
             if (disposed || paused)
@@ -255,20 +314,25 @@ public sealed class ChatReactionService : IAsyncDisposable
                 result = new(DateTimeOffset.UtcNow, "", username, "Pausado", "Las reacciones automáticas están pausadas.", simulated);
                 return false;
             }
-            if (!simulated && (!twitchConnected || !isConnected()))
+            if (!simulated && !IsPlatformConnectedLocked(platform))
             {
-                result = new(DateTimeOffset.UtcNow, "", username, "Desconectado", "Twitch no está conectado; no se encoló la reacción.", false);
+                var platformName = platform == ChatReactionPlatform.Kick ? "Kick" : "Twitch";
+                result = new(DateTimeOffset.UtcNow, "", username, "Desconectado",
+                    platformName + " no está conectado; no se encoló la reacción.", false);
                 return false;
             }
             epoch = connectionEpoch;
+            platformEpoch = platform == ChatReactionPlatform.Twitch ? twitchConnectionEpoch : 0;
         }
         var now = DateTimeOffset.UtcNow;
         lock (rulesGate)
         {
             var hasProviderId = !string.IsNullOrWhiteSpace(messageId);
+            var platformPrefix = platform == ChatReactionPlatform.Kick ? "kick:" : "twitch:";
             var dedupeKey = hasProviderId
-                ? "id:" + messageId
-                : "fallback:" + username.ToLowerInvariant() + ":" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Normalize(message))));
+                ? "id:" + platformPrefix + messageId
+                : "fallback:" + platformPrefix + username.ToLowerInvariant() + ":" +
+                  Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Normalize(message))));
             var dedupeWindow = hasProviderId ? TimeSpan.FromMinutes(5) : TimeSpan.FromSeconds(2);
             if (seenMessageIds.TryGetValue(dedupeKey, out var previouslySeen) && now - previouslySeen <= dedupeWindow)
             {
@@ -283,18 +347,19 @@ public sealed class ChatReactionService : IAsyncDisposable
             while (seenMessageIds.Count > 2000) seenMessageIds.Remove(seenMessageIds.First().Key);
             var rule = rules.FirstOrDefault(x => x.Enabled && Matches(x, message));
             if (rule is null) return false;
-            if (globalCooldowns.TryGetValue(rule.Id, out var lastGlobal) && now - lastGlobal < TimeSpan.FromSeconds(rule.GlobalCooldownSeconds))
+            var platformRuleKey = (platform == ChatReactionPlatform.Kick ? "kick:" : "twitch:") + rule.Id;
+            if (globalCooldowns.TryGetValue(platformRuleKey, out var lastGlobal) && now - lastGlobal < TimeSpan.FromSeconds(rule.GlobalCooldownSeconds))
             {
                 result = new(now, rule.Name, username, "Cooldown global", "La regla sigue dentro de su cooldown global.", simulated);
                 return false;
             }
-            var userKey = rule.Id + ":" + username.ToLowerInvariant();
+            var userKey = platformRuleKey + ":" + username.ToLowerInvariant();
             if (userCooldowns.TryGetValue(userKey, out var lastUser) && now - lastUser < TimeSpan.FromSeconds(rule.UserCooldownSeconds))
             {
                 result = new(now, rule.Name, username, "Cooldown usuario", "Este usuario sigue dentro del cooldown de la regla.", simulated);
                 return false;
             }
-            if (!minuteRuns.TryGetValue(rule.Id, out var executions)) minuteRuns[rule.Id] = executions = new Queue<DateTimeOffset>();
+            if (!minuteRuns.TryGetValue(platformRuleKey, out var executions)) minuteRuns[platformRuleKey] = executions = new Queue<DateTimeOffset>();
             while (executions.Count > 0 && now - executions.Peek() >= TimeSpan.FromMinutes(1)) executions.Dequeue();
             if (executions.Count >= rule.MaxPerMinute)
             {
@@ -306,10 +371,11 @@ public sealed class ChatReactionService : IAsyncDisposable
             if (userCooldowns.Count >= 10000)
                 foreach (var oldest in userCooldowns.OrderBy(x => x.Value).Take(userCooldowns.Count - 9000).Select(x => x.Key).ToArray())
                     userCooldowns.Remove(oldest);
-            globalCooldowns[rule.Id] = now;
+            globalCooldowns[platformRuleKey] = now;
             userCooldowns[userKey] = now;
             executions.Enqueue(now);
-            work = new(epoch, messageId ?? Guid.NewGuid().ToString("N"), username, message, rule, ResolveResponse(rule, username), simulated);
+            work = new(epoch, platformEpoch, messageId ?? Guid.NewGuid().ToString("N"), username, message,
+                rule, ResolveResponse(rule, username), simulated, platform, channel);
             return true;
         }
     }
@@ -324,11 +390,14 @@ public sealed class ChatReactionService : IAsyncDisposable
                 var stale = false;
                 lock (gate)
                 {
-                    stale = disposed || paused || item.Epoch != connectionEpoch || (!item.Simulated && (!twitchConnected || !isConnected()));
+                    stale = disposed || paused || item.Epoch != connectionEpoch ||
+                        (item.Platform == ChatReactionPlatform.Twitch && item.PlatformEpoch != twitchConnectionEpoch) ||
+                        (!item.Simulated && !IsPlatformConnectedLocked(item.Platform));
                     if (!stale)
                     {
                         operation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
                         activeAction = operation;
+                        activePlatform = item.Platform;
                     }
                 }
                 if (stale)
@@ -344,7 +413,9 @@ public sealed class ChatReactionService : IAsyncDisposable
                     if (!item.Simulated && item.Rule.Responses.Count > 0)
                     {
                         lock (gate)
-                            if (paused || item.Epoch != connectionEpoch || !twitchConnected || !isConnected())
+                            if (paused || item.Epoch != connectionEpoch ||
+                                (item.Platform == ChatReactionPlatform.Twitch && item.PlatformEpoch != twitchConnectionEpoch) ||
+                                !IsPlatformConnectedLocked(item.Platform))
                                 throw new OperationCanceledException("sesión invalidada", activeOperation.Token);
                     }
 
@@ -355,21 +426,34 @@ public sealed class ChatReactionService : IAsyncDisposable
                     }
 
                     lock (gate)
-                        if (paused || item.Epoch != connectionEpoch || !twitchConnected || !isConnected())
+                        if (paused || item.Epoch != connectionEpoch ||
+                            (item.Platform == ChatReactionPlatform.Twitch && item.PlatformEpoch != twitchConnectionEpoch) ||
+                            !IsPlatformConnectedLocked(item.Platform))
                             throw new OperationCanceledException("sesión invalidada antes del envío", activeOperation.Token);
-                    var sent = await sendChat(response, activeOperation.Token).ConfigureAwait(false);
+
+                    var sent = item.Platform == ChatReactionPlatform.Kick
+                        ? sendKickChat is not null && await sendKickChat(item.Channel, response, activeOperation.Token).ConfigureAwait(false)
+                        : await sendChat(response, activeOperation.Token).ConfigureAwait(false);
                     if (!sent)
                     {
-                        Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Envío fallido", "Twitch rechazó el envío; no se activaron voz ni expresión.", false));
+                        var platformName = item.Platform == ChatReactionPlatform.Kick ? "Kick" : "Twitch";
+                        Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Envío fallido",
+                            platformName + " no confirmó el envío; no se activaron voz ni expresión.", false));
                         continue;
                     }
 
-                    var details = new List<string> { "solicitud IRC enviada" };
+                    var details = new List<string>
+                    {
+                        item.Platform == ChatReactionPlatform.Kick ? "respuesta enviada a Kick" : "solicitud IRC enviada a Twitch"
+                    };
                     lock (gate)
                     {
-                        if (paused || item.Epoch != connectionEpoch || !twitchConnected || !isConnected())
+                        if (paused || item.Epoch != connectionEpoch ||
+                            (item.Platform == ChatReactionPlatform.Twitch && item.PlatformEpoch != twitchConnectionEpoch) ||
+                            !IsPlatformConnectedLocked(item.Platform))
                         {
-                            Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Respuesta enviada", "La escritura IRC terminó antes de la pausa/desconexión; el mensaje no se puede retirar y se omitieron voz y expresión.", false));
+                            Record(new(DateTimeOffset.UtcNow, item.Rule.Name, item.User, "Respuesta enviada",
+                                "El envío terminó antes de la pausa/desconexión; el mensaje no se puede retirar y se omitieron voz y expresión.", false));
                             continue;
                         }
                     }
@@ -382,8 +466,9 @@ public sealed class ChatReactionService : IAsyncDisposable
                     {
                         bool mayPlayAudio;
                         lock (gate)
-                            mayPlayAudio = !paused && item.Epoch == connectionEpoch && twitchConnected && isConnected() &&
-                                !activeOperation.IsCancellationRequested;
+                            mayPlayAudio = !paused && item.Epoch == connectionEpoch &&
+                                (item.Platform != ChatReactionPlatform.Twitch || item.PlatformEpoch == twitchConnectionEpoch) &&
+                                IsPlatformConnectedLocked(item.Platform) && !activeOperation.IsCancellationRequested;
                         // Never call a UI-dispatching clip player while holding the service gate.
                         var audioQueued = mayPlayAudio && (string.IsNullOrWhiteSpace(item.Rule.ClipAssetId)
                             ? enqueueSpeech(response, item.Rule.Language, item.Rule.VoiceId)
@@ -404,13 +489,45 @@ public sealed class ChatReactionService : IAsyncDisposable
                 }
                 finally
                 {
-                    lock (gate) { if (ReferenceEquals(activeAction, activeOperation)) activeAction = null; }
+                    lock (gate)
+                    {
+                        if (ReferenceEquals(activeAction, activeOperation))
+                        {
+                            activeAction = null;
+                            activePlatform = null;
+                        }
+                    }
                     activeOperation.Dispose();
                     SafeEventDispatch.Invoke(QueueChanged, PendingCount);
                 }
             }
         }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+    }
+
+    private bool IsPlatformConnectedLocked(ChatReactionPlatform platform)
+    {
+        try
+        {
+            return platform switch
+            {
+                ChatReactionPlatform.Twitch => twitchConnected && isConnected(),
+                ChatReactionPlatform.Kick => sendKickChat is not null && isKickConnected?.Invoke() == true,
+                _ => false
+            };
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void InvalidatePendingForPlatform(ChatReactionPlatform platform, string reason)
+    {
+        CancellationTokenSource? active;
+        lock (gate) active = activePlatform == platform ? activeAction : null;
+        try { active?.Cancel(); } catch (ObjectDisposedException) { }
+        Record(new(DateTimeOffset.UtcNow, "", "", "Invalidación", "Trabajos pendientes invalidados: " + reason + ".", false));
     }
 
     private void InvalidatePending(string reason)
