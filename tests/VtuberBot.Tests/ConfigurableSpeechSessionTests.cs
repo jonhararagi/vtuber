@@ -40,6 +40,25 @@ public sealed class ConfigurableSpeechSessionTests
     }
 
     [Fact]
+    public void ExplicitVoicevoxVoiceUsesLocalEngineEvenWhenGeneralProviderIsRemote()
+    {
+        var windows = new FakeSpeechSession();
+        var remote = new FakeSpeechSession();
+        var neural = new FakeSpeechSession();
+        using var session = new ConfigurableSpeechSession(
+            () => true, () => windows, () => remote, () => neural,
+            allowWindowsSapi: () => false, defaultLocalVoiceId: () => string.Empty);
+
+        var result = session.Speak("Hola", "voicevox:4", "", 0, 100, () => false);
+
+        Assert.False(result.Cancelled);
+        Assert.Equal(1, neural.Calls);
+        Assert.Equal("voicevox:4", neural.VoiceId);
+        Assert.Equal(0, remote.Calls);
+        Assert.Equal(0, windows.Calls);
+    }
+
+    [Fact]
     public void WindowsSapiDoesNotRunWhenExplicitlyDisabledAndNoNeuralVoiceExists()
     {
         var windows = new FakeSpeechSession();
