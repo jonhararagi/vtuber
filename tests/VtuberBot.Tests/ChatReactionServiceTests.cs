@@ -68,6 +68,46 @@ public sealed class ChatReactionServiceTests
     private static ChatReactionService Create(ProductStore store, Effects effects, int capacity = 64) =>
         new(store, effects.Send, effects.Speak, effects.Expression, () => effects.Connected, capacity, effects.PlayClip);
 
+    [Fact]
+    public async Task KickReactionUsesKickSenderAndNeverFallsBackToTwitch()
+    {
+        using var temp = new TempDb();
+        var store = new ProductStore(temp.DatabasePath);
+        store.SetSetting(ChatReactionService.RulesSettingKey, "[]");
+        store.SetSetting("chat.reactions.bilingual-defaults.v1", "true");
+
+        var effects = new Effects();
+        var kickSendEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var kickSendCount = 0;
+        var lastKickChannel = "";
+        var lastKickMessage = "";
+        Task<bool> SendKick(string channel, string message, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            Interlocked.Increment(ref kickSendCount);
+            lastKickChannel = channel;
+            lastKickMessage = message;
+            kickSendEntered.TrySetResult(true);
+            return Task.FromResult(true);
+        }
+
+        await using var service = new ChatReactionService(
+            store, effects.Send, effects.Speak, effects.Expression, () => effects.Connected,
+            playClip: effects.PlayClip, sendKickChat: SendKick, isKickConnected: () => true);
+
+        var rule = Rule(trigger: "hola", enabled: false, responses: ["Respuesta originada en Kick"]);
+        Assert.True(service.SaveRule(rule));
+        Assert.True(service.SetRuleEnabled(rule.Id, true));
+
+        Assert.True(service.OnKickChatMessage("viewer", "hola", "kick-message-001", "mi-canal"));
+        await kickSendEntered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, effects.Sends);
+        Assert.Equal(1, kickSendCount);
+        Assert.Equal("mi-canal", lastKickChannel);
+        Assert.Equal("Respuesta originada en Kick", lastKickMessage);
+    }
+
     [Theory]
     [InlineData(ChatReactionMatchType.Exact, "¡HÓLA  CHAT!", "¡hola chat!", true)]
     [InlineData(ChatReactionMatchType.Exact, "hola", "hola chat", false)]
