@@ -137,6 +137,54 @@ public sealed class SocialBotService : IAsyncDisposable
         Publish("IA", "Mención o comando aceptado para procesamiento local.", PendingConversations);
     }
 
+    /// <summary>
+    /// Applies the existing chat-reading preferences to a validated external platform message.
+    /// This path is deliberately TTS-only: it never triggers AI generation, periodic commentary,
+    /// or a public Twitch reply from Kick chat.
+    /// </summary>
+    public void OnExternalChatMessageForSpeech(string username, string text, string platform)
+    {
+        if (Volatile.Read(ref disposed) != 0 ||
+            store.GetSetting("social.tts.enabled", "false") != "true" ||
+            string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(text))
+            return;
+
+        username = username.Trim();
+        text = text.Trim();
+        platform = string.IsNullOrWhiteSpace(platform) ? "otra plataforma" : platform.Trim();
+        if (username.Length > 25 || text.Length == 0 || text.Length > 1000 ||
+            !ShouldRead(username, text))
+            return;
+
+        var now = DateTimeOffset.UtcNow;
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(platform.ToLowerInvariant() + "\0" +
+                username.ToLowerInvariant() + "\0" + text)));
+        PruneHashes(now);
+        if (!recentSpeechHashes.TryAdd(hash, now))
+            return;
+
+        if (speech.PendingCount >= Math.Clamp(ParseInt("social.tts.queueLimit", 30), 1, 100) ||
+            now - lastSpeechAt < TimeSpan.FromMilliseconds(Math.Clamp(ParseInt("social.tts.intervalMs", 900), 0, 10000)))
+        {
+            Publish("TTS", "Mensaje de " + platform + " omitido por límite de cola/intervalo.", speech.PendingCount);
+            return;
+        }
+
+        var rate = int.TryParse(store.GetSetting("audio.tts.rate", "0"), out var r) ? Math.Clamp(r, -10, 10) : 0;
+        var volume = int.TryParse(store.GetSetting("audio.tts.volume", "100"), out var v) ? Math.Clamp(v, 0, 100) : 100;
+        if (speech.Enqueue(username + " en " + platform + " dice: " + SanitizeForSpeech(text), SpeechPriority.Low,
+                store.GetSetting("audio.tts.voiceId"), rate, volume, store.GetSetting("audio.tts.outputId")))
+        {
+            lastSpeechAt = now;
+            Publish("TTS", "Mensaje de " + platform + " encolado para lectura local.", speech.PendingCount);
+        }
+        else
+        {
+            Publish("TTS", "La cola de voz rechazó el mensaje de " + platform + ".", speech.PendingCount);
+        }
+    }
+
     public async Task<ChatIntelligenceResult> CheckProviderAsync(CancellationToken cancellationToken = default) =>
         await provider.CheckAsync(BuildOptions(), cancellationToken).ConfigureAwait(false);
 
