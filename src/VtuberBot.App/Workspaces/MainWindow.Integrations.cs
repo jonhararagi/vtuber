@@ -126,7 +126,7 @@ public partial class MainWindow
                         CheckFileExists = true,
                         Multiselect = false
                     };
-                    var owner = obsSimpleModeWindow is { IsVisible: true } visibleWindow ? visibleWindow : this;
+                    Window owner = obsSimpleModeWindow is { IsVisible: true } visibleWindow ? visibleWindow : this;
                     if (picker.ShowDialog(owner) != true)
                         return Incomplete("No se inició OBS porque no se seleccionó el programa.",
                             "Vuelve a pulsar el botón cuando tengas localizada la instalación de OBS.");
