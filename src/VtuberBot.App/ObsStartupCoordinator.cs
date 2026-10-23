@@ -122,13 +122,14 @@ public partial class MainWindow
         return candidates.FirstOrDefault(File.Exists);
     }
 
-    private void StartObs(string executable)
+    private void StartObs(string executable, bool forceWindowVisible = false)
     {
         if (!File.Exists(executable))
             throw new FileNotFoundException("No se encontró el ejecutable de OBS.", executable);
 
         var lightMode = string.Equals(store.GetSetting("obs.lightMode", "true"), "true", StringComparison.OrdinalIgnoreCase);
-        var startMinimized = string.Equals(store.GetSetting("obs.startMinimized", "true"), "true", StringComparison.OrdinalIgnoreCase);
+        var startMinimized = !forceWindowVisible &&
+            string.Equals(store.GetSetting("obs.startMinimized", "true"), "true", StringComparison.OrdinalIgnoreCase);
         var startInfo = new ProcessStartInfo
         {
             FileName = executable,
