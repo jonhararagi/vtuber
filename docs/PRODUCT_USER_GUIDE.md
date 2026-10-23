@@ -83,7 +83,7 @@ Desde la página **OBS**, pulsa **Abrir modo sencillo de OBS**. Se abre una vent
 
 En la página **OBS**, VTuberBot ofrece **Abrir OBS Studio**, **Elegir ubicación de OBS**, y dos preferencias persistentes:
 
-- **Abrir OBS automáticamente al iniciar VTuberBot**: activado por defecto. Si OBS está instalado en una ubicación estándar, VTuberBot intenta abrirlo sin bloquear el arranque. Si no lo encuentra, permite seleccionar `obs64.exe`.
+- **Abrir OBS automáticamente al iniciar VTuberBot**: desactivado por defecto para que no se inicien aplicaciones inesperadamente. Podés habilitarlo manualmente en opciones avanzadas; las instalaciones que ya tengan la preferencia guardada conservan su elección. En el modo sencillo, OBS se inicia cuando pulsás el botón de preparación.
 - **Modo ligero: iniciar OBS sin plugins de terceros**: activado por defecto. Al iniciar OBS, VTuberBot pasa `--only-bundled-plugins`, una opción de inicio que omite plugins externos durante esa sesión. No desinstala ni borra archivos. Desactivala si tus escenas usan plugins de terceros.
 - **Aplicar perfil 720p / 30 FPS**: al confirmarlo, VTuberBot envía a OBS el lienzo y la salida 1280×720 a 30 FPS, y lee de vuelta los valores para comprobarlos. No se informa éxito si OBS rechaza el cambio o devuelve valores distintos. El ajuste afecta a la configuración global de vídeo y puede cambiar cómo se ven todas las escenas.
 - **Conexión automática**: después de guardar por primera vez host, puerto y contraseña de WebSocket desde la página OBS, VTuberBot intenta autenticarse al arrancar. Si la contraseña no existe, el puerto no responde o la autenticación falla, la app sigue funcionando y deja un estado/registro; no simula una conexión.
