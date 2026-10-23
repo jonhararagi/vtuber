@@ -127,6 +127,21 @@ public partial class MainWindow
         if (!File.Exists(executable))
             throw new FileNotFoundException("No se encontró el ejecutable de OBS.", executable);
 
+        if (ObsSystemResourceGuard.TryReadSystemMemory(out var memory))
+        {
+            var risk = ObsSystemResourceGuard.ClassifyAvailableMemory(memory.AvailablePhysicalBytes);
+            if (!ObsSystemResourceGuard.CanStartNewObsInstance(memory.AvailablePhysicalBytes))
+                throw new InvalidOperationException(
+                    $"No se inició una nueva instancia de OBS: quedan {memory.AvailablePhysicalMiB:N0} MiB de RAM libre y el mínimo preventivo es 1024 MiB. Cierra aplicaciones que no necesites y vuelve a intentarlo.");
+
+            if (risk == ObsSystemResourceRisk.Low)
+                store.Log("OBS", $"Aviso de memoria: quedan {memory.AvailablePhysicalMiB:N0} MiB libres antes del inicio. El perfil ligero no garantiza un límite global de recursos.");
+        }
+        else
+        {
+            store.Log("OBS", "Aviso: Windows no permitió medir la memoria antes de iniciar OBS; no se puede garantizar el margen de recursos.");
+        }
+
         var lightMode = string.Equals(store.GetSetting("obs.lightMode", "true"), "true", StringComparison.OrdinalIgnoreCase);
         var startMinimized = !forceWindowVisible &&
             string.Equals(store.GetSetting("obs.startMinimized", "true"), "true", StringComparison.OrdinalIgnoreCase);
