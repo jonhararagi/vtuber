@@ -2386,3 +2386,22 @@ La CI verifica contratos de protocolo, compilación, pruebas automatizadas y emp
 - Abrir el archivo creado por la prueba en tu Windows y confirmar manualmente: imagen del avatar, transparencia, boca/cambio Idle-Talking, frase audible y audio de juego/micrófono sin cortes ni cuadros congelados.
 - En Bots y plataformas, configurar el túnel HTTPS y las suscripciones, enviar un mensaje desde el canal real de Kick y comprobar la hora de recepción firmada. Probar por separado que TTS/reacciones están habilitados y ocurren, sin activar respuesta pública salvo que así se desee.
 - Si la grabación se crea pero no se oye voz, revisar la salida de audio seleccionada, el dispositivo Windows/OBS y la voz local. No cambiar a un proveedor remoto de manera automática como fallback.
+
+## 2026-10-23 — Auditoría de ramas y requisito de historial local de chat
+
+### Estado verificado de main
+- HEAD consultado: f0e7dbba66811ac1537f2d71db1ffd7093cf63b2.
+- Windows CI de ese SHA: [run 39961774406](https://github.com/jonhararagi/vtuber/actions/runs/39961774406), finalizado con éxito. Esto verifica el workflow de CI, no la aceptación manual de OBS, audio, GPU ni cuentas reales de Twitch/Kick.
+- La consulta de PR abiertas devolvió cero. El repositorio conserva ramas históricas; una rama divergente no es por sí sola una función pendiente, porque varias entregas se integraron por squash y por eso los SHAs de origen pueden seguir apareciendo como exclusivos.
+
+### Comparación inicial de ramas funcionales
+Se compararon main y ramas de chat/plataformas, moderación, almacenamiento, voz, guía y producto. Resultados representativos: feature/kick-chat-pipeline-2026-10-22 (16 commits exclusivos según comparación, 9 detrás); fix/durable-kick-webhook-inbox-2026-10-21 (31/14); fix/kick-webhook-backpressure-2026-10-21 (12/16); feature/cross-platform-moderation-2026-10-20 (51/22); feat/bots-twitch-kick-panel-2026-10-18 (20/28); feat/beginner-guide-tabs (7/26); product/complete-vtuber-experience (69/190). Los cambios reportados por comparación no se fusionaron automáticamente: contienen solapamientos con implementaciones actuales y cambios antiguos que deben evaluarse por archivo y pruebas. Esta es una auditoría inicial de ramas de alto impacto, no una declaración de que ya se examinó exhaustivamente cada rama del repositorio.
+
+### Hallazgo funcional: historial unificado de chat
+- La aplicación ya recibe mensajes reales de Twitch por IRC y mensajes de chat Kick mediante webhooks validados; los muestra en una colección en memoria limitada a 200 líneas y los consume para comandos, reacciones, voz y moderación. Kick mantiene además su bandeja durable de eventos pendientes/fallidos, que no equivale a un archivo histórico general de chat.
+- Pendiente funcional confirmado en esta revisión: no se encontró una función de archivo histórico general, consultable y configurable para los mensajes de chat de ambas plataformas. La vista actual en memoria no permite revisar transmisiones anteriores y el registro de actividad guarda eventos resumidos, no un historial íntegro de mensajes.
+- La siguiente mejora aprobada por alcance debe ser un Archivo local de chat dentro de VTuberBot: opt-in y apagado por defecto; Twitch y Kick con plataforma/canal/fecha/usuario/texto/ID de mensaje cuando esté disponible; SQLite local; búsqueda y filtros; resumen estadístico determinista sin IA; exportación explícita; borrado y retención configurables; límites de tamaño/filas y escritura asíncrona acotada; deduplicación por ID; exclusión de tokens, secretos, mensajes privados y payloads de webhook no necesarios. Debe distinguir mensajes en vivo, mensajes persistidos y métricas derivadas. No debe activar respuestas públicas ni moderación por habilitar el archivo.
+- Antes de considerarlo terminado se requieren pruebas de retención, deduplicación, saturación de cola, migración/recuperación de SQLite, exportación y borrado, además de una prueba real en Windows con Twitch y Kick. No se afirma que esta nueva función ya esté implementada por el solo hecho de registrar aquí su alcance.
+
+### Regla de integración
+Una rama histórica no se fusiona a ciegas. Cada lote funcional útil se revisa contra el código actual, se prueba en su SHA exacto, se integra a main inmediatamente cuando queda aprobado y con CI verde, y se comprueba la CI post-fusión y el artefacto. Las ramas antiguas cuyo contenido ya está incorporado por squash no deben reintroducirse como merges completos.
