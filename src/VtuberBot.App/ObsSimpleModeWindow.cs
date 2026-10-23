@@ -112,8 +112,8 @@ public sealed class ObsSimpleModeWindow : Window
         AddFeature(
             body,
             "Protección de recursos",
-            "Revisa la memoria libre del sistema y evita abrir otra instancia si queda menos de 1 GiB. El perfil ligero usa 720p/30 FPS y omite plugins externos al iniciar una instancia nueva.",
-            "Esto es una protección preventiva, no un límite absoluto de CPU, GPU o RAM. OBS, juegos, navegadores, controladores y otros programas comparten los recursos del PC. Si queda menos de 1 GiB de RAM disponible, VTuberBot no abre una nueva instancia de OBS. Entre 1 y 1,5 GiB muestra una advertencia. Nunca mata procesos para liberar memoria. Si OBS ya estaba abierto, no lo reinicia a la fuerza: eso podría perder estado o ajustes sin guardar.");
+            "Comprueba la RAM libre y mide la CPU total antes y después de preparar OBS. No abre otra instancia si queda menos de 1 GiB de RAM libre ni si la CPU llega al 95% o más en la muestra previa; desde el 80% muestra una advertencia. El perfil ligero usa 720p/30 FPS y omite plugins externos al abrir una instancia nueva.",
+            "Es una protección preventiva, no un límite absoluto ni un limitador de CPU, GPU o RAM. La CPU se mide durante una ventana breve y puede cambiar inmediatamente. OBS, juegos, navegadores, controladores y otros programas comparten los recursos del PC. Entre 1 y 1,5 GiB de RAM libre muestra una advertencia; por debajo de 1 GiB no abre una instancia nueva. Tras preparar OBS, si la CPU sigue al 95% o más o queda menos de 1 GiB libre, el resultado queda como no preparado para transmitir. Nunca mata procesos para liberar recursos. Si OBS ya estaba abierto, no lo reinicia a la fuerza: eso podría perder estado o ajustes sin guardar.");
         AddFeature(
             body,
             "Primera conexión",
@@ -275,7 +275,7 @@ public sealed class ObsSimpleModeWindow : Window
     public void ShowPrimaryActionHelp() =>
         ShowHelp(
             "Iniciar y preparar OBS",
-            "El botón abre una instancia local de OBS si hace falta, usa el modo ligero en un inicio nuevo, intenta autenticarse con los datos guardados y verifica el perfil 720p30. La primera vez te pide permiso. Si falta WebSocket o queda poca memoria, informa el problema. Nunca inicia ni detiene una transmisión o grabación.");
+            "El botón abre una instancia local de OBS si hace falta, usa el modo ligero en un inicio nuevo, comprueba CPU/RAM, intenta autenticarse con los datos guardados y verifica el perfil 720p30. La primera vez te pide permiso. Si falta WebSocket, hay poca memoria o la CPU está saturada, informa el problema. Nunca inicia ni detiene una transmisión o grabación.");
 
     /// <summary>Starts the same guarded preparation when the primary button is pressed on the OBS page.</summary>
     public Task StartPreparationFromMainPageAsync() => RunPreparationAsync();

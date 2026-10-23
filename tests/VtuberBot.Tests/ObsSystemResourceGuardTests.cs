@@ -54,6 +54,38 @@ public sealed class ObsSystemResourceGuardTests
     }
 
     [Theory]
+    [InlineData(0d, ObsSystemCpuRisk.Normal)]
+    [InlineData(79.9d, ObsSystemCpuRisk.Normal)]
+    [InlineData(80d, ObsSystemCpuRisk.High)]
+    [InlineData(94.9d, ObsSystemCpuRisk.High)]
+    [InlineData(95d, ObsSystemCpuRisk.Critical)]
+    [InlineData(100d, ObsSystemCpuRisk.Critical)]
+    [InlineData(-1d, ObsSystemCpuRisk.Unavailable)]
+    [InlineData(101d, ObsSystemCpuRisk.Unavailable)]
+    [InlineData(double.NaN, ObsSystemCpuRisk.Unavailable)]
+    [InlineData(double.PositiveInfinity, ObsSystemCpuRisk.Unavailable)]
+    public void ClassifiesSystemCpuUsage(double usagePercent, ObsSystemCpuRisk expected) =>
+        Assert.Equal(expected, ObsSystemResourceGuard.ClassifySystemCpuUsage(usagePercent));
+
+    [Fact]
+    public void CalculatesSystemCpuUsageFromGetSystemTimesDeltas()
+    {
+        var usage = ObsSystemResourceGuard.CalculateSystemCpuUsagePercent(
+            idleDelta: 75,
+            kernelDelta: 80,
+            userDelta: 20);
+
+        Assert.NotNull(usage);
+        Assert.Equal(25d, usage.Value, precision: 5);
+    }
+
+    [Theory]
+    [InlineData(10UL, 0UL, 0UL)]
+    [InlineData(110UL, 80UL, 20UL)]
+    public void RejectsInvalidSystemCpuCounters(ulong idleDelta, ulong kernelDelta, ulong userDelta) =>
+        Assert.Null(ObsSystemResourceGuard.CalculateSystemCpuUsagePercent(idleDelta, kernelDelta, userDelta));
+
+    [Theory]
     [InlineData("localhost", true)]
     [InlineData("LOCALHOST", true)]
     [InlineData("127.0.0.1", true)]

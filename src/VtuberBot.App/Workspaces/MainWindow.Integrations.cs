@@ -112,6 +112,31 @@ public partial class MainWindow
                 Step("Aviso: la medición de memoria del sistema no está disponible.");
             }
 
+            if (!alreadyRunning)
+            {
+                Step("Comprobando la carga global del procesador antes de iniciar OBS…");
+                var cpuUsageBeforeStart = await ObsSystemResourceGuard.TryReadSystemCpuUsagePercentAsync();
+                if (cpuUsageBeforeStart is double cpuPercent)
+                {
+                    var cpuRisk = ObsSystemResourceGuard.ClassifySystemCpuUsage(cpuPercent);
+                    Step($"Uso global de CPU medido durante 500 ms: {cpuPercent:N1}%.");
+                    if (cpuRisk == ObsSystemCpuRisk.Critical)
+                    {
+                        Step("Inicio cancelado: el procesador ya estaba al 95% o más.");
+                        return Incomplete("El procesador está muy ocupado; no se abrió una nueva instancia de OBS.",
+                            "Cierra tareas pesadas que no necesites y vuelve a intentarlo. Esta muestra es preventiva, no un límite permanente de CPU.");
+                    }
+
+                    if (cpuRisk == ObsSystemCpuRisk.High)
+                        warnings.Add("El uso total de CPU ya es de al menos el 80%. OBS puede aumentar la carga; revisa el rendimiento antes de transmitir.");
+                }
+                else
+                {
+                    warnings.Add("Windows no permitió medir la carga total de CPU. No se pudo verificar el margen del procesador antes de iniciar OBS.");
+                    Step("Aviso: la medición de CPU global no está disponible.");
+                }
+            }
+
             store.SetSetting("obs.lightMode", "true");
 
             if (!alreadyRunning)
@@ -221,16 +246,39 @@ public partial class MainWindow
                 }
             }
 
-            Step(insufficientMemoryAfterStart
-                ? "Preparación incompleta por memoria libre crítica. No se inició ninguna transmisión ni grabación."
+            var criticalCpuAfterStart = false;
+            var cpuUsageAfterStart = await ObsSystemResourceGuard.TryReadSystemCpuUsagePercentAsync();
+            if (cpuUsageAfterStart is double finalCpuPercent)
+            {
+                var finalCpuRisk = ObsSystemResourceGuard.ClassifySystemCpuUsage(finalCpuPercent);
+                Step($"Uso global de CPU tras preparar OBS: {finalCpuPercent:N1}%.");
+                if (finalCpuRisk == ObsSystemCpuRisk.Critical)
+                {
+                    criticalCpuAfterStart = true;
+                    warnings.Add("La CPU global sigue en un nivel crítico (95% o más). No inicies un directo; cierra tareas pesadas o reduce más la carga.");
+                }
+                else if (finalCpuRisk == ObsSystemCpuRisk.High)
+                {
+                    warnings.Add("El uso global de CPU alcanza el 80% o más. Comprueba el juego, los filtros y el audio mediante una grabación local antes de transmitir.");
+                }
+            }
+            else
+            {
+                warnings.Add("Windows no permitió volver a medir el uso global de CPU. La preparación no puede garantizar que el procesador tenga margen.");
+                Step("Aviso: la medición de CPU global posterior no está disponible.");
+            }
+
+            var criticalResourcesAfterStart = insufficientMemoryAfterStart || criticalCpuAfterStart;
+            Step(criticalResourcesAfterStart
+                ? "Preparación incompleta por recursos críticos. No se inició ninguna transmisión ni grabación."
                 : "No se inició ninguna transmisión ni grabación. Revisa visualmente la escena y el audio.");
-            FooterStatus.Text = insufficientMemoryAfterStart
-                ? "OBS conectado, pero queda menos de 1 GiB de RAM libre; no está listo para un directo."
+            FooterStatus.Text = criticalResourcesAfterStart
+                ? "OBS conectado, pero la CPU o la RAM libre están en estado crítico; no está listo para un directo."
                 : "OBS preparado en modo sencillo; transmisión no iniciada.";
             return new(
-                !insufficientMemoryAfterStart,
-                insufficientMemoryAfterStart
-                    ? "OBS respondió y el perfil 720p30 fue verificado, pero la RAM libre es demasiado baja para considerar preparada la transmisión."
+                !criticalResourcesAfterStart,
+                criticalResourcesAfterStart
+                    ? "OBS respondió y el perfil 720p30 fue verificado, pero la CPU o la RAM libre siguen en estado crítico."
                     : "OBS está conectado y el perfil 720p30 fue verificado.",
                 warnings.ToArray());
         }
@@ -290,7 +338,7 @@ public partial class MainWindow
     {
         var root=new StackPanel();
         var simpleModePanel = Panel("OBS fácil · un botón para iniciar y preparar");
-        simpleModePanel.Children.Add(Label("Un botón inicia OBS en modo ligero, revisa la memoria disponible, conecta el programa si está autorizado y verifica el perfil de vídeo. La primera vez pedirá permiso y quizá necesites preparar WebSocket. No iniciará una transmisión.", 12, "#98A4BE"));
+        simpleModePanel.Children.Add(Label("Un botón inicia OBS en modo ligero, comprueba la RAM y la carga global de CPU, conecta el programa si está autorizado y verifica el perfil de vídeo. La primera vez pedirá permiso y quizá necesites preparar WebSocket. No iniciará una transmisión.", 12, "#98A4BE"));
         var simpleModeActions = new WrapPanel();
         simpleModeActions.Children.Add(ActionButton("▶ INICIAR Y PREPARAR OBS", async (_, _) =>
         {
