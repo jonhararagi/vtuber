@@ -273,11 +273,61 @@ public partial class MainWindow
         simpleModePanel.Children.Add(ActionButton("Abrir modo sencillo de OBS", (_, _) => OpenObsSimpleModeWindow(), true));
         root.Children.Add(simpleModePanel);
 
+        var advancedRoot = new StackPanel();
+        Window? advancedObsWindow = null;
+        ScrollViewer? advancedObsScroll = null;
+
+        void OpenAdvancedObsWindow()
+        {
+            if (advancedObsWindow is null)
+            {
+                advancedObsScroll = new ScrollViewer
+                {
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    Content = advancedRoot
+                };
+                var window = new Window
+                {
+                    Owner = this,
+                    Title = "VTuberBot · Controles avanzados de OBS",
+                    Width = 1180,
+                    Height = 820,
+                    MinWidth = 880,
+                    MinHeight = 620,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                    Background = Brush("#0B0E17"),
+                    Foreground = Brush("#F8FAFC"),
+                    Content = advancedObsScroll
+                };
+                advancedObsWindow = window;
+                window.Closed += (_, _) =>
+                {
+                    if (!ReferenceEquals(advancedObsWindow, window))
+                        return;
+                    if (advancedObsScroll is not null)
+                        advancedObsScroll.Content = null;
+                    window.Content = null;
+                    advancedObsScroll = null;
+                    advancedObsWindow = null;
+                };
+            }
+
+            if (!advancedObsWindow.IsVisible)
+                advancedObsWindow.Show();
+            if (advancedObsWindow.WindowState == WindowState.Minimized)
+                advancedObsWindow.WindowState = WindowState.Normal;
+            advancedObsWindow.Activate();
+        }
+
+        simpleModePanel.Children.Add(ActionButton("Abrir guía paso a paso", (_, _) => OpenObsSetupWizard(), false));
+        simpleModePanel.Children.Add(ActionButton("Opciones avanzadas de OBS (otra ventana)", (_, _) => OpenAdvancedObsWindow(), false));
+
         var guidePanel = Panel("Asistente visual · Configurar OBS paso a paso");
         guidePanel.Children.Add(Label("Una guía que podés volver a abrir: diagramas clicables, enlaces oficiales, pasos para Twitch/YouTube y progreso guardado. Los diagramas son ilustraciones explicativas; la conexión y los cambios solo se confirman cuando la aplicación los comprueba realmente.", 12, "#98A4BE"));
         guidePanel.Children.Add(ActionButton("Abrir asistente visual de OBS", (_, _) => OpenObsSetupWizard(), true));
-        root.Children.Add(guidePanel);
-        var panel=Panel("OBS Studio · WebSocket v5");root.Children.Add(panel);
+        advancedRoot.Children.Add(guidePanel);
+        var panel=Panel("OBS Studio · WebSocket v5");advancedRoot.Children.Add(panel);
         var launchPanel = Panel("Inicio de OBS y rendimiento");
         launchPanel.Children.Add(Label("VTuberBot puede abrir OBS y conectarse con la configuración guardada. El primer uso requiere guardar una contraseña de WebSocket en OBS y en VTuberBot.", 12, "#98A4BE"));
         var autoStartObs = new CheckBox
@@ -354,7 +404,7 @@ public partial class MainWindow
             }
         }));
         launchPanel.Children.Add(launchActions);
-        root.Children.Add(launchPanel);
+        advancedRoot.Children.Add(launchPanel);
 
         var processMetricsPanel = Panel("Consumo real de recursos · VTuberBot y OBS por separado");
         processMetricsPanel.Children.Add(Label("Mide RAM (working set) y CPU de cada proceso en una ventana breve. Los datos solo aparecen después de una medición local; no son estimaciones ni resultados de CI.", 12, "#98A4BE"));
@@ -410,7 +460,7 @@ public partial class MainWindow
                 store.Log("OBS", "Falló la medición de recursos (" + exception.GetType().Name + ").");
             }
         }, true));
-        root.Children.Add(processMetricsPanel);
+        advancedRoot.Children.Add(processMetricsPanel);
 
         var amdDiagnosticPanel = Panel("Diagnóstico local de codificación AMD (AMF)");
         amdDiagnosticPanel.Children.Add(Label("Comprueba señales locales de GPU AMD, archivo del complemento AMF y referencias en logs recientes. Son indicios; el cliente WebSocket no expone el inventario de encoders ni puede confirmar que una grabación haya codificado correctamente.", 12, "#98A4BE"));
@@ -424,9 +474,9 @@ public partial class MainWindow
             store.Log("OBS", report.ToLogSummary());
             MessageBox.Show(this, report.Details, "Diagnóstico AMD AMF", MessageBoxButton.OK, MessageBoxImage.Information);
         }, true));
-        root.Children.Add(amdDiagnosticPanel);
+        advancedRoot.Children.Add(amdDiagnosticPanel);
 
-        root.Loaded += async (_, _) =>
+        advancedRoot.Loaded += async (_, _) =>
         {
             if (IsObsRunning() && !obs.IsConnected)
                 await AutoConnectObsFromUiAsync();
@@ -701,7 +751,7 @@ public partial class MainWindow
         }));
         sourceControls.Children.Add(Label("Silencio de fuentes de audio compatibles", 13, "#F8FAFC", true));
         sourceControls.Children.Add(audioSourceActions);
-        root.Children.Add(sourceControls);
+        advancedRoot.Children.Add(sourceControls);
 
         var outputPanel = Panel("Transmisión y grabación");
         outputPanel.Margin = new Thickness(0, 14, 0, 0);
@@ -741,7 +791,7 @@ public partial class MainWindow
         }));
         outputPanel.Children.Add(outputActions);
         outputPanel.Children.Add(Label("Las acciones solo se envían tras la autenticación WebSocket. El estado se lee desde OBS; guardar la configuración no simula una salida activa.", 12, "#98A4BE"));
-        root.Children.Add(outputPanel);
+        advancedRoot.Children.Add(outputPanel);
 
         var recordingSmokePanel = Panel("Prueba guiada real · grabación local, voz y avatar");
         recordingSmokePanel.Margin = new Thickness(0, 14, 0, 0);
@@ -1080,7 +1130,7 @@ public partial class MainWindow
         recordingSmokePanel.Children.Add(Label(
             "La prueba verifica el estado real de OBS y la creación de un archivo; la voz que termina en la cola tampoco prueba por sí sola que los altavoces hayan sonado. Solo se marca como validada cuando confirmás la reproducción del archivo.",
             11, "#98A4BE"));
-        root.Children.Add(recordingSmokePanel);
+        advancedRoot.Children.Add(recordingSmokePanel);
 
         var destinationsPanel = Panel("Transmitir a Twitch o YouTube");
         destinationsPanel.Margin = new Thickness(0, 14, 0, 0);
@@ -1210,11 +1260,11 @@ public partial class MainWindow
         }, true));
         multistreamPanel.Children.Add(Label("Instalá solo una versión compatible con tu versión de OBS; agrega YouTube y Twitch en el complemento y configura allí el destino secundario. Luego inicia cada salida según sus controles. Si compartís encoder, el consumo puede ser menor; si cada destino codifica por separado, aumentan el uso de CPU/GPU y el ancho de subida. La compatibilidad del complemento debe comprobarse en tu instalación.", 12, "#98A4BE"));
         RefreshDestinationChoice();
-        root.Children.Add(destinationsPanel);
-        root.Children.Add(multistreamPanel);
+        advancedRoot.Children.Add(destinationsPanel);
+        advancedRoot.Children.Add(multistreamPanel);
 
         var overlayPanel=Panel("Avatar overlay para OBS");overlayPanel.Children.Add(Label("El overlay se abre como ventana sin bordes y fondo transparente. En OBS agregá una fuente Captura de ventana y seleccioná “VTuberBot Avatar Overlay”. Doble clic en el overlay alterna Topmost; arrastrá para ubicarlo.",13,"#98A4BE"));
-        overlayPanel.Children.Add(ActionButton("Mostrar overlay",(_,_)=>ShowOverlay(),true));root.Children.Add(overlayPanel);
+        overlayPanel.Children.Add(ActionButton("Mostrar overlay",(_,_)=>ShowOverlay(),true));advancedRoot.Children.Add(overlayPanel);
         return root;
     }
 
