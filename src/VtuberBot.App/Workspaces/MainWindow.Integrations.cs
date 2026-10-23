@@ -338,7 +338,7 @@ public partial class MainWindow
         var autoStartObs = new CheckBox
         {
             Content = "Abrir OBS automáticamente al iniciar VTuberBot",
-            IsChecked = string.Equals(store.GetSetting("obs.autoStart", "true"), "true", StringComparison.OrdinalIgnoreCase),
+            IsChecked = string.Equals(store.GetSetting("obs.autoStart", "false"), "true", StringComparison.OrdinalIgnoreCase),
             Foreground = Brush("#F8FAFC"),
             Margin = new Thickness(0, 6, 0, 6)
         };
