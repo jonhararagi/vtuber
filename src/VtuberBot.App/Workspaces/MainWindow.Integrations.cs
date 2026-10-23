@@ -206,18 +206,33 @@ public partial class MainWindow
             else
                 Step($"Escenas reales detectadas: {scenes.Count}.");
 
+            var insufficientMemoryAfterStart = false;
             if (ObsSystemResourceGuard.TryReadSystemMemory(out var finalMemory))
             {
                 var finalRisk = ObsSystemResourceGuard.ClassifyAvailableMemory(finalMemory.AvailablePhysicalBytes);
                 if (finalRisk == ObsSystemResourceRisk.Critical)
+                {
+                    insufficientMemoryAfterStart = true;
                     warnings.Add($"Tras abrir OBS quedan solo {finalMemory.AvailablePhysicalMiB:N0} MiB de RAM libres. No empieces el directo: cierra aplicaciones que no necesites y comprueba de nuevo.");
+                }
                 else if (finalRisk == ObsSystemResourceRisk.Low && resourceRisk == ObsSystemResourceRisk.Normal)
+                {
                     warnings.Add($"Quedan {finalMemory.AvailablePhysicalMiB:N0} MiB de RAM libres. Revisa la carga antes de iniciar un directo.");
+                }
             }
 
-            Step("No se inició ninguna transmisión ni grabación. Revisa visualmente la escena y el audio.");
-            FooterStatus.Text = "OBS preparado en modo sencillo; transmisión no iniciada.";
-            return new(true, "OBS está conectado y el perfil 720p30 fue verificado.", warnings.ToArray());
+            Step(insufficientMemoryAfterStart
+                ? "Preparación incompleta por memoria libre crítica. No se inició ninguna transmisión ni grabación."
+                : "No se inició ninguna transmisión ni grabación. Revisa visualmente la escena y el audio.");
+            FooterStatus.Text = insufficientMemoryAfterStart
+                ? "OBS conectado, pero queda menos de 1 GiB de RAM libre; no está listo para un directo."
+                : "OBS preparado en modo sencillo; transmisión no iniciada.";
+            return new(
+                !insufficientMemoryAfterStart,
+                insufficientMemoryAfterStart
+                    ? "OBS respondió y el perfil 720p30 fue verificado, pero la RAM libre es demasiado baja para considerar preparada la transmisión."
+                    : "OBS está conectado y el perfil 720p30 fue verificado.",
+                warnings.ToArray());
         }
         catch (Exception exception)
         {
