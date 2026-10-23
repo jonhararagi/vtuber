@@ -1,13 +1,14 @@
 ## 2026-10-22/23 — OBS fácil de un clic y protección preventiva de memoria (PR #48)
 
-### Rama, PR y validación automatizada
+### Estado de integración y CI
 
-- PR: https://github.com/jonhararagi/vtuber/pull/48 — **abierta; todavía no fusionada** al redactar esta entrada.
-- Rama: `feat/obs-simple-mode-and-resource-guard-2026-10-22`. La base `main` al iniciar el trabajo era `17317b0129ed9a634cf029125f57c05b2d3daf08`.
-- El candidato de código `9ef671b998116173404bce5ddf3723c212d7edf8` pasó Windows CI [run 39879086518](https://github.com/jonhararagi/vtuber/actions/runs/39879086518): Restore, Build Release, pruebas, publicación autocontenida win-x64 y upload completados. Build: 0 advertencias, 0 errores. Pruebas: 802 correctas, 0 fallidas, 0 omitidas. ZIP validado: 490 entradas, 85.232.626 bytes.
-- Artefacto candidato de esa ejecución (no representa una compilación de `main`): [12469907134](https://github.com/jonhararagi/vtuber/actions/runs/39879086518/artifacts/12469907134), SHA-256 `45e8fc6209e1c9a7f545b644a5257cfa81a48aac81c9a3c4453f67a88e5b7388`, retención hasta 2026-11-06 00:39:03 UTC.
-- El primer intento de CI [39878546410](https://github.com/jonhararagi/vtuber/actions/runs/39878546410) falló al compilar por inferencia del tipo de ventana propietaria en `MainWindow.Integrations.cs`. Se corrigió usando el tipo común `Window`. La nueva ejecución del candidato de código terminó bien.
-- **Importante:** esta entrada documental cambia el HEAD de la rama después del CI anterior. El nuevo SHA deberá pasar Windows CI antes de fusionar la PR y luego habrá que verificar también CI de `main` post-fusión.
+- PR [#48](https://github.com/jonhararagi/vtuber/pull/48) **fusionada por squash en `main`**. Commit integrado: [`b2ed18dbaa64657c5c86a2440c41175b253a0e68`](https://github.com/jonhararagi/vtuber/commit/b2ed18dbaa64657c5c86a2440c41175b253a0e68).
+- Rama de origen: `feat/obs-simple-mode-and-resource-guard-2026-10-22`. La base al iniciar el trabajo era `17317b0129ed9a634cf029125f57c05b2d3daf08`.
+- Windows CI del candidato final de PR `1aaf9915998a576d7a0959aac44da0092a1c80fb`: [run 39879615652](https://github.com/jonhararagi/vtuber/actions/runs/39879615652), éxito; build Release con 0 advertencias y 0 errores, 802 pruebas aprobadas, 0 fallidas, 0 omitidas, ZIP de 490 entradas y 85.232.850 bytes.
+- Windows CI **post-fusión en `main`**, SHA exacto `b2ed18dbaa64657c5c86a2440c41175b253a0e68`: [run 39880049982](https://github.com/jonhararagi/vtuber/actions/runs/39880049982), éxito. Logs confirman Restore, Build Release (0 advertencias/0 errores), **802/802 pruebas** y publish win-x64 autocontenido. El ZIP contiene 490 entradas y pesa 85.232.847 bytes.
+- Artefacto generado desde esa misma ejecución post-fusión de `main`: [ID 12469859513](https://github.com/jonhararagi/vtuber/actions/runs/39880049982/artifacts/12469859513), digest SHA-256 `94389a0a458add0439c41e4664195869dc02904d199c62ac233c5e3a982992f4`, retención hasta el 2026-11-06 00:49:19 UTC. El candidato de PR no reemplaza este paquete post-fusión.
+- Durante la rama, el primer intento de CI [39878546410](https://github.com/jonhararagi/vtuber/actions/runs/39878546410) falló al compilar por inferencia del tipo de ventana propietaria en `MainWindow.Integrations.cs`. Se corrigió mediante el tipo común `Window`; los runs finales de PR y `main` anteriores pasaron.
+- **Regla operativa del proyecto acordada con el usuario:** ninguna rama queda entregada solo por estar aprobada o tener CI verde. Una vez que la revisión y CI del SHA exacto pasan, se integra a `main` de inmediato y se verifica también la CI post-fusión. Se actualiza este documento con PR, SHA integrado, runs y artefacto. No se dejan ramas aprobadas esperando a la entrega final ni se afirma una fusión si no ocurrió.
 
 ### Cambios funcionales
 
