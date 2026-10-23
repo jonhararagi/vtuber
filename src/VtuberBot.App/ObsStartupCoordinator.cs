@@ -80,7 +80,9 @@ public partial class MainWindow
         }
         catch (Exception exception)
         {
-            FooterStatus.Text = "No se pudo iniciar OBS automáticamente; VTuberBot sigue disponible.";
+            FooterStatus.Text = exception is InvalidOperationException
+                ? exception.Message
+                : "No se pudo iniciar OBS automáticamente; VTuberBot sigue disponible.";
             store.Log("OBS", "Falló el inicio automático (" + exception.GetType().Name + ").");
         }
     }
