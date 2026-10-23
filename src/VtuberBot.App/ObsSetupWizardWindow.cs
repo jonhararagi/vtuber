@@ -59,7 +59,7 @@ public sealed class ObsSetupWizardWindow : Window
         [
             "En OBS abre Herramientas → WebSocket Server Settings (el nombre puede aparecer traducido como Ajustes del servidor WebSocket). Activá el servidor WebSocket.",
             "Conservá el puerto 4455 salvo que ya uses otro. Crea una contraseña fuerte y guardala en un lugar privado; no la pegues en chats ni capturas públicas.",
-            "Volvé a VTuberBot → «OBS y transmisiones». Introducí Host 127.0.0.1, Puerto 4455 y la contraseña en el campo protegido. Pulsa «Guardar y conectar (primera vez)».",
+            "Volvé a VTuberBot → OBS → «Opciones avanzadas de OBS (otra ventana)». Introducí Host 127.0.0.1, Puerto 4455 y la contraseña en el campo protegido. Pulsa «Guardar y conectar (primera vez)».",
             "Regresá a esta guía y pulsa «Comprobar conexión real». El estado solo será correcto si VTuberBot consigue autenticar y consultar la versión real de OBS."
         ],
         [
@@ -83,7 +83,7 @@ public sealed class ObsSetupWizardWindow : Window
         [
             "Este perfil cambia el lienzo y la salida globales de OBS a 1280×720 y 30 FPS. Puede afectar todas las escenas, por eso el botón vuelve a pedir confirmación.",
             "La guía no puede conocer tu GPU, velocidad de subida ni el coste de todos tus filtros. 720p30 es un punto de partida, no una medición ni una garantía de FPS.",
-            "Pulsa «Aplicar perfil 720p / 30 FPS» en la página de VTuberBot solo después de conectar WebSocket. Si usás escenas que dependen de plugins externos, revisá también la opción «Modo ligero» antes de activarla.",
+            "La primera vez, el botón «Iniciar y preparar OBS» del modo sencillo puede aplicar y verificar el perfil 720p30 con tu permiso, si OBS está conectado y no está transmitiendo ni grabando. También podés usar «Aplicar perfil 720p / 30 FPS» en las opciones avanzadas. Si una escena depende de plugins externos, no uses el modo de inicio que los omite.",
             "Si después de probar todo funciona fluido, podés evaluar 1080p o más FPS. Si hay tirones, bajá primero la resolución de salida, los filtros costosos y la carga del juego."
         ],
         [
