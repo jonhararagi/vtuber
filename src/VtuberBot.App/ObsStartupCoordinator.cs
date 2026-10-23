@@ -16,7 +16,7 @@ public partial class MainWindow
     private async Task AutoStartObsIfConfiguredAsync()
     {
         if (Interlocked.Exchange(ref obsAutoStartAttempted, 1) != 0 ||
-            !string.Equals(store.GetSetting("obs.autoStart", "true"), "true", StringComparison.OrdinalIgnoreCase))
+            !string.Equals(store.GetSetting("obs.autoStart", "false"), "true", StringComparison.OrdinalIgnoreCase))
             return;
 
         try
