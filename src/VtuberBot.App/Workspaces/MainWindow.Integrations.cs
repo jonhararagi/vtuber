@@ -29,6 +29,195 @@ public partial class MainWindow
     private Action<string, JsonElement>? obsEventHandler;
     private Action<string>? obsStatusHandler;
     private ObsSetupWizardWindow? obsSetupWizardWindow;
+    private ObsSimpleModeWindow? obsSimpleModeWindow;
+
+    private void OpenObsSimpleModeWindow()
+    {
+        if (obsSimpleModeWindow is null)
+        {
+            var window = new ObsSimpleModeWindow(
+                PrepareObsSimpleModeAsync,
+                () => string.Equals(
+                    store.GetSetting("obs.simpleMode.authorized", "false"),
+                    "true",
+                    StringComparison.OrdinalIgnoreCase),
+                () => store.SetSetting("obs.simpleMode.authorized", "true"),
+                OpenObsSetupWizard,
+                ShowOverlay,
+                this);
+            obsSimpleModeWindow = window;
+            window.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(obsSimpleModeWindow, window))
+                    obsSimpleModeWindow = null;
+            };
+        }
+
+        if (!obsSimpleModeWindow.IsVisible)
+            obsSimpleModeWindow.Show();
+        if (obsSimpleModeWindow.WindowState == WindowState.Minimized)
+            obsSimpleModeWindow.WindowState = WindowState.Normal;
+        obsSimpleModeWindow.Activate();
+    }
+
+    private async Task<ObsSimplePreparationResult> PrepareObsSimpleModeAsync(Action<string> reportStep)
+    {
+        var warnings = new List<string>();
+        void Step(string message)
+        {
+            reportStep(message);
+            store.Log("OBS fácil", message);
+        }
+
+        ObsSimplePreparationResult Incomplete(string summary, params string[] additionalWarnings) =>
+            new(false, summary, warnings.Concat(additionalWarnings).Take(10).ToArray());
+
+        try
+        {
+            var localHost = store.GetSetting("obs.host", "127.0.0.1");
+            if (!ObsSystemResourceGuard.IsLoopbackHost(localHost))
+            {
+                Step("Preparación detenida: el host de OBS configurado no es local.");
+                return Incomplete("El modo sencillo solo administra una instancia local de OBS.",
+                    "En la página avanzada de OBS, usa 127.0.0.1 o localhost si OBS está instalado en esta PC.");
+            }
+
+            var alreadyRunning = IsObsRunning();
+            var resourceRisk = ObsSystemResourceRisk.Normal;
+            if (ObsSystemResourceGuard.TryReadSystemMemory(out var memory))
+            {
+                resourceRisk = ObsSystemResourceGuard.ClassifyAvailableMemory(memory.AvailablePhysicalBytes);
+                Step($"Memoria libre detectada: {memory.AvailablePhysicalMiB:N0} MiB de {memory.TotalPhysicalMiB:N0} MiB.");
+                if (resourceRisk == ObsSystemResourceRisk.Critical && !alreadyRunning)
+                {
+                    Step("No se abrió OBS porque queda menos de 1 GiB de RAM libre.");
+                    return Incomplete("Hay muy poca memoria disponible para iniciar otra aplicación pesada.",
+                        "Cierra aplicaciones que no necesites y vuelve a pulsar el botón. VTuberBot no finalizará procesos a la fuerza.");
+                }
+
+                if (resourceRisk == ObsSystemResourceRisk.Low)
+                    warnings.Add("La RAM disponible está entre 1 y 1,5 GiB. El modo ligero reduce carga, pero no garantiza que todo el sistema tenga recursos suficientes.");
+            }
+            else
+            {
+                warnings.Add("Windows no permitió medir la RAM disponible. No se puede verificar el margen de memoria antes de iniciar OBS.");
+                Step("Aviso: la medición de memoria del sistema no está disponible.");
+            }
+
+            store.SetSetting("obs.lightMode", "true");
+
+            if (!alreadyRunning)
+            {
+                var executable = ResolveObsExecutable();
+                if (executable is null)
+                {
+                    var picker = new OpenFileDialog
+                    {
+                        Title = "Elige el ejecutable de OBS Studio",
+                        Filter = "OBS Studio (obs64.exe)|obs64.exe|OBS de 32 bits (obs32.exe)|obs32.exe|Ejecutables (*.exe)|*.exe",
+                        CheckFileExists = true,
+                        Multiselect = false
+                    };
+                    var owner = obsSimpleModeWindow is { IsVisible: true } visibleWindow ? visibleWindow : this;
+                    if (picker.ShowDialog(owner) != true)
+                        return Incomplete("No se inició OBS porque no se seleccionó el programa.",
+                            "Vuelve a pulsar el botón cuando tengas localizada la instalación de OBS.");
+                    executable = Path.GetFullPath(picker.FileName);
+                }
+
+                var executableName = Path.GetFileName(executable);
+                if (!string.Equals(executableName, "obs64.exe", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(executableName, "obs32.exe", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(executableName, "obs.exe", StringComparison.OrdinalIgnoreCase))
+                    return Incomplete("El archivo seleccionado no parece ser el ejecutable de OBS.",
+                        "Selecciona obs64.exe en la carpeta de instalación de OBS Studio.");
+
+                store.SetSetting("obs.executablePath", Path.GetFullPath(executable));
+                Step("Iniciando OBS en una ventana visible y omitiendo plugins de terceros para este inicio…");
+                StartObs(executable, forceWindowVisible: true);
+
+                for (var attempt = 0; attempt < 24 && !IsObsRunning(); attempt++)
+                    await Task.Delay(500);
+
+                if (!IsObsRunning())
+                    return Incomplete("Windows no detectó el proceso de OBS después de solicitar su inicio.",
+                        "Comprueba la ruta de obs64.exe y si Windows mostró algún aviso.");
+                Step("Proceso de OBS detectado.");
+            }
+            else
+            {
+                Step("OBS ya estaba abierto; no se reinició ni se cerró.");
+                warnings.Add("El modo sin plugins de terceros solo puede aplicarse al abrir una instancia nueva. Para no arriesgar una escena o ajustes sin guardar, OBS no se reinicia automáticamente.");
+            }
+
+            if (!obs.IsConnected)
+            {
+                if (string.IsNullOrEmpty(LoadObsPassword()))
+                {
+                    Step("Falta la contraseña WebSocket local guardada en VTuberBot.");
+                    return Incomplete("OBS está abierto, pero falta completar la conexión inicial.",
+                        "Pulsa «Abrir guía paso a paso». Activa WebSocket en OBS y guarda la contraseña en el campo protegido de la página OBS.");
+                }
+
+                Step("Intentando autenticar la conexión local con OBS…");
+                await AutoConnectObsFromUiAsync();
+                for (var attempt = 0; attempt < 20 && !obs.IsConnected; attempt++)
+                    await Task.Delay(500);
+            }
+
+            if (!obs.IsConnected)
+                return Incomplete("OBS se abrió, pero VTuberBot no pudo verificar la conexión WebSocket.",
+                    "Abre la guía de primera configuración y comprueba el puerto y la contraseña. No se declara listo hasta recibir una respuesta real.");
+
+            Step("Conexión WebSocket autenticada.");
+
+            using var checkTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+            var isStreaming = await obs.IsStreamingAsync(checkTimeout.Token);
+            var isRecording = await obs.IsRecordingAsync(checkTimeout.Token);
+            if (!ObsSystemResourceGuard.CanApplyLightProfile(obs.IsConnected, isStreaming, isRecording))
+            {
+                Step("No se cambió el perfil porque OBS está transmitiendo o grabando.");
+                return Incomplete("OBS está conectado, pero una salida está activa; no se modificó el vídeo.",
+                    "Detén la salida desde OBS cuando estés preparado y vuelve a ejecutar la preparación. VTuberBot no inició ni detuvo ninguna salida.");
+            }
+
+            Step("Aplicando el perfil ligero 1280×720 a 30 FPS…");
+            using var applyTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var profileResult = await obs.ApplyLightVideoProfileAsync(applyTimeout.Token);
+            Step(profileResult);
+
+            using var verifyTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var scenes = await obs.GetScenesAsync(verifyTimeout.Token);
+            var verifiedVideo = await obs.GetVideoSettingsAsync(verifyTimeout.Token);
+            if (!verifiedVideo.Is720p30)
+                return Incomplete("OBS respondió, pero el perfil de vídeo no coincide con el esperado.",
+                    "No inicies una transmisión todavía. Revisa el perfil de vídeo en OBS e inténtalo otra vez.");
+            Step("Perfil de vídeo comprobado por lectura de vuelta.");
+            if (scenes.Count == 0)
+                warnings.Add("OBS no informó ninguna escena. Crea o importa una escena antes de usar una emisión.");
+            else
+                Step($"Escenas reales detectadas: {scenes.Count}.");
+
+            if (ObsSystemResourceGuard.TryReadSystemMemory(out var finalMemory))
+            {
+                var finalRisk = ObsSystemResourceGuard.ClassifyAvailableMemory(finalMemory.AvailablePhysicalBytes);
+                if (finalRisk == ObsSystemResourceRisk.Critical)
+                    warnings.Add($"Tras abrir OBS quedan solo {finalMemory.AvailablePhysicalMiB:N0} MiB de RAM libres. No empieces el directo: cierra aplicaciones que no necesites y comprueba de nuevo.");
+                else if (finalRisk == ObsSystemResourceRisk.Low && resourceRisk == ObsSystemResourceRisk.Normal)
+                    warnings.Add($"Quedan {finalMemory.AvailablePhysicalMiB:N0} MiB de RAM libres. Revisa la carga antes de iniciar un directo.");
+            }
+
+            Step("No se inició ninguna transmisión ni grabación. Revisa visualmente la escena y el audio.");
+            FooterStatus.Text = "OBS preparado en modo sencillo; transmisión no iniciada.";
+            return new(true, "OBS está conectado y el perfil 720p30 fue verificado.", warnings.ToArray());
+        }
+        catch (Exception exception)
+        {
+            store.Log("OBS fácil", "La preparación no se completó (" + exception.GetType().Name + ").");
+            return new(false, "La preparación se detuvo: " + exception.Message,
+                warnings.Append("Si necesitas ayuda, abre la guía paso a paso.").Take(10).ToArray());
+        }
+    }
 
     private void OpenObsSetupWizard()
     {
@@ -73,6 +262,11 @@ public partial class MainWindow
     private UIElement BuildObsPage()
     {
         var root=new StackPanel();
+        var simpleModePanel = Panel("OBS fácil · un botón para iniciar y preparar");
+        simpleModePanel.Children.Add(Label("Para empezar sin aprender los controles avanzados: abre una ventana sencilla, autoriza la preparación una vez y deja que VTuberBot inicie OBS en modo ligero y compruebe el perfil de vídeo. No iniciará un directo.", 12, "#98A4BE"));
+        simpleModePanel.Children.Add(ActionButton("Abrir modo sencillo de OBS", (_, _) => OpenObsSimpleModeWindow(), true));
+        root.Children.Add(simpleModePanel);
+
         var guidePanel = Panel("Asistente visual · Configurar OBS paso a paso");
         guidePanel.Children.Add(Label("Una guía que podés volver a abrir: diagramas clicables, enlaces oficiales, pasos para Twitch/YouTube y progreso guardado. Los diagramas son ilustraciones explicativas; la conexión y los cambios solo se confirman cuando la aplicación los comprueba realmente.", 12, "#98A4BE"));
         guidePanel.Children.Add(ActionButton("Abrir asistente visual de OBS", (_, _) => OpenObsSetupWizard(), true));
