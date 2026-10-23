@@ -4,9 +4,9 @@
 
 - PR: https://github.com/jonhararagi/vtuber/pull/48 — **abierta; todavía no fusionada** al redactar esta entrada.
 - Rama: `feat/obs-simple-mode-and-resource-guard-2026-10-22`. La base `main` al iniciar el trabajo era `17317b0129ed9a634cf029125f57c05b2d3daf08`.
-- El candidato de código `9ef671b998116173404bce5ddf3723c212d7edf8) pasó Windows CI [run 39879086518](https://github.com/jonhararagi/vtuber/actions/runs/39879086518): Restore, Build Release, pruebas, publicación autocontenida win-x64 y upload completados. Build: 0 advertencias, 0 errores. Pruebas: 802 correctas, 0 fallidas, 0 omitidas. ZIP validado: 490 entradas, 85.232.626 bytes.
+- El candidato de código `9ef671b998116173404bce5ddf3723c212d7edf8` pasó Windows CI [run 39879086518](https://github.com/jonhararagi/vtuber/actions/runs/39879086518): Restore, Build Release, pruebas, publicación autocontenida win-x64 y upload completados. Build: 0 advertencias, 0 errores. Pruebas: 802 correctas, 0 fallidas, 0 omitidas. ZIP validado: 490 entradas, 85.232.626 bytes.
 - Artefacto candidato de esa ejecución (no representa una compilación de `main`): [12469907134](https://github.com/jonhararagi/vtuber/actions/runs/39879086518/artifacts/12469907134), SHA-256 `45e8fc6209e1c9a7f545b644a5257cfa81a48aac81c9a3c4453f67a88e5b7388`, retención hasta 2026-11-06 00:39:03 UTC.
-- El primer intento de CI [39878546410](https://github.com/jonhararagi/vtuber/actions/runs/39878546410) falló al compilar por inferencia del tipo de ventana propietaria en `MainWindow.Integrations.cs). Se corrigió usando el tipo común `Window`. La nueva ejecución del candidato de código terminó bien.
+- El primer intento de CI [39878546410](https://github.com/jonhararagi/vtuber/actions/runs/39878546410) falló al compilar por inferencia del tipo de ventana propietaria en `MainWindow.Integrations.cs`. Se corrigió usando el tipo común `Window`. La nueva ejecución del candidato de código terminó bien.
 - **Importante:** esta entrada documental cambia el HEAD de la rama después del CI anterior. El nuevo SHA deberá pasar Windows CI antes de fusionar la PR y luego habrá que verificar también CI de `main` post-fusión.
 
 ### Cambios funcionales
