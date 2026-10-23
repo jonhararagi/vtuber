@@ -88,15 +88,21 @@ public partial class MainWindow
             {
                 resourceRisk = ObsSystemResourceGuard.ClassifyAvailableMemory(memory.AvailablePhysicalBytes);
                 Step($"Memoria libre detectada: {memory.AvailablePhysicalMiB:N0} MiB de {memory.TotalPhysicalMiB:N0} MiB.");
-                if (resourceRisk == ObsSystemResourceRisk.Critical && !alreadyRunning)
+                if (resourceRisk == ObsSystemResourceRisk.Critical)
                 {
-                    Step("No se abrió OBS porque queda menos de 1 GiB de RAM libre.");
-                    return Incomplete("Hay muy poca memoria disponible para iniciar otra aplicación pesada.",
-                        "Cierra aplicaciones que no necesites y vuelve a pulsar el botón. VTuberBot no finalizará procesos a la fuerza.");
-                }
+                    if (!alreadyRunning)
+                    {
+                        Step("No se abrió OBS porque queda menos de 1 GiB de RAM libre.");
+                        return Incomplete("Hay muy poca memoria disponible para iniciar otra aplicación pesada.",
+                            "Cierra aplicaciones que no necesites y vuelve a pulsar el botón. VTuberBot no finalizará procesos a la fuerza.");
+                    }
 
-                if (resourceRisk == ObsSystemResourceRisk.Low)
+                    warnings.Add("Queda menos de 1 GiB de RAM libre. OBS ya estaba abierto; se evitará reiniciarlo y se aconseja no iniciar un directo.");
+                }
+                else if (resourceRisk == ObsSystemResourceRisk.Low)
+                {
                     warnings.Add("La RAM disponible está entre 1 y 1,5 GiB. El modo ligero reduce carga, pero no garantiza que todo el sistema tenga recursos suficientes.");
+                }
             }
             else
             {
