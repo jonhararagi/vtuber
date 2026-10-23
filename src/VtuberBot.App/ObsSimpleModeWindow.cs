@@ -19,6 +19,7 @@ public sealed class ObsSimpleModeWindow : Window
     private readonly Func<bool> hasPreparationPermission;
     private readonly Action savePreparationPermission;
     private readonly Action openSetupGuide;
+    private readonly Action openAdvancedSettings;
     private readonly Action showAvatarOverlay;
     private readonly StackPanel stepsPanel = new();
     private readonly TextBlock statusText = new();
@@ -31,6 +32,7 @@ public sealed class ObsSimpleModeWindow : Window
         Func<bool> hasPreparationPermission,
         Action savePreparationPermission,
         Action openSetupGuide,
+        Action openAdvancedSettings,
         Action showAvatarOverlay,
         Window owner)
     {
@@ -38,6 +40,7 @@ public sealed class ObsSimpleModeWindow : Window
         this.hasPreparationPermission = hasPreparationPermission;
         this.savePreparationPermission = savePreparationPermission;
         this.openSetupGuide = openSetupGuide;
+        this.openAdvancedSettings = openAdvancedSettings;
         this.showAvatarOverlay = showAvatarOverlay;
 
         Owner = owner;
@@ -96,7 +99,15 @@ public sealed class ObsSimpleModeWindow : Window
         prepareButton.FontSize = 16;
         prepareButton.MinHeight = 50;
         prepareButton.Click += async (_, _) => await RunPreparationAsync();
-        mainStack.Children.Add(prepareButton);
+        var primaryActions = new WrapPanel();
+        primaryActions.Children.Add(prepareButton);
+        var prepareHelp = CreateButton("?", false);
+        prepareHelp.ToolTip = "¿Qué va a hacer este botón?";
+        prepareHelp.Click += (_, _) => ShowHelp(
+            "Iniciar y preparar OBS",
+            "El botón abre una instancia local de OBS si hace falta, usa el modo ligero en un inicio nuevo, intenta autenticarse con los datos guardados y verifica el perfil 720p30. La primera vez te pide permiso. Si falta WebSocket o queda poca memoria, informa el problema. Nunca inicia ni detiene una transmisión o grabación.");
+        primaryActions.Children.Add(prepareHelp);
+        mainStack.Children.Add(primaryActions);
         mainAction.Child = mainStack;
         body.Children.Add(mainAction);
 
@@ -130,6 +141,23 @@ public sealed class ObsSimpleModeWindow : Window
         var guideButton = CreateButton("Abrir guía paso a paso", false);
         guideButton.Click += (_, _) => openSetupGuide();
         quickActions.Children.Add(guideButton);
+        var guideHelp = CreateButton("?", false);
+        guideHelp.ToolTip = "Ayuda de la guía";
+        guideHelp.Click += (_, _) => ShowHelp(
+            "Guía paso a paso",
+            "La guía explica la primera instalación, el servidor WebSocket, la escena, el avatar, el audio y la prueba local. Se abre en otra ventana y esta pantalla permanece abierta.");
+        quickActions.Children.Add(guideHelp);
+
+        var advancedButton = CreateButton("Opciones avanzadas", false);
+        advancedButton.Click += (_, _) => openAdvancedSettings();
+        quickActions.Children.Add(advancedButton);
+        var advancedHelp = CreateButton("?", false);
+        advancedHelp.ToolTip = "¿Necesitas estas opciones?";
+        advancedHelp.Click += (_, _) => ShowHelp(
+            "Opciones avanzadas",
+            "Esta ventana contiene controles técnicos de OBS: escenas, fuentes, vídeo, salida, claves protegidas, diagnóstico y grabación de prueba. Para el uso cotidiano no necesitas abrirla; empieza por Iniciar y preparar OBS. Cambia solo el ajuste que entiendas y revisa la ayuda o guía cuando tengas dudas.");
+        quickActions.Children.Add(advancedHelp);
+
         var avatarButton = CreateButton("Mostrar avatar", false);
         avatarButton.Click += (_, _) =>
         {
@@ -144,6 +172,12 @@ public sealed class ObsSimpleModeWindow : Window
             }
         };
         quickActions.Children.Add(avatarButton);
+        var avatarHelp = CreateButton("?", false);
+        avatarHelp.ToolTip = "Ayuda del avatar";
+        avatarHelp.Click += (_, _) => ShowHelp(
+            "Mostrar avatar",
+            "Abre el overlay transparente de VTuberBot. Para que aparezca en OBS, agrega una fuente «Captura de ventana» y selecciona «VTuberBot Avatar Overlay» dentro de la escena adecuada. Comprueba el encuadre antes de emitir.");
+        quickActions.Children.Add(avatarHelp);
         body.Children.Add(quickActions);
 
         var resultPanel = new Border
