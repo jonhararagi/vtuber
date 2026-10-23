@@ -243,11 +243,15 @@ public partial class MainWindow
                 (key, value) => store.SetSetting(key, value),
                 () => OpenObsFromUiAsync(),
                 CheckConnectionAsync,
-                () => Navigate("OBS"),
+                () =>
+                {
+                    Navigate("OBS");
+                    openAdvancedObsWindowAction?.Invoke();
+                },
                 async () =>
                 {
                     if (!obs.IsConnected)
-                        throw new InvalidOperationException("Primero conecta VTuberBot con OBS desde la página OBS.");
+                        throw new InvalidOperationException("Primero conecta VTuberBot con OBS desde las opciones avanzadas de OBS.");
                     return await obs.ApplyLightVideoProfileAsync();
                 },
                 () => ShowOverlay(),
