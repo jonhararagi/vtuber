@@ -103,9 +103,7 @@ public sealed class ObsSimpleModeWindow : Window
         primaryActions.Children.Add(prepareButton);
         var prepareHelp = CreateButton("?", false);
         prepareHelp.ToolTip = "¿Qué va a hacer este botón?";
-        prepareHelp.Click += (_, _) => ShowHelp(
-            "Iniciar y preparar OBS",
-            "El botón abre una instancia local de OBS si hace falta, usa el modo ligero en un inicio nuevo, intenta autenticarse con los datos guardados y verifica el perfil 720p30. La primera vez te pide permiso. Si falta WebSocket o queda poca memoria, informa el problema. Nunca inicia ni detiene una transmisión o grabación.");
+        prepareHelp.Click += (_, _) => ShowPrimaryActionHelp();
         primaryActions.Children.Add(prepareHelp);
         mainStack.Children.Add(primaryActions);
         mainAction.Child = mainStack;
@@ -272,6 +270,12 @@ public sealed class ObsSimpleModeWindow : Window
         border.Child = grid;
         parent.Children.Add(border);
     }
+
+    /// <summary>Opens help for the primary action without closing the simple-mode window.</summary>
+    public void ShowPrimaryActionHelp() =>
+        ShowHelp(
+            "Iniciar y preparar OBS",
+            "El botón abre una instancia local de OBS si hace falta, usa el modo ligero en un inicio nuevo, intenta autenticarse con los datos guardados y verifica el perfil 720p30. La primera vez te pide permiso. Si falta WebSocket o queda poca memoria, informa el problema. Nunca inicia ni detiene una transmisión o grabación.");
 
     /// <summary>Starts the same guarded preparation when the primary button is pressed on the OBS page.</summary>
     public Task StartPreparationFromMainPageAsync() => RunPreparationAsync();
