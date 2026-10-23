@@ -291,13 +291,20 @@ public partial class MainWindow
         var root=new StackPanel();
         var simpleModePanel = Panel("OBS fácil · un botón para iniciar y preparar");
         simpleModePanel.Children.Add(Label("Un botón inicia OBS en modo ligero, revisa la memoria disponible, conecta el programa si está autorizado y verifica el perfil de vídeo. La primera vez pedirá permiso y quizá necesites preparar WebSocket. No iniciará una transmisión.", 12, "#98A4BE"));
-        simpleModePanel.Children.Add(ActionButton("▶ INICIAR Y PREPARAR OBS", async (_, _) =>
+        var simpleModeActions = new WrapPanel();
+        simpleModeActions.Children.Add(ActionButton("▶ INICIAR Y PREPARAR OBS", async (_, _) =>
         {
             OpenObsSimpleModeWindow();
             if (obsSimpleModeWindow is not null)
                 await obsSimpleModeWindow.StartPreparationFromMainPageAsync();
         }, true));
-        simpleModePanel.Children.Add(ActionButton("Abrir modo sencillo y ayuda", (_, _) => OpenObsSimpleModeWindow(), false));
+        simpleModeActions.Children.Add(ActionButton("?", (_, _) =>
+        {
+            OpenObsSimpleModeWindow();
+            obsSimpleModeWindow?.ShowPrimaryActionHelp();
+        }, false));
+        simpleModeActions.Children.Add(ActionButton("Abrir modo sencillo y ayuda", (_, _) => OpenObsSimpleModeWindow(), false));
+        simpleModePanel.Children.Add(simpleModeActions);
         root.Children.Add(simpleModePanel);
 
         var advancedRoot = new StackPanel();
