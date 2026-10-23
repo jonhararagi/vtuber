@@ -71,7 +71,7 @@ public sealed class ObsSetupWizardWindow : Window
         [
             "Elegí Twitch o YouTube en el selector de esta guía y abre el panel oficial. Iniciá sesión directamente en esa página.",
             "Buscá la clave de transmisión en el panel de creador. No envíes una captura donde se vea la clave: cualquier persona que la obtenga podría transmitir en tu canal.",
-            "Volvé a VTuberBot → OBS y transmisiones. Elegí la plataforma, pegá la clave en «Clave de transmisión» y pulsa «Guardar clave cifrada». El campo está oculto y la app no registra la clave en sus logs.",
+            "Volvé a VTuberBot → OBS → «Opciones avanzadas de OBS (otra ventana)». Elegí la plataforma, pegá la clave en «Clave de transmisión» y pulsa «Guardar clave cifrada». El campo está oculto y la app no registra la clave en sus logs.",
             "Configurá el destino solo cuando OBS esté conectado. Si cambiás la clave después, guardá la nueva; no hace falta compartirla con nadie."
         ],
         [
