@@ -30,6 +30,7 @@ public partial class MainWindow
     private Action<string>? obsStatusHandler;
     private ObsSetupWizardWindow? obsSetupWizardWindow;
     private ObsSimpleModeWindow? obsSimpleModeWindow;
+    private Action? openAdvancedObsWindowAction;
 
     private void OpenObsSimpleModeWindow()
     {
@@ -43,6 +44,7 @@ public partial class MainWindow
                     StringComparison.OrdinalIgnoreCase),
                 () => store.SetSetting("obs.simpleMode.authorized", "true"),
                 OpenObsSetupWizard,
+                () => openAdvancedObsWindowAction?.Invoke(),
                 ShowOverlay,
                 this);
             obsSimpleModeWindow = window;
@@ -320,8 +322,7 @@ public partial class MainWindow
             advancedObsWindow.Activate();
         }
 
-        simpleModePanel.Children.Add(ActionButton("Abrir guía paso a paso", (_, _) => OpenObsSetupWizard(), false));
-        simpleModePanel.Children.Add(ActionButton("Opciones avanzadas de OBS (otra ventana)", (_, _) => OpenAdvancedObsWindow(), false));
+        openAdvancedObsWindowAction = OpenAdvancedObsWindow;
 
         var guidePanel = Panel("Asistente visual · Configurar OBS paso a paso");
         guidePanel.Children.Add(Label("Una guía que podés volver a abrir: diagramas clicables, enlaces oficiales, pasos para Twitch/YouTube y progreso guardado. Los diagramas son ilustraciones explicativas; la conexión y los cambios solo se confirman cuando la aplicación los comprueba realmente.", 12, "#98A4BE"));
