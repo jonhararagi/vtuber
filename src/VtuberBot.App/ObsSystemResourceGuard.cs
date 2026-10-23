@@ -1,5 +1,6 @@
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace VtuberBot.App;
 
@@ -7,6 +8,14 @@ public enum ObsSystemResourceRisk
 {
     Normal,
     Low,
+    Critical
+}
+
+public enum ObsSystemCpuRisk
+{
+    Unavailable,
+    Normal,
+    High,
     Critical
 }
 
@@ -39,6 +48,52 @@ public static class ObsSystemResourceGuard
 
     public static bool CanStartNewObsInstance(ulong availableBytes) =>
         ClassifyAvailableMemory(availableBytes) != ObsSystemResourceRisk.Critical;
+
+    public static ObsSystemCpuRisk ClassifySystemCpuUsage(double usagePercent)
+    {
+        if (!double.IsFinite(usagePercent) || usagePercent < 0 || usagePercent > 100)
+            return ObsSystemCpuRisk.Unavailable;
+        if (usagePercent >= 95)
+            return ObsSystemCpuRisk.Critical;
+        return usagePercent >= 80 ? ObsSystemCpuRisk.High : ObsSystemCpuRisk.Normal;
+    }
+
+    /// <summary>
+    /// Samples whole-system CPU utilization for half a second. This is a preflight warning/block,
+    /// not a CPU quota; Windows and external processes can change their load immediately afterward.
+    /// </summary>
+    public static async Task<double?> TryReadSystemCpuUsagePercentAsync(CancellationToken cancellationToken = default)
+    {
+        if (!TryReadSystemCpuTimes(out var idleBefore, out var kernelBefore, out var userBefore))
+            return null;
+
+        await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
+
+        if (!TryReadSystemCpuTimes(out var idleAfter, out var kernelAfter, out var userAfter) ||
+            idleAfter < idleBefore || kernelAfter < kernelBefore || userAfter < userBefore)
+            return null;
+
+        return CalculateSystemCpuUsagePercent(
+            idleAfter - idleBefore,
+            kernelAfter - kernelBefore,
+            userAfter - userBefore);
+    }
+
+    /// <summary>Pure calculation for the Windows GetSystemTimes counters, useful for regression tests.</summary>
+    public static double? CalculateSystemCpuUsagePercent(
+        ulong idleDelta,
+        ulong kernelDelta,
+        ulong userDelta)
+    {
+        if (kernelDelta > ulong.MaxValue - userDelta)
+            return null;
+
+        var totalDelta = kernelDelta + userDelta;
+        if (totalDelta == 0 || idleDelta > totalDelta)
+            return null;
+
+        return Math.Clamp((totalDelta - idleDelta) * 100d / totalDelta, 0d, 100d);
+    }
 
     public static bool CanApplyLightProfile(bool isConnected, bool isStreaming, bool isRecording) =>
         isConnected && !isStreaming && !isRecording;
@@ -73,6 +128,42 @@ public static class ObsSystemResourceGuard
             return false;
         }
     }
+
+    private static bool TryReadSystemCpuTimes(out ulong idle, out ulong kernel, out ulong user)
+    {
+        idle = kernel = user = 0;
+        try
+        {
+            if (!GetSystemTimes(out var idleTime, out var kernelTime, out var userTime))
+                return false;
+
+            idle = ToUInt64(idleTime);
+            kernel = ToUInt64(kernelTime);
+            user = ToUInt64(userTime);
+            return true;
+        }
+        catch (Exception exception) when (exception is DllNotFoundException or EntryPointNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    private static ulong ToUInt64(SystemFileTime value) =>
+        ((ulong)value.HighDateTime << 32) | value.LowDateTime;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SystemFileTime
+    {
+        public uint LowDateTime;
+        public uint HighDateTime;
+    }
+
+    [DllImport("kernel32.dll", EntryPoint = "GetSystemTimes", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetSystemTimes(
+        out SystemFileTime idleTime,
+        out SystemFileTime kernelTime,
+        out SystemFileTime userTime);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MemoryStatusEx
