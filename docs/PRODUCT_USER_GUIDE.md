@@ -69,9 +69,21 @@ En **Twitch y chat** podés guardar varios perfiles, por ejemplo **Mode-chan**, 
 
 ## OBS Studio: inicio automático y modo ligero
 
+### Modo sencillo de OBS (recomendado si es tu primera vez)
+
+Desde la página **OBS**, pulsa **Abrir modo sencillo de OBS**. Se abre una ventana independiente que puedes dejar a la vista mientras usas la guía o consultas las ayudas **?**; no hace falta cerrar esa ventana ni navegar hacia atrás cada vez que necesitas una explicación.
+
+- El botón **Iniciar y preparar OBS** pide permiso explícito la primera vez. Ese permiso se guarda en este equipo y autoriza únicamente a abrir OBS localmente y a aplicar el perfil de vídeo 1280×720 a 30 FPS. **No autoriza ni inicia una transmisión ni una grabación.**
+- Antes de iniciar una instancia nueva, VTuberBot consulta la memoria física libre de Windows. Con menos de 1 GiB disponible, no abre otra instancia. Entre 1 y 1,5 GiB muestra un aviso. Si no puede consultar la memoria, informa la limitación y no afirma que el equipo tenga margen suficiente.
+- Si OBS está cerrado, el inicio sencillo pide a OBS omitir plugins de terceros durante esa sesión y deja visible su ventana para que puedas revisar la vista previa. No desinstala plugins. Si OBS ya estaba abierto, VTuberBot no lo cierra ni lo reinicia automáticamente: el modo de plugins solo tendrá efecto en un inicio posterior.
+- Si WebSocket no está configurado o la contraseña todavía no se guardó, el flujo informa qué falta y permite abrir la guía en otra ventana. No se simula una conexión correcta.
+- Solo aplica el perfil de vídeo cuando la conexión está autenticada y OBS no está transmitiendo ni grabando. Comprueba la configuración que devuelve OBS y muestra los avisos de escenas o recursos que puede detectar.
+- Cada tarjeta tiene **?** para explicar su propósito. **Mostrar avatar** abre el overlay de VTuberBot; para incorporarlo a la escena, OBS todavía necesita una fuente Captura de ventana elegida y revisada por el usuario. Las instrucciones de audio recuerdan comprobar los medidores y reproducir una grabación local.
+- **Límite de seguridad:** el modo sencillo reduce riesgos habituales, pero no es un limitador rígido de CPU, GPU o memoria y no puede garantizar que todos los programas del equipo consuman poco. No finaliza procesos ajenos ni modifica claves, escenas o fuentes automáticamente. Una transmisión real siempre requiere una acción separada y una revisión de imagen, sonido y privacidad.
+
 En la página **OBS**, VTuberBot ofrece **Abrir OBS Studio**, **Elegir ubicación de OBS**, y dos preferencias persistentes:
 
-- **Abrir OBS automáticamente al iniciar VTuberBot**: activado por defecto. Si OBS está instalado en una ubicación estándar, VTuberBot intenta abrirlo sin bloquear el arranque. Si no lo encuentra, permite seleccionar `obs64.exe`.
+- **Abrir OBS automáticamente al iniciar VTuberBot**: desactivado por defecto para que no se inicien aplicaciones inesperadamente. Podés habilitarlo manualmente en opciones avanzadas; las instalaciones que ya tengan la preferencia guardada conservan su elección. En el modo sencillo, OBS se inicia cuando pulsás el botón de preparación.
 - **Modo ligero: iniciar OBS sin plugins de terceros**: activado por defecto. Al iniciar OBS, VTuberBot pasa `--only-bundled-plugins`, una opción de inicio que omite plugins externos durante esa sesión. No desinstala ni borra archivos. Desactivala si tus escenas usan plugins de terceros.
 - **Aplicar perfil 720p / 30 FPS**: al confirmarlo, VTuberBot envía a OBS el lienzo y la salida 1280×720 a 30 FPS, y lee de vuelta los valores para comprobarlos. No se informa éxito si OBS rechaza el cambio o devuelve valores distintos. El ajuste afecta a la configuración global de vídeo y puede cambiar cómo se ven todas las escenas.
 - **Conexión automática**: después de guardar por primera vez host, puerto y contraseña de WebSocket desde la página OBS, VTuberBot intenta autenticarse al arrancar. Si la contraseña no existe, el puerto no responde o la autenticación falla, la app sigue funcionando y deja un estado/registro; no simula una conexión.

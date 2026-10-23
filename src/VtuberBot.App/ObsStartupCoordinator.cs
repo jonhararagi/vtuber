@@ -16,7 +16,7 @@ public partial class MainWindow
     private async Task AutoStartObsIfConfiguredAsync()
     {
         if (Interlocked.Exchange(ref obsAutoStartAttempted, 1) != 0 ||
-            !string.Equals(store.GetSetting("obs.autoStart", "true"), "true", StringComparison.OrdinalIgnoreCase))
+            !string.Equals(store.GetSetting("obs.autoStart", "false"), "true", StringComparison.OrdinalIgnoreCase))
             return;
 
         try
@@ -80,7 +80,9 @@ public partial class MainWindow
         }
         catch (Exception exception)
         {
-            FooterStatus.Text = "No se pudo iniciar OBS automáticamente; VTuberBot sigue disponible.";
+            FooterStatus.Text = exception is InvalidOperationException
+                ? exception.Message
+                : "No se pudo iniciar OBS automáticamente; VTuberBot sigue disponible.";
             store.Log("OBS", "Falló el inicio automático (" + exception.GetType().Name + ").");
         }
     }
@@ -122,13 +124,29 @@ public partial class MainWindow
         return candidates.FirstOrDefault(File.Exists);
     }
 
-    private void StartObs(string executable)
+    private void StartObs(string executable, bool forceWindowVisible = false)
     {
         if (!File.Exists(executable))
             throw new FileNotFoundException("No se encontró el ejecutable de OBS.", executable);
 
+        if (ObsSystemResourceGuard.TryReadSystemMemory(out var memory))
+        {
+            var risk = ObsSystemResourceGuard.ClassifyAvailableMemory(memory.AvailablePhysicalBytes);
+            if (!ObsSystemResourceGuard.CanStartNewObsInstance(memory.AvailablePhysicalBytes))
+                throw new InvalidOperationException(
+                    $"No se inició una nueva instancia de OBS: quedan {memory.AvailablePhysicalMiB:N0} MiB de RAM libre y el mínimo preventivo es 1024 MiB. Cierra aplicaciones que no necesites y vuelve a intentarlo.");
+
+            if (risk == ObsSystemResourceRisk.Low)
+                store.Log("OBS", $"Aviso de memoria: quedan {memory.AvailablePhysicalMiB:N0} MiB libres antes del inicio. El perfil ligero no garantiza un límite global de recursos.");
+        }
+        else
+        {
+            store.Log("OBS", "Aviso: Windows no permitió medir la memoria antes de iniciar OBS; no se puede garantizar el margen de recursos.");
+        }
+
         var lightMode = string.Equals(store.GetSetting("obs.lightMode", "true"), "true", StringComparison.OrdinalIgnoreCase);
-        var startMinimized = string.Equals(store.GetSetting("obs.startMinimized", "true"), "true", StringComparison.OrdinalIgnoreCase);
+        var startMinimized = !forceWindowVisible &&
+            string.Equals(store.GetSetting("obs.startMinimized", "true"), "true", StringComparison.OrdinalIgnoreCase);
         var startInfo = new ProcessStartInfo
         {
             FileName = executable,

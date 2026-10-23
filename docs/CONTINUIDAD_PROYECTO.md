@@ -1,3 +1,39 @@
+## 2026-10-22/23 — OBS fácil de un clic y protección preventiva de memoria (PR #48)
+
+### Rama, PR y validación automatizada
+
+- PR: https://github.com/jonhararagi/vtuber/pull/48 — **abierta; todavía no fusionada** al redactar esta entrada.
+- Rama: `feat/obs-simple-mode-and-resource-guard-2026-10-22`. La base `main` al iniciar el trabajo era `17317b0129ed9a634cf029125f57c05b2d3daf08`.
+- El candidato de código `9ef671b998116173404bce5ddf3723c212d7edf8` pasó Windows CI [run 39879086518](https://github.com/jonhararagi/vtuber/actions/runs/39879086518): Restore, Build Release, pruebas, publicación autocontenida win-x64 y upload completados. Build: 0 advertencias, 0 errores. Pruebas: 802 correctas, 0 fallidas, 0 omitidas. ZIP validado: 490 entradas, 85.232.626 bytes.
+- Artefacto candidato de esa ejecución (no representa una compilación de `main`): [12469907134](https://github.com/jonhararagi/vtuber/actions/runs/39879086518/artifacts/12469907134), SHA-256 `45e8fc6209e1c9a7f545b644a5257cfa81a48aac81c9a3c4453f67a88e5b7388`, retención hasta 2026-11-06 00:39:03 UTC.
+- El primer intento de CI [39878546410](https://github.com/jonhararagi/vtuber/actions/runs/39878546410) falló al compilar por inferencia del tipo de ventana propietaria en `MainWindow.Integrations.cs`. Se corrigió usando el tipo común `Window`. La nueva ejecución del candidato de código terminó bien.
+- **Importante:** esta entrada documental cambia el HEAD de la rama después del CI anterior. El nuevo SHA deberá pasar Windows CI antes de fusionar la PR y luego habrá que verificar también CI de `main` post-fusión.
+
+### Cambios funcionales
+
+- Añadida la ventana independiente `ObsSimpleModeWindow` (“VTuberBot · OBS fácil”) con una acción principal y progreso visible. Desde la página OBS, `INICIAR Y PREPARAR OBS` abre esa ventana y empieza la preparación con un solo clic.
+- La primera ejecución solicita consentimiento explícito y persiste `obs.simpleMode.authorized` en las preferencias locales. El consentimiento permite abrir OBS local y aplicar el perfil de vídeo; **no** habilita ni inicia transmisión o grabación.
+- Para una instancia nueva, el flujo usa `--only-bundled-plugins` y muestra OBS en ventana visible; intenta autenticarse por WebSocket usando las credenciales locales ya guardadas, aplica 1280×720 a 30 FPS solo si OBS está conectado y no está transmitiendo/grabando, y lee los valores de vuelta antes de marcar el perfil como verificado.
+- Si OBS ya está abierto, VTuberBot no lo cierra ni reinicia. Por tanto, la omisión de plugins externos solo entra en vigor al siguiente inicio. No se desinstalan plugins.
+- Los controles de conexión, escenas, fuentes, destinos de streaming, claves protegidas, diagnóstico y prueba de grabación quedan en una ventana separada de **opciones avanzadas**. La guía de configuración puede abrirse aparte sin cerrar la ventana sencilla.
+- La ventana sencilla incluye ayuda contextual `?` para el botón principal, la guía, las opciones avanzadas, el avatar y cada tarjeta explicativa (recursos, primera conexión, avatar, audio y seguridad de transmisión).
+- El inicio automático de OBS está desactivado por defecto en nuevas instalaciones; una preferencia previa guardada por el usuario se conserva.
+
+### Protección de recursos y límites
+
+- `ObsSystemResourceGuard` consulta memoria física libre de Windows mediante `GlobalMemoryStatusEx`. Si una nueva instancia integrada de OBS se va a iniciar con menos de 1 GiB libre, la operación se bloquea. Entre 1 y 1,5 GiB se registra y muestra un aviso. Si Windows no permite la medición, la interfaz no afirma que exista margen suficiente.
+- La protección no termina procesos ajenos, no reinicia un OBS en ejecución y no es un límite global estricto de CPU/GPU/RAM. Usar 720p30 y omitir plugins de terceros puede reducir carga, pero no garantiza que el PC no se sature por juegos, navegadores, filtros, drivers u otros procesos.
+- El flujo nunca llama a `StartStream` ni a `StartRecord`; tampoco cambia automáticamente claves, escenas o fuentes. La escena y el avatar deben revisarse visualmente, y el micrófono/sonido deben probarse en Windows. No se declara aceptada una transmisión real por el mero hecho de que WebSocket responda.
+- Tests añadidos para umbrales de memoria, autorización de aplicar el perfil solo estando conectado y sin salidas activas, y rechazo de hosts OBS que no sean loopback.
+
+### Validación pendiente del usuario
+
+- Abrir el paquete en Windows y comprobar la experiencia visual de la ventana sencilla, el inicio de OBS y la primera configuración real de WebSocket.
+- Verificar si escenas del OBS instalado dependen de plugins externos antes de usar un inicio que los omite.
+- Confirmar imagen/avatar y sonido mediante la vista previa y una grabación local reproducida. La CI no puede probar dispositivos de audio, GPU, calidad visual ni la configuración real de OBS en el equipo del usuario.
+
+---
+
 ## 2026-10-21 — Sintonizador de voz anime local y SAPI explícito (PR #41)
 
 ### Integración y evidencia automatizada
