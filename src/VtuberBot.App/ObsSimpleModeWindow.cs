@@ -273,6 +273,9 @@ public sealed class ObsSimpleModeWindow : Window
         parent.Children.Add(border);
     }
 
+    /// <summary>Starts the same guarded preparation when the primary button is pressed on the OBS page.</summary>
+    public Task StartPreparationFromMainPageAsync() => RunPreparationAsync();
+
     private async Task RunPreparationAsync()
     {
         if (Interlocked.Exchange(ref preparationRunning, 1) != 0)
