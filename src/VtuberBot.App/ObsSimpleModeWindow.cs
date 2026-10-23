@@ -284,7 +284,7 @@ public sealed class ObsSimpleModeWindow : Window
             {
                 var approval = MessageBox.Show(
                     this,
-                    "¿Autorizas a VTuberBot a abrir OBS en modo ligero y aplicar el perfil de vídeo 1280×720 a 30 FPS? Esto puede cambiar los ajustes globales de vídeo de OBS. El botón nunca iniciará una transmisión ni una grabación.",
+                    "¿Autorizas a VTuberBot a abrir OBS en modo ligero y aplicar el perfil de vídeo 1280×720 a 30 FPS? Puede cambiar los ajustes globales de vídeo y, en un inicio nuevo, omitir plugins de terceros. No desinstala plugins, pero una escena podría depender de ellos. El botón nunca iniciará una transmisión ni una grabación.",
                     "Autorizar preparación de OBS",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question);
