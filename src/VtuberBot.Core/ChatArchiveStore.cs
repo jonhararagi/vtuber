@@ -174,7 +174,7 @@ public sealed class ChatArchiveStore
                     reader.GetInt64(0),
                     reader.GetString(1),
                     reader.GetString(2),
-                    DateTimeOffset.Parse(reader.GetString(3), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+                    DateTimeOffset.Parse(reader.GetString(3), CultureInfo.InvariantCulture, DateTimeStyles.None),
                     reader.GetString(4),
                     reader.GetString(5),
                     reader.IsDBNull(6) ? null : reader.GetString(6)));
@@ -203,8 +203,8 @@ public sealed class ChatArchiveStore
                 reader.GetInt64(0),
                 reader.GetInt64(1),
                 reader.GetInt64(2),
-                reader.IsDBNull(3) ? null : DateTimeOffset.Parse(reader.GetString(3), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
-                reader.IsDBNull(4) ? null : DateTimeOffset.Parse(reader.GetString(4), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind));
+                reader.IsDBNull(3) ? null : DateTimeOffset.Parse(reader.GetString(3), CultureInfo.InvariantCulture, DateTimeStyles.None),
+                reader.IsDBNull(4) ? null : DateTimeOffset.Parse(reader.GetString(4), CultureInfo.InvariantCulture, DateTimeStyles.None));
         }
     }
 
