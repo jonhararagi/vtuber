@@ -46,6 +46,11 @@ public partial class MainWindow
             FooterStatus.Text = "Estados locales actualizados; Kick solo se marca como verificado tras una consulta real a su API.";
         }));
 
+        var chatArchivePanel = Panel("Historial y análisis del chat");
+        chatArchivePanel.Children.Add(Label("Guardá mensajes públicos de Twitch y Kick en tu equipo para buscarlos y revisarlos después. Está apagado por defecto; el historial no activa respuestas ni moderación automáticas.", 12, "#98A4BE"));
+        chatArchivePanel.Children.Add(ActionButton("Abrir historial local de chat", (_, _) => OpenChatArchiveWindow()));
+        root.Children.Add(chatArchivePanel);
+
         var tabs = new TabControl { MinHeight = 640, Margin = new Thickness(0, 0, 0, 10) };
         tabs.Items.Add(new TabItem { Header = "Twitch", Content = BuildTwitchPage() });
         tabs.Items.Add(new TabItem { Header = "Kick", Content = BuildKickBotPage() });
