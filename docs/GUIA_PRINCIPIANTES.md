@@ -43,6 +43,14 @@ La pantalla Comandos sirve para acciones locales. No uses que un comando se ejec
 ### Ajustes, privacidad y datos
 Las credenciales admitidas por la app se protegen con DPAPI para el usuario actual de Windows. No pegues tokens, Client Secret, contraseña WebSocket ni clave de emisión en GitHub, capturas o logs. En Kick, dejar vacío el campo Client Secret al guardar otra configuración conserva el secreto ya guardado; para eliminarlo, usá el botón específico de eliminación y confirmá la acción. Esa eliminación local no borra los tokens OAuth ni revoca el permiso remoto. Para revocar el acceso, entrá en el sitio de la plataforma y retiralo allí.
 
+### Historial local de chat (opcional)
+
+En **Bots y plataformas → Historial y análisis del chat → Abrir historial local de chat**, podés activar el archivo de mensajes públicos de Twitch y Kick. Está apagado por defecto y pide confirmación antes de empezar a guardar. Solo conserva mensajes recibidos después de activarlo; no puede recuperar mensajes antiguos de la plataforma.
+
+El historial se guarda en una base SQLite separada dentro de la carpeta de datos local de VTuberBot. No se envía a IA ni a servicios externos. Podés buscar por texto, usuario o canal, filtrar por plataforma, exportar resultados a CSV, cambiar la retención (1 a 365 días) o borrar el historial sin afectar comandos, puntos, credenciales ni la configuración del bot. El programa mantiene un límite de 100.000 registros y una cola de escritura acotada; con una sobrecarga extrema se pueden omitir registros del archivo para no frenar las respuestas del bot. La ventana informa cuántos registros se omitieron o fallaron.
+
+Apagar el archivo detiene el guardado de mensajes nuevos, pero no borra lo ya guardado. La retención se aplica al guardar de forma periódica y al pulsar **Guardar y limpiar vencidos**. El CSV puede contener nombres y mensajes escritos por espectadores; guardalo con cuidado y compartilo solo cuando corresponda. El archivo local no activa respuestas públicas, lectura de voz ni moderación automática: esas funciones mantienen sus interruptores y permisos separados.
+
 ## Solución de problemas sin reinstalar
 
 ### Twitch no conecta
