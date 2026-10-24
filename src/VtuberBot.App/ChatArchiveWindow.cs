@@ -197,7 +197,8 @@ public sealed class ChatArchiveWindow : Window
         settings.SetSetting("chat.archive.retentionDays", days.ToString(CultureInfo.InvariantCulture));
         try
         {
-            var deleted = await Task.Run(() => service.Store.Prune(days));
+            await service.FlushAsync();
+            var deleted = service.Store.Prune(days);
             await RefreshRowsAsync();
             MessageBox.Show(this,
                 "Configuración guardada. Se eliminaron " + deleted.ToString(CultureInfo.InvariantCulture) +
@@ -221,7 +222,8 @@ public sealed class ChatArchiveWindow : Window
 
         try
         {
-            var deleted = await Task.Run(service.Store.DeleteAll);
+            await service.FlushAsync();
+            var deleted = service.Store.DeleteAll();
             await RefreshRowsAsync();
             MessageBox.Show(this, "Se eliminaron " + deleted.ToString(CultureInfo.InvariantCulture) + " mensajes del historial.",
                 "Historial borrado", MessageBoxButton.OK, MessageBoxImage.Information);
