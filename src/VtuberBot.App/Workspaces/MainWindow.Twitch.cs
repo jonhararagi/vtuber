@@ -298,6 +298,8 @@ public partial class MainWindow
         }
         var text = parsed.Trailing;
         var messageId = parsed.Tags.TryGetValue("id", out var taggedMessageId) ? taggedMessageId : string.Empty;
+        // Public chat archival is opt-in and queued off the UI thread; it never enables bot actions.
+        QueueChatArchiveMessage("Twitch", store.GetSetting("twitch.channel"), username, text, messageId);
         // Evaluate moderation before allowing chat-triggered consumers or automations to react.
         // Keep the validated message in the UI even when its downstream side effects are suppressed.
         PruneExpiredTwitchCooldowns(DateTimeOffset.UtcNow);

@@ -660,6 +660,8 @@ public partial class MainWindow : Window
         // prevent cleanup of the remaining clients.
         try { await twitch.DisposeAsync(); }
         catch (Exception exception) { LogShutdownFailure("Twitch IRC", exception); }
+        try { if (chatArchiveService is not null) await chatArchiveService.DisposeAsync(); }
+        catch (Exception exception) { LogShutdownFailure("archivo local de chat", exception); }
         try { await eventSub.DisposeAsync(); }
         catch (Exception exception) { LogShutdownFailure("Twitch EventSub", exception); }
         try { await obs.DisposeAsync(); }

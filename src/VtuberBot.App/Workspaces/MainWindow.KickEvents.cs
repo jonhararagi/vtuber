@@ -540,6 +540,8 @@ public partial class MainWindow
         chatLines.Insert(0, "[Kick] " + message.Username + ": " + message.Content);
         while (chatLines.Count > 200) chatLines.RemoveAt(chatLines.Count - 1);
         store.Log("Kick", "Mensaje recibido de " + message.Username + " en " + message.ChannelSlug + ".");
+        // Archive only the verified public chat event; the normal processing path remains independent.
+        QueueChatArchiveMessage("Kick", message.ChannelSlug, message.Username, message.Content, message.MessageId);
         FooterStatus.Text = "Chat de Kick recibido y firma verificada: " + message.Username;
 
         var automaticModerationEnabled = store.GetSetting("kick.auto_moderation.enabled", "false") == "true";
