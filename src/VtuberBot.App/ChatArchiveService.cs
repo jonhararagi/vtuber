@@ -17,11 +17,12 @@ public sealed class ChatArchiveService : IAsyncDisposable
     private readonly Task worker;
     private int droppedWrites;
     private int failedWrites;
+    private int pendingWrites;
     private string lastError = string.Empty;
-    private bool disposed;
+    private volatile bool disposed;
 
     public ChatArchiveStore Store { get; }
-    public int PendingWrites => queue.Reader.Count;
+    public int PendingWrites => Volatile.Read(ref pendingWrites);
     public int DroppedWrites => Volatile.Read(ref droppedWrites);
     public int FailedWrites => Volatile.Read(ref failedWrites);
     public string LastError => Volatile.Read(ref lastError);
@@ -45,9 +46,11 @@ public sealed class ChatArchiveService : IAsyncDisposable
         if (disposed)
             return false;
 
+        Interlocked.Increment(ref pendingWrites);
         if (queue.Writer.TryWrite(new PendingWrite(message, retentionDays)))
             return true;
 
+        Interlocked.Decrement(ref pendingWrites);
         Interlocked.Increment(ref droppedWrites);
         return false;
     }
@@ -73,6 +76,21 @@ public sealed class ChatArchiveService : IAsyncDisposable
                 Interlocked.Increment(ref failedWrites);
                 Volatile.Write(ref lastError, exception.GetType().Name);
             }
+            finally
+            {
+                Interlocked.Decrement(ref pendingWrites);
+            }
+        }
+    }
+
+    public async Task FlushAsync(TimeSpan? timeout = null)
+    {
+        var deadline = DateTimeOffset.UtcNow + (timeout ?? TimeSpan.FromSeconds(10));
+        while (PendingWrites > 0)
+        {
+            if (DateTimeOffset.UtcNow >= deadline)
+                throw new TimeoutException("La cola del historial no se vació dentro del tiempo permitido.");
+            await Task.Delay(TimeSpan.FromMilliseconds(20)).ConfigureAwait(false);
         }
     }
 
