@@ -34,11 +34,15 @@ public sealed class ChatArchiveWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = System.Windows.Media.Brushes.WhiteSmoke;
 
-        var root = new DockPanel { Margin = new Thickness(18) };
+        var root = new Grid { Margin = new Thickness(18) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         Content = root;
 
         var header = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0, 0, 0, 12) };
-        DockPanel.SetDock(header, Dock.Top);
+        Grid.SetRow(header, 0);
         root.Children.Add(header);
         header.Children.Add(new TextBlock
         {
@@ -84,7 +88,7 @@ public sealed class ChatArchiveWindow : Window
         header.Children.Add(options);
 
         var filterRow = new DockPanel { LastChildFill = true, Margin = new Thickness(0, 0, 0, 8) };
-        DockPanel.SetDock(filterRow, Dock.Top);
+        Grid.SetRow(filterRow, 1);
         root.Children.Add(filterRow);
         var refreshButton = new Button { Content = "Buscar", Padding = new Thickness(12, 6, 12, 6), Margin = new Thickness(8, 0, 0, 0) };
         refreshButton.Click += async (_, _) => await RefreshRowsAsync();
@@ -140,10 +144,11 @@ public sealed class ChatArchiveWindow : Window
             Binding = new Binding(nameof(ChatArchiveRow.Message)),
             Width = new DataGridLength(1, DataGridLengthUnitType.Star)
         });
+        Grid.SetRow(resultsGrid, 2);
         root.Children.Add(resultsGrid);
 
-        summaryLabel = new TextBlock { TextWrapping = TextWrapping.Wrap };
-        DockPanel.SetDock(summaryLabel, Dock.Bottom);
+        summaryLabel = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
+        Grid.SetRow(summaryLabel, 3);
         root.Children.Add(summaryLabel);
 
         Closed += (_, _) =>
